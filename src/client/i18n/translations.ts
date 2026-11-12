@@ -62,6 +62,7 @@ export interface Translations {
     status: string;
     zone: string;
     activity: string;
+    gamingWith: string;
     workspace: string;
     level: string;
     xp: string;
@@ -110,6 +111,8 @@ const TR: Translations = {
     thinking: 'Planlama / Düşünüyor',
     sleeping: 'Beklemede (Zzz)',
     coffee: 'Kahve Molası',
+    lounging: 'Koltukta Dinleniyor',
+    gaming: 'Konsol Oyunu Oynuyor 🎮',
     error: 'Hata / Müdahale',
   },
   statuses: {
@@ -171,6 +174,7 @@ const TR: Translations = {
     status: 'Durum',
     zone: 'Bölge',
     activity: 'Aktivite',
+    gamingWith: 'Oyun Arkadaşı',
     workspace: 'Çalışma Alanı',
     level: 'Seviye',
     xp: 'Deneyim (XP)',
@@ -219,6 +223,8 @@ const EN: Translations = {
     thinking: 'Planning / Thinking',
     sleeping: 'Waiting (Zzz)',
     coffee: 'Coffee Break',
+    lounging: 'Relaxing on Sofa',
+    gaming: 'Playing Console Game 🎮',
     error: 'Error / Attention',
   },
   statuses: {
@@ -280,6 +286,7 @@ const EN: Translations = {
     status: 'Status',
     zone: 'Zone',
     activity: 'Activity',
+    gamingWith: 'Gaming Partner',
     workspace: 'Workspace',
     level: 'Level',
     xp: 'Experience (XP)',

@@ -395,6 +395,61 @@ export function drawFurniture(
   } else if (kind === 'sofa_l' || kind === 'sofa_r') {
     drawIsoBox(ctx, cx, cy, 20, 11, 10, '#c44558', '#8f2c3b', '#661d28', z);
     drawIsoBox(ctx, cx - 4 * z, cy - 10 * z, 16, 4, 9, '#d9576a', '#a33747', '#782330', z);
+  } else if (kind === 'armchair') {
+    drawIsoBox(ctx, cx, cy, 15, 10, 9, '#b84b68', '#853048', '#5e1f31', z);
+    drawIsoBox(ctx, cx - 3 * z, cy - 9 * z, 12, 4, 8, '#cf5d7b', '#993c55', '#6e273a', z);
+  } else if (kind === 'gaming_seat') {
+    // Cozy beanbag / gaming pouf
+    drawIsoBox(ctx, cx, cy, 13, 8, 7, '#3f6ad8', '#2a499e', '#1c326e', z);
+    drawIsoBox(ctx, cx, cy - 6 * z, 9, 5, 3, '#5c88f5', '#3f6ad8', '#2a499e', z);
+  } else if (kind === 'lounge_table') {
+    drawIsoBox(ctx, cx, cy, 15, 9, 8, '#a8744f', '#7d5235', '#593923', z);
+    ctx.fillStyle = '#fff5e0';
+    ctx.fillRect(Math.round(cx - 4 * z), Math.round(cy - 11 * z), Math.ceil(4 * z), Math.ceil(3 * z));
+    ctx.fillStyle = '#ffe64d';
+    ctx.fillRect(Math.round(cx + 2 * z), Math.round(cy - 10 * z), Math.ceil(3 * z), Math.ceil(3 * z));
+  } else if (kind === 'tv_console') {
+    // Media stand + console box with glowing LEDs
+    drawIsoBox(ctx, cx, cy, 22, 9, 10, '#363e54', '#232938', '#161a24', z);
+    drawIsoBox(ctx, cx, cy - 10 * z, 11, 5, 4, '#1b1f2b', '#10131c', '#090b10', z);
+    ctx.fillStyle = isOccupied ? '#3be87a' : '#ff5666';
+    ctx.fillRect(Math.round(cx - 5 * z), Math.round(cy - 12 * z), Math.ceil(3 * z), Math.ceil(2 * z));
+    ctx.fillStyle = '#3cd8ff';
+    ctx.fillRect(Math.round(cx), Math.round(cy - 12 * z), Math.ceil(3 * z), Math.ceil(2 * z));
+
+    // Widescreen Pixel TV
+    const tvX = cx - 22 * z;
+    const tvY = cy - 42 * z;
+    const tvW = 44 * z;
+    const tvH = 26 * z;
+    ctx.fillStyle = '#12151f';
+    ctx.fillRect(Math.round(tvX), Math.round(tvY), Math.ceil(tvW), Math.ceil(tvH));
+    ctx.fillStyle = isOccupied ? '#131d38' : '#1b2233';
+    ctx.fillRect(Math.round(tvX + 2 * z), Math.round(tvY + 2 * z), Math.ceil(tvW - 4 * z), Math.ceil(tvH - 4 * z));
+
+    if (isOccupied) {
+      // Vibrant 2-player retro game animation (P1/P2 health bars + two pixel fighters/racers)
+      ctx.fillStyle = '#3cd8ff';
+      ctx.fillRect(Math.round(tvX + 4 * z), Math.round(tvY + 4 * z), Math.ceil(14 * z), Math.ceil(2 * z));
+      ctx.fillStyle = '#ff5666';
+      ctx.fillRect(Math.round(tvX + tvW - 18 * z), Math.round(tvY + 4 * z), Math.ceil(14 * z), Math.ceil(2 * z));
+
+      const hop1 = Math.abs(Math.sin(timeSec * 8)) * 4 * z;
+      const hop2 = Math.abs(Math.cos(timeSec * 7)) * 4 * z;
+      ctx.fillStyle = '#3be87a';
+      ctx.fillRect(Math.round(tvX + 10 * z), Math.round(tvY + 15 * z - hop1), Math.ceil(6 * z), Math.ceil(6 * z));
+      ctx.fillStyle = '#ffd147';
+      ctx.fillRect(Math.round(tvX + 28 * z), Math.round(tvY + 15 * z - hop2), Math.ceil(6 * z), Math.ceil(6 * z));
+
+      // Projectile spark
+      const projX = tvX + (17 + ((timeSec * 30) % 10)) * z;
+      ctx.fillStyle = '#ff7eb9';
+      ctx.fillRect(Math.round(projX), Math.round(tvY + 13 * z), Math.ceil(3 * z), Math.ceil(3 * z));
+    } else {
+      // Calm standby screen
+      ctx.fillStyle = '#2d3954';
+      ctx.fillRect(Math.round(tvX + 12 * z), Math.round(tvY + 12 * z), Math.ceil(20 * z), Math.ceil(3 * z));
+    }
   } else if (kind === 'prop_plant') {
     drawIsoBox(ctx, cx, cy, 9, 5, 8, '#a65c3a', '#7d4126', '#592d19', z);
     ctx.fillStyle = '#2fa857';
@@ -460,22 +515,31 @@ export function drawEmployeeSprite(
     ctx.stroke();
   }
 
-  const baseY = cy - bob;
+  const seated =
+    !isWalking &&
+    (emp.activity === 'lounging' || emp.activity === 'sleeping' || emp.activity === 'gaming');
+  const seatOffsetY = seated ? 4 * z : 0;
+  const baseY = cy - bob + seatOffsetY;
 
-  // Legs (2-frame walk animation)
+  // Legs (2-frame walk animation, or bent seated legs on cushion)
   ctx.fillStyle = '#1b2030';
-  ctx.fillRect(
-    Math.round(cx - 5 * z),
-    Math.round(baseY - 8 * z + legSwing),
-    Math.ceil(4 * z),
-    Math.ceil(8 * z),
-  );
-  ctx.fillRect(
-    Math.round(cx + 1 * z),
-    Math.round(baseY - 8 * z - legSwing),
-    Math.ceil(4 * z),
-    Math.ceil(8 * z),
-  );
+  if (seated) {
+    ctx.fillRect(Math.round(cx - 6 * z), Math.round(baseY - 6 * z), Math.ceil(5 * z), Math.ceil(5 * z));
+    ctx.fillRect(Math.round(cx + 1 * z), Math.round(baseY - 6 * z), Math.ceil(5 * z), Math.ceil(5 * z));
+  } else {
+    ctx.fillRect(
+      Math.round(cx - 5 * z),
+      Math.round(baseY - 8 * z + legSwing),
+      Math.ceil(4 * z),
+      Math.ceil(8 * z),
+    );
+    ctx.fillRect(
+      Math.round(cx + 1 * z),
+      Math.round(baseY - 8 * z - legSwing),
+      Math.ceil(4 * z),
+      Math.ceil(8 * z),
+    );
+  }
 
   // Torso (Model Uniform)
   ctx.fillStyle = uniform.dark;
@@ -491,7 +555,9 @@ export function drawEmployeeSprite(
   const typingOffset =
     !isWalking && (emp.activity === 'coding' || emp.activity === 'terminal')
       ? Math.sin(timeSec * 18) * 2 * z
-      : 0;
+      : !isWalking && emp.activity === 'gaming'
+        ? Math.sin(timeSec * 14) * 1.5 * z
+        : 0;
   ctx.fillStyle = uniform.main;
   ctx.fillRect(
     Math.round(cx - 10 * z),
@@ -527,6 +593,16 @@ export function drawEmployeeSprite(
         Math.ceil(2 * z),
         Math.ceil(2 * z),
       );
+    } else if (emp.activity === 'gaming') {
+      // Pixel Gamepad controller held forward with colored buttons
+      ctx.fillStyle = '#1b1f2b';
+      ctx.fillRect(Math.round(cx - 5 * z), Math.round(baseY - 14 * z), Math.ceil(10 * z), Math.ceil(5 * z));
+      ctx.fillStyle = '#3cd8ff';
+      ctx.fillRect(Math.round(cx - 4 * z), Math.round(baseY - 13 * z), Math.ceil(2 * z), Math.ceil(2 * z));
+      ctx.fillStyle = '#ff5666';
+      ctx.fillRect(Math.round(cx + 2 * z), Math.round(baseY - 13 * z), Math.ceil(2 * z), Math.ceil(2 * z));
+      ctx.fillStyle = '#ffd147';
+      ctx.fillRect(Math.round(cx), Math.round(baseY - 12 * z), Math.ceil(2 * z), Math.ceil(2 * z));
     }
   }
 
@@ -583,8 +659,20 @@ export function drawEmployeeSprite(
     ctx.fillRect(Math.round(cx - 5 * z), Math.round(baseY - 30 * z), Math.ceil(10 * z), Math.ceil(3 * z));
   }
 
-  // Floating Zzz or Error !
-  if (emp.activity === 'sleeping' || emp.status === 'waiting') {
+  // Floating Zzz, ♪ lounging sparkle, gaming excitement ★, or Error !
+  if (emp.activity === 'gaming') {
+    const bounce = Math.abs(Math.sin(timeSec * 6)) * 5 * z;
+    ctx.font = `bold ${Math.max(8, Math.round(8 * z))}px "Press Start 2P", monospace`;
+    ctx.fillStyle = Math.sin(timeSec * 8) > 0 ? '#ffd147' : '#3cd8ff';
+    ctx.textAlign = 'center';
+    ctx.fillText('★', cx + 11 * z, baseY - 37 * z - bounce);
+  } else if (emp.activity === 'lounging') {
+    const floatY = ((timeSec * 10) % 8) * z;
+    ctx.font = `bold ${Math.max(9, Math.round(9 * z))}px "Press Start 2P", monospace`;
+    ctx.fillStyle = '#7ef3ff';
+    ctx.textAlign = 'center';
+    ctx.fillText('♪', cx + 10 * z, baseY - 37 * z - floatY);
+  } else if (emp.activity === 'sleeping' || emp.status === 'waiting') {
     const floatY = ((timeSec * 12) % 10) * z;
     ctx.font = `bold ${Math.max(8, Math.round(8 * z))}px "Press Start 2P", monospace`;
     ctx.fillStyle = '#9ee8ff';

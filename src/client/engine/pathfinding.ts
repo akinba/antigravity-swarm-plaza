@@ -33,11 +33,35 @@ export const FURNITURE_BLOCKS: ReadonlyArray<{ gx: number; gy: number; kind: str
   // QA desks
   { gx: 9, gy: 6, kind: 'qa_desk' },
   { gx: 9, gy: 8, kind: 'qa_desk' },
-  // Coffee & Lounge
-  { gx: 13, gy: 10, kind: 'coffee_machine' },
-  { gx: 11, gy: 12, kind: 'sofa_l' },
-  { gx: 12, gy: 12, kind: 'sofa_r' },
+  // Coffee, Lounge & Gaming Corner (gx: 8..15, gy: 9..13)
+  { gx: 14, gy: 9, kind: 'coffee_machine' },
+  { gx: 13, gy: 10, kind: 'tv_console' },
+  { gx: 12, gy: 11, kind: 'gaming_seat' },
+  { gx: 13, gy: 11, kind: 'gaming_seat' },
+  { gx: 8, gy: 12, kind: 'sofa_l' },
+  { gx: 9, gy: 12, kind: 'sofa_r' },
+  { gx: 7, gy: 11, kind: 'armchair' },
+  { gx: 10, gy: 11, kind: 'armchair' },
+  { gx: 11, gy: 12, kind: 'armchair' },
+  { gx: 14, gy: 12, kind: 'armchair' },
+  { gx: 9, gy: 11, kind: 'lounge_table' },
 ];
+
+export const GAMING_SLOTS: ZoneSlot[] = [
+  { gx: 12, gy: 11, facing: 'NE' },
+  { gx: 13, gy: 11, facing: 'NW' },
+];
+
+export const LOUNGE_SEAT_SLOTS: ZoneSlot[] = [
+  { gx: 8, gy: 12, facing: 'NE' },
+  { gx: 9, gy: 12, facing: 'NE' },
+  { gx: 7, gy: 11, facing: 'SE' },
+  { gx: 10, gy: 11, facing: 'SW' },
+  { gx: 11, gy: 12, facing: 'NW' },
+  { gx: 14, gy: 12, facing: 'NW' },
+];
+
+export const COFFEE_SLOT: ZoneSlot = { gx: 14, gy: 10, facing: 'NW' };
 
 export const ZONE_SLOTS: Record<OfficeZone, ZoneSlot[]> = {
   DESK_ARCHITECT: [
@@ -80,12 +104,8 @@ export const ZONE_SLOTS: Record<OfficeZone, ZoneSlot[]> = {
     { gx: 8, gy: 9, facing: 'SE' },
   ],
   COFFEE_LOUNGE: [
-    { gx: 13, gy: 11, facing: 'NE' },
-    { gx: 12, gy: 11, facing: 'SE' },
-    { gx: 11, gy: 11, facing: 'SE' },
-    { gx: 10, gy: 12, facing: 'SE' },
-    { gx: 13, gy: 12, facing: 'NW' },
-    { gx: 10, gy: 11, facing: 'SE' },
+    COFFEE_SLOT,
+    ...LOUNGE_SEAT_SLOTS,
   ],
 };
 
@@ -101,14 +121,18 @@ export function getTileZone(gx: number, gy: number): OfficeZone {
   return 'COFFEE_LOUNGE';
 }
 
+const SEAT_FURNITURE_KINDS = new Set(['sofa_l', 'sofa_r', 'armchair', 'gaming_seat']);
+
 /**
  * Builds a 16x14 walkability grid (`true` = walkable, `false` = blocked).
+ * Seat cushions remain walkable so A* walks characters directly onto sofas/chairs/poufs.
  */
 export function buildWalkableGrid(): boolean[][] {
   const grid: boolean[][] = Array.from({ length: GRID_H }, () =>
     Array.from({ length: GRID_W }, () => true),
   );
   for (const b of FURNITURE_BLOCKS) {
+    if (SEAT_FURNITURE_KINDS.has(b.kind)) continue;
     if (b.gy >= 0 && b.gy < GRID_H && b.gx >= 0 && b.gx < GRID_W) {
       grid[b.gy][b.gx] = false;
     }

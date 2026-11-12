@@ -17,6 +17,7 @@ import {
   resetDemoTick,
 } from '../../src/server/demoSimulator.js';
 import {
+  applyLoungeActivities,
   buildPlazaSnapshot,
   classifyModelFamily,
   computeCompanyTier,
@@ -24,6 +25,7 @@ import {
   computeEmployeeXpAndLevel,
   determineZoneAndActivity,
 } from '../../src/server/gamification.js';
+import type { OfficeEmployee } from '../../src/shared/types.js';
 import { createPlazaApp } from '../../src/server/index.js';
 
 function makeTempDataDir(): string {
@@ -223,6 +225,73 @@ describe('Demo simulator', () => {
     const logs = getDemoAgentLogs('demo-coder-core', 10);
     assert.equal(logs.length, 10);
     assert.ok(logs[0].stepIndex > 0);
+
+    // Tick 1 should feature a 2-player console match + a lounging employee
+    const gamers = floor1.employees.filter((e) => e.activity === 'gaming');
+    assert.equal(gamers.length, 2);
+    assert.equal(gamers[0].partnerId, gamers[1].id);
+    assert.equal(gamers[1].partnerId, gamers[0].id);
+    assert.deepEqual(
+      gamers.map((g) => g.playerSlot).sort(),
+      [1, 2],
+    );
+    assert.ok(floor1.employees.some((e) => e.activity === 'lounging'));
+  });
+});
+
+describe('Lounge relaxation & paired console gaming', () => {
+  const makeLoungeEmp = (id: string, name: string, status: 'idle' | 'waiting'): OfficeEmployee => ({
+    id,
+    name,
+    roleTitle: 'Engineer',
+    isCoordinator: false,
+    modelId: 'gemini-flash',
+    modelFamily: 'flash',
+    workspaceMode: 'inherit',
+    status,
+    zone: 'COFFEE_LOUNGE',
+    activity: status === 'waiting' ? 'sleeping' : 'coffee',
+    xp: 100,
+    level: 2,
+    stepCount: 5,
+    inputTokens: 0,
+    cacheReadTokens: 0,
+    outputTokens: 0,
+    lastActiveAt: new Date().toISOString(),
+  });
+
+  it('never assigns solo gaming when only 1 employee is in COFFEE_LOUNGE', () => {
+    const solo = [makeLoungeEmp('e1', 'Solo-Dev', 'idle')];
+    applyLoungeActivities(solo, 1, 18000 * 1);
+    assert.notEqual(solo[0].activity, 'gaming');
+    assert.ok(solo[0].activity === 'lounging' || solo[0].activity === 'coffee');
+    assert.equal(solo[0].partnerId, undefined);
+  });
+
+  it('pairs 2 employees for gaming with mutual partner fields and assigns lounging to others', () => {
+    const emps = [
+      makeLoungeEmp('e1', 'Alice', 'waiting'),
+      makeLoungeEmp('e2', 'Bob', 'idle'),
+      makeLoungeEmp('e3', 'Charlie', 'waiting'),
+      makeLoungeEmp('e4', 'Dana', 'idle'),
+    ];
+    applyLoungeActivities(emps, 1, 18000 * 5);
+
+    const gamers = emps.filter((e) => e.activity === 'gaming');
+    assert.equal(gamers.length, 2);
+    assert.equal(gamers[0].partnerId, gamers[1].id);
+    assert.equal(gamers[0].partnerName, gamers[1].name);
+    assert.equal(gamers[1].partnerId, gamers[0].id);
+    assert.equal(gamers[1].partnerName, gamers[0].name);
+    assert.deepEqual(
+      gamers.map((g) => g.playerSlot).sort(),
+      [1, 2],
+    );
+
+    const others = emps.filter((e) => e.activity !== 'gaming');
+    assert.equal(others.length, 2);
+    assert.ok(others.every((o) => o.activity === 'lounging' || o.activity === 'coffee'));
+    assert.ok(others.some((o) => o.activity === 'lounging'));
   });
 });
 

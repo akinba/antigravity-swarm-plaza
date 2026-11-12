@@ -204,6 +204,16 @@ export const AgentRpgModal: React.FC<AgentRpgModalProps> = ({ employee, onClose 
                 <div>
                   <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>{t.rpgModal.activity}</div>
                   <div>{t.activities[liveEmp.activity]}</div>
+                  {liveEmp.activity === 'gaming' && liveEmp.partnerName && (
+                    <div style={{ marginTop: 4 }}>
+                      <span
+                        className="pixel-badge"
+                        style={{ color: '#ffd147', background: '#263459', borderColor: '#3cd8ff' }}
+                      >
+                        P{liveEmp.playerSlot ?? 1} • {t.rpgModal.gamingWith}: {liveEmp.partnerName}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>{t.rpgModal.workspace}</div>

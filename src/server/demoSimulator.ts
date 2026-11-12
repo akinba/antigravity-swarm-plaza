@@ -100,9 +100,9 @@ const DEMO_CYCLES: Record<string, PhaseStep[]> = {
     },
     {
       zone: 'COFFEE_LOUNGE',
-      activity: 'sleeping',
+      activity: 'lounging',
       status: 'waiting',
-      speechBubble: 'Zzz (0 token)',
+      speechBubble: '🛋️ Koltukta dinleniyor (0 token)',
     },
     {
       zone: 'WAR_ROOM',
@@ -164,9 +164,9 @@ const DEMO_CYCLES: Record<string, PhaseStep[]> = {
     },
     {
       zone: 'COFFEE_LOUNGE',
-      activity: 'sleeping',
+      activity: 'lounging',
       status: 'waiting',
-      speechBubble: 'Zzz (0 token)',
+      speechBubble: '🛋️ Koltukta dinleniyor (0 token)',
     },
     {
       zone: 'WAR_ROOM',
@@ -204,17 +204,17 @@ const DEMO_CYCLES: Record<string, PhaseStep[]> = {
     },
     {
       zone: 'COFFEE_LOUNGE',
-      activity: 'sleeping',
+      activity: 'lounging',
       status: 'waiting',
-      speechBubble: 'Zzz (0 token)',
+      speechBubble: '🛋️ Koltukta dinleniyor (0 token)',
     },
   ],
   'demo-verifier-qa': [
     {
       zone: 'COFFEE_LOUNGE',
-      activity: 'sleeping',
+      activity: 'lounging',
       status: 'waiting',
-      speechBubble: 'Zzz (0 token)',
+      speechBubble: '🛋️ Koltukta dinleniyor (0 token)',
     },
     {
       zone: 'DESK_QA',
@@ -297,6 +297,51 @@ export function getDemoFloor(advance = true): PlazaFloor {
       lastActiveAt: now,
     };
   });
+
+    // Pair 2 employees for a 2-player console match regularly (ticks where demoTick % 3 !== 0)
+    if (demoTick % 3 !== 0) {
+      const pairIndices = demoTick % 2 === 1 ? [2, 4] : [1, 3];
+      const p1 = employees[pairIndices[0]];
+      const p2 = employees[pairIndices[1]];
+      if (p1 && p2) {
+        const chats: Array<[string, string]> = [
+          ['🎮 Pas at, boşum!', '🎮 Gol be! 2-1!'],
+          ['🎮 Street Fighter 1v1!', '🎮 Hadouken!! Kaçma!'],
+          ['🎮 Mario Kart son tur!', '🎮 Mavi kabuk attım :D'],
+        ];
+        const chat = chats[demoTick % chats.length];
+        p1.zone = 'COFFEE_LOUNGE';
+        p1.status = 'idle';
+        p1.activity = 'gaming';
+        p1.playerSlot = 1;
+        p1.partnerId = p2.id;
+        p1.partnerName = p2.name;
+        p1.speechBubble = chat[0];
+        p1.currentTool = undefined;
+        p1.currentTarget = undefined;
+
+        p2.zone = 'COFFEE_LOUNGE';
+        p2.status = 'idle';
+        p2.activity = 'gaming';
+        p2.playerSlot = 2;
+        p2.partnerId = p1.id;
+        p2.partnerName = p1.name;
+        p2.speechBubble = chat[1];
+        p2.currentTool = undefined;
+        p2.currentTarget = undefined;
+      }
+
+      // Ensure a third employee relaxes on the sofa/armchair alongside the gaming pair
+      const lounger = employees[demoTick % 2 === 1 ? 3 : 4];
+      if (lounger && lounger.activity !== 'gaming') {
+        lounger.zone = 'COFFEE_LOUNGE';
+        lounger.status = 'waiting';
+        lounger.activity = 'lounging';
+        lounger.speechBubble = '🛋️ Koltukta dinleniyor (0 token)';
+        lounger.currentTool = undefined;
+        lounger.currentTarget = undefined;
+      }
+    }
 
   const boardMessages: SwarmBoardMessage[] = [
     {

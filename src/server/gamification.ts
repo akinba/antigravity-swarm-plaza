@@ -316,6 +316,79 @@ export function determineZoneAndActivity(params: {
   };
 }
 
+const GAMING_CHATS: Array<[string, string]> = [
+  ['🎮 Pas at, boşum!', '🎮 Gol be! 2-1!'],
+  ['🎮 Street Fighter 1v1!', '🎮 Hadouken!! Kaçma!'],
+  ['🎮 Mario Kart son tur!', '🎮 Mavi kabuk attım :D'],
+  ['🎮 Co-op boss savaşı!', '🎮 Süper kombo! GG!'],
+];
+
+/**
+ * Post-process COFFEE_LOUNGE employees on a floor to assign paired 2-player console gaming
+ * and relaxed sofa/armchair lounging vs coffee breaks in smooth deterministic time buckets.
+ */
+export function applyLoungeActivities(
+  employees: OfficeEmployee[],
+  floorIndex: number,
+  nowMs = Date.now(),
+): void {
+  const loungeEmployees = employees.filter((e) => e.zone === 'COFFEE_LOUNGE');
+  if (loungeEmployees.length === 0) return;
+
+  const bucket = Math.floor(nowMs / 18000);
+  const chatIdx = Math.floor(nowMs / 6000) % GAMING_CHATS.length;
+  const pairedIds = new Set<string>();
+
+  if (
+    loungeEmployees.length >= 2 &&
+    (loungeEmployees.length >= 3 || (bucket + floorIndex) % 3 !== 0)
+  ) {
+    const idx1 = bucket % loungeEmployees.length;
+    const idx2 = (idx1 + 1) % loungeEmployees.length;
+    const p1 = loungeEmployees[idx1];
+    const p2 = loungeEmployees[idx2];
+
+    p1.activity = 'gaming';
+    p1.playerSlot = 1;
+    p1.partnerId = p2.id;
+    p1.partnerName = p2.name;
+    p1.speechBubble = GAMING_CHATS[chatIdx][0];
+
+    p2.activity = 'gaming';
+    p2.playerSlot = 2;
+    p2.partnerId = p1.id;
+    p2.partnerName = p1.name;
+    p2.speechBubble = GAMING_CHATS[chatIdx][1];
+
+    pairedIds.add(p1.id);
+    pairedIds.add(p2.id);
+  }
+
+  for (let empIdx = 0; empIdx < loungeEmployees.length; empIdx++) {
+    const emp = loungeEmployees[empIdx];
+    if (pairedIds.has(emp.id)) continue;
+
+    emp.partnerId = undefined;
+    emp.partnerName = undefined;
+    emp.playerSlot = undefined;
+
+    if ((empIdx + bucket) % 4 !== 0) {
+      emp.activity = 'lounging';
+      if (emp.status === 'waiting') {
+        emp.speechBubble =
+          (empIdx + bucket) % 2 === 0
+            ? '🛋️ Koltukta dinleniyor (0 token)'
+            : '😌 Zzz (0 token)';
+      } else {
+        emp.speechBubble = '🛋️ Kanepede mola keyfi';
+      }
+    } else {
+      emp.activity = 'coffee';
+      emp.speechBubble = '☕ Kahve & dinlenme';
+    }
+  }
+}
+
 function makeFloorId(workspacePath: string, isLobby: boolean): string {
   if (isLobby || !workspacePath) return 'lobby';
   const key = normalizeWorkspaceKey(workspacePath);
@@ -590,6 +663,10 @@ export function buildPlazaSnapshot(
   const floors: PlazaFloor[] = [];
   if (lobbyFloor) floors.push(lobbyFloor);
   floors.push(...projectFloors);
+
+  for (const floor of floors) {
+    applyLoungeActivities(floor.employees, floor.floorNumber, nowMs);
+  }
 
   if (demoMode) {
     floors.push(getDemoFloor(true));

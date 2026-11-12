@@ -1,6 +1,17 @@
 export type ModelFamily = 'argon' | 'hydrogen' | 'flash' | 'carbon' | 'other';
 export type OfficeZone = 'DESK_ARCHITECT' | 'DESK_CODING' | 'DESK_QA' | 'WAR_ROOM' | 'SERVER_RACK' | 'COFFEE_LOUNGE';
-export type AgentActivityKind = 'coding' | 'reading' | 'searching' | 'terminal' | 'meeting' | 'thinking' | 'sleeping' | 'coffee' | 'error';
+export type AgentActivityKind =
+  | 'coding'
+  | 'reading'
+  | 'searching'
+  | 'terminal'
+  | 'meeting'
+  | 'thinking'
+  | 'sleeping'
+  | 'coffee'
+  | 'lounging'
+  | 'gaming'
+  | 'error';
 export type CompanyTier = 1 | 2 | 3 | 4;
 
 export interface AgentLogEntry {
@@ -35,6 +46,9 @@ export interface OfficeEmployee {
   speechBubble?: string;
   currentTool?: string;
   currentTarget?: string;
+  partnerId?: string;
+  partnerName?: string;
+  playerSlot?: 1 | 2;
   xp: number;
   level: number;
   stepCount: number;

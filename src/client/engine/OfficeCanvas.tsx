@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import type { OfficeEmployee, OfficeZone, PlazaFloor } from '../../shared/types';
-import { playSelectBlip } from '../audio/retroSynth';
+import { playGamepadBlip, playSelectBlip } from '../audio/retroSynth';
 import { useI18n } from '../i18n/translations';
 import {
   clampZoom,
@@ -13,10 +13,13 @@ import {
 } from './isoMath';
 import {
   buildWalkableGrid,
+  COFFEE_SLOT,
   facingFromDelta,
   findPath,
   FURNITURE_BLOCKS,
+  GAMING_SLOTS,
   getTileZone,
+  LOUNGE_SEAT_SLOTS,
   ZONE_SLOTS,
   type Facing,
 } from './pathfinding';
@@ -66,6 +69,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
   const [hoveredWhiteboard, setHoveredWhiteboard] = useState(false);
 
   const actorsRef = useRef<Map<string, ActorState>>(new Map());
+  const prevGamingSigRef = useRef<string>('');
   const floorRef = useRef<PlazaFloor>(floor);
   floorRef.current = floor;
 
@@ -129,11 +133,30 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
       COFFEE_LOUNGE: 0,
     };
 
+    let loungeSeatIdx = 0;
+    let coffeeTaken = false;
+    const gamingIds: string[] = [];
+
     floor.employees.forEach((emp) => {
-      const idx = zoneCounters[emp.zone] ?? 0;
-      zoneCounters[emp.zone] = idx + 1;
-      const slots = ZONE_SLOTS[emp.zone] || ZONE_SLOTS.DESK_CODING;
-      const slot = slots[idx % slots.length];
+      let slot = ZONE_SLOTS.DESK_CODING[0];
+
+      if (emp.activity === 'gaming') {
+        slot = GAMING_SLOTS[emp.playerSlot === 2 ? 1 : 0];
+        gamingIds.push(emp.id);
+      } else if (emp.zone === 'COFFEE_LOUNGE') {
+        if (emp.activity === 'coffee' && !coffeeTaken) {
+          slot = COFFEE_SLOT;
+          coffeeTaken = true;
+        } else {
+          slot = LOUNGE_SEAT_SLOTS[loungeSeatIdx % LOUNGE_SEAT_SLOTS.length];
+          loungeSeatIdx += 1;
+        }
+      } else {
+        const idx = zoneCounters[emp.zone] ?? 0;
+        zoneCounters[emp.zone] = idx + 1;
+        const slots = ZONE_SLOTS[emp.zone] || ZONE_SLOTS.DESK_CODING;
+        slot = slots[idx % slots.length];
+      }
 
       const existing = actors.get(emp.id);
       if (!existing) {
@@ -166,6 +189,12 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
         existing.targetFacing = slot.facing;
       }
     });
+
+    const gamingSig = gamingIds.sort().join(',');
+    if (gamingSig && gamingSig !== prevGamingSigRef.current) {
+      playGamepadBlip();
+    }
+    prevGamingSigRef.current = gamingSig;
   }, [floor.employees, walkableGrid]);
 
   // Resize observer
@@ -281,10 +310,11 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
       }
       const renderables: RenderItem[] = [];
 
-      // Occupied check for dev/qa desks
+      // Occupied check for dev/qa desks & gaming TV console
       const occupiedZones = new Set(
         currentFloor.employees.filter((e) => e.status === 'working').map((e) => e.zone),
       );
+      const isGamingOccupied = currentFloor.employees.some((e) => e.activity === 'gaming');
 
       let wbMinX = Infinity;
       let wbMinY = Infinity;
@@ -305,7 +335,8 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
           draw: () => {
             const occupied =
               (item.kind === 'dev_desk' && occupiedZones.has('DESK_CODING')) ||
-              (item.kind === 'qa_desk' && occupiedZones.has('DESK_QA'));
+              (item.kind === 'qa_desk' && occupiedZones.has('DESK_QA')) ||
+              (item.kind === 'tv_console' && isGamingOccupied);
             drawFurniture(
               ctx,
               item.kind,
@@ -364,7 +395,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
           r: 22 * cam.zoom,
         });
         renderables.push({
-          depth: actor.gx + actor.gy + 0.05,
+          depth: actor.gx + actor.gy + 0.14,
           draw: () => {
             drawEmployeeSprite(
               ctx,

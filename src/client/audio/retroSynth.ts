@@ -126,3 +126,9 @@ export function playLevelUp(): void {
     playTone(n, idx === notes.length - 1 ? 0.34 : 0.1, 'square', 0.075, idx * 0.09);
   });
 }
+
+/** 8-bit retro console gamepad start / button blip */
+export function playGamepadBlip(): void {
+  playTone(440, 0.05, 'square', 0.055, 0);
+  playTone(660, 0.07, 'square', 0.055, 0.05);
+}
