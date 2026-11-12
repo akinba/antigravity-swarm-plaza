@@ -16,24 +16,42 @@ export interface ZoneSlot {
 export const FURNITURE_BLOCKS: ReadonlyArray<{ gx: number; gy: number; kind: string }> = [
   // Executive corner
   { gx: 2, gy: 2, kind: 'exec_desk' },
-  // War room whiteboard & table
+  { gx: 2, gy: 3, kind: 'desk_chair' },
+  { gx: 1, gy: 1, kind: 'bookshelf' },
+  { gx: 4, gy: 1, kind: 'filing_cabinet' },
+  // War room presentation screen, conference table & walkable meeting chairs
   { gx: 6, gy: 1, kind: 'whiteboard_l' },
   { gx: 7, gy: 1, kind: 'whiteboard_r' },
+  { gx: 6, gy: 3, kind: 'war_table' },
   { gx: 7, gy: 3, kind: 'war_table' },
+  { gx: 5, gy: 3, kind: 'meeting_chair' },
+  { gx: 6, gy: 4, kind: 'meeting_chair' },
+  { gx: 7, gy: 4, kind: 'meeting_chair' },
+  { gx: 8, gy: 3, kind: 'meeting_chair' },
+  { gx: 8, gy: 2, kind: 'meeting_chair' },
   // Server racks & test terminal
   { gx: 11, gy: 1, kind: 'server_rack' },
   { gx: 12, gy: 1, kind: 'server_rack' },
   { gx: 13, gy: 1, kind: 'server_rack' },
   { gx: 12, gy: 3, kind: 'qa_desk' },
-  // Developer dual-monitor desks
+  { gx: 14, gy: 1, kind: 'office_plant' },
+  // Developer dual-monitor desks & swivel chairs
   { gx: 2, gy: 6, kind: 'dev_desk' },
+  { gx: 2, gy: 7, kind: 'desk_chair' },
   { gx: 5, gy: 6, kind: 'dev_desk' },
+  { gx: 5, gy: 7, kind: 'desk_chair' },
   { gx: 2, gy: 9, kind: 'dev_desk' },
+  { gx: 2, gy: 10, kind: 'desk_chair' },
   { gx: 5, gy: 9, kind: 'dev_desk' },
-  // QA desks
+  { gx: 5, gy: 10, kind: 'desk_chair' },
+  { gx: 0, gy: 8, kind: 'office_plant' },
+  // QA desks & swivel chairs
   { gx: 9, gy: 6, kind: 'qa_desk' },
+  { gx: 9, gy: 7, kind: 'desk_chair' },
   { gx: 9, gy: 8, kind: 'qa_desk' },
-  // Coffee, Lounge & Gaming Corner (gx: 8..15, gy: 9..13)
+  { gx: 9, gy: 9, kind: 'desk_chair' },
+  { gx: 14, gy: 5, kind: 'water_cooler' },
+  // Coffee, Lounge & Gaming Corner (gx: 7..15, gy: 9..13)
   { gx: 14, gy: 9, kind: 'coffee_machine' },
   { gx: 13, gy: 10, kind: 'tv_console' },
   { gx: 12, gy: 11, kind: 'gaming_seat' },
@@ -45,6 +63,16 @@ export const FURNITURE_BLOCKS: ReadonlyArray<{ gx: number; gy: number; kind: str
   { gx: 11, gy: 12, kind: 'armchair' },
   { gx: 14, gy: 12, kind: 'armchair' },
   { gx: 9, gy: 11, kind: 'lounge_table' },
+];
+
+export const PRESENTER_SLOT: ZoneSlot = { gx: 6, gy: 2, facing: 'SE' };
+
+export const MEETING_CHAIR_SLOTS: ZoneSlot[] = [
+  { gx: 5, gy: 3, facing: 'NE' },
+  { gx: 6, gy: 4, facing: 'NW' },
+  { gx: 7, gy: 4, facing: 'NW' },
+  { gx: 8, gy: 3, facing: 'NW' },
+  { gx: 8, gy: 2, facing: 'SW' },
 ];
 
 export const GAMING_SLOTS: ZoneSlot[] = [
@@ -70,14 +98,7 @@ export const ZONE_SLOTS: Record<OfficeZone, ZoneSlot[]> = {
     { gx: 1, gy: 3, facing: 'NE' },
     { gx: 3, gy: 3, facing: 'NW' },
   ],
-  WAR_ROOM: [
-    { gx: 6, gy: 2, facing: 'NE' },
-    { gx: 7, gy: 2, facing: 'NE' },
-    { gx: 8, gy: 2, facing: 'NW' },
-    { gx: 6, gy: 3, facing: 'SE' },
-    { gx: 8, gy: 3, facing: 'SW' },
-    { gx: 7, gy: 4, facing: 'NE' },
-  ],
+  WAR_ROOM: MEETING_CHAIR_SLOTS,
   SERVER_RACK: [
     { gx: 11, gy: 2, facing: 'NE' },
     { gx: 12, gy: 2, facing: 'NE' },
@@ -116,12 +137,20 @@ export function getTileZone(gx: number, gy: number): OfficeZone {
   if (gx <= 4 && gy <= 4) return 'DESK_ARCHITECT';
   if (gx >= 5 && gx <= 9 && gy <= 4) return 'WAR_ROOM';
   if (gx >= 10 && gy <= 4) return 'SERVER_RACK';
+  if (gx >= 7 && gy >= 9) return 'COFFEE_LOUNGE';
   if (gx <= 7 && gy >= 5) return 'DESK_CODING';
-  if (gx >= 8 && gx <= 11 && gy >= 5 && gy <= 9) return 'DESK_QA';
+  if (gx >= 8 && gx <= 11 && gy >= 5 && gy <= 8) return 'DESK_QA';
   return 'COFFEE_LOUNGE';
 }
 
-const SEAT_FURNITURE_KINDS = new Set(['sofa_l', 'sofa_r', 'armchair', 'gaming_seat']);
+const SEAT_FURNITURE_KINDS = new Set([
+  'sofa_l',
+  'sofa_r',
+  'armchair',
+  'gaming_seat',
+  'desk_chair',
+  'meeting_chair',
+]);
 
 /**
  * Builds a 16x14 walkability grid (`true` = walkable, `false` = blocked).

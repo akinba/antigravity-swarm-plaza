@@ -87,17 +87,17 @@ export function drawFloorTile(
   let stroke = '#282d3d';
 
   if (zone === 'DESK_ARCHITECT' || zone === 'COFFEE_LOUNGE') {
-    fill = checker ? (isNight ? '#5c402c' : '#855c3e') : isNight ? '#503624' : '#744f34';
-    stroke = isNight ? '#362316' : '#573a25';
+    fill = checker ? (isNight ? '#63452f' : '#a87849') : isNight ? '#563b28' : '#996c40';
+    stroke = isNight ? '#362316' : '#6e4b2b';
   } else if (zone === 'DESK_CODING' || zone === 'DESK_QA') {
-    fill = checker ? (isNight ? '#333b52' : '#56617d') : isNight ? '#2b3247' : '#4a546e';
-    stroke = isNight ? '#1f2436' : '#394157';
+    fill = checker ? (isNight ? '#4b4658' : '#cfc6b4') : isNight ? '#433e50' : '#c4baa6';
+    stroke = isNight ? '#332f3d' : '#a89e8c';
   } else if (zone === 'SERVER_RACK') {
     fill = checker ? '#1b2233' : '#161c2b';
     stroke = '#293954';
   } else if (zone === 'WAR_ROOM') {
-    fill = checker ? (isNight ? '#2d3b4e' : '#425873') : isNight ? '#263242' : '#394c63';
-    stroke = '#6585ad';
+    fill = checker ? (isNight ? '#1e3152' : '#2e4f82') : isNight ? '#192945' : '#284573';
+    stroke = isNight ? '#2c4673' : '#4a73b0';
   }
 
   isoDiamondPath(ctx, cx, cy, hw, hh);
@@ -303,15 +303,17 @@ export function drawFurniture(
   ctx.save();
 
   if (kind === 'exec_desk') {
-    drawIsoBox(ctx, cx, cy, 24, 12, 14, '#8c4427', '#662f19', '#4d2110', z);
-    // Gold nameplate + laptop
+    drawIsoBox(ctx, cx, cy, 24, 12, 14, '#9c5230', '#73381d', '#542611', z);
+    // Laptop + Mousepad & Keyboard + Gold nameplate
     drawIsoBox(ctx, cx, cy - 14 * z, 9, 5, 6, '#364366', '#212940', '#161b2b', z);
     ctx.fillStyle = '#5cf0ff';
     ctx.fillRect(Math.round(cx - 4 * z), Math.round(cy - 22 * z), Math.ceil(8 * z), Math.ceil(5 * z));
+    ctx.fillStyle = '#1d2230';
+    ctx.fillRect(Math.round(cx - 7 * z), Math.round(cy - 11 * z), Math.ceil(9 * z), Math.ceil(3 * z));
     ctx.fillStyle = '#ffd147';
     ctx.fillRect(Math.round(cx - 5 * z), Math.round(cy - 6 * z), Math.ceil(10 * z), Math.ceil(3 * z));
   } else if (kind === 'dev_desk') {
-    drawIsoBox(ctx, cx, cy, 22, 11, 13, '#546182', '#3a435c', '#293042', z);
+    drawIsoBox(ctx, cx, cy, 22, 11, 13, '#d4b48c', '#a38560', '#7d6344', z);
     // Dual monitors
     const screenColor = isOccupied
       ? Math.sin(timeSec * 8) > 0
@@ -324,12 +326,60 @@ export function drawFurniture(
     ctx.fillStyle = screenColor;
     ctx.fillRect(Math.round(cx - 10 * z), Math.round(cy - 26 * z), Math.ceil(7 * z), Math.ceil(6 * z));
     ctx.fillRect(Math.round(cx + 3 * z), Math.round(cy - 26 * z), Math.ceil(7 * z), Math.ceil(6 * z));
+    // Mechanical keyboard + mousepad
+    ctx.fillStyle = '#1b202e';
+    ctx.fillRect(Math.round(cx - 8 * z), Math.round(cy - 12 * z), Math.ceil(11 * z), Math.ceil(3 * z));
+    ctx.fillStyle = '#3cd8ff';
+    ctx.fillRect(Math.round(cx - 7 * z), Math.round(cy - 11 * z), Math.ceil(9 * z), Math.ceil(1 * z));
+    ctx.fillStyle = '#2a3347';
+    ctx.fillRect(Math.round(cx + 5 * z), Math.round(cy - 12 * z), Math.ceil(5 * z), Math.ceil(4 * z));
   } else if (kind === 'qa_desk') {
-    drawIsoBox(ctx, cx, cy, 20, 10, 13, '#4c6678', '#344957', '#24333d', z);
+    drawIsoBox(ctx, cx, cy, 20, 10, 13, '#cbb59a', '#9c8870', '#756450', z);
     ctx.fillStyle = '#141824';
     ctx.fillRect(Math.round(cx - 7 * z), Math.round(cy - 27 * z), Math.ceil(14 * z), Math.ceil(10 * z));
     ctx.fillStyle = isOccupied ? '#ffbe3b' : '#243147';
     ctx.fillRect(Math.round(cx - 5 * z), Math.round(cy - 25 * z), Math.ceil(10 * z), Math.ceil(6 * z));
+    // Keyboard + mousepad
+    ctx.fillStyle = '#1b202e';
+    ctx.fillRect(Math.round(cx - 6 * z), Math.round(cy - 12 * z), Math.ceil(10 * z), Math.ceil(3 * z));
+    ctx.fillStyle = '#2a3347';
+    ctx.fillRect(Math.round(cx + 5 * z), Math.round(cy - 12 * z), Math.ceil(4 * z), Math.ceil(4 * z));
+  } else if (kind === 'desk_chair') {
+    // Ergonomic office swivel chair
+    drawIsoBox(ctx, cx, cy, 9, 5, 5, '#2b3347', '#1a202e', '#11151f', z);
+    drawIsoBox(ctx, cx - 2 * z, cy - 5 * z, 7, 3, 9, '#394561', '#232b3d', '#161b26', z);
+  } else if (kind === 'meeting_chair') {
+    // Royal-blue conference chair
+    drawIsoBox(ctx, cx, cy, 9, 5, 5, '#3b5998', '#263c6b', '#19294a', z);
+    drawIsoBox(ctx, cx - 2 * z, cy - 5 * z, 7, 3, 8, '#4a6eb8', '#2e4a85', '#1d315c', z);
+  } else if (kind === 'bookshelf') {
+    drawIsoBox(ctx, cx, cy, 16, 8, 30, '#8c5a32', '#663f20', '#472b14', z);
+    const bookColors = ['#ff5666', '#3cd8ff', '#ffd147', '#3be87a', '#b07cff'];
+    for (let r = 0; r < 3; r++) {
+      const sy = cy - (24 - r * 7) * z;
+      for (let b = 0; b < 4; b++) {
+        ctx.fillStyle = bookColors[(r + b) % bookColors.length];
+        ctx.fillRect(Math.round(cx - (10 - b * 4) * z), Math.round(sy), Math.ceil(3 * z), Math.ceil(5 * z));
+      }
+    }
+  } else if (kind === 'filing_cabinet') {
+    drawIsoBox(ctx, cx, cy, 12, 8, 22, '#7d889e', '#566073', '#3b4252', z);
+    ctx.fillStyle = '#c9d2e3';
+    ctx.fillRect(Math.round(cx - 6 * z), Math.round(cy - 16 * z), Math.ceil(5 * z), Math.ceil(2 * z));
+    ctx.fillRect(Math.round(cx - 6 * z), Math.round(cy - 9 * z), Math.ceil(5 * z), Math.ceil(2 * z));
+  } else if (kind === 'water_cooler') {
+    drawIsoBox(ctx, cx, cy, 9, 6, 16, '#dbe4f0', '#a6b3c7', '#7b8799', z);
+    drawIsoBox(ctx, cx, cy - 16 * z, 6, 4, 11, '#66d2ff', '#3bb2eb', '#2287bd', z);
+    ctx.fillStyle = '#ff5666';
+    ctx.fillRect(Math.round(cx - 4 * z), Math.round(cy - 13 * z), Math.ceil(2 * z), Math.ceil(2 * z));
+    ctx.fillStyle = '#3cd8ff';
+    ctx.fillRect(Math.round(cx - 1 * z), Math.round(cy - 13 * z), Math.ceil(2 * z), Math.ceil(2 * z));
+  } else if (kind === 'office_plant') {
+    drawIsoBox(ctx, cx, cy, 8, 5, 7, '#a65c3a', '#7d4126', '#592d19', z);
+    ctx.fillStyle = '#2fa857';
+    ctx.fillRect(Math.round(cx - 7 * z), Math.round(cy - 20 * z), Math.ceil(14 * z), Math.ceil(11 * z));
+    ctx.fillStyle = '#4be07a';
+    ctx.fillRect(Math.round(cx - 4 * z), Math.round(cy - 25 * z), Math.ceil(8 * z), Math.ceil(7 * z));
   } else if (kind === 'war_table') {
     drawIsoBox(ctx, cx, cy, 22, 12, 11, '#7a8ca8', '#526075', '#3b4554', z);
     // Sticky notes on table
@@ -338,38 +388,49 @@ export function drawFurniture(
     ctx.fillStyle = '#ff7eb9';
     ctx.fillRect(Math.round(cx + 2 * z), Math.round(cy - 12 * z), Math.ceil(5 * z), Math.ceil(4 * z));
   } else if (kind === 'whiteboard_l' || kind === 'whiteboard_r') {
-    // Stand + large whiteboard panel
+    // Illuminated Presentation Screen
     drawIsoBox(ctx, cx, cy, 22, 6, 4, '#454e66', '#2c3345', '#1e2330', z);
-    const bx = cx - 20 * z;
-    const by = cy - 42 * z;
-    const bw = 40 * z;
-    const bh = 30 * z;
+    const bx = cx - 21 * z;
+    const by = cy - 45 * z;
+    const bw = 42 * z;
+    const bh = 32 * z;
 
-    if (isHovered) {
-      ctx.fillStyle = '#ffe64d';
+    if (isHovered || isOccupied) {
+      ctx.fillStyle = isHovered ? '#ffe64d' : 'rgba(60, 216, 255, 0.55)';
       ctx.fillRect(Math.round(bx - 2 * z), Math.round(by - 2 * z), Math.ceil(bw + 4 * z), Math.ceil(bh + 4 * z));
     }
-    ctx.fillStyle = '#252b3b';
+    ctx.fillStyle = '#1a2030';
     ctx.fillRect(Math.round(bx), Math.round(by), Math.ceil(bw), Math.ceil(bh));
-    ctx.fillStyle = '#edf3ff';
+    ctx.fillStyle = isOccupied ? '#f7fbff' : '#e6eefc';
     ctx.fillRect(Math.round(bx + 2 * z), Math.round(by + 2 * z), Math.ceil(bw - 4 * z), Math.ceil(bh - 4 * z));
 
-    // Pixel sticky notes & diagram lines
-    ctx.fillStyle = '#ff6b81';
-    ctx.fillRect(Math.round(bx + 5 * z), Math.round(by + 6 * z), Math.ceil(7 * z), Math.ceil(6 * z));
-    ctx.fillStyle = '#ffd147';
-    ctx.fillRect(Math.round(bx + 15 * z), Math.round(by + 6 * z), Math.ceil(7 * z), Math.ceil(6 * z));
-    ctx.fillStyle = '#3cd8ff';
-    ctx.fillRect(Math.round(bx + 25 * z), Math.round(by + 7 * z), Math.ceil(8 * z), Math.ceil(6 * z));
-    ctx.fillStyle = '#394666';
-    ctx.fillRect(Math.round(bx + 6 * z), Math.round(by + 17 * z), Math.ceil(26 * z), Math.ceil(2 * z));
-    ctx.fillRect(Math.round(bx + 6 * z), Math.round(by + 22 * z), Math.ceil(18 * z), Math.ceil(2 * z));
-
     if (kind === 'whiteboard_l') {
-      ctx.font = `bold ${Math.max(8, Math.round(8 * z))}px "Press Start 2P", monospace`;
+      // Bar charts on left screen
+      ctx.fillStyle = '#3cd8ff';
+      ctx.fillRect(Math.round(bx + 6 * z), Math.round(by + 16 * z), Math.ceil(5 * z), Math.ceil(11 * z));
+      ctx.fillStyle = '#3be87a';
+      ctx.fillRect(Math.round(bx + 13 * z), Math.round(by + 11 * z), Math.ceil(5 * z), Math.ceil(16 * z));
+      ctx.fillStyle = '#ffbe3b';
+      ctx.fillRect(Math.round(bx + 20 * z), Math.round(by + 14 * z), Math.ceil(5 * z), Math.ceil(13 * z));
+      ctx.fillStyle = '#ff5666';
+      ctx.fillRect(Math.round(bx + 27 * z), Math.round(by + 8 * z), Math.ceil(5 * z), Math.ceil(19 * z));
+      ctx.fillStyle = '#252b3b';
+      ctx.fillRect(Math.round(bx + 5 * z), Math.round(by + 5 * z), Math.ceil(22 * z), Math.ceil(2 * z));
+
+      ctx.font = `bold ${Math.max(8, Math.round(8 * z))}px "Silkscreen", monospace`;
       ctx.fillStyle = isHovered ? '#ffe64d' : '#9ee8ff';
       ctx.textAlign = 'center';
       ctx.fillText(whiteboardLabel, cx + 14 * z, by - 5 * z);
+    } else {
+      // Architecture nodes + slide bullets on right screen
+      ctx.fillStyle = '#b07cff';
+      ctx.fillRect(Math.round(bx + 6 * z), Math.round(by + 6 * z), Math.ceil(9 * z), Math.ceil(6 * z));
+      ctx.fillStyle = '#3cd8ff';
+      ctx.fillRect(Math.round(bx + 23 * z), Math.round(by + 6 * z), Math.ceil(9 * z), Math.ceil(6 * z));
+      ctx.fillStyle = '#394666';
+      ctx.fillRect(Math.round(bx + 15 * z), Math.round(by + 8 * z), Math.ceil(8 * z), Math.ceil(2 * z));
+      ctx.fillRect(Math.round(bx + 6 * z), Math.round(by + 17 * z), Math.ceil(26 * z), Math.ceil(2 * z));
+      ctx.fillRect(Math.round(bx + 6 * z), Math.round(by + 22 * z), Math.ceil(20 * z), Math.ceil(2 * z));
     }
   } else if (kind === 'server_rack') {
     drawIsoBox(ctx, cx, cy, 16, 10, 38, '#364159', '#1e2536', '#141824', z);
@@ -515,9 +576,18 @@ export function drawEmployeeSprite(
     ctx.stroke();
   }
 
+  const isPresenting = !isWalking && (emp.activity === 'presenting' || Boolean(emp.isPresenter));
   const seated =
     !isWalking &&
-    (emp.activity === 'lounging' || emp.activity === 'sleeping' || emp.activity === 'gaming');
+    !isPresenting &&
+    (emp.activity === 'coding' ||
+      emp.activity === 'reading' ||
+      emp.activity === 'searching' ||
+      emp.activity === 'thinking' ||
+      emp.activity === 'meeting' ||
+      emp.activity === 'lounging' ||
+      emp.activity === 'sleeping' ||
+      emp.activity === 'gaming');
   const seatOffsetY = seated ? 4 * z : 0;
   const baseY = cy - bob + seatOffsetY;
 
@@ -551,30 +621,49 @@ export function drawEmployeeSprite(
   ctx.fillStyle = uniform.trim;
   ctx.fillRect(Math.round(cx - 1 * z), Math.round(baseY - 19 * z), Math.ceil(2 * z), Math.ceil(8 * z));
 
-  // Arms + Activity animations
-  const typingOffset =
-    !isWalking && (emp.activity === 'coding' || emp.activity === 'terminal')
-      ? Math.sin(timeSec * 18) * 2 * z
-      : !isWalking && emp.activity === 'gaming'
-        ? Math.sin(timeSec * 14) * 1.5 * z
-        : 0;
+  // Arms: shoulders stay 100% LEVEL and STILL (zero shoulder-shrug seesaw!)
   ctx.fillStyle = uniform.main;
   ctx.fillRect(
     Math.round(cx - 10 * z),
-    Math.round(baseY - 19 * z + typingOffset),
+    Math.round(baseY - 19 * z),
     Math.ceil(3 * z),
     Math.ceil(9 * z),
   );
   ctx.fillRect(
     Math.round(cx + 7 * z),
-    Math.round(baseY - 19 * z - typingOffset),
+    Math.round(baseY - 19 * z),
     Math.ceil(3 * z),
     Math.ceil(9 * z),
   );
 
-  // Activity props in hand
+  // Activity props & hand animations
   if (!isWalking) {
-    if (emp.activity === 'reading' || emp.activity === 'searching') {
+    if (emp.activity === 'coding' || emp.activity === 'terminal') {
+      // Forearms resting forward at keyboard height with subtle 1px finger taps
+      const tapL = Math.sin(timeSec * 18) > 0 ? 1 * z : 0;
+      const tapR = Math.cos(timeSec * 18) > 0 ? 1 * z : 0;
+      ctx.fillStyle = palette.skin;
+      ctx.fillRect(Math.round(cx - 8 * z), Math.round(baseY - 13 * z + tapL), Math.ceil(4 * z), Math.ceil(3 * z));
+      ctx.fillRect(Math.round(cx + 4 * z), Math.round(baseY - 13 * z + tapR), Math.ceil(4 * z), Math.ceil(3 * z));
+
+      // Floating code glyphs near monitor
+      const glyphY = ((timeSec * 10) % 10) * z;
+      ctx.font = `bold ${Math.max(7, Math.round(7 * z))}px "JetBrains Mono", monospace`;
+      ctx.fillStyle = 'rgba(60, 216, 255, 0.85)';
+      ctx.textAlign = 'center';
+      ctx.fillText(Math.floor(timeSec * 2) % 2 === 0 ? '</>' : '{}', cx + 11 * z, baseY - 38 * z - glyphY);
+    } else if (isPresenting) {
+      // Standing presenter holding an angled pixel pointer stick toward the Presentation Screen
+      const sweep = Math.sin(timeSec * 2.5) * 3 * z;
+      ctx.strokeStyle = '#ffd147';
+      ctx.lineWidth = Math.max(1.5, 2 * z);
+      ctx.beginPath();
+      ctx.moveTo(cx - 8 * z, baseY - 14 * z);
+      ctx.lineTo(cx - 22 * z, baseY - 28 * z + sweep);
+      ctx.stroke();
+      ctx.fillStyle = '#ff5666';
+      ctx.fillRect(Math.round(cx - 23 * z), Math.round(baseY - 29 * z + sweep), Math.ceil(3 * z), Math.ceil(3 * z));
+    } else if (emp.activity === 'reading' || emp.activity === 'searching') {
       ctx.fillStyle = '#f5ecd7';
       ctx.fillRect(
         Math.round(cx + (dirFlip > 0 ? 4 : -10) * z),
@@ -595,14 +684,15 @@ export function drawEmployeeSprite(
       );
     } else if (emp.activity === 'gaming') {
       // Pixel Gamepad controller held forward with colored buttons
+      const thumbJitter = Math.sin(timeSec * 16) > 0 ? 0.5 * z : 0;
       ctx.fillStyle = '#1b1f2b';
-      ctx.fillRect(Math.round(cx - 5 * z), Math.round(baseY - 14 * z), Math.ceil(10 * z), Math.ceil(5 * z));
+      ctx.fillRect(Math.round(cx - 5 * z), Math.round(baseY - 14 * z + thumbJitter), Math.ceil(10 * z), Math.ceil(5 * z));
       ctx.fillStyle = '#3cd8ff';
-      ctx.fillRect(Math.round(cx - 4 * z), Math.round(baseY - 13 * z), Math.ceil(2 * z), Math.ceil(2 * z));
+      ctx.fillRect(Math.round(cx - 4 * z), Math.round(baseY - 13 * z + thumbJitter), Math.ceil(2 * z), Math.ceil(2 * z));
       ctx.fillStyle = '#ff5666';
-      ctx.fillRect(Math.round(cx + 2 * z), Math.round(baseY - 13 * z), Math.ceil(2 * z), Math.ceil(2 * z));
+      ctx.fillRect(Math.round(cx + 2 * z), Math.round(baseY - 13 * z + thumbJitter), Math.ceil(2 * z), Math.ceil(2 * z));
       ctx.fillStyle = '#ffd147';
-      ctx.fillRect(Math.round(cx), Math.round(baseY - 12 * z), Math.ceil(2 * z), Math.ceil(2 * z));
+      ctx.fillRect(Math.round(cx), Math.round(baseY - 12 * z + thumbJitter), Math.ceil(2 * z), Math.ceil(2 * z));
     }
   }
 

@@ -147,6 +147,100 @@ export function readConversationSummaries(agyDataDir: string): ConversationSumma
   }
 }
 
+const transcriptWorkspaceMemo = new Map<string, string | null>();
+
+const EXCLUDED_PATH_SEGMENTS = ['.gemini', 'appdata', 'windows', 'program files'];
+
+function isAllowedWorkspaceCandidate(candidatePath: string): boolean {
+  const lower = candidatePath.toLowerCase();
+  return !EXCLUDED_PATH_SEGMENTS.some(
+    (seg) => lower.includes(`/${seg}/`) || lower.endsWith(`/${seg}`),
+  );
+}
+
+/**
+ * Inspect the first 8192 bytes of a root conversation's transcript.jsonl for an
+ * explicit workspace path reference like `@[d:\Antigravity\hex-weather]` or `file:///...`.
+ */
+function inferWorkspaceFromTranscriptHead(agyDataDir: string, convId: string): string | null {
+  const cacheKey = `${agyDataDir}::${convId}`;
+  if (transcriptWorkspaceMemo.has(cacheKey)) {
+    return transcriptWorkspaceMemo.get(cacheKey) ?? null;
+  }
+
+  const transcriptPath = path.join(
+    agyDataDir,
+    'brain',
+    convId,
+    '.system_generated',
+    'logs',
+    'transcript.jsonl',
+  );
+
+  let result: string | null = null;
+  let fd: number | null = null;
+  try {
+    if (fs.existsSync(transcriptPath)) {
+      const buf = Buffer.allocUnsafe(8192);
+      fd = fs.openSync(transcriptPath, 'r');
+      const bytesRead = fs.readSync(fd, buf, 0, 8192, 0);
+      const head = buf.toString('utf8', 0, bytesRead);
+
+      const candidates: string[] = [];
+      const atMentionRegex = /@\[([A-Za-z]:[\\/][^\]\r\n"']+)]/g;
+      let match: RegExpExecArray | null;
+      while ((match = atMentionRegex.exec(head)) !== null) {
+        candidates.push(match[1].replace(/\\/g, '/'));
+      }
+
+      const fileUriRegex = /file:\/\/\/([A-Za-z]%3A\/[^\s"'\]]+)/gi;
+      while ((match = fileUriRegex.exec(head)) !== null) {
+        try {
+          candidates.push(decodeURIComponent(match[1]).replace(/\\/g, '/'));
+        } catch {
+          // Ignore malformed URI
+        }
+      }
+
+      for (const rawCandidate of candidates) {
+        const normalized = normalizeWorkspacePath(rawCandidate);
+        if (!normalized || !isAllowedWorkspaceCandidate(normalized)) continue;
+        if (!fs.existsSync(normalized)) continue;
+        try {
+          const stat = fs.statSync(normalized);
+          const dirPath = stat.isFile()
+            ? normalizeWorkspacePath(path.dirname(normalized))
+            : normalized;
+          if (dirPath && isAllowedWorkspaceCandidate(dirPath)) {
+            result = dirPath;
+            break;
+          }
+        } catch {
+          // Ignore stat errors
+        }
+      }
+    }
+  } catch {
+    result = null;
+  } finally {
+    if (fd !== null) {
+      try {
+        fs.closeSync(fd);
+      } catch {
+        // Ignore close errors
+      }
+    }
+  }
+
+  transcriptWorkspaceMemo.set(cacheKey, result);
+  return result;
+}
+
+export interface ResolveWorkspaceOptions {
+  agyDataDir?: string;
+  swarmConvIds?: Set<string>;
+}
+
 /**
  * Resolve each conversation's effective workspacePath and companyName by walking up
  * parent_conversation_id (and any extra parent-child links discovered on disk) with
@@ -155,11 +249,25 @@ export function readConversationSummaries(agyDataDir: string): ConversationSumma
 export function resolveConversationWorkspaces(
   rows: ConversationSummaryRow[],
   extraParentLinks?: Map<string, string>,
+  options?: ResolveWorkspaceOptions,
 ): Map<string, ResolvedWorkspaceInfo> {
   const rowMap = new Map<string, ConversationSummaryRow>();
+  const hasChildren = new Set<string>();
+
   for (const row of rows) {
     if (row.conversation_id) {
       rowMap.set(row.conversation_id, row);
+    }
+    const parentId = row.parent_conversation_id?.trim();
+    if (parentId) {
+      hasChildren.add(parentId);
+    }
+  }
+  if (extraParentLinks) {
+    for (const parentId of extraParentLinks.values()) {
+      if (parentId?.trim()) {
+        hasChildren.add(parentId.trim());
+      }
     }
   }
 
@@ -170,6 +278,7 @@ export function resolveConversationWorkspaces(
     const visited = new Set<string>();
     let currentId: string | null = convId;
     let rootId = convId;
+    let cycleDetected = false;
 
     while (currentId && !visited.has(currentId) && visited.size < 25) {
       visited.add(currentId);
@@ -180,7 +289,11 @@ export function resolveConversationWorkspaces(
       const diskParent: string | null = extraParentLinks?.get(currentId)?.trim() || null;
       const nextParent: string | null = dbParent || diskParent;
 
-      if (!nextParent || visited.has(nextParent)) {
+      if (!nextParent) {
+        break;
+      }
+      if (visited.has(nextParent)) {
+        cycleDetected = true;
         break;
       }
       currentId = nextParent;
@@ -190,14 +303,17 @@ export function resolveConversationWorkspaces(
     const rootUris = parseWorkspaceUris(rootRow.workspace_uris);
     const isOutside = rootRow.project_id === 'outside-of-project';
 
-    if (rootUris.length === 0 || isOutside) {
+    if (cycleDetected && rootUris.length === 0) {
       resolved.set(convId, {
         workspacePath: '',
         companyName: 'Global Freelance Lobby',
         isLobby: true,
         rootConversationId: rootId,
       });
-    } else {
+      continue;
+    }
+
+    if (rootUris.length > 0 && !isOutside) {
       const workspacePath = rootUris[0];
       resolved.set(convId, {
         workspacePath,
@@ -205,7 +321,51 @@ export function resolveConversationWorkspaces(
         isLobby: false,
         rootConversationId: rootId,
       });
+      continue;
     }
+
+    // Root has empty workspace_uris or project_id === 'outside-of-project'
+    const inferredPath =
+      rootUris.length === 0 && options?.agyDataDir
+        ? inferWorkspaceFromTranscriptHead(options.agyDataDir, rootId)
+        : null;
+
+    if (inferredPath) {
+      const baseName = getCompanyNameFromPath(inferredPath);
+      const rootTitle = rootRow.title?.trim();
+      const companyName =
+        rootTitle && rootTitle.toLowerCase() === baseName.toLowerCase() ? rootTitle : baseName;
+      resolved.set(convId, {
+        workspacePath: inferredPath,
+        companyName,
+        isLobby: false,
+        rootConversationId: rootId,
+      });
+      continue;
+    }
+
+    const rootTitle = rootRow.title?.trim();
+    const isSubstantialRoot =
+      Number(rootRow.step_count || 0) >= 15 ||
+      hasChildren.has(rootId) ||
+      Boolean(options?.swarmConvIds?.has(rootId));
+
+    if (rootTitle && isSubstantialRoot) {
+      resolved.set(convId, {
+        workspacePath: `conversation://${rootId}`,
+        companyName: rootTitle,
+        isLobby: false,
+        rootConversationId: rootId,
+      });
+      continue;
+    }
+
+    resolved.set(convId, {
+      workspacePath: '',
+      companyName: 'Global Freelance Lobby',
+      isLobby: true,
+      rootConversationId: rootId,
+    });
   }
 
   return resolved;

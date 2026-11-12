@@ -18,11 +18,13 @@ import {
 } from '../../src/server/demoSimulator.js';
 import {
   applyLoungeActivities,
+  applyWarRoomPresentation,
   buildPlazaSnapshot,
   classifyModelFamily,
   computeCompanyTier,
   computeEcoScore,
   computeEmployeeXpAndLevel,
+  determineEmployeeStatus,
   determineZoneAndActivity,
 } from '../../src/server/gamification.js';
 import type { OfficeEmployee } from '../../src/shared/types.js';
@@ -489,5 +491,177 @@ describe('Read-only SQLite snapshot & Express API', () => {
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('Hex-Weather floor recovery, idle lock guard, and WAR_ROOM presentation', () => {
+  it('promotes titled/transcript-referenced outside-of-project root and inherits children', () => {
+    const tmpDir = makeTempDataDir();
+    const targetProjectDir = path.join(tmpDir, 'hex-weather');
+    fs.mkdirSync(targetProjectDir, { recursive: true });
+
+    try {
+      const hexLogsDir = path.join(tmpDir, 'brain', 'hex-root', '.system_generated', 'logs');
+      fs.mkdirSync(hexLogsDir, { recursive: true });
+      // Use Windows-like or normalized path in @[...] inside transcript
+      const winStyle = targetProjectDir.replace(/\//g, '\\');
+      fs.writeFileSync(
+        path.join(hexLogsDir, 'transcript.jsonl'),
+        JSON.stringify({
+          step_index: 0,
+          type: 'USER_INPUT',
+          content: `Build @[${winStyle}] dashboard`,
+        }) + '\n',
+      );
+
+      const rows: ConversationSummaryRow[] = [
+        createTestRow({
+          conversation_id: 'hex-root',
+          title: 'Hex-Weather',
+          step_count: 120,
+          workspace_uris: '',
+          project_id: 'outside-of-project',
+        }),
+        createTestRow({
+          conversation_id: 'hex-child',
+          title: 'Weather Worker',
+          parent_conversation_id: 'hex-root',
+          workspace_uris: '',
+          project_id: 'outside-of-project',
+        }),
+        createTestRow({
+          conversation_id: 'swarm-titled-root',
+          title: 'Tactile Swarm',
+          step_count: 25,
+          workspace_uris: '',
+          project_id: 'outside-of-project',
+        }),
+        createTestRow({
+          conversation_id: 'tiny-lobby-chat',
+          title: 'Hello',
+          step_count: 2,
+          workspace_uris: '',
+          project_id: 'outside-of-project',
+        }),
+      ];
+
+      const resolved = resolveConversationWorkspaces(rows, undefined, { agyDataDir: tmpDir });
+      assert.equal(resolved.get('hex-root')?.isLobby, false);
+      assert.equal(resolved.get('hex-root')?.companyName, 'Hex-Weather');
+      assert.equal(resolved.get('hex-child')?.isLobby, false);
+      assert.equal(resolved.get('hex-child')?.companyName, 'Hex-Weather');
+
+      assert.equal(resolved.get('swarm-titled-root')?.isLobby, false);
+      assert.equal(resolved.get('swarm-titled-root')?.companyName, 'Tactile Swarm');
+      assert.equal(
+        resolved.get('swarm-titled-root')?.workspacePath,
+        'conversation://swarm-titled-root',
+      );
+
+      assert.equal(resolved.get('tiny-lobby-chat')?.isLobby, true);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('does NOT mark CASCADE_RUN_STATUS_IDLE with .lock as working', () => {
+    const status = determineEmployeeStatus({
+      rowStatus: 'CASCADE_RUN_STATUS_IDLE',
+      notFullyIdle: 0,
+      hasPresenceLock: true,
+      transcript: {
+        inputTokens: 100,
+        cacheReadTokens: 0,
+        outputTokens: 50,
+        lastTimestamp: new Date().toISOString(),
+      },
+    });
+    assert.equal(status, 'idle');
+  });
+
+  it('assigns exactly 1 presenting (isPresenter: true) and remaining meeting in WAR_ROOM', () => {
+    const nowMs = Date.now();
+    const emps: OfficeEmployee[] = [
+      {
+        id: 'a1',
+        name: 'Chief-Architect',
+        roleTitle: 'Swarm Coordinator',
+        isCoordinator: true,
+        modelId: 'gemini-argon',
+        modelFamily: 'argon',
+        workspaceMode: 'inherit',
+        status: 'working',
+        zone: 'DESK_ARCHITECT',
+        activity: 'thinking',
+        xp: 300,
+        level: 3,
+        stepCount: 20,
+        inputTokens: 0,
+        cacheReadTokens: 0,
+        outputTokens: 0,
+        lastActiveAt: new Date(nowMs).toISOString(),
+      },
+      {
+        id: 'a2',
+        name: 'coder-core',
+        roleTitle: 'Backend',
+        isCoordinator: false,
+        modelId: 'gemini-hydrogen',
+        modelFamily: 'hydrogen',
+        workspaceMode: 'share',
+        status: 'working',
+        zone: 'DESK_CODING',
+        activity: 'coding',
+        xp: 200,
+        level: 3,
+        stepCount: 14,
+        inputTokens: 0,
+        cacheReadTokens: 0,
+        outputTokens: 0,
+        lastActiveAt: new Date(nowMs).toISOString(),
+      },
+      {
+        id: 'a3',
+        name: 'verifier-qa',
+        roleTitle: 'QA',
+        isCoordinator: false,
+        modelId: 'gemini-flash',
+        modelFamily: 'flash',
+        workspaceMode: 'inherit',
+        status: 'working',
+        zone: 'DESK_QA',
+        activity: 'reading',
+        xp: 150,
+        level: 2,
+        stepCount: 10,
+        inputTokens: 0,
+        cacheReadTokens: 0,
+        outputTokens: 0,
+        lastActiveAt: new Date(nowMs).toISOString(),
+      },
+    ];
+
+    applyWarRoomPresentation(
+      emps,
+      [
+        {
+          seq: 1,
+          agent: 'Chief-Architect',
+          text: '@coder-core @verifier-qa Sprint review starting',
+          time: new Date(nowMs - 5000).toISOString(),
+          kind: 'message',
+        },
+      ],
+      nowMs,
+    );
+
+    assert.ok(emps.every((e) => e.zone === 'WAR_ROOM'));
+    const presenters = emps.filter((e) => e.activity === 'presenting');
+    const attendees = emps.filter((e) => e.activity === 'meeting');
+    assert.equal(presenters.length, 1);
+    assert.equal(presenters[0].name, 'Chief-Architect');
+    assert.equal(presenters[0].isPresenter, true);
+    assert.equal(attendees.length, 2);
+    assert.ok(attendees.every((a) => a.isPresenter === false));
   });
 });

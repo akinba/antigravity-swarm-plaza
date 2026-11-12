@@ -341,6 +341,49 @@ export function getDemoFloor(advance = true): PlazaFloor {
         lounger.currentTool = undefined;
         lounger.currentTarget = undefined;
       }
+    } else {
+      // Every 3rd tick: showcase Meeting Room Presentation + Desk Coding + Lounge Relaxation
+      employees[0].zone = 'WAR_ROOM';
+      employees[0].status = 'working';
+      employees[0].activity = 'presenting';
+      employees[0].isPresenter = true;
+      employees[0].speechBubble = '📊 Sprint mimari sunumu';
+
+      employees[1].zone = 'WAR_ROOM';
+      employees[1].status = 'working';
+      employees[1].activity = 'meeting';
+      employees[1].isPresenter = false;
+      employees[1].speechBubble = 'Sunum dinleniyor';
+
+      employees[3].zone = 'WAR_ROOM';
+      employees[3].status = 'working';
+      employees[3].activity = 'meeting';
+      employees[3].isPresenter = false;
+      employees[3].speechBubble = 'Notlar alınıyor...';
+
+      employees[2].zone = 'DESK_CODING';
+      employees[2].status = 'working';
+      employees[2].activity = 'coding';
+      employees[2].speechBubble = 'İzometrik UI kodlanıyor';
+
+      employees[4].zone = 'COFFEE_LOUNGE';
+      employees[4].status = 'waiting';
+      employees[4].activity = 'lounging';
+      employees[4].speechBubble = '🛋️ Koltukta dinleniyor (0 token)';
+    }
+
+    // Ensure any WAR_ROOM employees have exactly 1 presenter
+    const warRoomEmps = employees.filter((e) => e.zone === 'WAR_ROOM');
+    if (warRoomEmps.length > 0) {
+      warRoomEmps.forEach((emp, i) => {
+        if (i === 0) {
+          emp.isPresenter = true;
+          emp.activity = 'presenting';
+        } else {
+          emp.isPresenter = false;
+          emp.activity = 'meeting';
+        }
+      });
     }
 
   const boardMessages: SwarmBoardMessage[] = [

@@ -141,12 +141,28 @@ export function determineEmployeeStatus(params: {
   swarmMember?: SwarmMemberMeta;
   subagentMeta?: SubagentMeta;
   transcript?: TranscriptSummary;
+  nowMs?: number;
+  rootCoordinatorIdle?: boolean;
 }): OfficeEmployee['status'] {
-  const { rowStatus, notFullyIdle, hasPresenceLock, swarmMember, subagentMeta, transcript } =
-    params;
+  const {
+    rowStatus,
+    notFullyIdle,
+    swarmMember,
+    subagentMeta,
+    transcript,
+    nowMs = Date.now(),
+    rootCoordinatorIdle = false,
+  } = params;
 
+  const lastTranscriptMs = transcript?.lastTimestamp ? parseTimestampMs(transcript.lastTimestamp) : 0;
+  const isRecentTranscriptActive =
+    lastTranscriptMs > 0 &&
+    nowMs - lastTranscriptMs <= 20_000 &&
+    rowStatus !== 'CASCADE_RUN_STATUS_IDLE';
+
+  const isExplicitlyRunning = rowStatus === 'CASCADE_RUN_STATUS_RUNNING' || notFullyIdle === 1;
   const isRunning =
-    rowStatus === 'CASCADE_RUN_STATUS_RUNNING' || notFullyIdle === 1;
+    isExplicitlyRunning || (isRecentTranscriptActive && !rootCoordinatorIdle);
 
   const isSwarmWaiting =
     swarmMember !== undefined &&
@@ -159,7 +175,7 @@ export function determineEmployeeStatus(params: {
     !isRunning &&
     (subState.includes('WAIT') || subState.includes('PARKED'));
 
-  if (isRunning || (hasPresenceLock && !isSwarmWaiting && !isSubagentWaiting)) {
+  if (isRunning) {
     return 'working';
   }
   if (isSwarmWaiting || isSubagentWaiting) {
@@ -170,6 +186,8 @@ export function determineEmployeeStatus(params: {
   }
   return 'idle';
 }
+
+export const computeEmployeeStatus = determineEmployeeStatus;
 
 function getAssignedDesk(isCoordinator: boolean, roleTitle: string): OfficeZone {
   if (isCoordinator) return 'DESK_ARCHITECT';
@@ -265,13 +283,13 @@ export function determineZoneAndActivity(params: {
     };
   }
 
-  // Check recent swarm board activity within last 45s
+  // Check recent swarm board activity within last 60s
   const lowerName = agentName.toLowerCase();
   const recentBoardMatch = [...recentBoardMessages]
     .reverse()
     .find((msg) => {
       const msgMs = parseTimestampMs(msg.time);
-      if (msgMs <= 0 || nowMs - msgMs > 45000) return false;
+      if (msgMs <= 0 || nowMs - msgMs > 60000) return false;
       const byAgent = msg.agent.toLowerCase() === lowerName;
       const mentionsAgent = msg.text.toLowerCase().includes(`@${lowerName}`);
       return byAgent || mentionsAgent;
@@ -389,6 +407,66 @@ export function applyLoungeActivities(
   }
 }
 
+/**
+ * Coordinate WAR_ROOM presentation: route active speakers & @mentioned teammates into WAR_ROOM,
+ * designate exactly 1 Presenter (`isPresenter: true`, `activity: 'presenting'`), and set all
+ * other WAR_ROOM employees as seated Attendees (`isPresenter: false`, `activity: 'meeting'`).
+ */
+export function applyWarRoomPresentation(
+  employees: OfficeEmployee[],
+  boardMessages: SwarmBoardMessage[],
+  nowMs = Date.now(),
+): void {
+  const recentBoardMsgs = boardMessages.filter((msg) => {
+    const msgMs = parseTimestampMs(msg.time);
+    return msgMs > 0 && nowMs - msgMs <= 60_000;
+  });
+
+  const latestMsg = recentBoardMsgs.length > 0 ? recentBoardMsgs[recentBoardMsgs.length - 1] : null;
+
+  if (recentBoardMsgs.length > 0) {
+    const participantNames = new Set<string>();
+    for (const msg of recentBoardMsgs) {
+      if (msg.agent) participantNames.add(msg.agent.toLowerCase());
+      const mentionRegex = /@([a-zA-Z0-9_-]+)/g;
+      let m: RegExpExecArray | null;
+      while ((m = mentionRegex.exec(msg.text)) !== null) {
+        participantNames.add(m[1].toLowerCase());
+      }
+    }
+
+    for (const emp of employees) {
+      if (emp.status !== 'working') continue;
+      if (participantNames.has(emp.name.toLowerCase()) || participantNames.has('all')) {
+        emp.zone = 'WAR_ROOM';
+        emp.activity = 'meeting';
+      }
+    }
+  }
+
+  const warRoomEmployees = employees.filter((e) => e.zone === 'WAR_ROOM');
+  if (warRoomEmployees.length === 0) return;
+
+  const latestAuthor = latestMsg?.agent?.toLowerCase();
+  const presenter =
+    (latestAuthor && warRoomEmployees.find((e) => e.name.toLowerCase() === latestAuthor)) ||
+    warRoomEmployees.find((e) => e.isCoordinator) ||
+    warRoomEmployees[0];
+
+  for (const emp of warRoomEmployees) {
+    if (emp === presenter) {
+      emp.isPresenter = true;
+      emp.activity = 'presenting';
+      if (!emp.speechBubble) {
+        emp.speechBubble = truncateBubble(latestMsg?.text || '📊 Mimari & ilerleme sunumu');
+      }
+    } else {
+      emp.isPresenter = false;
+      emp.activity = 'meeting';
+    }
+  }
+}
+
 function makeFloorId(workspacePath: string, isLobby: boolean): string {
   if (isLobby || !workspacePath) return 'lobby';
   const key = normalizeWorkspaceKey(workspacePath);
@@ -408,6 +486,7 @@ function buildEmployeeFromRow(
   scan: BrainScanResult,
   floorBoardMessages: SwarmBoardMessage[],
   nowMs: number,
+  rootCoordinatorIdle = false,
 ): OfficeEmployee {
   const convId = row.conversation_id;
   const swarmMember = scan.swarmMemberByConvId.get(convId);
@@ -445,6 +524,8 @@ function buildEmployeeFromRow(
     swarmMember,
     subagentMeta,
     transcript,
+    nowMs,
+    rootCoordinatorIdle,
   });
 
   const { zone, activity, speechBubble } = determineZoneAndActivity({
@@ -497,7 +578,15 @@ export function buildPlazaSnapshot(
   const rows = readConversationSummaries(agyDataDir);
   const convIds = rows.map((r) => r.conversation_id).filter(Boolean);
   const scan = scanBrainData(agyDataDir, convIds);
-  const resolvedWorkspaces = resolveConversationWorkspaces(rows, scan.extraParentLinks);
+  const resolvedWorkspaces = resolveConversationWorkspaces(rows, scan.extraParentLinks, {
+    agyDataDir,
+    swarmConvIds: new Set(scan.swarmBoardsByRootConvId.keys()),
+  });
+
+  const rowMap = new Map<string, ConversationSummaryRow>();
+  for (const row of rows) {
+    if (row.conversation_id) rowMap.set(row.conversation_id, row);
+  }
 
   // Group conversations by floor key
   interface FloorAccumulator {
@@ -565,12 +654,26 @@ export function buildPlazaSnapshot(
     const trimmedBoard = boardMessages.slice(-40);
 
     // Build candidate employees
-    const candidatePairs = group.rows.map((row) => ({
-      row,
-      employee: buildEmployeeFromRow(row, scan, trimmedBoard, nowMs),
-      modifiedMs: parseTimestampMs(row.last_modified_time),
-      killed: row.killed === 1 || scan.swarmMemberByConvId.get(row.conversation_id)?.killed === true,
-    }));
+    const candidatePairs = group.rows.map((row) => {
+      const rootId = resolvedWorkspaces.get(row.conversation_id)?.rootConversationId;
+      const rootRow = rootId ? rowMap.get(rootId) : undefined;
+      const rootModifiedMs = rootRow ? parseTimestampMs(rootRow.last_modified_time) : 0;
+      const rootCoordinatorIdle =
+        Boolean(rootRow) &&
+        rootRow!.conversation_id !== row.conversation_id &&
+        rootRow!.status === 'CASCADE_RUN_STATUS_IDLE' &&
+        rootRow!.not_fully_idle === 0 &&
+        rootModifiedMs > 0 &&
+        nowMs - rootModifiedMs > 60_000;
+
+      return {
+        row,
+        employee: buildEmployeeFromRow(row, scan, trimmedBoard, nowMs, rootCoordinatorIdle),
+        modifiedMs: parseTimestampMs(row.last_modified_time),
+        killed:
+          row.killed === 1 || scan.swarmMemberByConvId.get(row.conversation_id)?.killed === true,
+      };
+    });
 
     // Roster filter:
     // Keep all 'working' and 'waiting' + recent non-killed in last 24h;
@@ -665,6 +768,7 @@ export function buildPlazaSnapshot(
   floors.push(...projectFloors);
 
   for (const floor of floors) {
+    applyWarRoomPresentation(floor.employees, floor.boardMessages, nowMs);
     applyLoungeActivities(floor.employees, floor.floorNumber, nowMs);
   }
 

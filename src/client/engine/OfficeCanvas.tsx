@@ -20,6 +20,8 @@ import {
   GAMING_SLOTS,
   getTileZone,
   LOUNGE_SEAT_SLOTS,
+  MEETING_CHAIR_SLOTS,
+  PRESENTER_SLOT,
   ZONE_SLOTS,
   type Facing,
 } from './pathfinding';
@@ -134,6 +136,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
     };
 
     let loungeSeatIdx = 0;
+    let meetingChairIdx = 0;
     let coffeeTaken = false;
     const gamingIds: string[] = [];
 
@@ -143,6 +146,13 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
       if (emp.activity === 'gaming') {
         slot = GAMING_SLOTS[emp.playerSlot === 2 ? 1 : 0];
         gamingIds.push(emp.id);
+      } else if (emp.zone === 'WAR_ROOM') {
+        if (emp.activity === 'presenting' || emp.isPresenter) {
+          slot = PRESENTER_SLOT;
+        } else {
+          slot = MEETING_CHAIR_SLOTS[meetingChairIdx % MEETING_CHAIR_SLOTS.length];
+          meetingChairIdx += 1;
+        }
       } else if (emp.zone === 'COFFEE_LOUNGE') {
         if (emp.activity === 'coffee' && !coffeeTaken) {
           slot = COFFEE_SLOT;
@@ -310,11 +320,14 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
       }
       const renderables: RenderItem[] = [];
 
-      // Occupied check for dev/qa desks & gaming TV console
+      // Occupied check for dev/qa desks, gaming TV console & presentation screen
       const occupiedZones = new Set(
         currentFloor.employees.filter((e) => e.status === 'working').map((e) => e.zone),
       );
       const isGamingOccupied = currentFloor.employees.some((e) => e.activity === 'gaming');
+      const isPresenterActive = currentFloor.employees.some(
+        (e) => e.activity === 'presenting' || e.isPresenter,
+      );
 
       let wbMinX = Infinity;
       let wbMinY = Infinity;
@@ -336,7 +349,8 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
             const occupied =
               (item.kind === 'dev_desk' && occupiedZones.has('DESK_CODING')) ||
               (item.kind === 'qa_desk' && occupiedZones.has('DESK_QA')) ||
-              (item.kind === 'tv_console' && isGamingOccupied);
+              (item.kind === 'tv_console' && isGamingOccupied) ||
+              (isWb && isPresenterActive);
             drawFurniture(
               ctx,
               item.kind,

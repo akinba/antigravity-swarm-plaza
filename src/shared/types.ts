@@ -6,6 +6,7 @@ export type AgentActivityKind =
   | 'searching'
   | 'terminal'
   | 'meeting'
+  | 'presenting'
   | 'thinking'
   | 'sleeping'
   | 'coffee'
@@ -49,6 +50,7 @@ export interface OfficeEmployee {
   partnerId?: string;
   partnerName?: string;
   playerSlot?: 1 | 2;
+  isPresenter?: boolean;
   xp: number;
   level: number;
   stepCount: number;
