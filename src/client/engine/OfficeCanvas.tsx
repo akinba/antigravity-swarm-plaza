@@ -11,21 +11,20 @@ import {
   type GridPoint,
   type IsoCamera,
 } from './isoMath';
+import { getFloorLayout, type FloorLayout } from './officeLayouts';
 import {
-  buildWalkableGrid,
-  COFFEE_SLOT,
+  buildWalkableGridForFurniture,
   facingFromDelta,
   findPath,
-  FURNITURE_BLOCKS,
-  GAMING_SLOTS,
-  getTileZone,
-  LOUNGE_SEAT_SLOTS,
-  MEETING_CHAIR_SLOTS,
-  PRESENTER_SLOT,
-  ZONE_SLOTS,
   type Facing,
 } from './pathfinding';
-import { drawBackWalls, drawEmployeeSprite, drawFloorTile, drawFurniture } from './pixelSprites';
+import {
+  drawBackWalls,
+  drawEmployeeSprite,
+  drawFloorTile,
+  drawFurniture,
+  drawMascotSprite,
+} from './pixelSprites';
 
 interface OfficeCanvasProps {
   floor: PlazaFloor;
@@ -57,11 +56,23 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
   onSelectEmployee,
   onOpenWhiteboard,
 }) => {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  const walkableGrid = useMemo(() => buildWalkableGrid(), []);
+  const layout = useMemo(
+    () => getFloorLayout(floor.id, floor.floorNumber, floor.layoutSeed ?? 0),
+    [floor.id, floor.floorNumber, floor.layoutSeed],
+  );
+  const layoutRef = useRef<FloorLayout>(layout);
+  layoutRef.current = layout;
+
+  const walkableGrid = useMemo(
+    () => buildWalkableGridForFurniture(layout.furniture),
+    [layout],
+  );
+  const walkableGridRef = useRef<boolean[][]>(walkableGrid);
+  walkableGridRef.current = walkableGrid;
 
   const [camera, setCamera] = useState<IsoCamera>(() => getDefaultCamera(1000, 680));
   const cameraRef = useRef<IsoCamera>(camera);
@@ -71,6 +82,14 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
   const [hoveredWhiteboard, setHoveredWhiteboard] = useState(false);
 
   const actorsRef = useRef<Map<string, ActorState>>(new Map());
+  const mascotRef = useRef<{
+    gx: number;
+    gy: number;
+    path: GridPoint[];
+    facing: Facing;
+    pauseUntil: number;
+  }>({ gx: 7, gy: 7, path: [], facing: 'SE', pauseUntil: 0 });
+  const prevLayoutSigRef = useRef<string>(`${floor.id}:${floor.layoutSeed ?? 0}`);
   const prevGamingSigRef = useRef<string>('');
   const floorRef = useRef<PlazaFloor>(floor);
   floorRef.current = floor;
@@ -118,6 +137,27 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
   // Sync employees into actor states & trigger A* pathfinding when zone/slot changes
   useEffect(() => {
     const actors = actorsRef.current;
+    const layoutSig = `${floor.id}:${floor.layoutSeed ?? 0}`;
+    const layoutChanged = prevLayoutSigRef.current !== layoutSig;
+    prevLayoutSigRef.current = layoutSig;
+
+    if (layoutChanged) {
+      actors.clear();
+      // Snap mascot onto a guaranteed walkable tile
+      let mx = 7;
+      let my = 7;
+      outer: for (let gy = 3; gy < GRID_H - 1; gy++) {
+        for (let gx = 3; gx < GRID_W - 1; gx++) {
+          if (walkableGrid[gy][gx]) {
+            mx = gx;
+            my = gy;
+            break outer;
+          }
+        }
+      }
+      mascotRef.current = { gx: mx, gy: my, path: [], facing: 'SE', pauseUntil: 0 };
+    }
+
     const activeIds = new Set(floor.employees.map((e) => e.id));
 
     for (const id of actors.keys()) {
@@ -137,34 +177,42 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
 
     let loungeSeatIdx = 0;
     let meetingChairIdx = 0;
-    let coffeeTaken = false;
+    let watercoolerIdx = 0;
+    let pizzaIdx = 0;
+    let coffeeIdx = 0;
     const gamingIds: string[] = [];
 
     floor.employees.forEach((emp) => {
-      let slot = ZONE_SLOTS.DESK_CODING[0];
+      let slot = layout.zoneSlots.DESK_CODING[0];
 
       if (emp.activity === 'gaming') {
-        slot = GAMING_SLOTS[emp.playerSlot === 2 ? 1 : 0];
+        slot = layout.gamingSlots[emp.playerSlot === 2 ? 1 : 0];
         gamingIds.push(emp.id);
+      } else if (emp.activity === 'watercooler') {
+        slot = layout.watercoolerSlots[watercoolerIdx % layout.watercoolerSlots.length];
+        watercoolerIdx += 1;
+      } else if (emp.activity === 'pizza') {
+        slot = layout.pizzaSlots[pizzaIdx % layout.pizzaSlots.length];
+        pizzaIdx += 1;
       } else if (emp.zone === 'WAR_ROOM') {
         if (emp.activity === 'presenting' || emp.isPresenter) {
-          slot = PRESENTER_SLOT;
+          slot = layout.presenterSlot;
         } else {
-          slot = MEETING_CHAIR_SLOTS[meetingChairIdx % MEETING_CHAIR_SLOTS.length];
+          slot = layout.meetingChairSlots[meetingChairIdx % layout.meetingChairSlots.length];
           meetingChairIdx += 1;
         }
       } else if (emp.zone === 'COFFEE_LOUNGE') {
-        if (emp.activity === 'coffee' && !coffeeTaken) {
-          slot = COFFEE_SLOT;
-          coffeeTaken = true;
+        if (emp.activity === 'coffee' && coffeeIdx < layout.coffeeSlots.length) {
+          slot = layout.coffeeSlots[coffeeIdx];
+          coffeeIdx += 1;
         } else {
-          slot = LOUNGE_SEAT_SLOTS[loungeSeatIdx % LOUNGE_SEAT_SLOTS.length];
+          slot = layout.loungeSeatSlots[loungeSeatIdx % layout.loungeSeatSlots.length];
           loungeSeatIdx += 1;
         }
       } else {
         const idx = zoneCounters[emp.zone] ?? 0;
         zoneCounters[emp.zone] = idx + 1;
-        const slots = ZONE_SLOTS[emp.zone] || ZONE_SLOTS.DESK_CODING;
+        const slots = layout.zoneSlots[emp.zone] || layout.zoneSlots.DESK_CODING;
         slot = slots[idx % slots.length];
       }
 
@@ -205,7 +253,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
       playGamepadBlip();
     }
     prevGamingSigRef.current = gamingSig;
-  }, [floor.employees, walkableGrid]);
+  }, [floor.employees, floor.id, floor.layoutSeed, layout, walkableGrid]);
 
   // Resize observer
   useEffect(() => {
@@ -289,6 +337,43 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
         }
       }
 
+      // Update roaming mascot
+      const currentLayout = layoutRef.current;
+      const currentGrid = walkableGridRef.current;
+      const isZoomies = currentFloor.activeEvent?.kind === 'MASCOT_ZOOMIES';
+      const mascot = mascotRef.current;
+      if (mascot.path.length > 0) {
+        const next = mascot.path[0];
+        const dx = next.gx - mascot.gx;
+        const dy = next.gy - mascot.gy;
+        const dist = Math.hypot(dx, dy);
+        const speed = (isZoomies ? WALK_SPEED_TILES_PER_SEC * 2.8 : WALK_SPEED_TILES_PER_SEC * 0.75) * dt;
+        if (dist <= speed) {
+          mascot.gx = next.gx;
+          mascot.gy = next.gy;
+          mascot.path.shift();
+          if (mascot.path.length === 0) {
+            mascot.pauseUntil = timeSec + (isZoomies ? 0.25 : 3 + Math.random() * 2);
+          }
+        } else {
+          mascot.gx += (dx / dist) * speed;
+          mascot.gy += (dy / dist) * speed;
+          mascot.facing = facingFromDelta(dx, dy, mascot.facing);
+        }
+      } else if (timeSec >= mascot.pauseUntil) {
+        const rx = 1 + Math.floor(Math.random() * (GRID_W - 2));
+        const ry = 1 + Math.floor(Math.random() * (GRID_H - 2));
+        if (currentGrid[ry]?.[rx]) {
+          mascot.path = findPath(
+            currentGrid,
+            { gx: Math.round(mascot.gx), gy: Math.round(mascot.gy) },
+            { gx: rx, gy: ry },
+          );
+        } else {
+          mascot.pauseUntil = timeSec + 0.5;
+        }
+      }
+
       ctx.save();
       ctx.scale(dpr, dpr);
       ctx.imageSmoothingEnabled = false;
@@ -305,22 +390,32 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
       // 1. Draw back walls & panoramic windows
       drawBackWalls(ctx, topVertexX, topVertexY, GRID_W, GRID_H, cam.zoom, night, timeSec);
 
-      // 2. Draw floor tiles
+      // 2. Draw floor tiles using floor's dynamic blueprint & themePalette
       for (let gy = 0; gy < GRID_H; gy++) {
         for (let gx = 0; gx < GRID_W; gx++) {
           const p = gridToScreen(gx, gy, cam);
-          drawFloorTile(ctx, p.x, p.y, gx, gy, getTileZone(gx, gy), cam.zoom, night);
+          drawFloorTile(
+            ctx,
+            p.x,
+            p.y,
+            gx,
+            gy,
+            currentLayout.getTileZone(gx, gy),
+            cam.zoom,
+            night,
+            currentLayout.themePalette,
+          );
         }
       }
 
-      // 3. Collect depth-sorted renderables (furniture, unlocked props, employees)
+      // 3. Collect depth-sorted renderables (furniture, unlocked props, mascot, employees)
       interface RenderItem {
         depth: number;
         draw: () => void;
       }
       const renderables: RenderItem[] = [];
 
-      // Occupied check for dev/qa desks, gaming TV console & presentation screen
+      // Occupied check for dev/qa desks, gaming TV console, presentation screen & pizza box
       const occupiedZones = new Set(
         currentFloor.employees.filter((e) => e.status === 'working').map((e) => e.zone),
       );
@@ -328,13 +423,16 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
       const isPresenterActive = currentFloor.employees.some(
         (e) => e.activity === 'presenting' || e.isPresenter,
       );
+      const isPizzaActive =
+        currentFloor.activeEvent?.kind === 'PIZZA_PARTY' ||
+        currentFloor.employees.some((e) => e.activity === 'pizza');
 
       let wbMinX = Infinity;
       let wbMinY = Infinity;
       let wbMaxX = -Infinity;
       let wbMaxY = -Infinity;
 
-      for (const item of FURNITURE_BLOCKS) {
+      for (const item of currentLayout.furniture) {
         const p = gridToScreen(item.gx, item.gy, cam);
         const isWb = item.kind === 'whiteboard_l' || item.kind === 'whiteboard_r';
         if (isWb) {
@@ -350,6 +448,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
               (item.kind === 'dev_desk' && occupiedZones.has('DESK_CODING')) ||
               (item.kind === 'qa_desk' && occupiedZones.has('DESK_QA')) ||
               (item.kind === 'tv_console' && isGamingOccupied) ||
+              (item.kind === 'lounge_table' && isPizzaActive) ||
               (isWb && isPresenterActive);
             drawFurniture(
               ctx,
@@ -375,16 +474,9 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
         };
       }
 
-      // Tier-unlocked props placed on safe decorative tiles
+      // Tier-unlocked props placed on layout-specific decorative tiles
       const props = currentFloor.unlockedProps || [];
-      const propCoords: Array<{ key: string; kind: string; gx: number; gy: number }> = [
-        { key: 'plants', kind: 'prop_plant', gx: 0.4, gy: 4.2 },
-        { key: 'plants', kind: 'prop_plant', gx: 14.5, gy: 0.5 },
-        { key: 'trophy', kind: 'prop_trophy', gx: 4.1, gy: 1.2 },
-        { key: 'arcade', kind: 'prop_arcade', gx: 14.2, gy: 8.5 },
-        { key: 'hologram', kind: 'prop_hologram', gx: 7.5, gy: 11.2 },
-      ];
-      for (const pr of propCoords) {
+      for (const pr of currentLayout.propPositions) {
         if (props.includes(pr.key)) {
           const p = gridToScreen(pr.gx, pr.gy, cam);
           renderables.push({
@@ -395,6 +487,24 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
           });
         }
       }
+
+      // Roaming Floor Mascot
+      const mp = gridToScreen(mascot.gx, mascot.gy, cam);
+      renderables.push({
+        depth: mascot.gx + mascot.gy + 0.08,
+        draw: () => {
+          drawMascotSprite(
+            ctx,
+            currentLayout.mascotKind,
+            mp.x,
+            mp.y,
+            cam.zoom,
+            mascot.facing,
+            timeSec,
+            isZoomies,
+          );
+        },
+      });
 
       // Employees
       const nextHitBoxes: Array<{ emp: OfficeEmployee; x: number; y: number; r: number }> = [];
@@ -433,6 +543,17 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
       renderables.sort((a, b) => a.depth - b.depth);
       for (const r of renderables) {
         r.draw();
+      }
+
+      // Falling pixel confetti during SPRINT_CELEBRATION
+      if (currentFloor.activeEvent?.kind === 'SPRINT_CELEBRATION') {
+        const confettiColors = ['#ffd147', '#3cd8ff', '#3be87a', '#ff5666', '#b07cff'];
+        for (let i = 0; i < 42; i++) {
+          const cx = ((i * 97 + Math.sin(timeSec * 2 + i) * 30) % Math.max(1, viewW));
+          const cy = ((i * 53 + timeSec * (75 + (i % 4) * 20)) % Math.max(1, viewH));
+          ctx.fillStyle = confettiColors[i % confettiColors.length];
+          ctx.fillRect(Math.round(cx), Math.round(cy), 5, 5);
+        }
       }
 
       ctx.restore();
@@ -560,6 +681,44 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
         onWheel={handleWheel}
         style={{ display: 'block', cursor: cursorStyle, touchAction: 'none' }}
       />
+
+      {/* Active Random Event Pixel Banner */}
+      {floor.activeEvent && (
+        <div
+          className="pixel-panel"
+          style={{
+            position: 'absolute',
+            top: 12,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            padding: '8px 16px',
+            background: '#2a1f47',
+            borderColor: '#ffd147',
+            pointerEvents: 'none',
+            zIndex: 10,
+          }}
+        >
+          <span className="pixel-title" style={{ fontSize: 10, color: '#ffd147' }}>
+            {t.events[floor.activeEvent.kind]}
+          </span>
+        </div>
+      )}
+
+      {/* Bottom-left Blueprint & Theme Badge */}
+      <div
+        className="pixel-badge"
+        style={{
+          position: 'absolute',
+          left: 12,
+          bottom: 12,
+          color: '#9ee8ff',
+          background: 'rgba(16, 19, 30, 0.88)',
+          pointerEvents: 'none',
+        }}
+      >
+        🏛 {t.blueprints[layout.blueprintIndex]} •{' '}
+        {locale === 'tr' ? layout.themePalette.nameTr : layout.themePalette.nameEn}
+      </div>
 
       {/* Empty floor overlay */}
       {floor.employees.length === 0 && (

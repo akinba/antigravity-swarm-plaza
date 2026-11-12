@@ -10,6 +10,7 @@ import { readAgentLogs } from './brainScanner.js';
 import { AGY_DATA_DIR, CURRENT_WORKSPACE, PORT } from './config.js';
 import { getDemoAgentLogs, getDemoEmployee } from './demoSimulator.js';
 import { buildPlazaSnapshot } from './gamification.js';
+import { rerollFloorLayout, triggerFloorEvent } from './officeEvents.js';
 
 export interface PlazaAppOptions {
   agyDataDir?: string;
@@ -134,6 +135,18 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
     res.json({ demoMode, snapshot });
   });
 
+  app.post('/api/floors/:floorId/reroll', (req, res) => {
+    const layoutSeed = rerollFloorLayout(req.params.floorId);
+    const snapshot = broadcastSnapshot();
+    res.json({ layoutSeed, snapshot });
+  });
+
+  app.post('/api/floors/:floorId/event', (req, res) => {
+    const activeEvent = triggerFloorEvent(req.params.floorId);
+    const snapshot = broadcastSnapshot();
+    res.json({ activeEvent, snapshot });
+  });
+
   // Serve built frontend if dist/client/index.html exists
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const clientDistDir = path.resolve(__dirname, '../../dist/client');
@@ -163,8 +176,28 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
     timer.unref();
   }
 
+  const ambientTimer =
+    broadcastIntervalMs > 0
+      ? setInterval(() => {
+          const snap = getSnapshot();
+          const eligible = snap.floors.filter(
+            (f) => f.employees.length >= 1 && !f.activeEvent,
+          );
+          if (eligible.length > 0) {
+            const pick = eligible[Math.floor(Math.random() * eligible.length)];
+            triggerFloorEvent(pick.id);
+            broadcastSnapshot();
+          }
+        }, 65_000)
+      : null;
+
+  if (ambientTimer && typeof ambientTimer.unref === 'function') {
+    ambientTimer.unref();
+  }
+
   const close = async (): Promise<void> => {
     if (timer) clearInterval(timer);
+    if (ambientTimer) clearInterval(ambientTimer);
     await new Promise<void>((resolve) => {
       wss.close(() => resolve());
     });

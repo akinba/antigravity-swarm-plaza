@@ -15,6 +15,8 @@ interface TopHudProps {
   muted: boolean;
   onToggleMute: () => void;
   onOpenWhiteboard: () => void;
+  onRerollLayout: () => void;
+  onTriggerEvent: () => void;
   wsConnected: boolean;
 }
 
@@ -30,6 +32,8 @@ export const TopHud: React.FC<TopHudProps> = ({
   muted,
   onToggleMute,
   onOpenWhiteboard,
+  onRerollLayout,
+  onTriggerEvent,
   wsConnected,
 }) => {
   const { locale, setLocale, t } = useI18n();
@@ -160,6 +164,29 @@ export const TopHud: React.FC<TopHudProps> = ({
         >
           {t.hud.swarmBoard}
         </button>
+
+        {/* Reroll Layout & Trigger Event */}
+        {floor && (
+          <>
+            <button
+              type="button"
+              className="pixel-btn"
+              onClick={() => {
+                playSelectBlip();
+                onRerollLayout();
+              }}
+            >
+              {t.hud.rerollLayout}
+            </button>
+            <button
+              type="button"
+              className="pixel-btn cyan"
+              onClick={onTriggerEvent}
+            >
+              {t.hud.triggerEvent}
+            </button>
+          </>
+        )}
 
         {/* Demo Mode */}
         <button

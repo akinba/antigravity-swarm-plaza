@@ -3,6 +3,7 @@ import type { OfficeEmployee, PlazaFloor, PlazaSnapshot } from '../shared/types'
 import {
   initAudioUnlock,
   isMuted,
+  playEventJingle,
   playLevelUp,
   playMentionChime,
   playSelectBlip,
@@ -41,6 +42,7 @@ export const App: React.FC = () => {
 
   const prevBoardSeqRef = useRef<Map<string, number>>(new Map());
   const prevTierRef = useRef<Map<string, number>>(new Map());
+  const prevEventIdRef = useRef<Map<string, string | null>>(new Map());
   const hasInitializedRef = useRef<boolean>(false);
 
   useEffect(() => {
@@ -51,6 +53,7 @@ export const App: React.FC = () => {
     if (hasInitializedRef.current) {
       let shouldChime = false;
       let shouldLevelUp = false;
+      let shouldEventJingle = false;
 
       for (const fl of next.floors) {
         const lastSeq = fl.boardMessages.length
@@ -67,10 +70,19 @@ export const App: React.FC = () => {
           shouldLevelUp = true;
         }
         prevTierRef.current.set(fl.id, fl.tier);
+
+        const nextEventId = fl.activeEvent?.id ?? null;
+        const prevEventId = prevEventIdRef.current.get(fl.id) ?? null;
+        if (nextEventId && nextEventId !== prevEventId) {
+          shouldEventJingle = true;
+        }
+        prevEventIdRef.current.set(fl.id, nextEventId);
       }
 
       if (shouldLevelUp) {
         playLevelUp();
+      } else if (shouldEventJingle) {
+        playEventJingle();
       } else if (shouldChime) {
         playMentionChime();
       }
@@ -81,6 +93,7 @@ export const App: React.FC = () => {
           : 0;
         prevBoardSeqRef.current.set(fl.id, lastSeq);
         prevTierRef.current.set(fl.id, fl.tier);
+        prevEventIdRef.current.set(fl.id, fl.activeEvent?.id ?? null);
       }
       hasInitializedRef.current = true;
     }
@@ -192,6 +205,37 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleRerollLayout = async () => {
+    if (!activeFloor) return;
+    try {
+      const res = await fetch(`/api/floors/${encodeURIComponent(activeFloor.id)}/reroll`, {
+        method: 'POST',
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as PlazaSnapshot | { snapshot?: PlazaSnapshot };
+      const snap = 'floors' in data ? data : data.snapshot;
+      if (snap) applySnapshot(snap);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleTriggerEvent = async () => {
+    if (!activeFloor) return;
+    playEventJingle();
+    try {
+      const res = await fetch(`/api/floors/${encodeURIComponent(activeFloor.id)}/event`, {
+        method: 'POST',
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as PlazaSnapshot | { snapshot?: PlazaSnapshot };
+      const snap = 'floors' in data ? data : data.snapshot;
+      if (snap) applySnapshot(snap);
+    } catch {
+      // ignore
+    }
+  };
+
   const handleSelectFloorFromTower = (floorId: string) => {
     setSelectedFloorId(floorId);
     setViewMode('office');
@@ -218,6 +262,8 @@ export const App: React.FC = () => {
         muted={muted}
         onToggleMute={handleToggleMute}
         onOpenWhiteboard={() => setWhiteboardOpen(true)}
+        onRerollLayout={handleRerollLayout}
+        onTriggerEvent={handleTriggerEvent}
         wsConnected={wsConnected}
       />
 

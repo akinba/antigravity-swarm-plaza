@@ -10,10 +10,26 @@ export type AgentActivityKind =
   | 'thinking'
   | 'sleeping'
   | 'coffee'
+  | 'watercooler'
+  | 'pizza'
   | 'lounging'
   | 'gaming'
   | 'error';
 export type CompanyTier = 1 | 2 | 3 | 4;
+
+export type FloorEventKind =
+  | 'PIZZA_PARTY'
+  | 'WATERCOOLER_GOSSIP'
+  | 'SPRINT_CELEBRATION'
+  | 'MASCOT_ZOOMIES'
+  | 'COFFEE_BREW';
+
+export interface FloorRandomEvent {
+  id: string;
+  kind: FloorEventKind;
+  startedAt: number;
+  expiresAt: number;
+}
 
 export interface AgentLogEntry {
   stepIndex: number;
@@ -77,6 +93,8 @@ export interface PlazaFloor {
   employees: OfficeEmployee[];
   boardMessages: SwarmBoardMessage[];
   swarmTitle?: string;
+  layoutSeed?: number;
+  activeEvent?: FloorRandomEvent | null;
   lastModifiedAt: string;
 }
 

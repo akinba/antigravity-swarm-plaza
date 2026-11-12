@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import type { AgentActivityKind, CompanyTier, OfficeZone } from '../../shared/types';
+import type { AgentActivityKind, CompanyTier, FloorEventKind, OfficeZone } from '../../shared/types';
 
 export type Locale = 'tr' | 'en';
 
@@ -28,7 +28,11 @@ export interface Translations {
     wsConnected: string;
     wsReconnecting: string;
     resetCamera: string;
+    rerollLayout: string;
+    triggerEvent: string;
   };
+  blueprints: string[];
+  events: Record<FloorEventKind, string>;
   elevator: {
     title: string;
     penthouse: string;
@@ -112,6 +116,8 @@ const TR: Translations = {
     thinking: 'Planlama / Düşünüyor',
     sleeping: 'Beklemede (Zzz)',
     coffee: 'Kahve Molası',
+    watercooler: 'Sebil Başında Sohbet 💧',
+    pizza: 'Pizza Molası 🍕',
     lounging: 'Koltukta Dinleniyor',
     gaming: 'Konsol Oyunu Oynuyor 🎮',
     error: 'Hata / Müdahale',
@@ -141,6 +147,22 @@ const TR: Translations = {
     wsConnected: 'CANLI',
     wsReconnecting: 'BAĞLANIYOR',
     resetCamera: 'KAMERA SIFIRLA',
+    rerollLayout: '🎲 DÜZEN',
+    triggerEvent: '⚡ OLAY',
+  },
+  blueprints: [
+    'Klasik Köşe Stüdyo',
+    'Merkez Toplantı Adası',
+    'Açık L-Plan Teknoloji Labı',
+    'Çift Kanat Kurumsal Kat',
+    'Yaratıcı Çatı Loftu',
+  ],
+  events: {
+    PIZZA_PARTY: '🍕 KAT PİZZA PARTİSİ!',
+    WATERCOOLER_GOSSIP: '💧 SEBİL BAŞINDA DEDİKODU!',
+    SPRINT_CELEBRATION: '🎉 SPRİNT KUTLAMASI!',
+    MASCOT_ZOOMIES: '🐾 MASKOT ÇILGINLIĞI!',
+    COFFEE_BREW: '☕ TAZE ESPRESSO SERVİSİ!',
   },
   elevator: {
     title: 'ASANSÖR',
@@ -225,6 +247,8 @@ const EN: Translations = {
     thinking: 'Planning / Thinking',
     sleeping: 'Waiting (Zzz)',
     coffee: 'Coffee Break',
+    watercooler: 'Watercooler Chat 💧',
+    pizza: 'Pizza Break 🍕',
     lounging: 'Relaxing on Sofa',
     gaming: 'Playing Console Game 🎮',
     error: 'Error / Attention',
@@ -254,6 +278,22 @@ const EN: Translations = {
     wsConnected: 'LIVE',
     wsReconnecting: 'RECONNECTING',
     resetCamera: 'RESET CAM',
+    rerollLayout: '🎲 LAYOUT',
+    triggerEvent: '⚡ EVENT',
+  },
+  blueprints: [
+    'Classic Corner Studio',
+    'Central War-Room Hub',
+    'Open L-Wing Lab',
+    'Twin-Wing Corporate',
+    'Creative Rooftop Loft',
+  ],
+  events: {
+    PIZZA_PARTY: '🍕 FLOOR PIZZA PARTY!',
+    WATERCOOLER_GOSSIP: '💧 WATERCOOLER GOSSIP!',
+    SPRINT_CELEBRATION: '🎉 SPRINT CELEBRATION!',
+    MASCOT_ZOOMIES: '🐾 MASCOT ZOOMIES!',
+    COFFEE_BREW: '☕ FRESH ESPRESSO BREW!',
   },
   elevator: {
     title: 'ELEVATOR',

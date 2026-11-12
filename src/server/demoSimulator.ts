@@ -6,6 +6,7 @@ import type {
   PlazaFloor,
   SwarmBoardMessage,
 } from '../shared/types.js';
+import { getActiveFloorEvent, getFloorLayoutSeed } from './officeEvents.js';
 
 interface DemoEmployeeTemplate {
   id: string;
@@ -417,6 +418,53 @@ export function getDemoFloor(advance = true): PlazaFloor {
     },
   ];
 
+  const nowMs = Date.now();
+  const layoutSeed = getFloorLayoutSeed('demo-penthouse');
+  const activeEvent = getActiveFloorEvent('demo-penthouse', nowMs);
+
+  if (activeEvent) {
+    const loungeEmps = employees.filter(
+      (e) => e.zone === 'COFFEE_LOUNGE' && (e.status === 'idle' || e.status === 'waiting'),
+    );
+    if (activeEvent.kind === 'PIZZA_PARTY') {
+      loungeEmps.slice(0, 4).forEach((emp, i) => {
+        emp.activity = 'pizza';
+        emp.partnerId = undefined;
+        emp.partnerName = undefined;
+        emp.playerSlot = undefined;
+        emp.speechBubble = ['🍕 Sıcak pepperoni kap!', '🍕 Dilim efsane!', '🍕 Tam zamanında geldi!'][i % 3];
+      });
+    } else if (activeEvent.kind === 'WATERCOOLER_GOSSIP') {
+      loungeEmps.slice(0, 3).forEach((emp, i) => {
+        emp.activity = 'watercooler';
+        emp.partnerId = undefined;
+        emp.partnerName = undefined;
+        emp.playerSlot = undefined;
+        emp.speechBubble = ['💧 Su başı dedikodusu!', '💧 Flash 0 token yakıyor!'][i % 2];
+      });
+    } else if (activeEvent.kind === 'COFFEE_BREW') {
+      loungeEmps.slice(0, 4).forEach((emp, i) => {
+        emp.activity = 'coffee';
+        emp.partnerId = undefined;
+        emp.partnerName = undefined;
+        emp.playerSlot = undefined;
+        emp.speechBubble = ['☕ Taze espresso kokusu!', '☕ Duble shot zamanı!'][i % 2];
+      });
+    } else if (activeEvent.kind === 'MASCOT_ZOOMIES') {
+      loungeEmps.forEach((emp, i) => {
+        if (emp.activity !== 'gaming') {
+          emp.speechBubble = ['🐱 Kedi turboya geçti :D', '🤖 Maskot şov yapıyor!'][i % 2];
+        }
+      });
+    } else if (activeEvent.kind === 'SPRINT_CELEBRATION') {
+      loungeEmps.forEach((emp, i) => {
+        if (emp.activity !== 'gaming') {
+          emp.speechBubble = ['🎉 Sprint hedefi tamam!', '🚀 Şirket uçuyor!'][i % 2];
+        }
+      });
+    }
+  }
+
   const activeCount = employees.filter((e) => e.status === 'working').length;
   const waitingCount = employees.filter((e) => e.status === 'waiting').length;
 
@@ -426,6 +474,8 @@ export function getDemoFloor(advance = true): PlazaFloor {
     companyName: 'Swarm Simülasyon A.Ş. (Demo)',
     workspacePath: 'demo://penthouse',
     isDemo: true,
+    layoutSeed,
+    activeEvent,
     tier: 4,
     companyXp: 12400 + demoTick * 80,
     nextTierXp: 25000,

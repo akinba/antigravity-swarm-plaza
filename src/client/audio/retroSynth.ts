@@ -132,3 +132,10 @@ export function playGamepadBlip(): void {
   playTone(440, 0.05, 'square', 0.055, 0);
   playTone(660, 0.07, 'square', 0.055, 0.05);
 }
+
+/** 3-note chime for floor random events */
+export function playEventJingle(): void {
+  playTone(587.33, 0.09, 'triangle', 0.09, 0);
+  playTone(783.99, 0.09, 'triangle', 0.09, 0.08);
+  playTone(1174.66, 0.22, 'triangle', 0.1, 0.16);
+}

@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import type {
   AgentActivityKind,
   CompanyTier,
+  FloorRandomEvent,
   ModelFamily,
   OfficeEmployee,
   OfficeZone,
@@ -9,6 +10,7 @@ import type {
   PlazaSnapshot,
   SwarmBoardMessage,
 } from '../shared/types.js';
+import { getActiveFloorEvent, getFloorLayoutSeed } from './officeEvents.js';
 import {
   scanBrainData,
   type BrainScanResult,
@@ -341,30 +343,102 @@ const GAMING_CHATS: Array<[string, string]> = [
   ['🎮 Co-op boss savaşı!', '🎮 Süper kombo! GG!'],
 ];
 
+const PIZZA_BUBBLES = [
+  '🍕 Sıcak pepperoni kap!',
+  '🍕 Dilim efsane!',
+  '🍕 Tam zamanında geldi!',
+];
+const WATERCOOLER_BUBBLES = [
+  '💧 Su başı dedikodusu!',
+  '💧 Flash 0 token yakıyor!',
+];
+const COFFEE_BREW_BUBBLES = [
+  '☕ Taze espresso kokusu!',
+  '☕ Duble shot zamanı!',
+];
+const ZOOMIES_BUBBLES = [
+  '🐱 Kedi turboya geçti :D',
+  '🤖 Maskot şov yapıyor!',
+];
+const CELEBRATION_BUBBLES = [
+  '🎉 Sprint hedefi tamam!',
+  '🚀 Şirket uçuyor!',
+];
+
 /**
- * Post-process COFFEE_LOUNGE employees on a floor to assign paired 2-player console gaming
- * and relaxed sofa/armchair lounging vs coffee breaks in smooth deterministic time buckets.
+ * Post-process COFFEE_LOUNGE (idle/waiting) employees on a floor to assign paired 2-player
+ * console gaming, ambient micro-activities (lounging, coffee, watercooler, pizza), and
+ * active floor event reactions. Never pulls `status === 'working'` employees off their work.
  */
 export function applyLoungeActivities(
   employees: OfficeEmployee[],
   floorIndex: number,
   nowMs = Date.now(),
+  activeEvent?: FloorRandomEvent | null,
 ): void {
-  const loungeEmployees = employees.filter((e) => e.zone === 'COFFEE_LOUNGE');
+  if (activeEvent?.kind === 'SPRINT_CELEBRATION') {
+    for (const emp of employees) {
+      if (emp.status === 'working' && !emp.speechBubble) {
+        emp.speechBubble = '🎉 Harika gidiyoruz!';
+      }
+    }
+  }
+
+  const loungeEmployees = employees.filter(
+    (e) => e.zone === 'COFFEE_LOUNGE' && (e.status === 'idle' || e.status === 'waiting'),
+  );
   if (loungeEmployees.length === 0) return;
 
   const bucket = Math.floor(nowMs / 18000);
   const chatIdx = Math.floor(nowMs / 6000) % GAMING_CHATS.length;
-  const pairedIds = new Set<string>();
+  const claimedIds = new Set<string>();
 
+  // 1. Active event reactions for idle/waiting lounge employees
+  if (activeEvent?.kind === 'PIZZA_PARTY') {
+    const count = Math.min(4, loungeEmployees.length);
+    for (let i = 0; i < count; i++) {
+      const emp = loungeEmployees[i];
+      emp.activity = 'pizza';
+      emp.partnerId = undefined;
+      emp.partnerName = undefined;
+      emp.playerSlot = undefined;
+      emp.speechBubble = PIZZA_BUBBLES[i % PIZZA_BUBBLES.length];
+      claimedIds.add(emp.id);
+    }
+  } else if (activeEvent?.kind === 'WATERCOOLER_GOSSIP') {
+    const count = Math.min(3, loungeEmployees.length);
+    for (let i = 0; i < count; i++) {
+      const emp = loungeEmployees[i];
+      emp.activity = 'watercooler';
+      emp.partnerId = undefined;
+      emp.partnerName = undefined;
+      emp.playerSlot = undefined;
+      emp.speechBubble = WATERCOOLER_BUBBLES[i % WATERCOOLER_BUBBLES.length];
+      claimedIds.add(emp.id);
+    }
+  } else if (activeEvent?.kind === 'COFFEE_BREW') {
+    const count = Math.min(4, loungeEmployees.length);
+    for (let i = 0; i < count; i++) {
+      const emp = loungeEmployees[i];
+      emp.activity = 'coffee';
+      emp.partnerId = undefined;
+      emp.partnerName = undefined;
+      emp.playerSlot = undefined;
+      emp.speechBubble = COFFEE_BREW_BUBBLES[i % COFFEE_BREW_BUBBLES.length];
+      claimedIds.add(emp.id);
+    }
+  }
+
+  // 2. Paired 2-player console gaming among remaining unclaimed lounge employees
+  const remainingForGaming = loungeEmployees.filter((e) => !claimedIds.has(e.id));
   if (
-    loungeEmployees.length >= 2 &&
-    (loungeEmployees.length >= 3 || (bucket + floorIndex) % 3 !== 0)
+    remainingForGaming.length >= 2 &&
+    (remainingForGaming.length >= 3 || (bucket + floorIndex) % 3 !== 0)
   ) {
-    const idx1 = bucket % loungeEmployees.length;
-    const idx2 = (idx1 + 1) % loungeEmployees.length;
-    const p1 = loungeEmployees[idx1];
-    const p2 = loungeEmployees[idx2];
+    const idx1 = bucket % remainingForGaming.length;
+    const idx2 = (idx1 + 1) % remainingForGaming.length;
+    const p1 = remainingForGaming[idx1];
+    const p2 = remainingForGaming[idx2];
 
     p1.activity = 'gaming';
     p1.playerSlot = 1;
@@ -378,19 +452,21 @@ export function applyLoungeActivities(
     p2.partnerName = p1.name;
     p2.speechBubble = GAMING_CHATS[chatIdx][1];
 
-    pairedIds.add(p1.id);
-    pairedIds.add(p2.id);
+    claimedIds.add(p1.id);
+    claimedIds.add(p2.id);
   }
 
+  // 3. Natural ambient micro-activities for remaining unclaimed lounge employees
   for (let empIdx = 0; empIdx < loungeEmployees.length; empIdx++) {
     const emp = loungeEmployees[empIdx];
-    if (pairedIds.has(emp.id)) continue;
+    if (claimedIds.has(emp.id)) continue;
 
     emp.partnerId = undefined;
     emp.partnerName = undefined;
     emp.playerSlot = undefined;
 
-    if ((empIdx + bucket) % 4 !== 0) {
+    const slot = (empIdx + bucket) % 6;
+    if (slot <= 2) {
       emp.activity = 'lounging';
       if (emp.status === 'waiting') {
         emp.speechBubble =
@@ -400,9 +476,22 @@ export function applyLoungeActivities(
       } else {
         emp.speechBubble = '🛋️ Kanepede mola keyfi';
       }
-    } else {
+    } else if (slot === 3) {
       emp.activity = 'coffee';
       emp.speechBubble = '☕ Kahve & dinlenme';
+    } else if (slot === 4) {
+      emp.activity = 'watercooler';
+      emp.speechBubble =
+        (empIdx + bucket) % 2 === 0 ? '💧 Yeni modeli duydun mu?' : '💧 Su molası iyi geldi';
+    } else {
+      emp.activity = 'pizza';
+      emp.speechBubble = '🍕 Atıştırmalık molası';
+    }
+
+    if (activeEvent?.kind === 'MASCOT_ZOOMIES') {
+      emp.speechBubble = ZOOMIES_BUBBLES[empIdx % ZOOMIES_BUBBLES.length];
+    } else if (activeEvent?.kind === 'SPRINT_CELEBRATION') {
+      emp.speechBubble = CELEBRATION_BUBBLES[empIdx % CELEBRATION_BUBBLES.length];
     }
   }
 }
@@ -768,8 +857,10 @@ export function buildPlazaSnapshot(
   floors.push(...projectFloors);
 
   for (const floor of floors) {
+    floor.layoutSeed = getFloorLayoutSeed(floor.id);
+    floor.activeEvent = getActiveFloorEvent(floor.id, nowMs);
     applyWarRoomPresentation(floor.employees, floor.boardMessages, nowMs);
-    applyLoungeActivities(floor.employees, floor.floorNumber, nowMs);
+    applyLoungeActivities(floor.employees, floor.floorNumber, nowMs, floor.activeEvent);
   }
 
   if (demoMode) {

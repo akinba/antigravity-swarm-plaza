@@ -1,5 +1,6 @@
 import type { ModelFamily, OfficeEmployee, OfficeZone } from '../../shared/types';
 import { TILE_H, TILE_W } from './isoMath';
+import type { MascotKind, ThemePalette } from './officeLayouts';
 import type { Facing } from './pathfinding';
 
 export interface Palette {
@@ -78,6 +79,7 @@ export function drawFloorTile(
   zone: OfficeZone,
   zoom: number,
   isNight: boolean,
+  themePalette?: ThemePalette,
 ): void {
   const hw = (TILE_W / 2) * zoom;
   const hh = (TILE_H / 2) * zoom;
@@ -87,17 +89,50 @@ export function drawFloorTile(
   let stroke = '#282d3d';
 
   if (zone === 'DESK_ARCHITECT' || zone === 'COFFEE_LOUNGE') {
-    fill = checker ? (isNight ? '#63452f' : '#a87849') : isNight ? '#563b28' : '#996c40';
-    stroke = isNight ? '#362316' : '#6e4b2b';
+    const pal = themePalette ? (isNight ? themePalette.woodNight : themePalette.woodDay) : null;
+    fill = pal
+      ? checker
+        ? pal[0]
+        : pal[1]
+      : checker
+        ? isNight
+          ? '#63452f'
+          : '#a87849'
+        : isNight
+          ? '#563b28'
+          : '#996c40';
+    stroke = pal ? pal[2] : isNight ? '#362316' : '#6e4b2b';
   } else if (zone === 'DESK_CODING' || zone === 'DESK_QA') {
-    fill = checker ? (isNight ? '#4b4658' : '#cfc6b4') : isNight ? '#433e50' : '#c4baa6';
-    stroke = isNight ? '#332f3d' : '#a89e8c';
+    const pal = themePalette ? (isNight ? themePalette.carpetNight : themePalette.carpetDay) : null;
+    fill = pal
+      ? checker
+        ? pal[0]
+        : pal[1]
+      : checker
+        ? isNight
+          ? '#4b4658'
+          : '#cfc6b4'
+        : isNight
+          ? '#433e50'
+          : '#c4baa6';
+    stroke = pal ? pal[2] : isNight ? '#332f3d' : '#a89e8c';
   } else if (zone === 'SERVER_RACK') {
     fill = checker ? '#1b2233' : '#161c2b';
     stroke = '#293954';
   } else if (zone === 'WAR_ROOM') {
-    fill = checker ? (isNight ? '#1e3152' : '#2e4f82') : isNight ? '#192945' : '#284573';
-    stroke = isNight ? '#2c4673' : '#4a73b0';
+    const pal = themePalette ? (isNight ? themePalette.confNight : themePalette.confDay) : null;
+    fill = pal
+      ? checker
+        ? pal[0]
+        : pal[1]
+      : checker
+        ? isNight
+          ? '#1e3152'
+          : '#2e4f82'
+        : isNight
+          ? '#192945'
+          : '#284573';
+    stroke = pal ? pal[2] : isNight ? '#2c4673' : '#4a73b0';
   }
 
   isoDiamondPath(ctx, cx, cy, hw, hh);
@@ -465,10 +500,22 @@ export function drawFurniture(
     drawIsoBox(ctx, cx, cy - 6 * z, 9, 5, 3, '#5c88f5', '#3f6ad8', '#2a499e', z);
   } else if (kind === 'lounge_table') {
     drawIsoBox(ctx, cx, cy, 15, 9, 8, '#a8744f', '#7d5235', '#593923', z);
-    ctx.fillStyle = '#fff5e0';
-    ctx.fillRect(Math.round(cx - 4 * z), Math.round(cy - 11 * z), Math.ceil(4 * z), Math.ceil(3 * z));
-    ctx.fillStyle = '#ffe64d';
-    ctx.fillRect(Math.round(cx + 2 * z), Math.round(cy - 10 * z), Math.ceil(3 * z), Math.ceil(3 * z));
+    if (isOccupied) {
+      // Open pixel pepperoni pizza box on the lounge table
+      ctx.fillStyle = '#f2e6d0';
+      ctx.fillRect(Math.round(cx - 8 * z), Math.round(cy - 15 * z), Math.ceil(16 * z), Math.ceil(10 * z));
+      ctx.fillStyle = '#f5b942';
+      ctx.fillRect(Math.round(cx - 6 * z), Math.round(cy - 13 * z), Math.ceil(12 * z), Math.ceil(6 * z));
+      ctx.fillStyle = '#d93838';
+      ctx.fillRect(Math.round(cx - 4 * z), Math.round(cy - 12 * z), Math.ceil(2 * z), Math.ceil(2 * z));
+      ctx.fillRect(Math.round(cx + 1 * z), Math.round(cy - 10 * z), Math.ceil(2 * z), Math.ceil(2 * z));
+      ctx.fillRect(Math.round(cx + 3 * z), Math.round(cy - 12 * z), Math.ceil(2 * z), Math.ceil(2 * z));
+    } else {
+      ctx.fillStyle = '#fff5e0';
+      ctx.fillRect(Math.round(cx - 4 * z), Math.round(cy - 11 * z), Math.ceil(4 * z), Math.ceil(3 * z));
+      ctx.fillStyle = '#ffe64d';
+      ctx.fillRect(Math.round(cx + 2 * z), Math.round(cy - 10 * z), Math.ceil(3 * z), Math.ceil(3 * z));
+    }
   } else if (kind === 'tv_console') {
     // Media stand + console box with glowing LEDs
     drawIsoBox(ctx, cx, cy, 22, 9, 10, '#363e54', '#232938', '#161a24', z);
@@ -682,6 +729,20 @@ export function drawEmployeeSprite(
         Math.ceil(2 * z),
         Math.ceil(2 * z),
       );
+    } else if (emp.activity === 'watercooler') {
+      // Light-blue pixel water cup + droplet
+      ctx.fillStyle = '#7ef3ff';
+      ctx.fillRect(Math.round(cx + 7 * z), Math.round(baseY - 14 * z), Math.ceil(4 * z), Math.ceil(5 * z));
+      ctx.fillStyle = '#3cd8ff';
+      ctx.fillRect(Math.round(cx + 8 * z), Math.round(baseY - 15 * z), Math.ceil(2 * z), Math.ceil(2 * z));
+    } else if (emp.activity === 'pizza') {
+      // Warm triangular pepperoni pizza slice
+      ctx.fillStyle = '#d98a36';
+      ctx.fillRect(Math.round(cx + 6 * z), Math.round(baseY - 16 * z), Math.ceil(6 * z), Math.ceil(2 * z));
+      ctx.fillStyle = '#ffd147';
+      ctx.fillRect(Math.round(cx + 7 * z), Math.round(baseY - 14 * z), Math.ceil(4 * z), Math.ceil(3 * z));
+      ctx.fillStyle = '#d93838';
+      ctx.fillRect(Math.round(cx + 8 * z), Math.round(baseY - 13 * z), Math.ceil(2 * z), Math.ceil(2 * z));
     } else if (emp.activity === 'gaming') {
       // Pixel Gamepad controller held forward with colored buttons
       const thumbJitter = Math.sin(timeSec * 16) > 0 ? 0.5 * z : 0;
@@ -892,4 +953,86 @@ export function drawEmployeePortrait(
   } else if (emp.modelFamily === 'flash') {
     px(10, 12, 12, 3, '#ffe64d');
   }
+}
+
+export function drawMascotSprite(
+  ctx: CanvasRenderingContext2D,
+  kind: MascotKind,
+  cx: number,
+  cy: number,
+  zoom: number,
+  facing: Facing,
+  timeSec: number,
+  isZoomies: boolean,
+): void {
+  const z = zoom;
+  const dir = facing === 'SW' || facing === 'NW' ? -1 : 1;
+  ctx.save();
+
+  // Floor shadow
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.32)';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 2 * z, 9 * z, 4 * z, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (kind === 'robo_vac') {
+    const hover = Math.sin(timeSec * (isZoomies ? 14 : 4)) * 1 * z;
+    // Cylindrical pixel robot vacuum with cyan LED ring
+    ctx.fillStyle = '#252c40';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy - 2 * z + hover, 9 * z, 5 * z, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#4a5780';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy - 4 * z + hover, 8 * z, 4 * z, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = isZoomies ? '#ffd147' : '#3cd8ff';
+    ctx.fillRect(Math.round(cx - 3 * z), Math.round(cy - 5 * z + hover), Math.ceil(6 * z), Math.ceil(2 * z));
+    // Clean sparkle
+    if (Math.sin(timeSec * 6) > 0.2) {
+      ctx.fillStyle = '#9ee8ff';
+      ctx.fillRect(Math.round(cx + 8 * z), Math.round(cy - 10 * z), Math.ceil(2 * z), Math.ceil(2 * z));
+    }
+  } else {
+    const isTuxedo = kind === 'tuxedo_cat';
+    const bodyCol = isTuxedo ? '#1d2230' : '#d9843b';
+    const accentCol = isTuxedo ? '#f4f6fc' : '#f2b16d';
+    const hop = isZoomies ? Math.abs(Math.sin(timeSec * 14)) * 4 * z : 0;
+    const baseY = cy - hop;
+
+    // Animated swaying tail
+    const tailWag = Math.sin(timeSec * (isZoomies ? 12 : 4)) * 3 * z;
+    ctx.strokeStyle = bodyCol;
+    ctx.lineWidth = Math.max(2, 2.5 * z);
+    ctx.beginPath();
+    ctx.moveTo(cx - dir * 5 * z, baseY - 6 * z);
+    ctx.lineTo(cx - dir * 10 * z, baseY - 12 * z + tailWag);
+    ctx.stroke();
+
+    // Cat body
+    ctx.fillStyle = bodyCol;
+    ctx.fillRect(Math.round(cx - 6 * z), Math.round(baseY - 10 * z), Math.ceil(12 * z), Math.ceil(8 * z));
+    ctx.fillStyle = accentCol;
+    ctx.fillRect(Math.round(cx - 2 * z), Math.round(baseY - 7 * z), Math.ceil(5 * z), Math.ceil(4 * z));
+
+    // Cat head + pointed ears
+    const headX = cx + dir * 3 * z;
+    ctx.fillStyle = bodyCol;
+    ctx.fillRect(Math.round(headX - 5 * z), Math.round(baseY - 17 * z), Math.ceil(10 * z), Math.ceil(8 * z));
+    ctx.fillRect(Math.round(headX - 5 * z), Math.round(baseY - 20 * z), Math.ceil(3 * z), Math.ceil(3 * z));
+    ctx.fillRect(Math.round(headX + 2 * z), Math.round(baseY - 20 * z), Math.ceil(3 * z), Math.ceil(3 * z));
+
+    // Eyes
+    ctx.fillStyle = '#3be87a';
+    ctx.fillRect(Math.round(headX - 3 * z), Math.round(baseY - 14 * z), Math.ceil(2 * z), Math.ceil(2 * z));
+    ctx.fillRect(Math.round(headX + 1 * z), Math.round(baseY - 14 * z), Math.ceil(2 * z), Math.ceil(2 * z));
+
+    // Sparkle ♥ or ★
+    ctx.font = `bold ${Math.max(8, Math.round(8 * z))}px "Silkscreen", monospace`;
+    ctx.fillStyle = isZoomies ? '#ffd147' : '#ff7eb9';
+    ctx.textAlign = 'center';
+    ctx.fillText(isZoomies ? '★' : '♥', headX, baseY - 23 * z);
+  }
+
+  ctx.restore();
 }

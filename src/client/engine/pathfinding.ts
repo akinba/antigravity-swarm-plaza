@@ -153,20 +153,29 @@ const SEAT_FURNITURE_KINDS = new Set([
 ]);
 
 /**
- * Builds a 16x14 walkability grid (`true` = walkable, `false` = blocked).
+ * Builds a 16x14 walkability grid (`true` = walkable, `false` = blocked) for a given furniture list.
  * Seat cushions remain walkable so A* walks characters directly onto sofas/chairs/poufs.
  */
-export function buildWalkableGrid(): boolean[][] {
+export function buildWalkableGridForFurniture(
+  furniture: ReadonlyArray<{ gx: number; gy: number; kind: string }>,
+): boolean[][] {
   const grid: boolean[][] = Array.from({ length: GRID_H }, () =>
     Array.from({ length: GRID_W }, () => true),
   );
-  for (const b of FURNITURE_BLOCKS) {
+  for (const b of furniture) {
     if (SEAT_FURNITURE_KINDS.has(b.kind)) continue;
     if (b.gy >= 0 && b.gy < GRID_H && b.gx >= 0 && b.gx < GRID_W) {
       grid[b.gy][b.gx] = false;
     }
   }
   return grid;
+}
+
+/**
+ * Builds a 16x14 walkability grid (`true` = walkable, `false` = blocked) for the default layout.
+ */
+export function buildWalkableGrid(): boolean[][] {
+  return buildWalkableGridForFurniture(FURNITURE_BLOCKS);
 }
 
 export function facingFromDelta(dx: number, dy: number, fallback: Facing = 'SE'): Facing {

@@ -29,6 +29,13 @@ import {
 } from '../../src/server/gamification.js';
 import type { OfficeEmployee } from '../../src/shared/types.js';
 import { createPlazaApp } from '../../src/server/index.js';
+import {
+  getActiveFloorEvent,
+  getFloorLayoutSeed,
+  rerollFloorLayout,
+  resetOfficeEventsState,
+  triggerFloorEvent,
+} from '../../src/server/officeEvents.js';
 
 function makeTempDataDir(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'plaza-test-'));
@@ -292,7 +299,11 @@ describe('Lounge relaxation & paired console gaming', () => {
 
     const others = emps.filter((e) => e.activity !== 'gaming');
     assert.equal(others.length, 2);
-    assert.ok(others.every((o) => o.activity === 'lounging' || o.activity === 'coffee'));
+    assert.ok(
+      others.every((o) =>
+        ['lounging', 'coffee', 'watercooler', 'pizza'].includes(o.activity),
+      ),
+    );
     assert.ok(others.some((o) => o.activity === 'lounging'));
   });
 });
@@ -663,5 +674,74 @@ describe('Hex-Weather floor recovery, idle lock guard, and WAR_ROOM presentation
     assert.equal(presenters[0].isPresenter, true);
     assert.equal(attendees.length, 2);
     assert.ok(attendees.every((a) => a.isPresenter === false));
+  });
+});
+
+describe('Per-floor layout reroll, random events, and real-work integrity', () => {
+  it('increments layoutSeed and cycles through all 5 floor event kinds', () => {
+    resetOfficeEventsState();
+    const floorId = 'test-floor-1';
+
+    assert.equal(getFloorLayoutSeed(floorId), 0);
+    assert.equal(rerollFloorLayout(floorId), 1);
+    assert.equal(rerollFloorLayout(floorId), 2);
+    assert.equal(getFloorLayoutSeed(floorId), 2);
+
+    const seenKinds = new Set<string>();
+    for (let i = 0; i < 5; i++) {
+      const ev = triggerFloorEvent(floorId, undefined, 1000 + i);
+      seenKinds.add(ev.kind);
+      assert.ok(getActiveFloorEvent(floorId, 1000 + i));
+    }
+    assert.equal(seenKinds.size, 5);
+    assert.equal(getActiveFloorEvent(floorId, 20_000), null);
+  });
+
+  it('reacts idle/waiting agents to PIZZA_PARTY / WATERCOOLER_GOSSIP while keeping working coders at desks', () => {
+    resetOfficeEventsState();
+    const nowMs = Date.now();
+    const makeEmp = (
+      id: string,
+      status: OfficeEmployee['status'],
+      zone: OfficeEmployee['zone'],
+      activity: OfficeEmployee['activity'],
+    ): OfficeEmployee => ({
+      id,
+      name: `emp-${id}`,
+      roleTitle: 'Engineer',
+      isCoordinator: false,
+      modelId: 'gemini-hydrogen',
+      modelFamily: 'hydrogen',
+      workspaceMode: 'inherit',
+      status,
+      zone,
+      activity,
+      xp: 100,
+      level: 2,
+      stepCount: 5,
+      inputTokens: 0,
+      cacheReadTokens: 0,
+      outputTokens: 0,
+      lastActiveAt: new Date(nowMs).toISOString(),
+    });
+
+    const workingCoder = makeEmp('w1', 'working', 'DESK_CODING', 'coding');
+    const idle1 = makeEmp('i1', 'idle', 'COFFEE_LOUNGE', 'lounging');
+    const waiting1 = makeEmp('i2', 'waiting', 'COFFEE_LOUNGE', 'sleeping');
+    const emps = [workingCoder, idle1, waiting1];
+
+    const pizzaEv = triggerFloorEvent('floor-x', 'PIZZA_PARTY', nowMs);
+    applyLoungeActivities(emps, 1, nowMs, pizzaEv);
+    assert.equal(workingCoder.zone, 'DESK_CODING');
+    assert.equal(workingCoder.activity, 'coding');
+    assert.equal(idle1.activity, 'pizza');
+    assert.equal(waiting1.activity, 'pizza');
+
+    const waterEv = triggerFloorEvent('floor-x', 'WATERCOOLER_GOSSIP', nowMs);
+    applyLoungeActivities(emps, 1, nowMs, waterEv);
+    assert.equal(workingCoder.zone, 'DESK_CODING');
+    assert.equal(workingCoder.activity, 'coding');
+    assert.equal(idle1.activity, 'watercooler');
+    assert.equal(waiting1.activity, 'watercooler');
   });
 });
