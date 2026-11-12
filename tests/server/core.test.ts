@@ -17,6 +17,7 @@ import {
   resetDemoTick,
 } from '../../src/server/demoSimulator.js';
 import {
+  applyGoHomeLifecycle,
   applyLoungeActivities,
   applyWarRoomPresentation,
   buildPlazaSnapshot,
@@ -26,6 +27,8 @@ import {
   computeEmployeeXpAndLevel,
   determineEmployeeStatus,
   determineZoneAndActivity,
+  GO_HOME_GONE_MS,
+  GO_HOME_START_MS,
 } from '../../src/server/gamification.js';
 import type { OfficeEmployee } from '../../src/shared/types.js';
 import { createPlazaApp } from '../../src/server/index.js';
@@ -743,5 +746,62 @@ describe('Per-floor layout reroll, random events, and real-work integrity', () =
     assert.equal(workingCoder.activity, 'coding');
     assert.equal(idle1.activity, 'watercooler');
     assert.equal(waiting1.activity, 'watercooler');
+  });
+});
+
+describe('Go-Home lifecycle (8m..9.5m elevator, >=9.5m off-duty)', () => {
+  it('routes 8m..9.5m inactive non-working agents to ELEVATOR, removes >=9.5m to offDutyCount, and keeps working agents', () => {
+    const nowMs = Date.now();
+    const makeAgedEmp = (
+      id: string,
+      status: OfficeEmployee['status'],
+      ageMs: number,
+    ): OfficeEmployee => ({
+      id,
+      name: `emp-${id}`,
+      roleTitle: 'Engineer',
+      isCoordinator: false,
+      modelId: 'gemini-hydrogen',
+      modelFamily: 'hydrogen',
+      workspaceMode: 'inherit',
+      status,
+      zone: status === 'working' ? 'DESK_CODING' : 'COFFEE_LOUNGE',
+      activity: status === 'working' ? 'coding' : 'lounging',
+      xp: 100,
+      level: 2,
+      stepCount: 5,
+      inputTokens: 0,
+      cacheReadTokens: 0,
+      outputTokens: 0,
+      lastActiveAt: new Date(nowMs - ageMs).toISOString(),
+    });
+
+    const recentIdle = makeAgedEmp('recent', 'idle', 2 * 60_000);
+    const goingHomeWaiting = makeAgedEmp('leaving', 'waiting', GO_HOME_START_MS + 30_000);
+    const goneIdle = makeAgedEmp('gone', 'idle', GO_HOME_GONE_MS + 60_000);
+    const oldWorking = makeAgedEmp('working-old', 'working', 60 * 60_000);
+
+    const { employees, offDutyCount } = applyGoHomeLifecycle(
+      [recentIdle, goingHomeWaiting, goneIdle, oldWorking],
+      nowMs,
+    );
+
+    assert.equal(offDutyCount, 1);
+    assert.equal(employees.length, 3);
+    assert.ok(!employees.some((e) => e.id === 'gone'));
+
+    const leaving = employees.find((e) => e.id === 'leaving');
+    assert.ok(leaving);
+    assert.equal(leaving.zone, 'ELEVATOR');
+    assert.equal(leaving.activity, 'going_home');
+
+    const working = employees.find((e) => e.id === 'working-old');
+    assert.ok(working);
+    assert.equal(working.status, 'working');
+    assert.equal(working.zone, 'DESK_CODING');
+
+    const recent = employees.find((e) => e.id === 'recent');
+    assert.ok(recent);
+    assert.equal(recent.zone, 'COFFEE_LOUNGE');
   });
 });

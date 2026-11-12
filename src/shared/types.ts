@@ -1,5 +1,5 @@
 export type ModelFamily = 'argon' | 'hydrogen' | 'flash' | 'carbon' | 'other';
-export type OfficeZone = 'DESK_ARCHITECT' | 'DESK_CODING' | 'DESK_QA' | 'WAR_ROOM' | 'SERVER_RACK' | 'COFFEE_LOUNGE';
+export type OfficeZone = 'DESK_ARCHITECT' | 'DESK_CODING' | 'DESK_QA' | 'WAR_ROOM' | 'SERVER_RACK' | 'COFFEE_LOUNGE' | 'ELEVATOR';
 export type AgentActivityKind =
   | 'coding'
   | 'reading'
@@ -14,6 +14,7 @@ export type AgentActivityKind =
   | 'pizza'
   | 'lounging'
   | 'gaming'
+  | 'going_home'
   | 'error';
 export type CompanyTier = 1 | 2 | 3 | 4;
 
@@ -88,6 +89,7 @@ export interface PlazaFloor {
   ecoScore: number;
   activeCount: number;
   waitingCount: number;
+  offDutyCount?: number;
   totalConversations: number;
   unlockedProps: string[];
   employees: OfficeEmployee[];

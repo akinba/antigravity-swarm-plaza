@@ -8,6 +8,8 @@ export const CURRENT_WORKSPACE = process.env.AGY_WORKSPACE || process.cwd();
 
 export const PORT = Number(process.env.PORT || 3210);
 
+export const GO_HOME_MINUTES = Number(process.env.AGY_GO_HOME_MINUTES || 8);
+
 /**
  * Normalize a filesystem path to forward slashes without a trailing slash
  * (except root '/' or drive root 'c:/').

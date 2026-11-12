@@ -30,6 +30,7 @@ export interface Translations {
     resetCamera: string;
     rerollLayout: string;
     triggerEvent: string;
+    offDuty: string;
   };
   blueprints: string[];
   events: Record<FloorEventKind, string>;
@@ -45,6 +46,8 @@ export interface Translations {
   office: {
     emptyFloor: string;
     emptyFloorHint: string;
+    afterHours: string;
+    afterHoursHint: string;
     clickWhiteboard: string;
     clickAgent: string;
     whiteboardLabel: string;
@@ -105,6 +108,7 @@ const TR: Translations = {
     WAR_ROOM: 'Swarm Beyaz Tahta Odası',
     SERVER_RACK: 'Sunucu & Test Kabini',
     COFFEE_LOUNGE: 'Kahve & Dinlenme Köşesi',
+    ELEVATOR: 'Asansör Lobisi',
   },
   activities: {
     coding: 'Kod Yazıyor',
@@ -120,6 +124,7 @@ const TR: Translations = {
     pizza: 'Pizza Molası 🍕',
     lounging: 'Koltukta Dinleniyor',
     gaming: 'Konsol Oyunu Oynuyor 🎮',
+    going_home: 'Mesai Bitti, Eve Gidiyor 🏠',
     error: 'Hata / Müdahale',
   },
   statuses: {
@@ -149,6 +154,7 @@ const TR: Translations = {
     resetCamera: 'KAMERA SIFIRLA',
     rerollLayout: '🎲 DÜZEN',
     triggerEvent: '⚡ OLAY',
+    offDuty: 'MESAİ DIŞI',
   },
   blueprints: [
     'Klasik Köşe Stüdyo',
@@ -176,6 +182,8 @@ const TR: Translations = {
   office: {
     emptyFloor: 'Bu katta henüz aktif çalışan yok.',
     emptyFloorHint: 'Demo modunu açabilir veya başka bir kata geçebilirsiniz.',
+    afterHours: 'Mesai bitti — tüm ekip eve döndü 🏠',
+    afterHoursHint: 'Yeni bir görev başladığında çalışanlar asansörden ofise dönecektir.',
     clickWhiteboard: 'Swarm Beyaz Tahtasını Aç',
     clickAgent: 'Çalışan Kartını İncele',
     whiteboardLabel: 'SWARM TAHTA',
@@ -236,6 +244,7 @@ const EN: Translations = {
     WAR_ROOM: 'Swarm Whiteboard Room',
     SERVER_RACK: 'Server & Test Rack',
     COFFEE_LOUNGE: 'Coffee & Lounge',
+    ELEVATOR: 'Elevator Foyer',
   },
   activities: {
     coding: 'Writing Code',
@@ -251,6 +260,7 @@ const EN: Translations = {
     pizza: 'Pizza Break 🍕',
     lounging: 'Relaxing on Sofa',
     gaming: 'Playing Console Game 🎮',
+    going_home: 'Off-Duty, Going Home 🏠',
     error: 'Error / Attention',
   },
   statuses: {
@@ -280,6 +290,7 @@ const EN: Translations = {
     resetCamera: 'RESET CAM',
     rerollLayout: '🎲 LAYOUT',
     triggerEvent: '⚡ EVENT',
+    offDuty: 'OFF-DUTY',
   },
   blueprints: [
     'Classic Corner Studio',
@@ -307,6 +318,8 @@ const EN: Translations = {
   office: {
     emptyFloor: 'No active employees on this floor yet.',
     emptyFloorHint: 'Enable Demo Mode or ride the elevator to another floor.',
+    afterHours: 'After hours — team is off-duty 🏠',
+    afterHoursHint: 'Employees will step back out of the elevator when new tasks begin.',
     clickWhiteboard: 'Open Swarm Whiteboard',
     clickAgent: 'Inspect Agent Card',
     whiteboardLabel: 'SWARM BOARD',

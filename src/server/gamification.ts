@@ -18,7 +18,7 @@ import {
   type SwarmMemberMeta,
   type TranscriptSummary,
 } from './brainScanner.js';
-import { normalizeWorkspaceKey } from './config.js';
+import { GO_HOME_MINUTES, normalizeWorkspaceKey } from './config.js';
 import {
   readConversationSummaries,
   resolveConversationWorkspaces,
@@ -26,6 +26,53 @@ import {
   type ResolvedWorkspaceInfo,
 } from './dbReader.js';
 import { getDemoFloor } from './demoSimulator.js';
+
+export const GO_HOME_START_MS = GO_HOME_MINUTES * 60_000;
+export const GO_HOME_GONE_MS = (GO_HOME_MINUTES + 1.5) * 60_000;
+
+/**
+ * Filter non-working employees by inactivity age:
+ * - working: always stays
+ * - 8m..9.5m inactive (non-working): walks to ELEVATOR with activity 'going_home'
+ * - >= 9.5m inactive (non-working): removed from office & counted in offDutyCount
+ */
+export function applyGoHomeLifecycle(
+  employees: OfficeEmployee[],
+  nowMs = Date.now(),
+): { employees: OfficeEmployee[]; offDutyCount: number } {
+  const present: OfficeEmployee[] = [];
+  let offDutyCount = 0;
+
+  for (const emp of employees) {
+    if (emp.status === 'working') {
+      present.push(emp);
+      continue;
+    }
+
+    const lastActiveMs = parseTimestampMs(emp.lastActiveAt);
+    const ageMs = lastActiveMs > 0 ? Math.max(0, nowMs - lastActiveMs) : GO_HOME_GONE_MS;
+
+    if (ageMs >= GO_HOME_GONE_MS) {
+      offDutyCount += 1;
+      continue;
+    }
+
+    if (ageMs >= GO_HOME_START_MS) {
+      emp.zone = 'ELEVATOR';
+      emp.activity = 'going_home';
+      emp.speechBubble = '🏠 Mesai bitti, eve gidiyorum!';
+      emp.status = 'idle';
+      emp.partnerId = undefined;
+      emp.partnerName = undefined;
+      emp.playerSlot = undefined;
+      emp.isPresenter = undefined;
+    }
+
+    present.push(emp);
+  }
+
+  return { employees: present, offDutyCount };
+}
 
 export function classifyModelFamily(modelId: string | undefined | null): ModelFamily {
   const lower = (modelId || '').toLowerCase();
@@ -764,42 +811,32 @@ export function buildPlazaSnapshot(
       };
     });
 
-    // Roster filter:
-    // Keep all 'working' and 'waiting' + recent non-killed in last 24h;
-    // if < 3, backfill up to 5 most recent non-killed; cap at 14.
-    const activeOrWaiting = candidatePairs.filter(
-      (c) => c.employee.status === 'working' || c.employee.status === 'waiting',
+    // Roster filter with Go-Home lifecycle (no 24h/5-agent inactive backfill):
+    // - working agents always stay
+    // - killed non-working agents are excluded
+    // - non-working agents inactive 8m..9.5m walk to ELEVATOR ('going_home')
+    // - non-working agents inactive >= 9.5m leave office & increment offDutyCount
+    const nonKilledOrWorking = candidatePairs.filter(
+      (c) => !c.killed || c.employee.status === 'working',
     );
-    const recentNonKilled = candidatePairs
-      .filter(
-        (c) =>
-          !c.killed &&
-          c.employee.status !== 'working' &&
-          c.employee.status !== 'waiting' &&
-          nowMs - c.modifiedMs <= DAY_MS,
-      )
-      .sort((a, b) => b.modifiedMs - a.modifiedMs);
+    const { employees: lifecycleEmployees, offDutyCount } = applyGoHomeLifecycle(
+      nonKilledOrWorking.map((c) => c.employee),
+      nowMs,
+    );
 
-    const selected = [...activeOrWaiting, ...recentNonKilled];
+    const modifiedById = new Map(
+      nonKilledOrWorking.map((c) => [c.row.conversation_id, c.modifiedMs]),
+    );
 
-    if (selected.length < 3) {
-      const selectedIds = new Set(selected.map((s) => s.row.conversation_id));
-      const backfill = candidatePairs
-        .filter((c) => !c.killed && !selectedIds.has(c.row.conversation_id))
-        .sort((a, b) => b.modifiedMs - a.modifiedMs)
-        .slice(0, Math.max(0, 5 - selected.length));
-      selected.push(...backfill);
-    }
-
-    const employees = selected
+    const employees = lifecycleEmployees
       .sort((a, b) => {
         const rank = (s: OfficeEmployee['status']) =>
           s === 'working' ? 0 : s === 'waiting' ? 1 : s === 'error' ? 2 : 3;
-        const diff = rank(a.employee.status) - rank(b.employee.status);
-        return diff !== 0 ? diff : b.modifiedMs - a.modifiedMs;
+        const diff = rank(a.status) - rank(b.status);
+        if (diff !== 0) return diff;
+        return (modifiedById.get(b.id) || 0) - (modifiedById.get(a.id) || 0);
       })
-      .slice(0, 14)
-      .map((s) => s.employee);
+      .slice(0, 14);
 
     const totalProjectSteps = group.rows.reduce(
       (sum, r) => sum + Math.max(0, Number(r.step_count || 0)),
@@ -828,6 +865,7 @@ export function buildPlazaSnapshot(
       ecoScore,
       activeCount,
       waitingCount,
+      offDutyCount,
       totalConversations: group.rows.length,
       unlockedProps,
       employees,

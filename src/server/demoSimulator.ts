@@ -465,6 +465,20 @@ export function getDemoFloor(advance = true): PlazaFloor {
     }
   }
 
+  // Every 5th tick, one demo agent heads to the elevator to go home, returning fresh on the next tick
+  if (demoTick > 0 && demoTick % 5 === 0 && employees[4]) {
+    employees[4].zone = 'ELEVATOR';
+    employees[4].status = 'idle';
+    employees[4].activity = 'going_home';
+    employees[4].partnerId = undefined;
+    employees[4].partnerName = undefined;
+    employees[4].playerSlot = undefined;
+    employees[4].isPresenter = undefined;
+    employees[4].speechBubble = '🏠 Mesai bitti, eve gidiyorum!';
+    employees[4].currentTool = undefined;
+    employees[4].currentTarget = undefined;
+  }
+
   const activeCount = employees.filter((e) => e.status === 'working').length;
   const waitingCount = employees.filter((e) => e.status === 'waiting').length;
 
@@ -482,6 +496,7 @@ export function getDemoFloor(advance = true): PlazaFloor {
     ecoScore: 94,
     activeCount,
     waitingCount,
+    offDutyCount: demoTick > 0 && demoTick % 5 === 1 ? 1 : 0,
     totalConversations: employees.length,
     unlockedProps: ['plants', 'dual_monitors', 'trophy', 'espresso', 'arcade', 'hologram'],
     employees,

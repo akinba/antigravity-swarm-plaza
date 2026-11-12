@@ -1,6 +1,7 @@
 import type { ModelFamily, OfficeEmployee, OfficeZone } from '../../shared/types';
 import { TILE_H, TILE_W } from './isoMath';
 import type { MascotKind, ThemePalette } from './officeLayouts';
+import { drawExtraFurnitureProp, drawOfficeDog } from './officePropsSprites';
 import type { Facing } from './pathfinding';
 
 export interface Palette {
@@ -337,48 +338,52 @@ export function drawFurniture(
   const z = zoom;
   ctx.save();
 
+  if (drawExtraFurnitureProp(ctx, kind, cx, cy, z, timeSec, isOccupied)) {
+    ctx.restore();
+    return;
+  }
+
   if (kind === 'exec_desk') {
-    drawIsoBox(ctx, cx, cy, 24, 12, 14, '#9c5230', '#73381d', '#542611', z);
-    // Laptop + Mousepad & Keyboard + Gold nameplate
-    drawIsoBox(ctx, cx, cy - 14 * z, 9, 5, 6, '#364366', '#212940', '#161b2b', z);
+    // Low 10px executive desk so seated face/eyes are never occluded
+    drawIsoBox(ctx, cx, cy, 24, 12, 10, '#9c5230', '#73381d', '#542611', z);
+    drawIsoBox(ctx, cx + 6 * z, cy - 10 * z, 7, 4, 5, '#364366', '#212940', '#161b2b', z);
     ctx.fillStyle = '#5cf0ff';
-    ctx.fillRect(Math.round(cx - 4 * z), Math.round(cy - 22 * z), Math.ceil(8 * z), Math.ceil(5 * z));
+    ctx.fillRect(Math.round(cx + 3 * z), Math.round(cy - 17 * z), Math.ceil(7 * z), Math.ceil(4 * z));
     ctx.fillStyle = '#1d2230';
-    ctx.fillRect(Math.round(cx - 7 * z), Math.round(cy - 11 * z), Math.ceil(9 * z), Math.ceil(3 * z));
+    ctx.fillRect(Math.round(cx - 9 * z), Math.round(cy - 9 * z), Math.ceil(9 * z), Math.ceil(3 * z));
     ctx.fillStyle = '#ffd147';
-    ctx.fillRect(Math.round(cx - 5 * z), Math.round(cy - 6 * z), Math.ceil(10 * z), Math.ceil(3 * z));
+    ctx.fillRect(Math.round(cx - 5 * z), Math.round(cy - 5 * z), Math.ceil(10 * z), Math.ceil(3 * z));
   } else if (kind === 'dev_desk') {
-    drawIsoBox(ctx, cx, cy, 22, 11, 13, '#d4b48c', '#a38560', '#7d6344', z);
-    // Dual monitors
+    // Low 10px desk with monitors angled toward side corners so seated face & hands stay visible
+    drawIsoBox(ctx, cx, cy, 22, 11, 10, '#d4b48c', '#a38560', '#7d6344', z);
     const screenColor = isOccupied
       ? Math.sin(timeSec * 8) > 0
         ? '#3be87a'
         : '#3cd8ff'
       : '#1b263b';
     ctx.fillStyle = '#141824';
-    ctx.fillRect(Math.round(cx - 12 * z), Math.round(cy - 28 * z), Math.ceil(11 * z), Math.ceil(10 * z));
-    ctx.fillRect(Math.round(cx + 1 * z), Math.round(cy - 28 * z), Math.ceil(11 * z), Math.ceil(10 * z));
+    ctx.fillRect(Math.round(cx - 15 * z), Math.round(cy - 23 * z), Math.ceil(10 * z), Math.ceil(9 * z));
+    ctx.fillRect(Math.round(cx + 5 * z), Math.round(cy - 23 * z), Math.ceil(10 * z), Math.ceil(9 * z));
     ctx.fillStyle = screenColor;
-    ctx.fillRect(Math.round(cx - 10 * z), Math.round(cy - 26 * z), Math.ceil(7 * z), Math.ceil(6 * z));
-    ctx.fillRect(Math.round(cx + 3 * z), Math.round(cy - 26 * z), Math.ceil(7 * z), Math.ceil(6 * z));
+    ctx.fillRect(Math.round(cx - 13 * z), Math.round(cy - 21 * z), Math.ceil(6 * z), Math.ceil(5 * z));
+    ctx.fillRect(Math.round(cx + 7 * z), Math.round(cy - 21 * z), Math.ceil(6 * z), Math.ceil(5 * z));
     // Mechanical keyboard + mousepad
     ctx.fillStyle = '#1b202e';
-    ctx.fillRect(Math.round(cx - 8 * z), Math.round(cy - 12 * z), Math.ceil(11 * z), Math.ceil(3 * z));
+    ctx.fillRect(Math.round(cx - 7 * z), Math.round(cy - 10 * z), Math.ceil(10 * z), Math.ceil(3 * z));
     ctx.fillStyle = '#3cd8ff';
-    ctx.fillRect(Math.round(cx - 7 * z), Math.round(cy - 11 * z), Math.ceil(9 * z), Math.ceil(1 * z));
+    ctx.fillRect(Math.round(cx - 6 * z), Math.round(cy - 9 * z), Math.ceil(8 * z), Math.ceil(1 * z));
     ctx.fillStyle = '#2a3347';
-    ctx.fillRect(Math.round(cx + 5 * z), Math.round(cy - 12 * z), Math.ceil(5 * z), Math.ceil(4 * z));
+    ctx.fillRect(Math.round(cx + 5 * z), Math.round(cy - 10 * z), Math.ceil(5 * z), Math.ceil(3 * z));
   } else if (kind === 'qa_desk') {
-    drawIsoBox(ctx, cx, cy, 20, 10, 13, '#cbb59a', '#9c8870', '#756450', z);
+    drawIsoBox(ctx, cx, cy, 20, 10, 10, '#cbb59a', '#9c8870', '#756450', z);
     ctx.fillStyle = '#141824';
-    ctx.fillRect(Math.round(cx - 7 * z), Math.round(cy - 27 * z), Math.ceil(14 * z), Math.ceil(10 * z));
+    ctx.fillRect(Math.round(cx + 4 * z), Math.round(cy - 23 * z), Math.ceil(12 * z), Math.ceil(9 * z));
     ctx.fillStyle = isOccupied ? '#ffbe3b' : '#243147';
-    ctx.fillRect(Math.round(cx - 5 * z), Math.round(cy - 25 * z), Math.ceil(10 * z), Math.ceil(6 * z));
-    // Keyboard + mousepad
+    ctx.fillRect(Math.round(cx + 6 * z), Math.round(cy - 21 * z), Math.ceil(8 * z), Math.ceil(5 * z));
     ctx.fillStyle = '#1b202e';
-    ctx.fillRect(Math.round(cx - 6 * z), Math.round(cy - 12 * z), Math.ceil(10 * z), Math.ceil(3 * z));
+    ctx.fillRect(Math.round(cx - 8 * z), Math.round(cy - 10 * z), Math.ceil(10 * z), Math.ceil(3 * z));
     ctx.fillStyle = '#2a3347';
-    ctx.fillRect(Math.round(cx + 5 * z), Math.round(cy - 12 * z), Math.ceil(4 * z), Math.ceil(4 * z));
+    ctx.fillRect(Math.round(cx + 4 * z), Math.round(cy - 10 * z), Math.ceil(4 * z), Math.ceil(3 * z));
   } else if (kind === 'desk_chair') {
     // Ergonomic office swivel chair
     drawIsoBox(ctx, cx, cy, 9, 5, 5, '#2b3347', '#1a202e', '#11151f', z);
@@ -597,6 +602,7 @@ export function drawEmployeeSprite(
   timeSec: number,
   isHovered: boolean,
   isSelected: boolean,
+  alpha = 1,
 ): void {
   const z = zoom;
   const palette = getEmployeePalette(emp.id);
@@ -604,9 +610,19 @@ export function drawEmployeeSprite(
 
   const bob = isWalking ? Math.abs(Math.sin(walkPhase * Math.PI * 2)) * 3 * z : 0;
   const legSwing = isWalking ? Math.sin(walkPhase * Math.PI * 2) * 3 * z : 0;
-  const dirFlip = facing === 'SW' || facing === 'NW' ? -1 : 1;
+  // When seated or in hobby pose (!isWalking), always face camera (SE / SW)
+  const effectiveFacing: Facing =
+    !isWalking && (facing === 'NE' || facing === 'NW')
+      ? facing === 'NE'
+        ? 'SE'
+        : 'SW'
+      : facing;
+  const dirFlip = effectiveFacing === 'SW' || effectiveFacing === 'NW' ? -1 : 1;
 
   ctx.save();
+  if (alpha < 1) {
+    ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+  }
 
   // Floor shadow
   ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
@@ -965,6 +981,11 @@ export function drawMascotSprite(
   timeSec: number,
   isZoomies: boolean,
 ): void {
+  if (kind === 'none') return;
+  if (kind === 'office_dog') {
+    drawOfficeDog(ctx, cx, cy, zoom, facing, timeSec, isZoomies);
+    return;
+  }
   const z = zoom;
   const dir = facing === 'SW' || facing === 'NW' ? -1 : 1;
   ctx.save();

@@ -98,13 +98,18 @@ export const TopHud: React.FC<TopHudProps> = ({
               <span style={{ fontSize: 10, color: '#e2d1ff' }}>{floor.companyXp}</span>
             </div>
 
-            {/* Active / Waiting counters */}
+            {/* Active / Waiting / Off-Duty counters */}
             <span className="pixel-badge" style={{ color: '#3be87a' }}>
               ● {floor.activeCount} {t.hud.active}
             </span>
             <span className="pixel-badge" style={{ color: '#ffbe3b' }}>
               ◐ {floor.waitingCount} {t.hud.waiting}
             </span>
+            {(floor.offDutyCount ?? 0) > 0 && (
+              <span className="pixel-badge" style={{ color: '#9aa7c7' }}>
+                🏠 {floor.offDutyCount} {t.hud.offDuty}
+              </span>
+            )}
           </div>
         )}
       </div>

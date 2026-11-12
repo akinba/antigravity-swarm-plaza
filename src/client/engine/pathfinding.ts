@@ -128,6 +128,7 @@ export const ZONE_SLOTS: Record<OfficeZone, ZoneSlot[]> = {
     COFFEE_SLOT,
     ...LOUNGE_SEAT_SLOTS,
   ],
+  ELEVATOR: [{ gx: 0, gy: 6, facing: 'SE' }],
 };
 
 /**
@@ -150,6 +151,7 @@ const SEAT_FURNITURE_KINDS = new Set([
   'gaming_seat',
   'desk_chair',
   'meeting_chair',
+  'elevator_doors',
 ]);
 
 /**

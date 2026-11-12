@@ -11,7 +11,7 @@ import {
   type GridPoint,
   type IsoCamera,
 } from './isoMath';
-import { getFloorLayout, type FloorLayout } from './officeLayouts';
+import { ELEVATOR_SLOT, getFloorLayout, type FloorLayout } from './officeLayouts';
 import {
   buildWalkableGridForFurniture,
   facingFromDelta,
@@ -82,6 +82,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
   const [hoveredWhiteboard, setHoveredWhiteboard] = useState(false);
 
   const actorsRef = useRef<Map<string, ActorState>>(new Map());
+  const hasLoadedFloorActorsRef = useRef<boolean>(false);
   const mascotRef = useRef<{
     gx: number;
     gy: number;
@@ -143,6 +144,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
 
     if (layoutChanged) {
       actors.clear();
+      hasLoadedFloorActorsRef.current = false;
       // Snap mascot onto a guaranteed walkable tile
       let mx = 7;
       let my = 7;
@@ -173,6 +175,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
       WAR_ROOM: 0,
       SERVER_RACK: 0,
       COFFEE_LOUNGE: 0,
+      ELEVATOR: 0,
     };
 
     let loungeSeatIdx = 0;
@@ -185,7 +188,9 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
     floor.employees.forEach((emp) => {
       let slot = layout.zoneSlots.DESK_CODING[0];
 
-      if (emp.activity === 'gaming') {
+      if (emp.activity === 'going_home' || emp.zone === 'ELEVATOR') {
+        slot = ELEVATOR_SLOT;
+      } else if (emp.activity === 'gaming') {
         slot = layout.gamingSlots[emp.playerSlot === 2 ? 1 : 0];
         gamingIds.push(emp.id);
       } else if (emp.activity === 'watercooler') {
@@ -218,18 +223,39 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
 
       const existing = actors.get(emp.id);
       if (!existing) {
-        actors.set(emp.id, {
-          gx: slot.gx,
-          gy: slot.gy,
-          path: [],
-          targetZone: emp.zone,
-          targetSlotGx: slot.gx,
-          targetSlotGy: slot.gy,
-          facing: slot.facing,
-          targetFacing: slot.facing,
-          walkPhase: 0,
-          isWalking: false,
-        });
+        if (hasLoadedFloorActorsRef.current && emp.activity !== 'going_home') {
+          // Newly arrived employee steps out of the elevator (0, 6) and walks to their slot
+          const arrivalPath = findPath(
+            walkableGrid,
+            { gx: ELEVATOR_SLOT.gx, gy: ELEVATOR_SLOT.gy },
+            { gx: slot.gx, gy: slot.gy },
+          );
+          actors.set(emp.id, {
+            gx: ELEVATOR_SLOT.gx,
+            gy: ELEVATOR_SLOT.gy,
+            path: arrivalPath,
+            targetZone: emp.zone,
+            targetSlotGx: slot.gx,
+            targetSlotGy: slot.gy,
+            facing: 'SE',
+            targetFacing: slot.facing,
+            walkPhase: 0,
+            isWalking: arrivalPath.length > 0,
+          });
+        } else {
+          actors.set(emp.id, {
+            gx: slot.gx,
+            gy: slot.gy,
+            path: [],
+            targetZone: emp.zone,
+            targetSlotGx: slot.gx,
+            targetSlotGy: slot.gy,
+            facing: slot.facing,
+            targetFacing: slot.facing,
+            walkPhase: 0,
+            isWalking: false,
+          });
+        }
       } else if (
         existing.targetZone !== emp.zone ||
         existing.targetSlotGx !== slot.gx ||
@@ -253,6 +279,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
       playGamepadBlip();
     }
     prevGamingSigRef.current = gamingSig;
+    hasLoadedFloorActorsRef.current = true;
   }, [floor.employees, floor.id, floor.layoutSeed, layout, walkableGrid]);
 
   // Resize observer
@@ -426,6 +453,13 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
       const isPizzaActive =
         currentFloor.activeEvent?.kind === 'PIZZA_PARTY' ||
         currentFloor.employees.some((e) => e.activity === 'pizza');
+      let isElevatorBusy = false;
+      for (const actor of actors.values()) {
+        if (Math.hypot(actor.gx - ELEVATOR_SLOT.gx, actor.gy - ELEVATOR_SLOT.gy) <= 2.1) {
+          isElevatorBusy = true;
+          break;
+        }
+      }
 
       let wbMinX = Infinity;
       let wbMinY = Infinity;
@@ -449,6 +483,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
               (item.kind === 'qa_desk' && occupiedZones.has('DESK_QA')) ||
               (item.kind === 'tv_console' && isGamingOccupied) ||
               (item.kind === 'lounge_table' && isPizzaActive) ||
+              (item.kind === 'elevator_doors' && isElevatorBusy) ||
               (isWb && isPresenterActive);
             drawFurniture(
               ctx,
@@ -512,6 +547,10 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
         const actor = actors.get(emp.id);
         if (!actor) continue;
         const p = gridToScreen(actor.gx, actor.gy, cam);
+        // Fade out employees stepping into the elevator to go home
+        const distElev = Math.hypot(actor.gx - ELEVATOR_SLOT.gx, actor.gy - ELEVATOR_SLOT.gy);
+        const alpha =
+          emp.activity === 'going_home' ? Math.max(0.12, Math.min(1, distElev / 1.5)) : 1;
         nextHitBoxes.push({
           emp,
           x: p.x,
@@ -533,6 +572,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
               timeSec,
               hoveredAgentRef.current === emp.id,
               selectedIdRef.current === emp.id,
+              alpha,
             );
           },
         });
@@ -720,7 +760,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
         {locale === 'tr' ? layout.themePalette.nameTr : layout.themePalette.nameEn}
       </div>
 
-      {/* Empty floor overlay */}
+      {/* Empty floor / After-hours overlay */}
       {floor.employees.length === 0 && (
         <div
           className="pixel-panel"
@@ -732,13 +772,15 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
             padding: '18px 24px',
             textAlign: 'center',
             pointerEvents: 'none',
-            maxWidth: 380,
+            maxWidth: 400,
           }}
         >
           <div className="pixel-title" style={{ fontSize: 11, color: '#ffbe3b', marginBottom: 8 }}>
-            {t.office.emptyFloor}
+            {(floor.offDutyCount ?? 0) > 0 ? t.office.afterHours : t.office.emptyFloor}
           </div>
-          <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{t.office.emptyFloorHint}</div>
+          <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+            {(floor.offDutyCount ?? 0) > 0 ? t.office.afterHoursHint : t.office.emptyFloorHint}
+          </div>
         </div>
       )}
 
