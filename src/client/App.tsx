@@ -1,0 +1,281 @@
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { OfficeEmployee, PlazaFloor, PlazaSnapshot } from '../shared/types';
+import {
+  initAudioUnlock,
+  isMuted,
+  playLevelUp,
+  playMentionChime,
+  playSelectBlip,
+  toggleMuted,
+} from './audio/retroSynth';
+import { AgentRpgModal } from './components/AgentRpgModal';
+import { ElevatorPanel } from './components/ElevatorPanel';
+import { TopHud } from './components/TopHud';
+import { WhiteboardModal } from './components/WhiteboardModal';
+import { OfficeCanvas } from './engine/OfficeCanvas';
+import { PlazaTowerCanvas } from './engine/PlazaTowerCanvas';
+
+function pickInitialFloorId(snap: PlazaSnapshot): string | null {
+  if (snap.activeProjectFloorId) {
+    const exists = snap.floors.some((f) => f.id === snap.activeProjectFloorId);
+    if (exists) return snap.activeProjectFloorId;
+  }
+  if (snap.floors.length === 0) return null;
+  const sorted = [...snap.floors].sort((a, b) => {
+    if (b.activeCount !== a.activeCount) return b.activeCount - a.activeCount;
+    return b.employees.length - a.employees.length;
+  });
+  return sorted[0].id;
+}
+
+export const App: React.FC = () => {
+  const [snapshot, setSnapshot] = useState<PlazaSnapshot | null>(null);
+  const [selectedFloorId, setSelectedFloorId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'plaza' | 'office'>('office');
+  const [isNight, setIsNight] = useState<boolean>(true);
+  const [muted, setMutedState] = useState<boolean>(() => isMuted());
+  const [wsConnected, setWsConnected] = useState<boolean>(false);
+
+  const [selectedEmployee, setSelectedEmployee] = useState<OfficeEmployee | null>(null);
+  const [whiteboardOpen, setWhiteboardOpen] = useState<boolean>(false);
+
+  const prevBoardSeqRef = useRef<Map<string, number>>(new Map());
+  const prevTierRef = useRef<Map<string, number>>(new Map());
+  const hasInitializedRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    return initAudioUnlock();
+  }, []);
+
+  const applySnapshot = useCallback((next: PlazaSnapshot) => {
+    if (hasInitializedRef.current) {
+      let shouldChime = false;
+      let shouldLevelUp = false;
+
+      for (const fl of next.floors) {
+        const lastSeq = fl.boardMessages.length
+          ? fl.boardMessages[fl.boardMessages.length - 1].seq
+          : 0;
+        const prevSeq = prevBoardSeqRef.current.get(fl.id) ?? lastSeq;
+        if (lastSeq > prevSeq) {
+          shouldChime = true;
+        }
+        prevBoardSeqRef.current.set(fl.id, lastSeq);
+
+        const prevTier = prevTierRef.current.get(fl.id) ?? fl.tier;
+        if (fl.tier > prevTier) {
+          shouldLevelUp = true;
+        }
+        prevTierRef.current.set(fl.id, fl.tier);
+      }
+
+      if (shouldLevelUp) {
+        playLevelUp();
+      } else if (shouldChime) {
+        playMentionChime();
+      }
+    } else {
+      for (const fl of next.floors) {
+        const lastSeq = fl.boardMessages.length
+          ? fl.boardMessages[fl.boardMessages.length - 1].seq
+          : 0;
+        prevBoardSeqRef.current.set(fl.id, lastSeq);
+        prevTierRef.current.set(fl.id, fl.tier);
+      }
+      hasInitializedRef.current = true;
+    }
+
+    setSnapshot(next);
+    setSelectedFloorId((curr) => {
+      if (curr && next.floors.some((f) => f.id === curr)) return curr;
+      return pickInitialFloorId(next);
+    });
+  }, []);
+
+  // Initial /api/plaza fetch + WebSocket with auto-reconnect
+  useEffect(() => {
+    let closed = false;
+    let ws: WebSocket | null = null;
+    let reconnectTimer: number | null = null;
+
+    const fetchInitial = async () => {
+      try {
+        const res = await fetch('/api/plaza');
+        if (!res.ok) return;
+        const data = (await res.json()) as PlazaSnapshot;
+        if (!closed) applySnapshot(data);
+      } catch {
+        // WS will retry
+      }
+    };
+
+    const connectWs = () => {
+      if (closed) return;
+      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${proto}//${window.location.host}/ws`;
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        if (!closed) setWsConnected(true);
+      };
+
+      ws.onmessage = (evt) => {
+        if (closed) return;
+        try {
+          const payload = JSON.parse(evt.data) as
+            | PlazaSnapshot
+            | { type?: string; data?: PlazaSnapshot };
+          const snap =
+            'floors' in payload
+              ? payload
+              : payload.data && 'floors' in payload.data
+                ? payload.data
+                : null;
+          if (snap) applySnapshot(snap);
+        } catch {
+          // ignore malformed frames
+        }
+      };
+
+      ws.onclose = () => {
+        if (closed) return;
+        setWsConnected(false);
+        reconnectTimer = window.setTimeout(connectWs, 2000);
+      };
+
+      ws.onerror = () => {
+        ws?.close();
+      };
+    };
+
+    fetchInitial();
+    connectWs();
+
+    return () => {
+      closed = true;
+      if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
+      ws?.close();
+    };
+  }, [applySnapshot]);
+
+  const activeFloor: PlazaFloor | null = useMemo(() => {
+    if (!snapshot || snapshot.floors.length === 0) return null;
+    return (
+      snapshot.floors.find((f) => f.id === selectedFloorId) || snapshot.floors[0] || null
+    );
+  }, [snapshot, selectedFloorId]);
+
+  const handleToggleDemo = async () => {
+    try {
+      const res = await fetch('/api/demo/toggle', { method: 'POST' });
+      if (!res.ok) return;
+      const data = (await res.json()) as PlazaSnapshot | { snapshot?: PlazaSnapshot };
+      const snap = 'floors' in data ? data : data.snapshot;
+      if (snap) {
+        applySnapshot(snap);
+        const demoFloor = snap.floors.find((f) => f.isDemo);
+        if (snap.demoMode && demoFloor) {
+          setSelectedFloorId(demoFloor.id);
+          setViewMode('office');
+        }
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleToggleMute = () => {
+    const nextMuted = toggleMuted();
+    setMutedState(nextMuted);
+    if (!nextMuted) {
+      playSelectBlip();
+    }
+  };
+
+  const handleSelectFloorFromTower = (floorId: string) => {
+    setSelectedFloorId(floorId);
+    setViewMode('office');
+    setSelectedEmployee(null);
+  };
+
+  const handleSelectFloorFromElevator = (floorId: string) => {
+    setSelectedFloorId(floorId);
+    setViewMode('office');
+    setSelectedEmployee(null);
+  };
+
+  return (
+    <div className="plaza-shell">
+      <TopHud
+        floor={activeFloor}
+        globalEcoScore={snapshot?.globalEcoScore ?? 100}
+        viewMode={viewMode}
+        onChangeViewMode={setViewMode}
+        demoMode={snapshot?.demoMode ?? false}
+        onToggleDemo={handleToggleDemo}
+        isNight={isNight}
+        onToggleNight={() => setIsNight((n) => !n)}
+        muted={muted}
+        onToggleMute={handleToggleMute}
+        onOpenWhiteboard={() => setWhiteboardOpen(true)}
+        wsConnected={wsConnected}
+      />
+
+      <main className="plaza-main">
+        <ElevatorPanel
+          floors={snapshot?.floors ?? []}
+          selectedFloorId={activeFloor?.id ?? null}
+          onSelectFloor={handleSelectFloorFromElevator}
+        />
+
+        <div className="plaza-viewport">
+          {viewMode === 'plaza' ? (
+            <PlazaTowerCanvas
+              floors={snapshot?.floors ?? []}
+              selectedFloorId={activeFloor?.id ?? null}
+              isNight={isNight}
+              onSelectFloor={handleSelectFloorFromTower}
+            />
+          ) : activeFloor ? (
+            <OfficeCanvas
+              floor={activeFloor}
+              isNight={isNight}
+              selectedEmployeeId={selectedEmployee?.id ?? null}
+              onSelectEmployee={(emp) => setSelectedEmployee(emp)}
+              onOpenWhiteboard={() => setWhiteboardOpen(true)}
+            />
+          ) : (
+            <div
+              style={{
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--text-dim)',
+              }}
+            >
+              Loading Antigravity Swarm Plaza...
+            </div>
+          )}
+        </div>
+      </main>
+
+      {selectedEmployee && (
+        <AgentRpgModal
+          employee={selectedEmployee}
+          onClose={() => setSelectedEmployee(null)}
+        />
+      )}
+
+      {whiteboardOpen && activeFloor && (
+        <WhiteboardModal
+          companyName={activeFloor.companyName}
+          swarmTitle={activeFloor.swarmTitle}
+          messages={activeFloor.boardMessages}
+          onClose={() => setWhiteboardOpen(false)}
+        />
+      )}
+    </div>
+  );
+};
