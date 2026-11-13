@@ -730,11 +730,18 @@ export function determineZoneAndActivity(params: {
     };
   }
 
+  const lowerName = agentName.toLowerCase();
+  const lastBoardPostByAgent = [...recentBoardMessages]
+    .reverse()
+    .find((msg) => msg.agent.toLowerCase() === lowerName && msg.text.trim().length > 0);
+
   if (status === 'idle') {
     return {
       zone: 'COFFEE_LOUNGE',
       activity: 'coffee',
-      speechBubble: truncateBubble(transcript?.latestThoughtSnippet),
+      speechBubble: truncateBubble(
+        transcript?.latestThoughtSnippet || lastBoardPostByAgent?.text,
+      ),
     };
   }
 
@@ -747,12 +754,13 @@ export function determineZoneAndActivity(params: {
     return {
       zone,
       activity: 'error',
-      speechBubble: truncateBubble(transcript?.latestThoughtSnippet || 'Hata tespit edildi'),
+      speechBubble: truncateBubble(
+        transcript?.latestThoughtSnippet || lastBoardPostByAgent?.text || 'Hata tespit edildi',
+      ),
     };
   }
 
   // Check recent swarm board activity within last 60s
-  const lowerName = agentName.toLowerCase();
   const recentBoardMatch = [...recentBoardMessages]
     .reverse()
     .find((msg) => {
@@ -797,7 +805,9 @@ export function determineZoneAndActivity(params: {
     zone: desk,
     activity,
     speechBubble: truncateBubble(
-      transcript?.latestThoughtSnippet || transcript?.latestTargetSummary,
+      transcript?.latestThoughtSnippet ||
+        lastBoardPostByAgent?.text ||
+        transcript?.latestTargetSummary,
     ),
   };
 }

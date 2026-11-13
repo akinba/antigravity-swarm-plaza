@@ -8,6 +8,8 @@ import {
   buildSwarmMentionEdges,
   classifySwarmRole,
   extractMentions,
+  parseTranscriptSummary,
+  sanitizeAgentSpeechText,
   scanBrainData,
 } from '../../src/server/brainScanner.js';
 import { getDemoFloor, resetDemoTick } from '../../src/server/demoSimulator.js';
@@ -150,6 +152,51 @@ describe('Swarm board scanning, mentions & roles', () => {
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
+  });
+
+  it('never leaks Created At / TOOL_RESPONSE boilerplate into latestThoughtSnippet and captures post_message text', () => {
+    assert.equal(
+      sanitizeAgentSpeechText(
+        'Created At: 2026-11-14T01:59:18+03:00\nCompleted At: 2026-11-14T01:59:20+03:00\n{"status":"posted","seq":193}',
+      ),
+      '',
+    );
+    assert.equal(
+      sanitizeAgentSpeechText(
+        'Waiting for a message that calls on you by name.\n<SYSTEM_MESSAGE>[swarm] new board message #197</SYSTEM_MESSAGE>',
+      ),
+      '',
+    );
+
+    const jsonl = [
+      JSON.stringify({
+        step_index: 1,
+        type: 'PLANNER_RESPONSE',
+        source: 'MODEL',
+        status: 'DONE',
+        created_at: '2026-11-14T01:59:10+03:00',
+        thinking: 'Checking i18n keys',
+        tool_calls: [
+          {
+            name: 'post_message',
+            args: { text: '@coordinator Tüm testler yeşil, PASS ✅' },
+          },
+        ],
+      }),
+      JSON.stringify({
+        step_index: 2,
+        type: 'TOOL_RESPONSE',
+        source: 'SYSTEM',
+        status: 'DONE',
+        created_at: '2026-11-14T01:59:18+03:00',
+        content:
+          'Created At: 2026-11-14T01:59:18+03:00\nCompleted At: 2026-11-14T01:59:19+03:00\n{"status":"posted","seq":193}',
+      }),
+    ].join('\n');
+
+    const summary = parseTranscriptSummary(jsonl);
+    assert.equal(summary.latestThoughtSnippet, '@coordinator Tüm testler yeşil, PASS ✅');
+    assert.equal(summary.latestThoughtSnippet?.includes('Created At:'), false);
   });
 });
 

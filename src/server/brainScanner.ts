@@ -184,7 +184,55 @@ function extractUsageTokens(obj: Record<string, unknown>): {
   };
 }
 
-function parseTranscriptSummary(text: string): TranscriptSummary {
+export function sanitizeAgentSpeechText(raw: string): string {
+  if (!raw || typeof raw !== 'string') return '';
+  const text = raw
+    .replace(/<SYSTEM_MESSAGE>[\s\S]*?(?:<\/SYSTEM_MESSAGE>|$)/gi, ' ')
+    .replace(/^\s*(?:Created|Completed)\s+At:\s*[^\r\n]*$/gim, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!text) return '';
+  if (text.startsWith('{') || text.startsWith('[')) return '';
+  if (
+    /^(?:Waiting for a message\b|\[swarm\]\s+new board message\b|\[board\]\s+the latest message\b|Made \d+ replacement\b|Showing lines \d+|Command exited with code \d+|Created file\.?$)/i.test(
+      text,
+    )
+  ) {
+    return '';
+  }
+  return text;
+}
+
+function extractPostMessageText(toolCalls: unknown): string {
+  if (!Array.isArray(toolCalls)) return '';
+  for (let i = toolCalls.length - 1; i >= 0; i--) {
+    const call = toolCalls[i] as Record<string, unknown> | undefined;
+    if (!call || typeof call.name !== 'string') continue;
+    if (call.name !== 'post_message') continue;
+    const rawArgs = call.args ?? call.arguments;
+    if (rawArgs && typeof rawArgs === 'object') {
+      const textVal = (rawArgs as Record<string, unknown>).text;
+      if (typeof textVal === 'string') {
+        const clean = sanitizeAgentSpeechText(textVal);
+        if (clean) return clean;
+      }
+    } else if (typeof rawArgs === 'string') {
+      try {
+        const parsedArgs = JSON.parse(rawArgs) as Record<string, unknown>;
+        if (typeof parsedArgs.text === 'string') {
+          const clean = sanitizeAgentSpeechText(parsedArgs.text);
+          if (clean) return clean;
+        }
+      } catch {
+        // Ignore invalid JSON args
+      }
+    }
+  }
+  return '';
+}
+
+export function parseTranscriptSummary(text: string): TranscriptSummary {
   const summary: TranscriptSummary = {
     inputTokens: 0,
     cacheReadTokens: 0,
@@ -229,11 +277,18 @@ function parseTranscriptSummary(text: string): TranscriptSummary {
       }
     }
 
-    const thoughtText =
-      (typeof entry.thinking === 'string' && entry.thinking.trim()) ||
-      (typeof entry.content === 'string' && entry.content.trim());
-    if (thoughtText) {
-      summary.latestThoughtSnippet = truncateText(thoughtText, 220);
+    const entryType = typeof entry.type === 'string' ? entry.type.toUpperCase() : '';
+    const entrySource = typeof entry.source === 'string' ? entry.source.toUpperCase() : '';
+    if (entryType !== 'TOOL_RESPONSE' && entrySource !== 'SYSTEM') {
+      const postMsgText = extractPostMessageText(toolCalls);
+      const cleanContent =
+        typeof entry.content === 'string' ? sanitizeAgentSpeechText(entry.content) : '';
+      const cleanThinking =
+        typeof entry.thinking === 'string' ? sanitizeAgentSpeechText(entry.thinking) : '';
+      const thoughtText = postMsgText || cleanContent || cleanThinking;
+      if (thoughtText) {
+        summary.latestThoughtSnippet = truncateText(thoughtText, 220);
+      }
     }
   }
 
@@ -318,10 +373,18 @@ export function readAgentLogs(agyDataDir: string, convId: string, limit = 25): A
       }
     }
 
-    const rawThought =
-      (typeof raw.thinking === 'string' && raw.thinking.trim()) ||
-      (typeof raw.content === 'string' && raw.content.trim()) ||
-      undefined;
+    const rawType = typeof raw.type === 'string' ? raw.type.toUpperCase() : '';
+    const rawSource = typeof raw.source === 'string' ? raw.source.toUpperCase() : '';
+    let rawThought: string | undefined;
+    if (rawType !== 'TOOL_RESPONSE' && rawSource !== 'SYSTEM') {
+      const postMsg = extractPostMessageText(raw.tool_calls);
+      const cleanContent =
+        typeof raw.content === 'string' ? sanitizeAgentSpeechText(raw.content) : '';
+      const cleanThinking =
+        typeof raw.thinking === 'string' ? sanitizeAgentSpeechText(raw.thinking) : '';
+      const combined = postMsg || cleanContent || cleanThinking;
+      if (combined) rawThought = combined;
+    }
 
     entries.push({
       stepIndex: typeof raw.step_index === 'number' ? raw.step_index : i,
