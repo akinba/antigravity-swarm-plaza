@@ -129,6 +129,12 @@ export interface Translations {
     taskHandoffLabel: string;
     taskProofLabel: string;
     noTasksYet: string;
+    personnelTab: string;
+    roleAndTask: string;
+    modelLabel: string;
+    creditUsageLabel: string;
+    stepsAndHealth: string;
+    inspectProfile: string;
   };
   analyticsModal: {
     title: string;
@@ -347,6 +353,12 @@ const TR: Translations = {
     taskHandoffLabel: 'Devir',
     taskProofLabel: 'Kanıt',
     noTasksYet: 'Henüz görev akışı kaydı yok.',
+    personnelTab: '👥 PERSONEL LİSTESİ',
+    roleAndTask: 'GÖREV & AKTİVİTE',
+    modelLabel: 'MODEL',
+    creditUsageLabel: 'KREDİ & TOKEN (~TAHMİNİ)',
+    stepsAndHealth: 'ADIM & SAĞLIK (HP)',
+    inspectProfile: 'RPG Kartını Aç',
   },
   analyticsModal: {
     title: 'KAT ANALİTİĞİ & TELEMETRİ',
@@ -566,6 +578,12 @@ const EN: Translations = {
     taskHandoffLabel: 'Handoff',
     taskProofLabel: 'Proof',
     noTasksYet: 'No task flow entries yet.',
+    personnelTab: '👥 PERSONNEL ROSTER',
+    roleAndTask: 'ROLE & CURRENT TASK',
+    modelLabel: 'MODEL',
+    creditUsageLabel: 'CREDIT & TOKENS (~EST.)',
+    stepsAndHealth: 'STEPS & HEALTH (HP)',
+    inspectProfile: 'Open RPG Card',
   },
   analyticsModal: {
     title: 'FLOOR ANALYTICS & TELEMETRY',

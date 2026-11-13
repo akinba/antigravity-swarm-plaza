@@ -855,14 +855,32 @@ describe('Renamed project display names & subagent/task messages/*.json board', 
       db.close();
 
       const swarmDir = path.join(tmpDir, 'brain', coordId, '.system_generated', 'swarm');
+      const subDir = path.join(tmpDir, 'brain', coordId, '.system_generated', 'subagents');
       fs.mkdirSync(swarmDir, { recursive: true });
+      fs.mkdirSync(subDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(subDir, 'task-1048.json'),
+        JSON.stringify({
+          conversationId: 'task-1048',
+          subagentDescriptor: { typeName: 'task-1048', role: 'task-1048' },
+          prompt: 'Old stale subagent',
+        }),
+        'utf8',
+      );
       fs.writeFileSync(
         path.join(swarmDir, 'members.json'),
         JSON.stringify({
-          members: [
-            { conversationId: coordId, rosterName: 'coordinator', role: 'coordinator' },
-            { conversationId: workerId, rosterName: 'coder-core', role: 'worker' },
-          ],
+          title: 'Mention Filter Test',
+          members: {
+            coordinator: {
+              conversation_id: coordId,
+              role: 'coordinator',
+            },
+            'coder-core': {
+              conversation_id: workerId,
+              role: 'worker',
+            },
+          },
         }),
         'utf8',
       );
@@ -872,16 +890,18 @@ describe('Renamed project display names & subagent/task messages/*.json board', 
           JSON.stringify({
             seq: 1,
             agent: 'coordinator',
-            text: '@coder-core @all ignore @task-1073 @ownerName @fake-node @coordinator',
+            text: '@coder-core @all ignore @task-1048 @task-1073 @ownerName @fake-node @coordinator',
             time: nowIso,
+            kind: 'message',
           }),
           JSON.stringify({
             seq: 2,
             agent: 'coder-core',
-            text: '@coordinator Done, ignoring @from and @to',
+            text: '@coordinator Done, ignoring @from and @to and @task-1048',
             time: nowIso,
+            kind: 'message',
           }),
-        ].join('\n'),
+        ].join('\n') + '\n',
         'utf8',
       );
 
@@ -893,6 +913,7 @@ describe('Renamed project display names & subagent/task messages/*.json board', 
       assert.ok(targets.includes('coder-core'));
       assert.ok(targets.includes('all'));
       assert.ok(targets.includes('coordinator'));
+      assert.equal(targets.includes('task-1048'), false);
       assert.equal(targets.includes('task-1073'), false);
       assert.equal(targets.includes('ownerName'), false);
       assert.equal(targets.includes('fake-node'), false);
@@ -907,13 +928,17 @@ describe('Renamed project display names & subagent/task messages/*.json board', 
 
       // Board mentions and DAG handoffs also exclude non-scene tags
       for (const msg of floor.boardMessages) {
+        assert.equal(msg.mentions?.includes('task-1048'), false);
         assert.equal(msg.mentions?.includes('task-1073'), false);
         assert.equal(msg.mentions?.includes('ownerName'), false);
       }
       for (const node of floor.taskNodes ?? []) {
+        assert.equal(node.handoffTargetNames.includes('task-1048'), false);
         assert.equal(node.handoffTargetNames.includes('task-1073'), false);
         assert.equal(node.handoffTargetNames.includes('ownerName'), false);
       }
+      // Every scene employee has a matching AgentResourceUsage entry
+      assert.equal(floor.analytics?.agentResources?.length, floor.employees.length);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }

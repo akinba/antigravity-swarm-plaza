@@ -1425,34 +1425,29 @@ export function buildPlazaSnapshot(
     }
 
     const validSceneAgents = new Map<string, string>();
-    for (const emp of employees) {
-      validSceneAgents.set(emp.name.toLowerCase(), emp.name);
-    }
     const addSceneAlias = (rawName?: string) => {
       if (!rawName) return;
       const normalized = normalizeSwarmRoleLabel(rawName);
-      if (!normalized) return;
+      if (!normalized || /^task-\d+$/i.test(normalized)) return;
       const key = normalized.toLowerCase();
       if (!validSceneAgents.has(key)) {
         validSceneAgents.set(key, normalized);
       }
     };
 
-    for (const r of group.rows) {
-      const member = scan.swarmMemberByConvId.get(r.conversation_id);
-      const isKilledRow = r.killed === 1 || member?.killed === true;
-      if (isKilledRow && r.status !== 'CASCADE_RUN_STATUS_RUNNING') continue;
-
-      if (member?.rosterName) addSceneAlias(member.rosterName);
-      const subMeta = scan.subagentMetaByConvId.get(r.conversation_id);
-      if (subMeta?.typeName) addSceneAlias(subMeta.typeName);
+    const sceneEmployeeById = new Map(employees.map((e) => [e.id, e]));
+    for (const emp of employees) {
+      addSceneAlias(emp.name);
+      const subMeta = scan.subagentMetaByConvId.get(emp.id);
       if (subMeta?.role) addSceneAlias(subMeta.role);
-      if (r.agent_name) addSceneAlias(r.agent_name);
     }
     if (!validSceneAgents.has('coordinator')) {
       validSceneAgents.set('coordinator', 'coordinator');
     }
     validSceneAgents.set('all', 'all');
+
+    // Keep unused sceneEmployeeById check clean
+    void sceneEmployeeById;
 
     const filteredBoard: SwarmBoardMessage[] = trimmedBoard.map((msg) => {
       const seen = new Set<string>();

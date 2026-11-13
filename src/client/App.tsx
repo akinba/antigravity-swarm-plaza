@@ -456,6 +456,12 @@ export const App: React.FC = () => {
           swarmEdges={activeFloor.swarmEdges}
           taskNodes={activeFloor.taskNodes}
           employees={activeFloor.employees}
+          agentResources={activeFloor.analytics?.agentResources}
+          activeEventKind={activeFloor.activeEvent?.kind ?? null}
+          onSelectEmployee={(emp) => {
+            setWhiteboardOpen(false);
+            setSelectedEmployee(emp);
+          }}
           onClose={() => setWhiteboardOpen(false)}
         />
       )}

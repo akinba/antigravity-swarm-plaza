@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type {
+  AgentResourceUsage,
+  FloorEventKind,
   OfficeEmployee,
   SwarmBoardMessage,
   SwarmMentionEdge,
@@ -7,6 +9,7 @@ import type {
   SwarmTaskStatus,
 } from '../../shared/types';
 import { playSelectBlip } from '../audio/retroSynth';
+import { drawEmployeePortrait, UNIFORM_COLORS } from '../engine/pixelSprites';
 import { useI18n } from '../i18n/translations';
 
 interface WhiteboardModalProps {
@@ -16,8 +19,47 @@ interface WhiteboardModalProps {
   swarmEdges?: SwarmMentionEdge[];
   taskNodes?: SwarmTaskNode[];
   employees?: OfficeEmployee[];
+  agentResources?: AgentResourceUsage[];
+  activeEventKind?: FloorEventKind | null;
+  onSelectEmployee?: (employee: OfficeEmployee) => void;
   onClose: () => void;
 }
+
+function formatCompactTokens(val: number): string {
+  if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)}M`;
+  if (val >= 1_000) return `${(val / 1_000).toFixed(1)}k`;
+  return String(val);
+}
+
+const EmployeePortraitCanvas: React.FC<{
+  employee: OfficeEmployee;
+  activeEventKind?: FloorEventKind | null;
+}> = ({ employee, activeEventKind }) => {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    drawEmployeePortrait(ctx, employee, 64, activeEventKind ?? null);
+  }, [employee, activeEventKind]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={64}
+      height={64}
+      style={{
+        width: 64,
+        height: 64,
+        imageRendering: 'pixelated',
+        background: '#111625',
+        border: '2px solid #2b3554',
+      }}
+    />
+  );
+};
 
 function renderMessageText(text: string): React.ReactNode {
   const parts = text.split(/(@[a-zA-Z0-9_-]+)/g);
@@ -77,11 +119,14 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
   messages,
   swarmEdges,
   taskNodes = [],
-  employees,
+  employees = [],
+  agentResources = [],
+  activeEventKind = null,
+  onSelectEmployee,
   onClose,
 }) => {
   const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState<'feed' | 'graph' | 'tasks'>('feed');
+  const [activeTab, setActiveTab] = useState<'feed' | 'personnel' | 'tasks'>('feed');
   const feedRef = useRef<HTMLDivElement | null>(null);
   const isProgrammaticScrollRef = useRef(false);
   const scrollTimerRef = useRef<number | null>(null);
@@ -329,13 +374,13 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
           </button>
           <button
             type="button"
-            className={`pixel-tab ${activeTab === 'graph' ? 'active' : ''}`}
+            className={`pixel-tab ${activeTab === 'personnel' ? 'active' : ''}`}
             onClick={() => {
               playSelectBlip();
-              setActiveTab('graph');
+              setActiveTab('personnel');
             }}
           >
-            {t.whiteboardModal.tabGraph} ({edges.length})
+            {t.whiteboardModal.personnelTab} ({employees.length})
           </button>
           <button
             type="button"
@@ -345,7 +390,7 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
               setActiveTab('tasks');
             }}
           >
-            {t.whiteboardModal.taskFlowTab} ({taskNodes.length})
+            {t.whiteboardModal.taskFlowTab} ({filteredTaskNodes.length})
           </button>
           <button
             type="button"
@@ -368,7 +413,7 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
           </button>
         </div>
 
-        {activeTab === 'feed' ? (
+        {activeTab === 'feed' && (
           /* Messages Feed */
           <div
             style={{
@@ -473,182 +518,339 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
               </button>
             )}
           </div>
-        ) : (
-          /* @mention Interaction Graph & List */
+        )}
+
+        {activeTab === 'personnel' && (
           <div
             className="pixel-panel-inset"
             style={{
-              flex: 1,
-              minHeight: 280,
-              maxHeight: 460,
-              overflowY: 'auto',
               padding: 12,
+              overflowY: 'auto',
               display: 'flex',
               flexDirection: 'column',
               gap: 10,
+              maxHeight: 480,
             }}
           >
-            {edges.length === 0 ? (
-              <div style={{ fontSize: 12, color: 'var(--text-dim)', padding: 20, textAlign: 'center' }}>
-                {t.whiteboardModal.noEdges}
-              </div>
-            ) : (
-              <>
-                <div
-                  style={{
-                    background: '#0d1019',
-                    border: '2px solid #07080d',
-                    padding: 6,
-                    display: 'flex',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <svg
-                    viewBox="0 0 640 280"
-                    style={{ width: '100%', maxWidth: 640, height: 260 }}
-                    shapeRendering="crispEdges"
+            {(() => {
+              const totalEstTokens = agentResources.reduce(
+                (sum, r) => sum + r.estimatedTokens,
+                0,
+              );
+              const totalEstCost = agentResources.reduce(
+                (sum, r) => sum + r.estimatedCostUsd,
+                0,
+              );
+              const workingCount = employees.filter((e) => e.status === 'working').length;
+              return (
+                <>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 8,
+                      flexWrap: 'wrap',
+                      padding: '8px 10px',
+                      background: '#131929',
+                      border: '2px solid #2b3554',
+                    }}
                   >
-                    <defs>
-                      <marker
-                        id="swarm-arrow"
-                        markerWidth="6"
-                        markerHeight="6"
-                        refX="5"
-                        refY="3"
-                        orient="auto"
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span className="pixel-badge" style={{ color: '#3cd8ff' }}>
+                        👥 {employees.length}
+                      </span>
+                      <span className="pixel-badge" style={{ color: '#3be87a' }}>
+                        ⚡ {workingCount} {t.statuses.working}
+                      </span>
+                      <span className="pixel-badge" style={{ color: '#ffd147' }}>
+                        ~{formatCompactTokens(totalEstTokens)} {t.analyticsModal.tokensUnit}
+                      </span>
+                      <span
+                        className="pixel-badge"
+                        style={{ color: '#ffd147', background: '#262113', borderColor: '#786221' }}
                       >
-                        <polygon points="0,0 6,3 0,6" fill="#ffd147" />
-                      </marker>
-                    </defs>
+                        ~${totalEstCost.toFixed(4)} (~Est.)
+                      </span>
+                    </div>
+                    <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>
+                      {t.analyticsModal.estimatedDisclaimer}
+                    </span>
+                  </div>
 
-                    {edges.map((edge) => {
-                      const fromPos = nodePosMap.get(edge.from);
-                      const toPos = nodePosMap.get(edge.to);
-                      if (!fromPos || !toPos) return null;
-                      const dx = toPos.x - fromPos.x;
-                      const dy = toPos.y - fromPos.y;
-                      const dist = Math.hypot(dx, dy) || 1;
-                      const pad = 34;
-                      const x1 = fromPos.x + (dx / dist) * pad;
-                      const y1 = fromPos.y + (dy / dist) * pad;
-                      const x2 = toPos.x - (dx / dist) * pad;
-                      const y2 = toPos.y - (dy / dist) * pad;
-                      const nx = -dy / dist;
-                      const ny = dx / dist;
-                      const mx = (x1 + x2) / 2 + nx * 10;
-                      const my = (y1 + y2) / 2 + ny * 10;
-                      return (
-                        <g key={`${edge.from}->${edge.to}`}>
-                          <line
-                            x1={x1}
-                            y1={y1}
-                            x2={x2}
-                            y2={y2}
-                            stroke="#8a63ff"
-                            strokeWidth={Math.min(4, 1 + edge.count * 0.6)}
-                            strokeDasharray={edge.count > 2 ? undefined : '4 2'}
-                            markerEnd="url(#swarm-arrow)"
-                          />
-                          <rect
-                            x={mx - 9}
-                            y={my - 8}
-                            width={18}
-                            height={15}
-                            fill="#171c2b"
-                            stroke="#ffd147"
-                            strokeWidth={1}
-                          />
-                          <text
-                            x={mx}
-                            y={my + 3}
-                            textAnchor="middle"
-                            fill="#ffd147"
-                            fontSize="9"
-                            fontFamily="monospace"
-                            fontWeight="bold"
-                          >
-                            {edge.count}
-                          </text>
-                        </g>
-                      );
-                    })}
-
-                    {graphNodes.map((node) => {
-                      const isCoord = node.name === 'coordinator';
-                      const isAll = node.name === 'all';
-                      const fill = isCoord ? '#3b2d14' : isAll ? '#2c1f4a' : '#182b3b';
-                      const stroke = isCoord ? '#ffd147' : isAll ? '#b07cff' : '#3cd8ff';
-                      const label = isCoord
-                        ? '★ BOSS'
-                        : node.name.length > 13
-                          ? `${node.name.slice(0, 12)}…`
-                          : node.name;
-                      return (
-                        <g key={node.name} transform={`translate(${node.x}, ${node.y})`}>
-                          <rect
-                            x={-48}
-                            y={-13}
-                            width={96}
-                            height={26}
-                            fill={fill}
-                            stroke={stroke}
-                            strokeWidth={2}
-                          />
-                          <text
-                            x={0}
-                            y={4}
-                            textAnchor="middle"
-                            fill="#f4f6fc"
-                            fontSize="9"
-                            fontFamily="monospace"
-                            fontWeight="bold"
-                          >
-                            {label}
-                          </text>
-                        </g>
-                      );
-                    })}
-                  </svg>
-                </div>
-
-                {/* Edge List */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {edges.map((edge) => (
+                  {employees.length === 0 ? (
                     <div
-                      key={`list-${edge.from}->${edge.to}`}
                       style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: 8,
-                        padding: '6px 10px',
-                        background: '#171c2b',
-                        border: '1px solid #2d3654',
-                        fontSize: 11,
+                        fontSize: 12,
+                        color: 'var(--text-dim)',
+                        padding: 16,
+                        textAlign: 'center',
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                        <span className="pixel-badge" style={{ color: '#3cd8ff' }}>
-                          {edge.from}
-                        </span>
-                        <span style={{ color: '#ffd147', fontWeight: 700 }}>→</span>
-                        <span className="mention-chip">@{edge.to}</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span className="pixel-badge" style={{ color: '#3be87a' }}>
-                          {edge.count} {t.whiteboardModal.mentionsUnit}
-                        </span>
-                        <span className="pixel-badge" style={{ color: '#9aa7c7' }}>
-                          {t.whiteboardModal.lastSeqPrefix}
-                          {edge.lastSeq}
-                        </span>
-                        <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{edge.lastTime}</span>
-                      </div>
+                      {t.whiteboardModal.noTasksYet}
                     </div>
-                  ))}
-                </div>
-              </>
-            )}
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {employees.map((emp) => {
+                        const uniform = UNIFORM_COLORS[emp.modelFamily] || UNIFORM_COLORS.other;
+                        const resource = agentResources.find(
+                          (r) =>
+                            r.agentId === emp.id ||
+                            r.agentName.toLowerCase() === emp.name.toLowerCase(),
+                        );
+                        const estTokens =
+                          resource?.estimatedTokens ??
+                          emp.inputTokens + emp.cacheReadTokens + emp.outputTokens;
+                        const estCost = resource?.estimatedCostUsd ?? 0;
+                        const sharePct =
+                          totalEstTokens > 0
+                            ? Math.min(100, Math.round((estTokens / totalEstTokens) * 100))
+                            : 0;
+                        const assignedTask = filteredTaskNodes.find(
+                          (n) => n.ownerName.toLowerCase() === emp.name.toLowerCase(),
+                        );
+                        const hpScore = emp.health?.hpScore ?? 100;
+                        const successPct = emp.health?.successRatePct ?? 100;
+                        const hpColor =
+                          hpScore >= 70 ? '#3be87a' : hpScore >= 40 ? '#ffbe3b' : '#ff5666';
+                        const statusColor =
+                          emp.status === 'working'
+                            ? '#3be87a'
+                            : emp.status === 'error'
+                              ? '#ff5666'
+                              : '#ffbe3b';
+
+                        return (
+                          <div
+                            key={emp.id}
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: '76px minmax(200px, 1.4fr) minmax(200px, 1fr)',
+                              gap: 12,
+                              padding: 10,
+                              background: '#171c2b',
+                              border: `2px solid ${emp.isCoordinator ? '#786221' : '#2d3654'}`,
+                              alignItems: 'center',
+                            }}
+                          >
+                            {/* Left: Illustrated Pixel Portrait */}
+                            <div
+                              style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                gap: 4,
+                              }}
+                            >
+                              <EmployeePortraitCanvas
+                                employee={emp}
+                                activeEventKind={activeEventKind}
+                              />
+                              <span
+                                className="pixel-title"
+                                style={{ fontSize: 9, color: '#ffd147' }}
+                              >
+                                LV {emp.level}
+                              </span>
+                              <span
+                                className="pixel-badge"
+                                style={{
+                                  fontSize: 9,
+                                  color: statusColor,
+                                  borderColor: statusColor,
+                                }}
+                              >
+                                {t.statuses[emp.status]}
+                              </span>
+                            </div>
+
+                            {/* Middle: Identity, Model & Current Task */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  flexWrap: 'wrap',
+                                }}
+                              >
+                                <span
+                                  className="pixel-title"
+                                  style={{ fontSize: 11, color: '#f4f6fc' }}
+                                >
+                                  {emp.name}
+                                </span>
+                                {emp.isCoordinator && (
+                                  <span
+                                    className="pixel-badge"
+                                    style={{ color: '#ffd147', borderColor: '#ffd147' }}
+                                  >
+                                    ★ {t.rpgModal.coordinatorBadge}
+                                  </span>
+                                )}
+                                <span className="pixel-badge" style={{ color: '#9aa7c7' }}>
+                                  {emp.roleTitle}
+                                </span>
+                                <span className="pixel-badge" style={{ color: '#3cd8ff' }}>
+                                  {t.zones[emp.zone]}
+                                </span>
+                              </div>
+
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  flexWrap: 'wrap',
+                                  fontSize: 11,
+                                }}
+                              >
+                                <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>
+                                  {t.whiteboardModal.modelLabel}:
+                                </span>
+                                <span
+                                  className="pixel-badge"
+                                  style={{
+                                    background: uniform.dark,
+                                    color: uniform.trim,
+                                    borderColor: uniform.trim,
+                                  }}
+                                >
+                                  {resource?.modelName ?? emp.modelId}
+                                </span>
+                                {emp.health?.isVerifiedOutput && (
+                                  <span
+                                    className="pixel-badge"
+                                    style={{
+                                      color: '#3be87a',
+                                      background: '#13281d',
+                                      borderColor: '#2d7a4f',
+                                    }}
+                                  >
+                                    ✅ {emp.health.verifiedLabel || t.rpgModal.verifiedBadgeLabel}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div style={{ fontSize: 11, color: '#dce6ff', lineHeight: 1.35 }}>
+                                <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>
+                                  {t.whiteboardModal.roleAndTask}:{' '}
+                                </span>
+                                <strong style={{ color: '#3cd8ff' }}>
+                                  {t.activities[emp.activity]}
+                                </strong>
+                                {(emp.speechBubble || assignedTask?.title) && (
+                                  <div
+                                    style={{
+                                      marginTop: 3,
+                                      color: '#b8c5e3',
+                                      fontSize: 11,
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      display: '-webkit-box',
+                                      WebkitLineClamp: 2,
+                                      WebkitBoxOrient: 'vertical',
+                                    }}
+                                  >
+                                    {assignedTask?.title || emp.speechBubble}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Right: Credit/Tokens & Health HP */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  gap: 6,
+                                  fontSize: 11,
+                                }}
+                              >
+                                <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>
+                                  {t.whiteboardModal.creditUsageLabel}
+                                </span>
+                                <span
+                                  className="pixel-badge"
+                                  style={{
+                                    color: '#ffd147',
+                                    background: '#262113',
+                                    borderColor: '#786221',
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  ~${estCost.toFixed(4)}
+                                </span>
+                              </div>
+
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  fontSize: 10,
+                                  color: '#9aa7c7',
+                                }}
+                              >
+                                <span>
+                                  ~{formatCompactTokens(estTokens)} {t.analyticsModal.tokensUnit}
+                                </span>
+                                <span>{sharePct}%</span>
+                              </div>
+                              <div className="pixel-bar-track" style={{ height: 8 }}>
+                                <div
+                                  className="pixel-bar-fill"
+                                  style={{ width: `${sharePct}%`, background: '#3cd8ff' }}
+                                />
+                              </div>
+
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  fontSize: 10,
+                                  marginTop: 2,
+                                }}
+                              >
+                                <span style={{ color: hpColor, fontWeight: 700 }}>
+                                  HP {hpScore}/100 (%{successPct})
+                                </span>
+                                <span style={{ color: 'var(--text-dim)' }}>
+                                  {t.rpgModal.steps}: {emp.stepCount}
+                                </span>
+                              </div>
+                              <div className="pixel-bar-track" style={{ height: 8 }}>
+                                <div
+                                  className="pixel-bar-fill"
+                                  style={{ width: `${hpScore}%`, background: hpColor }}
+                                />
+                              </div>
+
+                              {onSelectEmployee && (
+                                <button
+                                  type="button"
+                                  className="pixel-btn cyan"
+                                  style={{ fontSize: 10, padding: '4px 8px', marginTop: 2 }}
+                                  onClick={() => {
+                                    playSelectBlip();
+                                    onSelectEmployee(emp);
+                                  }}
+                                >
+                                  {t.whiteboardModal.inspectProfile}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         )}
 
@@ -664,6 +866,124 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
               maxHeight: 460,
             }}
           >
+            {edges.length > 0 && (
+              <div
+                style={{
+                  background: '#0d1019',
+                  border: '2px solid #07080d',
+                  padding: 6,
+                  display: 'flex',
+                  justifyContent: 'center',
+                }}
+              >
+                <svg
+                  viewBox="0 0 640 280"
+                  style={{ width: '100%', maxWidth: 640, height: 220 }}
+                  shapeRendering="crispEdges"
+                >
+                  <defs>
+                    <marker
+                      id="swarm-arrow"
+                      markerWidth="6"
+                      markerHeight="6"
+                      refX="5"
+                      refY="3"
+                      orient="auto"
+                    >
+                      <polygon points="0,0 6,3 0,6" fill="#ffd147" />
+                    </marker>
+                  </defs>
+
+                  {edges.map((edge) => {
+                    const fromPos = nodePosMap.get(edge.from);
+                    const toPos = nodePosMap.get(edge.to);
+                    if (!fromPos || !toPos) return null;
+                    const dx = toPos.x - fromPos.x;
+                    const dy = toPos.y - fromPos.y;
+                    const dist = Math.hypot(dx, dy) || 1;
+                    const pad = 34;
+                    const x1 = fromPos.x + (dx / dist) * pad;
+                    const y1 = fromPos.y + (dy / dist) * pad;
+                    const x2 = toPos.x - (dx / dist) * pad;
+                    const y2 = toPos.y - (dy / dist) * pad;
+                    const nx = -dy / dist;
+                    const ny = dx / dist;
+                    const mx = (x1 + x2) / 2 + nx * 10;
+                    const my = (y1 + y2) / 2 + ny * 10;
+                    return (
+                      <g key={`${edge.from}->${edge.to}`}>
+                        <line
+                          x1={x1}
+                          y1={y1}
+                          x2={x2}
+                          y2={y2}
+                          stroke="#8a63ff"
+                          strokeWidth={Math.min(4, 1 + edge.count * 0.6)}
+                          strokeDasharray={edge.count > 2 ? undefined : '4 2'}
+                          markerEnd="url(#swarm-arrow)"
+                        />
+                        <rect
+                          x={mx - 9}
+                          y={my - 8}
+                          width={18}
+                          height={15}
+                          fill="#171c2b"
+                          stroke="#ffd147"
+                          strokeWidth={1}
+                        />
+                        <text
+                          x={mx}
+                          y={my + 3}
+                          textAnchor="middle"
+                          fill="#ffd147"
+                          fontSize="9"
+                          fontFamily="monospace"
+                          fontWeight="bold"
+                        >
+                          {edge.count}
+                        </text>
+                      </g>
+                    );
+                  })}
+
+                  {graphNodes.map((node) => {
+                    const isCoord = node.name === 'coordinator';
+                    const isAll = node.name === 'all';
+                    const fill = isCoord ? '#3b2d14' : isAll ? '#2c1f4a' : '#182b3b';
+                    const stroke = isCoord ? '#ffd147' : isAll ? '#b07cff' : '#3cd8ff';
+                    const label = isCoord
+                      ? '★ BOSS'
+                      : node.name.length > 13
+                        ? `${node.name.slice(0, 12)}…`
+                        : node.name;
+                    return (
+                      <g key={node.name} transform={`translate(${node.x}, ${node.y})`}>
+                        <rect
+                          x={-48}
+                          y={-13}
+                          width={96}
+                          height={26}
+                          fill={fill}
+                          stroke={stroke}
+                          strokeWidth={2}
+                        />
+                        <text
+                          x={0}
+                          y={4}
+                          textAnchor="middle"
+                          fill="#f4f6fc"
+                          fontSize="9"
+                          fontFamily="monospace"
+                          fontWeight="bold"
+                        >
+                          {label}
+                        </text>
+                      </g>
+                    );
+                  })}
+                </svg>
+              </div>
+            )}
             {filteredTaskNodes.length === 0 ? (
               <div style={{ fontSize: 12, color: 'var(--text-dim)', padding: 12, textAlign: 'center' }}>
                 {t.whiteboardModal.noTasksYet}
