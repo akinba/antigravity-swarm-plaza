@@ -11,15 +11,56 @@
 
 ## 📸 Görsel Vitrin / Showcase Gallery
 
-| 🏢 Ana 2.5B İzometrik Ofis (Gündüz) | 📱 IDE Yan Panel Kompakt Görünüm | 🌙 Alternatif Kat Planı & Gece Teması |
-| :---: | :---: | :---: |
-| ![Ana 2.5B Ofis](docs/screenshots/office-main.png) | ![Sidecar Kompakt Mod](docs/screenshots/sidecar-compact.png) | ![Gece Modu & Pizza Partisi](docs/screenshots/office-night-blueprint.png) |
-| *Yönetici masası, çalışma öbekleri, asansör girişi ve evcil hayvanlar* | *< 760px Aux Pane kompakt araç çubuğu, asansör çekmecesi ve %100 ofis* | *Merkez Toplantı Adası, Gece modu aydınlatması ve Kat Pizza Partisi* |
+<p align="center">
+  <img src="docs/screenshots/office-main.png" alt="Ana 2.5B İzometrik Ofis (Gündüz)" width="100%" />
+</p>
+<p align="center">
+  <em>🏢 <strong>Ana 2.5B İzometrik Ofis (Gündüz)</strong> — Akustik ahşap panelli duvarlar, panoramik şehir manzaralı pencereler, zarif kadın &amp; atletik erkek piksel çalışanlar, çift monitörlü masalar ve mini-oda mobilyaları.</em>
+</p>
 
-| 🏙️ Plaza Kulesi Dış Görünüm | 🕸️ Swarm Panosu & `@mention` Ağı | 📊 60 Dakikalık Analitik & Telemetri |
-| :---: | :---: | :---: |
-| ![Plaza Kulesi](docs/screenshots/plaza-tower.png) | ![Swarm Board Grafiği](docs/screenshots/swarm-board-graph.png) | ![Analitik Paneli](docs/screenshots/analytics-modal.png) |
-| *Şirket katları, aktif pencereler ve animasyonlu cam asansör* | *Canlı mesaj akışı ve yönlü `@mention` etkileşim ağı grafiği* | *60 dakikalık aktivite çubukları, görev tamamlama ve model dağılımı* |
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <strong>🌙 Alternatif Kat Planı, Gece Modu &amp; Olaylar</strong><br /><br />
+      <img src="docs/screenshots/office-night-blueprint.png" alt="Gece Modu ve Ofis Etkinliği" width="100%" /><br />
+      <em>Alternatif 16×14 kat düzeni, radyal gece ambiyans ışıkları ve canlı kat etkinlikleri</em>
+    </td>
+    <td width="50%" align="center">
+      <strong>🏙️ Plaza Kulesi Dış Gökdelen Görünümü</strong><br /><br />
+      <img src="docs/screenshots/plaza-tower.png" alt="Plaza Kulesi Dış Görünüm" width="100%" /><br />
+      <em>Çelik kayıtlı cam giydirme cephe, neon SWARM PLAZA tacı, çift katlı cam lobi ve asansör</em>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <strong>🕸️ Canlı Swarm Panosu &amp; <code>@mention</code> Ağı</strong><br /><br />
+      <img src="docs/screenshots/swarm-board-graph.png" alt="Swarm Panosu ve Mention Ağı" width="100%" /><br />
+      <em>Otomatik kaydırmalı mesaj akışı, tıklanabilir <code>● LIVE</code> takibi ve yönlü <code>@mention</code> grafiği</em>
+    </td>
+    <td width="50%" align="center">
+      <strong>📊 60 Dakikalık Analitik &amp; Telemetri</strong><br /><br />
+      <img src="docs/screenshots/analytics-modal.png" alt="60 Dakikalık Analitik" width="100%" /><br />
+      <em>60 dakikalık aktivite çubukları, tamamlanan görev sayacı ve model dağılımı</em>
+    </td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td width="310" align="center">
+      <img src="docs/screenshots/sidecar-compact.png" alt="IDE Yan Panel Kompakt Görünüm" width="260" />
+    </td>
+    <td valign="middle">
+      <strong>📱 IDE Yan Panel Kompakt Görünüm (<code>&lt; 760px</code>)</strong>
+      <ul>
+        <li><strong>Kompakt Araç Çubuğu:</strong> İkincil kontroller otomatik olarak düzenli bir <code>⋯</code> menüsüne toplanır.</li>
+        <li><strong>Açılır Kat Çekmecesi:</strong> Kat seçici paneli yer tasarrufu için hızlı bir <code>ASANSÖR ▾</code> çekmecesine dönüşür.</li>
+        <li><strong>Tam Genişlik 2.5B Ofis:</strong> Dar IDE yan panellerinde bile %100 net ve akıcı izometrik sahne sunar.</li>
+        <li><strong>Eşlikçi Gezinme Hapı:</strong> Paketle gelen <code>plugin/rules/AGENTS.md</code> kuralı, <code>Open the Swarm UI</code> yanında <code>[Swarm Plaza](sidecar://antigravity-swarm-plaza/swarm_plaza/)</code> bağlantısını sunar.</li>
+      </ul>
+    </td>
+  </tr>
+</table>
 
 ---
 

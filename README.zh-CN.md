@@ -19,15 +19,56 @@
 
 ## 📸 界面展示画廊 (Visual Showcase Gallery)
 
-| 🏢 主界面 2.5D 等距办公室（日间） | 📱 IDE 侧边栏紧凑模式 | 🌙 备用建筑蓝图与夜间模式 |
-| :---: | :---: | :---: |
-| ![主界面 2.5D 办公室](docs/screenshots/office-main.png) | ![Sidecar 紧凑模式](docs/screenshots/sidecar-compact.png) | ![夜间模式与披萨派对](docs/screenshots/office-night-blueprint.png) |
-| *主管办公桌、开发工位组、固定电梯厅与动态宠物* | *< 760px 侧边栏紧凑工具栏、电梯抽屉与全宽视角* | *中央会议岛布局、夜间氛围灯效与楼层披萨派对事件* |
+<p align="center">
+  <img src="docs/screenshots/office-main.png" alt="主界面 2.5D 等距办公室（日间）" width="100%" />
+</p>
+<p align="center">
+  <em>🏢 <strong>主界面 2.5D 等距办公室（日间）</strong> — 声学木格栅墙面、全景城市天际线窗户、精致男女像素员工、双屏办公桌与迷你房间家具。</em>
+</p>
 
-| 🏙️ 广场大楼外观视图 | 🕸️ Swarm 白板与 `@mention` 关系网 | 📊 60 分钟活动分析与遥测 |
-| :---: | :---: | :---: |
-| ![广场大楼外观](docs/screenshots/plaza-tower.png) | ![Swarm 白板关系网](docs/screenshots/swarm-board-graph.png) | ![分析面板](docs/screenshots/analytics-modal.png) |
-| *公司楼层堆叠、实时点亮的工作窗户与玻璃观光电梯* | *实时消息流与有向 `@mention` 交互网络拓扑图* | *60 分钟活动柱状图、任务完成统计与模型分布* |
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <strong>🌙 备用蓝图、夜间模式与楼层活动</strong><br /><br />
+      <img src="docs/screenshots/office-night-blueprint.png" alt="夜间模式与楼层活动" width="100%" /><br />
+      <em>备用 16×14 楼层布局、夜间径向环境光效与实时楼层派对活动</em>
+    </td>
+    <td width="50%" align="center">
+      <strong>🏙️ 广场大楼外观视图</strong><br /><br />
+      <img src="docs/screenshots/plaza-tower.png" alt="广场大楼外观" width="100%" /><br />
+      <em>钢肋玻璃幕墙、楼顶霓虹 SWARM PLAZA 标志、挑高玻璃大堂与观光电梯</em>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <strong>🕸️ Swarm 白板与 <code>@mention</code> 关系网</strong><br /><br />
+      <img src="docs/screenshots/swarm-board-graph.png" alt="Swarm 白板关系网" width="100%" /><br />
+      <em>自动滚动消息流、可点击 <code>● LIVE</code> 实时追踪按钮与有向 <code>@mention</code> 拓扑图</em>
+    </td>
+    <td width="50%" align="center">
+      <strong>📊 60 分钟活动分析与遥测</strong><br /><br />
+      <img src="docs/screenshots/analytics-modal.png" alt="60 分钟活动分析" width="100%" /><br />
+      <em>60 分钟活动柱状图、已完成任务统计与多模型分布视图</em>
+    </td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td width="310" align="center">
+      <img src="docs/screenshots/sidecar-compact.png" alt="IDE 侧边栏紧凑模式" width="260" />
+    </td>
+    <td valign="middle">
+      <strong>📱 IDE 辅助侧边栏紧凑模式（<code>&lt; 760px</code>）</strong>
+      <ul>
+        <li><strong>紧凑工具栏：</strong> 次要操作按钮自动收拢进整洁的 <code>⋯</code> 菜单。</li>
+        <li><strong>滑出式楼层抽屉：</strong> 楼层选择器折叠为快捷电梯抽屉，最大化节省横向空间。</li>
+        <li><strong>全宽 2.5D 办公室：</strong> 即使在窄侧边栏中也能保持 100% 清晰的等距画布视野。</li>
+        <li><strong>伴随导航胶囊：</strong> 内置 <code>plugin/rules/AGENTS.md</code> 规则会在 <code>Open the Swarm UI</code> 旁自动提供 <code>[Swarm Plaza](sidecar://antigravity-swarm-plaza/swarm_plaza/)</code> 入口。</li>
+      </ul>
+    </td>
+  </tr>
+</table>
 
 ---
 

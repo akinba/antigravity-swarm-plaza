@@ -11,15 +11,56 @@
 
 ## 📸 Visual Showcase Gallery
 
-| 🏢 Main 2.5D Isometric Office (Daylight) | 📱 IDE Auxiliary Side-Pane Compact Mode | 🌙 Alternate Architecture & Night Mode |
-| :---: | :---: | :---: |
-| ![Main 2.5D Office](docs/screenshots/office-main.png) | ![Sidecar Compact Mode](docs/screenshots/sidecar-compact.png) | ![Night Mode & Pizza Party](docs/screenshots/office-night-blueprint.png) |
-| *Executive desk, cluster pods, elevator foyer, and animated pets* | *< 760px Aux Pane compact toolbar, elevator drawer, and full-width office* | *Central Meeting Island, night ambiance, and Floor Pizza Party event* |
+<p align="center">
+  <img src="docs/screenshots/office-main.png" alt="Main 2.5D Isometric Office (Daylight)" width="100%" />
+</p>
+<p align="center">
+  <em>🏢 <strong>Main 2.5D Isometric Office (Daylight)</strong> — Acoustic wood-slat walls, panoramic skyline windows, diverse female &amp; male pixel employees, dual-monitor desks, and mini-room props.</em>
+</p>
 
-| 🏙️ Plaza Tower Exterior View | 🕸️ Swarm Board & `@mention` Graph | 📊 60-Minute Analytics & Telemetry |
-| :---: | :---: | :---: |
-| ![Plaza Tower](docs/screenshots/plaza-tower.png) | ![Swarm Board Graph](docs/screenshots/swarm-board-graph.png) | ![Analytics Modal](docs/screenshots/analytics-modal.png) |
-| *Skyscraper floors, illuminated active windows, and glass elevator* | *Live message feed and directed `@mention` network interaction graph* | *60-minute activity bar chart, task completion, and model distribution* |
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <strong>🌙 Alternate Blueprint, Night Mode &amp; Events</strong><br /><br />
+      <img src="docs/screenshots/office-night-blueprint.png" alt="Night Mode &amp; Office Event" width="100%" /><br />
+      <em>Alternate 16×14 floor layout, ambient night light pools, and live floor events</em>
+    </td>
+    <td width="50%" align="center">
+      <strong>🏙️ Plaza Tower Skyscraper Exterior</strong><br /><br />
+      <img src="docs/screenshots/plaza-tower.png" alt="Plaza Tower Exterior" width="100%" /><br />
+      <em>Curtain-wall glass facade, neon SWARM PLAZA crown, double-height lobby, and elevator</em>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <strong>🕸️ Live Swarm Board &amp; <code>@mention</code> Graph</strong><br /><br />
+      <img src="docs/screenshots/swarm-board-graph.png" alt="Swarm Board &amp; Mention Graph" width="100%" /><br />
+      <em>Auto-scrolling message feed with clickable <code>● LIVE</code> follow and directed <code>@mention</code> graph</em>
+    </td>
+    <td width="50%" align="center">
+      <strong>📊 60-Minute Analytics &amp; Telemetry</strong><br /><br />
+      <img src="docs/screenshots/analytics-modal.png" alt="60-Minute Analytics" width="100%" /><br />
+      <em>60-minute activity bar chart, completed task counters, and model distribution</em>
+    </td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td width="310" align="center">
+      <img src="docs/screenshots/sidecar-compact.png" alt="IDE Auxiliary Side-Pane Compact Mode" width="260" />
+    </td>
+    <td valign="middle">
+      <strong>📱 IDE Auxiliary Side-Pane Compact Mode (<code>&lt; 760px</code>)</strong>
+      <ul>
+        <li><strong>Compact Toolbar:</strong> Secondary controls automatically bundle into a clean <code>⋯</code> overflow menu.</li>
+        <li><strong>Slide-Over Floor Drawer:</strong> Floor selector collapses into a quick <code>ELEVATOR ▾</code> drawer to save horizontal space.</li>
+        <li><strong>Full-Width 2.5D Office:</strong> Preserves crisp 100% canvas visibility inside narrow IDE side panes.</li>
+        <li><strong>Companion Navigation Pill:</strong> Bundled <code>plugin/rules/AGENTS.md</code> surfaces <code>[Swarm Plaza](sidecar://antigravity-swarm-plaza/swarm_plaza/)</code> right alongside <code>Open the Swarm UI</code>.</li>
+      </ul>
+    </td>
+  </tr>
+</table>
 
 ---
 
