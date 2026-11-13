@@ -12,7 +12,9 @@
   "files": [
     "dist",
     "plugin",
-    "README.md"
+    "README.md",
+    "README.tr.md",
+    "README.zh-CN.md"
   ],
   "scripts": {
     "dev": "concurrently \"npm.cmd run dev:server\" \"npm.cmd run dev:client\"",

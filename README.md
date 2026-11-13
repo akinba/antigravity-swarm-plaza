@@ -3,7 +3,7 @@
 [![CI](https://github.com/akinba/antigravity-swarm-plaza/actions/workflows/ci.yml/badge.svg)](https://github.com/akinba/antigravity-swarm-plaza/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/akinba/antigravity-swarm-plaza?include_prereleases)](https://github.com/akinba/antigravity-swarm-plaza/releases)
 
-🇬🇧 **English Documentation** | [🇹🇷 **Türkçe Dokümantasyon**](README.tr.md)
+🇬🇧 **English** | [🇹🇷 **Türkçe**](README.tr.md) | [🇨🇳 **简体中文**](README.zh-CN.md)
 
 > A 2.5D retro isometric gamified dashboard and native IDE Auxiliary Pane sidecar extension that visualizes Google Antigravity autonomous multi-agent systems and swarms as living, breathing office workers across skyscraper floors.
 
@@ -68,11 +68,12 @@ flowchart LR
   - Every Antigravity project maps to its own dedicated company floor (`K0` Lobby, `K1..KN` Projects, and Penthouse Demo Floor).
   - Automatically resolves user-renamed Antigravity project display names from `~/.gemini/config/projects/*.json` (e.g. `"Bursa Veriler"`).
   - Fixed left-wall elevator entrance (`gx: 0, gy: 6..7`) across all blueprints with brushed-steel sliding doors that open when agents arrive or depart.
-- **👔 BOSS & 8 Model-Specific Outfits & Colorways:**
+- **👔 BOSS, Diverse Male & Female Pixel Characters & 8 Model Outfits:**
   - Swarm coordinators are prominently styled as **★ BOSS** seated at an executive mahogany desk with a golden crown.
+  - Expressive female & male 2.5D pixel employees (oval chibi faces, eye sparkle, wavy/bob/ponytail/bun hairstyles, 3-tier flared skirts & tailored suits) paired with synchronized `96×96` RPG character portraits.
   - 8 distinct model families feature unique outfits and accessories: `argon` (Purple blazer + crown), `hydrogen` (Cyan tech hoodie + headphones), `flash` (Emerald/Yellow racing jacket + visor), `carbon` (Crimson lab coat + cyber specs), `pro` (Navy/Gold suit + tie), `claude` (Terracotta knit sweater + beanie), `gpt` (Teal turtleneck + headset), `other` (Indigo polo + badge).
-- **📐 5 Architectural Blueprints, 5 Desk Styles & Office Pets:**
-  - Real partitioned rooms (Executive Suite, Dev/QA Studio, Conference War Room, Server Room, and Lounge) plus dead-zone mini rooms and corner nooks.
+- **📐 5 Architectural Blueprints, 5 Mini-Room Props & Office Pets:**
+  - Real partitioned rooms (Executive Suite, Dev/QA Studio, Conference War Room, Server Room, and Lounge) plus 5 custom 2.5D mini-room props (`phone_booth`, `snack_vending`, `arcade_cabinet`, `library_table`, `3d_printer`) filling dead zones across `16×14` floors.
   - 100% camera-facing (`SE` / `SW`) seated angles, low tabletop ergonomics (`10px`), and corner monitors ensure characters' faces and expressions are never occluded.
   - 5 theme palettes across 5 architectural layouts yield 25 distinct combinations (`🎲 LAYOUT`).
 - **☕ Living Agent Lifecycle & Go-Home Timer (`AGY_GO_HOME_MINUTES`):**
@@ -84,7 +85,7 @@ flowchart LR
   - `STAR_WARS_PARTY` (Jedi, Sith, Rebel, Mandalorian), `SUPERHERO_PARTY`, and `HALLOWEEN_PARTY` (Witch, Pumpkin, Vampire, Ghost) with 4 deterministic costume variants per agent, ambient canvas particles, and synchronized 96x96 RPG portraits, alongside `PIZZA_PARTY`, `WATERCOOLER_GOSSIP`, `SPRINT_CELEBRATION`, `MASCOT_ZOOMIES`, and `COFFEE_BREW`.
   - *Real-Work Integrity:* Active working agents (`status === 'working'`) are NEVER pulled off their desks during ambient events.
 - **📡 Live Swarm Board, `@mention` Network Graph & 60m Analytics:**
-  - Unified message stream ingesting both Native Swarm `board.jsonl` and subagent/task `messages/*.json`.
+  - Unified message stream ingesting both Native Swarm `board.jsonl` and subagent/task `messages/*.json`, with automatic scroll-to-latest (`MESSAGE FEED`), clickable `● LIVE` follow toggle, and clean `@Swarm Worker (...)` badge normalization.
   - Directed `@mention` communication network graph modal (`WhiteboardModal`).
   - 60-minute activity telemetry timeline (12x 5-minute buckets), completed task counters, and model distribution (`AnalyticsModal`).
 - **🌐 Automatic Browser Language Detection & Complete i18n:**
@@ -138,7 +139,7 @@ npx antigravity-swarm-plaza --install-plugin
 
 Once installed, simply click the sidecar pill in Antigravity chat:
 - `[Swarm Plaza](sidecar://antigravity-swarm-plaza/swarm_plaza/)`
-- When the plugin is installed and enabled, its bundled `plugin/rules/AGENTS.md` rule automatically surfaces the companion `[Swarm Plaza](sidecar://antigravity-swarm-plaza/swarm_plaza/)` pill alongside `Open the Swarm UI` (and disappears automatically when the plugin is disabled).
+- When the plugin is installed and enabled, its bundled `plugin/rules/AGENTS.md` rule automatically surfaces the companion `[Swarm Plaza](sidecar://antigravity-swarm-plaza/swarm_plaza/)` pill alongside `[Open the Swarm UI](sidecar://swarm/swarm_board/)` (and disappears automatically when the plugin is disabled).
 
 ---
 
@@ -152,7 +153,7 @@ cd antigravity-swarm-plaza
 # Install dependencies
 npm install
 
-# Run automated tests (66 tests / 25 test suites)
+# Run automated tests (67 tests / 25 test suites)
 npm test
 
 # Run TypeScript verification

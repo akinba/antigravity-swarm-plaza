@@ -123,4 +123,64 @@ describe('Antigravity plugin bundle', () => {
       fs.rmSync(tmpBase, { recursive: true, force: true });
     }
   });
+
+  it('maintains synchronized trilingual README files (EN, TR, zh-CN) and release packaging', () => {
+    const readmeFiles = ['README.md', 'README.tr.md', 'README.zh-CN.md'] as const;
+    const contents = new Map<string, string>();
+
+    for (const file of readmeFiles) {
+      const fullPath = path.join(ROOT_DIR, file);
+      assert.equal(fs.existsSync(fullPath), true, `Missing ${file} in repo root`);
+      const text = fs.readFileSync(fullPath, 'utf8');
+      assert.ok(text.trim().length > 0, `${file} must not be empty`);
+      assert.equal(text.includes('\uFFFD'), false, `${file} contains replacement character U+FFFD`);
+      assert.equal(
+        /(?:Users|home)[\\/]+akinb/i.test(text),
+        false,
+        `${file} must not leak personal user path`,
+      );
+      contents.set(file, text);
+    }
+
+    const topLines = (file: string) =>
+      (contents.get(file) ?? '').split(/\r?\n/).slice(0, 20).join('\n');
+
+    assert.ok(topLines('README.md').includes('README.tr.md'));
+    assert.ok(topLines('README.md').includes('README.zh-CN.md'));
+
+    assert.ok(topLines('README.tr.md').includes('README.md'));
+    assert.ok(topLines('README.tr.md').includes('README.zh-CN.md'));
+
+    assert.ok(topLines('README.zh-CN.md').includes('README.md'));
+    assert.ok(topLines('README.zh-CN.md').includes('README.tr.md'));
+
+    const zhText = contents.get('README.zh-CN.md') ?? '';
+    assert.ok(/[\u4e00-\u9fff]/.test(zhText), 'README.zh-CN.md must contain Chinese characters');
+    const screenshots = [
+      'office-main.png',
+      'sidecar-compact.png',
+      'office-night-blueprint.png',
+      'plaza-tower.png',
+      'swarm-board-graph.png',
+      'analytics-modal.png',
+    ];
+    for (const shot of screenshots) {
+      assert.ok(zhText.includes(shot), `README.zh-CN.md missing screenshot ${shot}`);
+    }
+
+    const pkg = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf8')) as {
+      files?: string[];
+    };
+    for (const file of readmeFiles) {
+      assert.ok(pkg.files?.includes(file), `package.json files[] missing ${file}`);
+    }
+
+    const releaseYml = fs.readFileSync(
+      path.join(ROOT_DIR, '.github', 'workflows', 'release.yml'),
+      'utf8',
+    );
+    for (const file of readmeFiles) {
+      assert.ok(releaseYml.includes(file), `.github/workflows/release.yml missing ${file}`);
+    }
+  });
 });

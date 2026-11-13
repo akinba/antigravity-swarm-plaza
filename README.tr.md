@@ -3,7 +3,7 @@
 [![CI](https://github.com/akinba/antigravity-swarm-plaza/actions/workflows/ci.yml/badge.svg)](https://github.com/akinba/antigravity-swarm-plaza/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/akinba/antigravity-swarm-plaza?include_prereleases)](https://github.com/akinba/antigravity-swarm-plaza/releases)
 
-[🇬🇧 **English Documentation**](README.md) | 🇹🇷 **Türkçe Dokümantasyon**
+[🇬🇧 **English**](README.md) | 🇹🇷 **Türkçe** | [🇨🇳 **简体中文**](README.zh-CN.md)
 
 > Google Antigravity projelerindeki otonom ajanları bir plazanın katlarındaki gerçek ofis çalışanları gibi gösteren 2.5B retro izometrik oyunlaştırılmış gösterge paneli ve yerleşik IDE Yan Panel (Auxiliary Pane) eklentisi.
 
@@ -68,11 +68,12 @@ flowchart LR
   - Her Antigravity projesi gökdelende bağımsız bir şirket katıdır (`K0` Lobi, `K1..KN` Projeler ve Çatı Katı Demo Penthouse).
   - Kullanıcı tarafından yeniden adlandırılan Antigravity projeleri (`~/.gemini/config/projects/*.json`), kat panosunda orijinal adıyla (örneğin `"Bursa Veriler"`) otomatik görüntülenir.
   - Tüm mimari planlarda sol duvarda sabit asansör girişi (`gx: 0, gy: 6..7`), yaklaşan ajanlara otomatik açılan fırçalanmış çelik sürgülü kapılar ve yumuşak iniş/çıkış animasyonları.
-- **👔 BOSS & 8 Modele Özel Kıyafet / Renk Paleti:**
+- **👔 BOSS, Kadın & Erkek Piksel Karakterler ve 8 Modele Özel Kıyafet:**
   - Koordinatör ajanlar tüm arayüzde **★ BOSS** olarak gösterilir ve yönetici masasında altın taçla yer alır.
+  - Zarif kadın ve erkek 2.5B piksel çalışanlar (oval chibi yüz, göz parıltısı, dalgalı/küt/at kuyruğu/balerin topuzu saçlar, 3 kademeli kloş etek ve takım elbise) + senkronize `96×96` RPG karakter portreleri.
   - 8 farklı model ailesi kendine özgü kıyafet, aksesuar ve renk paletine sahiptir: `argon` (Mor ceket + taç), `hydrogen` (Turkuaz hoodie + kulaklık), `flash` (Zümrüt/Sarı yarış ceketi + vizör), `carbon` (Kırmızı/Beyaz önlük + siber gözlük), `pro` (Lacivert/Altın takım + kravat), `claude` (Kiremit örgü kazak + bere), `gpt` (Petrol balıkçı yaka + kulaklık), `other` (İndigo polo + yaka kartı).
-- **📐 5 Mimari Ofis Planı, 5 Masa Stili & Ofis Evcil Hayvanları:**
-  - Ahşap ve cam bölme duvarlarla ayrılmış gerçekçi oda yerleşimleri (Yönetici Ofisi, Yazılım & QA Odası, Toplantı Odası, Sunucu Odası ve Dinlenme Salonu) ile ölü alanlarda mini odalar ve köşe dekorları.
+- **📐 5 Mimari Ofis Planı, 5 Mini-Oda Mobilyası & Ofis Evcil Hayvanları:**
+  - Ahşap ve cam bölme duvarlarla ayrılmış gerçekçi oda yerleşimleri (Yönetici Ofisi, Yazılım & QA Odası, Toplantı Odası, Sunucu Odası ve Dinlenme Salonu) ile `16×14` katlardaki ölü alanları dolduran 5 özel 2.5B mini-oda mobilyası (`phone_booth`, `snack_vending`, `arcade_cabinet`, `library_table`, `3d_printer`).
   - %100 kameraya dönük (`SE` / `SW`) oturma pozları, alçak masa tablaları (`10px`) ve köşe monitörler sayesinde ajanların yüzleri ve ifadeleri daima görünür kalır.
   - 5 tema paleti ile toplam 25 benzersiz düzen kombinasyonu (`🎲 DÜZEN`).
 - **☕ Canlı Ajan Yaşam Döngüsü & Mesai Bitişi (`AGY_GO_HOME_MINUTES`):**
@@ -84,7 +85,7 @@ flowchart LR
   - Her ajan için 4 deterministik kostüm varyantı, ortam parçacıkları ve senkronize 96x96 RPG portreleriyle `STAR_WARS_PARTY` (Jedi, Sith, Rebel, Mandalorian), `SUPERHERO_PARTY` ve `HALLOWEEN_PARTY` (Cadı, Balkabağı, Vampir, Hayalet) kostüm partilerinin yanı sıra `PIZZA_PARTY`, `WATERCOOLER_GOSSIP`, `SPRINT_CELEBRATION`, `MASCOT_ZOOMIES` ve `COFFEE_BREW`.
   - *Gerçek İş Bütünlüğü:* Aktif çalışan ajanlar (`working`) asla masalarından veya görevlerinden koparılmaz.
 - **📡 Canlı Swarm Board, `@mention` Grafiği & 60dk Analitik:**
-  - Hem yerel Swarm `board.jsonl` hem de subagent/görev `messages/*.json` verilerinden beslenen birleşik mesaj akışı ve yönlü `@mention` etkileşim grafiği (`WhiteboardModal`).
+  - Hem yerel Swarm `board.jsonl` hem de subagent/görev `messages/*.json` verilerinden beslenen birleşik mesaj akışı; en yeni mesaja otomatik kaydırma (`MESAJ AKIŞI`), tıklanabilir `● CANLI TAKİP` düğmesi, `@Swarm Worker (...)` rozet normalizasyonu ve yönlü `@mention` etkileşim grafiği (`WhiteboardModal`).
   - Son 60 dakikalık aktivite zaman çizelgesi (5 dakikalık 12 dilim), tamamlanan görev sayıları ve model dağılımı (`AnalyticsModal`).
 - **🌐 Otomatik Tarayıcı Dili Algılama & Eksiksiz i18n:**
   - Tarayıcı veya sistem dili Türkçe ise otomatik `TR`, aksi halde `EN` olarak başlar. Tek tıkla `TR | EN` anında tüm sunucu konuşma balonlarını, demo şirket adlarını ve olay başlıklarını dinamik yerelleştirir.
@@ -137,7 +138,7 @@ npx antigravity-swarm-plaza --install-plugin
 
 Kurulum sonrasında Antigravity sohbetinde şu komutla paneli anında açabilirsiniz:
 - `[Swarm Plaza](sidecar://antigravity-swarm-plaza/swarm_plaza/)`
-- Eklenti kurulu ve etkinken paketle gelen `plugin/rules/AGENTS.md` kuralı sayesinde `Open the Swarm UI` butonunun yanında otomatik olarak eşlikçi `[Swarm Plaza](sidecar://antigravity-swarm-plaza/swarm_plaza/)` pill bağlantısı da sunulur (eklenti devre dışı bırakıldığında otomatik olarak kalkar).
+- Eklenti kurulu ve etkinken paketle gelen `plugin/rules/AGENTS.md` kuralı sayesinde `[Open the Swarm UI](sidecar://swarm/swarm_board/)` butonunun yanında otomatik olarak eşlikçi `[Swarm Plaza](sidecar://antigravity-swarm-plaza/swarm_plaza/)` pill bağlantısı da sunulur (eklenti devre dışı bırakıldığında otomatik olarak kalkar).
 
 ---
 
@@ -151,7 +152,7 @@ cd antigravity-swarm-plaza
 # Bağımlılıkları yükleyin
 npm install
 
-# Testleri çalıştırın (66 test / 25 test paketi)
+# Testleri çalıştırın (67 test / 25 test paketi)
 npm test
 
 # TypeScript tip kontrolü

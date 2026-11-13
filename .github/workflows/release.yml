@@ -34,7 +34,7 @@ jobs:
       - name: Package release archives
         run: |
           mkdir -p release-stage/antigravity-swarm-plaza
-          cp -r dist plugin scripts src package.json package-lock.json tsconfig.json tsconfig.server.json vite.config.ts README.md README.tr.md release-stage/antigravity-swarm-plaza/
+          cp -r dist plugin scripts src package.json package-lock.json tsconfig.json tsconfig.server.json vite.config.ts README.md README.tr.md README.zh-CN.md release-stage/antigravity-swarm-plaza/
           cd release-stage
           tar -czf antigravity-swarm-plaza-${{ github.ref_name }}.tar.gz antigravity-swarm-plaza
           zip -rq antigravity-swarm-plaza-${{ github.ref_name }}.zip antigravity-swarm-plaza
