@@ -14,7 +14,7 @@ import {
   PORT,
   resolveSidecarToken,
 } from './config.js';
-import { getDemoAgentLogs, getDemoEmployee } from './demoSimulator.js';
+import { getDemoAgentLogs, getDemoEmployee, resetDemoTick } from './demoSimulator.js';
 import { buildPlazaSnapshot } from './gamification.js';
 import { rerollFloorLayout, triggerFloorEvent } from './officeEvents.js';
 
@@ -212,6 +212,9 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
 
   app.post('/api/demo/toggle', (_req, res) => {
     demoMode = !demoMode;
+    if (demoMode) {
+      resetDemoTick();
+    }
     const snapshot = broadcastSnapshot();
     res.json({ demoMode, snapshot });
   });

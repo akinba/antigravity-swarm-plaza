@@ -152,7 +152,7 @@ cd antigravity-swarm-plaza
 # Bağımlılıkları yükleyin
 npm install
 
-# Testleri çalıştırın (67 test / 25 test paketi)
+# Testleri çalıştırın (68 test / 25 test paketi)
 npm test
 
 # TypeScript tip kontrolü

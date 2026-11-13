@@ -153,7 +153,7 @@ cd antigravity-swarm-plaza
 # Install dependencies
 npm install
 
-# Run automated tests (67 tests / 25 test suites)
+# Run automated tests (68 tests / 25 test suites)
 npm test
 
 # Run TypeScript verification

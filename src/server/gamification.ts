@@ -1222,7 +1222,7 @@ export function buildPlazaSnapshot(
   }
 
   if (demoMode) {
-    floors.push(getDemoFloor(true));
+    floors.push(getDemoFloor('throttled', nowMs));
   }
 
   const totalActiveAgents = floors.reduce((sum, f) => sum + f.activeCount, 0);

@@ -262,7 +262,10 @@ const DEMO_CYCLES: Record<string, PhaseStep[]> = {
   ],
 };
 
+export const DEMO_STEP_INTERVAL_MS = 16_000;
+
 let demoTick = 0;
+let lastDemoAdvanceMs: number | null = null;
 
 export function getDemoTick(): number {
   return demoTick;
@@ -270,26 +273,42 @@ export function getDemoTick(): number {
 
 export function resetDemoTick(): void {
   demoTick = 0;
+  lastDemoAdvanceMs = null;
 }
 
 export function advanceDemoTick(): number {
   demoTick += 1;
+  lastDemoAdvanceMs = Date.now();
   return demoTick;
 }
 
 /**
- * Generate the stateful Demo Penthouse floor, advancing simulation state on each call.
+ * Generate the stateful Demo Penthouse floor, advancing simulation state on each call
+ * or throttling progression to `DEMO_STEP_INTERVAL_MS` when `advance === 'throttled'`.
  */
-export function getDemoFloor(advance = true): PlazaFloor {
-  if (advance) {
+export function getDemoFloor(
+  advance: boolean | 'throttled' = true,
+  nowMs = Date.now(),
+): PlazaFloor {
+  if (advance === true) {
     demoTick += 1;
+    lastDemoAdvanceMs = nowMs;
+  } else if (advance === 'throttled') {
+    if (demoTick === 0 || lastDemoAdvanceMs === null) {
+      demoTick = 1;
+      lastDemoAdvanceMs = nowMs;
+    } else if (nowMs - lastDemoAdvanceMs >= DEMO_STEP_INTERVAL_MS) {
+      demoTick += 1;
+      lastDemoAdvanceMs = nowMs;
+    }
   }
 
-  const now = new Date().toISOString();
+  const effectiveTick = Math.max(1, demoTick);
+  const now = new Date(nowMs).toISOString();
   const employees: OfficeEmployee[] = DEMO_ROSTER.map((tmpl, idx) => {
     const cycle = DEMO_CYCLES[tmpl.id];
-    const phase = cycle[(demoTick + idx) % cycle.length];
-    const stepCount = 35 + demoTick * 2 + idx * 9;
+    const phase = cycle[(effectiveTick + idx) % cycle.length];
+    const stepCount = 35 + effectiveTick * 2 + idx * 9;
     const xp = stepCount * 15;
     const level = Math.max(1, Math.floor(Math.sqrt(xp / 45)) + 1);
 
@@ -312,136 +331,231 @@ export function getDemoFloor(advance = true): PlazaFloor {
       xp,
       level,
       stepCount,
-      inputTokens: 14000 + demoTick * 420 + idx * 1200,
-      cacheReadTokens: 9800 + demoTick * 310 + idx * 800,
-      outputTokens: 2100 + demoTick * 95 + idx * 300,
+      inputTokens: 14000 + effectiveTick * 420 + idx * 1200,
+      cacheReadTokens: 9800 + effectiveTick * 310 + idx * 800,
+      outputTokens: 2100 + effectiveTick * 95 + idx * 300,
       lastActiveAt: now,
     };
   });
 
-    // Pair 2 employees for a 2-player console match regularly (ticks where demoTick % 3 !== 0)
-    if (demoTick % 3 !== 0) {
-      const pairIndices = demoTick % 2 === 1 ? [2, 4] : [1, 3];
-      const p1 = employees[pairIndices[0]];
-      const p2 = employees[pairIndices[1]];
-      if (p1 && p2) {
-        const chats: Array<[string, string]> = [
-          ['🎮 Pas at, boşum!', '🎮 Gol be! 2-1!'],
-          ['🎮 Street Fighter 1v1!', '🎮 Hadouken!! Kaçma!'],
-          ['🎮 Mario Kart son tur!', '🎮 Mavi kabuk attım :D'],
-        ];
-        const chat = chats[demoTick % chats.length];
-        p1.zone = 'COFFEE_LOUNGE';
-        p1.status = 'idle';
-        p1.activity = 'gaming';
-        p1.playerSlot = 1;
-        p1.partnerId = p2.id;
-        p1.partnerName = p2.name;
-        p1.speechBubble = chat[0];
-        p1.currentTool = undefined;
-        p1.currentTarget = undefined;
+  // Calm 8-step office choreography (16s per step = 128s cycle; paired slots keep agents zone-stable for 32s+)
+  const slot = (effectiveTick - 1) % 8;
+  const isTeleportCycle = Math.floor((effectiveTick - 1) / 8) % 2 === 1;
+  const setEmp = (
+    emp: OfficeEmployee,
+    zone: OfficeZone,
+    status: OfficeEmployee['status'],
+    activity: AgentActivityKind,
+    speechBubble: string,
+    opts?: {
+      currentTool?: string;
+      currentTarget?: string;
+      partnerId?: string;
+      partnerName?: string;
+      playerSlot?: 1 | 2;
+      isPresenter?: boolean;
+      teleported?: boolean;
+    },
+  ) => {
+    emp.zone = zone;
+    emp.status = status;
+    emp.activity = activity;
+    emp.speechBubble = speechBubble;
+    emp.currentTool = opts?.currentTool;
+    emp.currentTarget = opts?.currentTarget;
+    emp.partnerId = opts?.partnerId;
+    emp.partnerName = opts?.partnerName;
+    emp.playerSlot = opts?.playerSlot;
+    emp.isPresenter = opts?.isPresenter;
+    emp.teleported = opts?.teleported;
+  };
 
-        p2.zone = 'COFFEE_LOUNGE';
-        p2.status = 'idle';
-        p2.activity = 'gaming';
-        p2.playerSlot = 2;
-        p2.partnerId = p1.id;
-        p2.partnerName = p1.name;
-        p2.speechBubble = chat[1];
-        p2.currentTool = undefined;
-        p2.currentTarget = undefined;
-      }
+  const [chief, coderCore, coderUi, analyst, verifier] = employees;
 
-      // Ensure a third employee relaxes on the sofa/armchair alongside the gaming pair
-      const lounger = employees[demoTick % 2 === 1 ? 3 : 4];
-      if (lounger && lounger.activity !== 'gaming') {
-        lounger.zone = 'COFFEE_LOUNGE';
-        lounger.status = 'waiting';
-        lounger.activity = 'lounging';
-        lounger.speechBubble = '🛋️ Koltukta dinleniyor (0 token)';
-        lounger.currentTool = undefined;
-        lounger.currentTarget = undefined;
-      }
+  if (slot === 0 || slot === 1) {
+    setEmp(
+      chief,
+      'DESK_ARCHITECT',
+      'working',
+      'thinking',
+      slot === 0 ? '@coder-core API kontratı hazır!' : 'Mimari plan güncelleniyor...',
+      { currentTool: 'swarm', currentTarget: 'board.jsonl' },
+    );
+    setEmp(coderCore, 'DESK_CODING', 'working', 'coding', 'SQLite read-only katmanı yazılıyor', {
+      currentTool: 'edit_file',
+      currentTarget: 'src/server/gamification.ts',
+    });
+    setEmp(
+      analyst,
+      'COFFEE_LOUNGE',
+      'waiting',
+      'lounging',
+      slot === 0 ? '🛋️ Koltukta dinleniyor (0 token)' : '😌 Zzz (0 token)',
+    );
+    setEmp(
+      coderUi,
+      'COFFEE_LOUNGE',
+      'idle',
+      'gaming',
+      slot === 0 ? '🎮 Pas at, boşum!' : '🎮 Street Fighter 1v1!',
+      { partnerId: verifier.id, partnerName: verifier.name, playerSlot: 1 },
+    );
+    setEmp(
+      verifier,
+      'COFFEE_LOUNGE',
+      'idle',
+      'gaming',
+      slot === 0 ? '🎮 Gol be! 2-1!' : '🎮 Hadouken!! Kaçma!',
+      { partnerId: coderUi.id, partnerName: coderUi.name, playerSlot: 2 },
+    );
+  } else if (slot === 2 || slot === 3) {
+    setEmp(
+      chief,
+      'DESK_ARCHITECT',
+      'working',
+      'thinking',
+      slot === 2 ? 'Mimari plan güncelleniyor...' : '@verifier-qa E2E testi başlat',
+      { currentTool: 'swarm', currentTarget: 'board.jsonl' },
+    );
+    if (slot === 2) {
+      setEmp(coderCore, 'DESK_CODING', 'working', 'coding', 'SQLite read-only katmanı yazılıyor', {
+        currentTool: 'edit_file',
+        currentTarget: 'src/server/demoSimulator.ts',
+      });
     } else {
-      // Every 3rd tick: showcase Meeting Room Presentation + Desk Coding + Lounge Relaxation
-      employees[0].zone = 'WAR_ROOM';
-      employees[0].status = 'working';
-      employees[0].activity = 'presenting';
-      employees[0].isPresenter = true;
-      employees[0].speechBubble = '📊 Sprint mimari sunumu';
-
-      employees[1].zone = 'WAR_ROOM';
-      employees[1].status = 'working';
-      employees[1].activity = 'meeting';
-      employees[1].isPresenter = false;
-      employees[1].speechBubble = 'Sunum dinleniyor';
-
-      employees[3].zone = 'WAR_ROOM';
-      employees[3].status = 'working';
-      employees[3].activity = 'meeting';
-      employees[3].isPresenter = false;
-      employees[3].speechBubble = 'Notlar alınıyor...';
-
-      employees[2].zone = 'DESK_CODING';
-      employees[2].status = 'working';
-      employees[2].activity = 'coding';
-      employees[2].speechBubble = 'İzometrik UI kodlanıyor';
-
-      employees[4].zone = 'COFFEE_LOUNGE';
-      employees[4].status = 'waiting';
-      employees[4].activity = 'lounging';
-      employees[4].speechBubble = '🛋️ Koltukta dinleniyor (0 token)';
-    }
-
-    // Ensure any WAR_ROOM employees have exactly 1 presenter
-    const warRoomEmps = employees.filter((e) => e.zone === 'WAR_ROOM');
-    const warRoomTeleportActive = Math.floor(demoTick / 3) % 2 === 1;
-    if (warRoomEmps.length > 0) {
-      warRoomEmps.forEach((emp, i) => {
-        if (i === 0) {
-          emp.isPresenter = true;
-          emp.activity = 'presenting';
-          emp.teleported = false;
-          if (warRoomTeleportActive) {
-            emp.speechBubble = '⚡ Ekibi beyaz tahtaya ışınladım!';
-          }
-        } else {
-          emp.isPresenter = false;
-          emp.activity = 'meeting';
-          if (warRoomTeleportActive) {
-            emp.teleported = true;
-            emp.speechBubble = '⚡ Beyaz tahtaya ışınlandım!';
-          } else {
-            emp.teleported = false;
-          }
-        }
+      setEmp(coderCore, 'SERVER_RACK', 'working', 'terminal', 'npm.cmd test çalıştırılıyor', {
+        currentTool: 'run_command',
+        currentTarget: 'npm.cmd test',
       });
     }
+    setEmp(
+      coderUi,
+      'DESK_CODING',
+      'working',
+      slot === 3 ? 'reading' : 'coding',
+      slot === 3 ? 'Shared tipler kontrol ediliyor' : 'İzometrik UI kodlanıyor',
+      {
+        currentTool: slot === 3 ? 'read_file' : 'edit_file',
+        currentTarget: 'src/client/engine/OfficeCanvas.tsx',
+      },
+    );
+    setEmp(
+      analyst,
+      'DESK_QA',
+      'working',
+      slot === 2 ? 'searching' : 'reading',
+      slot === 2 ? 'Edge-case senaryoları taranıyor' : 'EcoScore formülü doğrulanıyor',
+      {
+        currentTool: slot === 2 ? 'grep_search' : 'read_file',
+        currentTarget: 'src/server/gamification.ts',
+      },
+    );
+    if (slot === 2) {
+      setEmp(verifier, 'DESK_QA', 'working', 'reading', 'Test kapsamı inceleniyor', {
+        currentTool: 'read_file',
+        currentTarget: 'tests/server/core.test.ts',
+      });
+    } else {
+      setEmp(verifier, 'SERVER_RACK', 'working', 'terminal', 'npm.cmd test çalıştırılıyor', {
+        currentTool: 'run_command',
+        currentTarget: 'npm.cmd test',
+      });
+    }
+  } else if (slot === 4 || slot === 5) {
+    setEmp(coderUi, 'DESK_CODING', 'working', 'coding', 'İzometrik UI kodlanıyor', {
+      currentTool: 'edit_file',
+      currentTarget: 'src/client/engine/OfficeCanvas.tsx',
+    });
+    setEmp(verifier, 'SERVER_RACK', 'working', 'terminal', 'npm.cmd test çalıştırılıyor', {
+      currentTool: 'run_command',
+      currentTarget: 'npm.cmd test',
+    });
+    setEmp(
+      chief,
+      'COFFEE_LOUNGE',
+      'waiting',
+      'lounging',
+      slot === 4 ? '🛋️ Koltukta dinleniyor (0 token)' : '😌 Zzz (0 token)',
+    );
+    setEmp(
+      coderCore,
+      'COFFEE_LOUNGE',
+      'idle',
+      'gaming',
+      slot === 4 ? '🎮 Street Fighter 1v1!' : '🎮 Mario Kart son tur!',
+      { partnerId: analyst.id, partnerName: analyst.name, playerSlot: 1 },
+    );
+    setEmp(
+      analyst,
+      'COFFEE_LOUNGE',
+      'idle',
+      'gaming',
+      slot === 4 ? '🎮 Hadouken!! Kaçma!' : '🎮 Mavi kabuk attım :D',
+      { partnerId: coderCore.id, partnerName: coderCore.name, playerSlot: 2 },
+    );
+  } else {
+    // slot === 6 || slot === 7: War Room Meeting
+    setEmp(
+      chief,
+      'WAR_ROOM',
+      'working',
+      'presenting',
+      isTeleportCycle ? '⚡ Ekibi beyaz tahtaya ışınladım!' : '📊 Sprint mimari sunumu',
+      { isPresenter: true, teleported: false },
+    );
+    setEmp(
+      coderCore,
+      'WAR_ROOM',
+      'working',
+      'meeting',
+      isTeleportCycle ? '⚡ Beyaz tahtaya ışınlandım!' : 'Sunum dinleniyor',
+      { isPresenter: false, teleported: isTeleportCycle },
+    );
+    setEmp(
+      analyst,
+      'WAR_ROOM',
+      'working',
+      'meeting',
+      isTeleportCycle ? '⚡ Beyaz tahtaya ışınlandım!' : 'Notlar alınıyor...',
+      { isPresenter: false, teleported: isTeleportCycle },
+    );
+    setEmp(coderUi, 'DESK_CODING', 'working', 'coding', 'İzometrik UI kodlanıyor', {
+      currentTool: 'edit_file',
+      currentTarget: 'src/client/engine/OfficeCanvas.tsx',
+    });
+    setEmp(
+      verifier,
+      'COFFEE_LOUNGE',
+      'waiting',
+      'lounging',
+      slot === 6 ? '🛋️ Koltukta dinleniyor (0 token)' : '😌 Zzz (0 token)',
+    );
+  }
 
   const rawBoardMessages: SwarmBoardMessage[] = [
     {
-      seq: 1 + demoTick,
+      seq: 1 + effectiveTick,
       agent: 'Chief-Architect',
       text: '@coder-core @coder-ui Phase 2 paralel geliştirme başladı.',
       time: now,
       kind: 'message',
     },
     {
-      seq: 2 + demoTick,
+      seq: 2 + effectiveTick,
       agent: 'analyst-grill',
       text: '@coder-core parent_conversation_id cycle guard eklendi mi?',
       time: now,
       kind: 'message',
     },
     {
-      seq: 3 + demoTick,
+      seq: 3 + effectiveTick,
       agent: 'coder-core',
       text: '@analyst-grill Evet, Set + maxDepth 25 ile korundu.',
       time: now,
       kind: 'message',
     },
     {
-      seq: 4 + demoTick,
+      seq: 4 + effectiveTick,
       agent: 'verifier-qa',
       text: '@Chief-Architect @all Demo Penthouse simülasyonu stabil.',
       time: now,
@@ -454,7 +568,6 @@ export function getDemoFloor(advance = true): PlazaFloor {
   }));
   const swarmEdges = buildSwarmMentionEdges(boardMessages);
 
-  const nowMs = Date.now();
   const layoutSeed = getFloorLayoutSeed('demo-penthouse');
   const activeEvent = getActiveFloorEvent('demo-penthouse', nowMs);
 
@@ -519,20 +632,6 @@ export function getDemoFloor(advance = true): PlazaFloor {
     }
   }
 
-  // Every 5th tick, one demo agent heads to the elevator to go home, returning fresh on the next tick
-  if (demoTick > 0 && demoTick % 5 === 0 && employees[4]) {
-    employees[4].zone = 'ELEVATOR';
-    employees[4].status = 'idle';
-    employees[4].activity = 'going_home';
-    employees[4].partnerId = undefined;
-    employees[4].partnerName = undefined;
-    employees[4].playerSlot = undefined;
-    employees[4].isPresenter = undefined;
-    employees[4].speechBubble = '🏠 Mesai bitti, eve gidiyorum!';
-    employees[4].currentTool = undefined;
-    employees[4].currentTarget = undefined;
-  }
-
   for (const emp of employees) {
     emp.toolActivity = classifyToolActivity({
       status: emp.status,
@@ -554,9 +653,9 @@ export function getDemoFloor(advance = true): PlazaFloor {
     const startMs = windowStartMs + i * BUCKET_MS;
     const endMs = startMs + BUCKET_MS;
     const isLast = i === BUCKET_COUNT - 1;
-    const bucketActive = isLast ? activeCount : 2 + ((demoTick + i) % 4);
-    const completed = 3 + ((demoTick * 2 + i * 3) % 7);
-    const err = (demoTick + i) % 11 === 0 ? 1 : 0;
+    const bucketActive = isLast ? activeCount : 2 + ((effectiveTick + i) % 4);
+    const completed = 3 + ((effectiveTick * 2 + i * 3) % 7);
+    const err = (effectiveTick + i) % 11 === 0 ? 1 : 0;
     completedTasks60m += completed;
     if (bucketActive > peakActive60m) peakActive60m = bucketActive;
     timeline60m.push({
@@ -584,12 +683,12 @@ export function getDemoFloor(advance = true): PlazaFloor {
     layoutSeed,
     activeEvent,
     tier: 4,
-    companyXp: 12400 + demoTick * 80,
+    companyXp: 4600 + effectiveTick * 125,
     nextTierXp: 25000,
     ecoScore: 94,
     activeCount,
     waitingCount,
-    offDutyCount: demoTick > 0 && demoTick % 5 === 1 ? 1 : 0,
+    offDutyCount: 0,
     totalConversations: employees.length,
     unlockedProps: ['plants', 'dual_monitors', 'trophy', 'espresso', 'arcade', 'hologram'],
     employees,

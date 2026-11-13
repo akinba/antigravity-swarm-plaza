@@ -156,7 +156,7 @@ npm run dev
 # 运行 TypeScript 类型检查
 npm run typecheck
 
-# 运行自动化测试（67 个单元测试 / 25 个测试套件）
+# 运行自动化测试（68 个单元测试 / 25 个测试套件）
 npm test
 
 # 构建前端、服务端与 Sidecar 单文件包
