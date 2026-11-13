@@ -7,7 +7,9 @@ import {
   hashString,
   type FemaleHairStyle,
   type FemaleOutfitStyle,
+  type MaleFacialHair,
   type MaleHairStyle,
+  type MaleOutfitStyle,
 } from '../../src/client/engine/pixelSprites';
 import type { FloorEventKind, ModelFamily, OfficeEmployee } from '../../src/shared/types';
 
@@ -104,6 +106,10 @@ describe('pixelSprites gender, hair, outfit palettes & rendering', () => {
     const femaleHairs = new Set<FemaleHairStyle>();
     const maleHairs = new Set<MaleHairStyle>();
     const femaleOutfits = new Set<FemaleOutfitStyle>();
+    const maleOutfits = new Set<MaleOutfitStyle>();
+    const maleFacialHairs = new Set<MaleFacialHair>();
+    const maleOutfitCounts = new Map<MaleOutfitStyle, number>();
+    const maleFacialCounts = new Map<MaleFacialHair, number>();
 
     for (let i = 0; i < 200; i++) {
       const uuid = `00000000-0000-4000-8000-${i.toString(16).padStart(12, '0')}`;
@@ -114,6 +120,10 @@ describe('pixelSprites gender, hair, outfit palettes & rendering', () => {
         femaleOutfits.add(p.femaleOutfit);
       } else {
         maleHairs.add(p.maleHairStyle);
+        maleOutfits.add(p.maleOutfitStyle);
+        maleFacialHairs.add(p.maleFacialHair);
+        maleOutfitCounts.set(p.maleOutfitStyle, (maleOutfitCounts.get(p.maleOutfitStyle) ?? 0) + 1);
+        maleFacialCounts.set(p.maleFacialHair, (maleFacialCounts.get(p.maleFacialHair) ?? 0) + 1);
       }
     }
 
@@ -131,6 +141,14 @@ describe('pixelSprites gender, hair, outfit palettes & rendering', () => {
       ['curly_top', 'short_crop', 'side_part', 'spiky'],
     );
     assert.deepEqual([...femaleOutfits].sort(), ['skirt_blazer', 'tailored_suit']);
+    assert.deepEqual([...maleOutfits].sort(), ['classic_suit', 'tech_hoodie', 'vest_ensemble']);
+    assert.deepEqual([...maleFacialHairs].sort(), ['clean', 'light_stubble']);
+    for (const style of ['classic_suit', 'tech_hoodie', 'vest_ensemble'] as const) {
+      assert.ok((maleOutfitCounts.get(style) ?? 0) >= 1, `Missing maleOutfitStyle ${style}`);
+    }
+    for (const facial of ['clean', 'light_stubble'] as const) {
+      assert.ok((maleFacialCounts.get(facial) ?? 0) >= 1, `Missing maleFacialHair ${facial}`);
+    }
   });
 
   it('renders drawEmployeeSprite and drawEmployeePortrait with positive fillRect dimensions and graceful female proportions', () => {

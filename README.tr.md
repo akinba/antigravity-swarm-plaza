@@ -70,9 +70,10 @@ flowchart LR
   - Tüm mimari planlarda sol duvarda sabit asansör girişi (`gx: 0, gy: 6..7`), yaklaşan ajanlara otomatik açılan fırçalanmış çelik sürgülü kapılar ve yumuşak iniş/çıkış animasyonları.
 - **👔 BOSS, Kadın & Erkek Piksel Karakterler ve 8 Modele Özel Kıyafet:**
   - Koordinatör ajanlar tüm arayüzde **★ BOSS** olarak gösterilir ve yönetici masasında altın taçla yer alır.
-  - Zarif kadın ve erkek 2.5B piksel çalışanlar (oval chibi yüz, göz parıltısı, dalgalı/küt/at kuyruğu/balerin topuzu saçlar, 3 kademeli kloş etek ve takım elbise) + senkronize `96×96` RPG karakter portreleri.
+  - Zarif kadın ve atletik V-taper erkek 2.5B piksel çalışanlar (oval chibi yüz, göz parıltısı, dalgalı/küt/at kuyruğu/balerin topuzu saçlar, 3 kademeli kloş etek; erkeklerde `classic_suit`, `tech_hoodie`, `vest_ensemble` kıyafetleri, 4 katmanlı hacimli saç, odaklı bakışlar ve isteğe bağlı `light_stubble` kirli sakal) + senkronize `96×96` RPG karakter portreleri.
   - 8 farklı model ailesi kendine özgü kıyafet, aksesuar ve renk paletine sahiptir: `argon` (Mor ceket + taç), `hydrogen` (Turkuaz hoodie + kulaklık), `flash` (Zümrüt/Sarı yarış ceketi + vizör), `carbon` (Kırmızı/Beyaz önlük + siber gözlük), `pro` (Lacivert/Altın takım + kravat), `claude` (Kiremit örgü kazak + bere), `gpt` (Petrol balıkçı yaka + kulaklık), `other` (İndigo polo + yaka kartı).
-- **📐 5 Mimari Ofis Planı, 5 Mini-Oda Mobilyası & Ofis Evcil Hayvanları:**
+- **📐 Tam 2.5B Ofis Mimarisi, Ambiyans Işıklandırması & 5 Mini-Oda Mobilyası:**
+  - Parke/halı/perfore metal/mermer zemin dokuları, akustik ahşap panelli ve panoramik şehir manzaralı arka duvarlar, çift monitörlü bevel masalar, ergonomik koltuklar, espresso barı, yumuşak temas gölgeleri, pencere/sunucu/lounge radyal ışık havuzları ve yenilenen `PLAZA TOWER` cam giydirme gökdelen cephesi.
   - Ahşap ve cam bölme duvarlarla ayrılmış gerçekçi oda yerleşimleri (Yönetici Ofisi, Yazılım & QA Odası, Toplantı Odası, Sunucu Odası ve Dinlenme Salonu) ile `16×14` katlardaki ölü alanları dolduran 5 özel 2.5B mini-oda mobilyası (`phone_booth`, `snack_vending`, `arcade_cabinet`, `library_table`, `3d_printer`).
   - %100 kameraya dönük (`SE` / `SW`) oturma pozları, alçak masa tablaları (`10px`) ve köşe monitörler sayesinde ajanların yüzleri ve ifadeleri daima görünür kalır.
   - 5 tema paleti ile toplam 25 benzersiz düzen kombinasyonu (`🎲 DÜZEN`).
@@ -152,7 +153,7 @@ cd antigravity-swarm-plaza
 # Bağımlılıkları yükleyin
 npm install
 
-# Testleri çalıştırın (68 test / 25 test paketi)
+# Testleri çalıştırın (69 test / 25 test paketi)
 npm test
 
 # TypeScript tip kontrolü

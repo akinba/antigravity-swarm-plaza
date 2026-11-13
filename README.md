@@ -70,9 +70,10 @@ flowchart LR
   - Fixed left-wall elevator entrance (`gx: 0, gy: 6..7`) across all blueprints with brushed-steel sliding doors that open when agents arrive or depart.
 - **👔 BOSS, Diverse Male & Female Pixel Characters & 8 Model Outfits:**
   - Swarm coordinators are prominently styled as **★ BOSS** seated at an executive mahogany desk with a golden crown.
-  - Expressive female & male 2.5D pixel employees (oval chibi faces, eye sparkle, wavy/bob/ponytail/bun hairstyles, 3-tier flared skirts & tailored suits) paired with synchronized `96×96` RPG character portraits.
+  - Expressive female & athletic V-taper male 2.5D pixel employees (oval chibi faces, eye sparkle, wavy/bob/ponytail/bun female hairstyles, 3-tier flared skirts & tailored suits; 3 male outfits `classic_suit` / `tech_hoodie` / `vest_ensemble`, 4-layer voluminous hair, focused gaze, optional `light_stubble`) paired with synchronized `96×96` RPG character portraits.
   - 8 distinct model families feature unique outfits and accessories: `argon` (Purple blazer + crown), `hydrogen` (Cyan tech hoodie + headphones), `flash` (Emerald/Yellow racing jacket + visor), `carbon` (Crimson lab coat + cyber specs), `pro` (Navy/Gold suit + tie), `claude` (Terracotta knit sweater + beanie), `gpt` (Teal turtleneck + headset), `other` (Indigo polo + badge).
-- **📐 5 Architectural Blueprints, 5 Mini-Room Props & Office Pets:**
+- **📐 Full 2.5D Office Architecture, Ambient Lighting & 5 Mini-Room Props:**
+  - Richly textured floors (warm parquet, acoustic carpet, perforated server metal, marble lobby), acoustic wood-paneled & panoramic city-view back walls, beveled dual-monitor desks, ergonomic chairs, espresso bar, soft contact shadows, window/server/lounge radial light pools, and a refreshed `PLAZA TOWER` glass curtain-wall facade.
   - Real partitioned rooms (Executive Suite, Dev/QA Studio, Conference War Room, Server Room, and Lounge) plus 5 custom 2.5D mini-room props (`phone_booth`, `snack_vending`, `arcade_cabinet`, `library_table`, `3d_printer`) filling dead zones across `16×14` floors.
   - 100% camera-facing (`SE` / `SW`) seated angles, low tabletop ergonomics (`10px`), and corner monitors ensure characters' faces and expressions are never occluded.
   - 5 theme palettes across 5 architectural layouts yield 25 distinct combinations (`🎲 LAYOUT`).
@@ -153,7 +154,7 @@ cd antigravity-swarm-plaza
 # Install dependencies
 npm install
 
-# Run automated tests (68 tests / 25 test suites)
+# Run automated tests (69 tests / 25 test suites)
 npm test
 
 # Run TypeScript verification

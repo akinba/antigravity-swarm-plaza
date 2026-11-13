@@ -14,7 +14,12 @@ import {
   type IsoCamera,
 } from './isoMath';
 import { ELEVATOR_SLOT, getFloorLayout, type FloorLayout } from './officeLayouts';
-import { drawMentionEnvelope } from './officePropsSprites';
+import {
+  drawEnhancedBackWalls,
+  drawEnhancedFloorTile,
+  drawEnhancedFurniture,
+  drawMentionEnvelope,
+} from './officePropsSprites';
 import {
   buildWalkableGridForFurniture,
   facingFromDelta,
@@ -22,10 +27,7 @@ import {
   type Facing,
 } from './pathfinding';
 import {
-  drawBackWalls,
   drawEmployeeSprite,
-  drawFloorTile,
-  drawFurniture,
   drawMascotSprite,
   hashString,
 } from './pixelSprites';
@@ -605,26 +607,94 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
       const topVertexX = tile00.x;
       const topVertexY = tile00.y - 16 * cam.zoom;
 
-      // 1. Draw back walls & panoramic windows
-      drawBackWalls(ctx, topVertexX, topVertexY, GRID_W, GRID_H, cam.zoom, night, timeSec);
+      // 1. Draw enhanced back walls & panoramic cityscape windows
+      drawEnhancedBackWalls(
+        ctx,
+        topVertexX,
+        topVertexY,
+        GRID_W,
+        GRID_H,
+        cam.zoom,
+        night,
+        timeSec,
+        currentLayout.themePalette,
+      );
 
-      // 2. Draw floor tiles using floor's dynamic blueprint & themePalette
+      // 2. Draw enhanced floor tiles using floor's dynamic blueprint & themePalette
       for (let gy = 0; gy < GRID_H; gy++) {
         for (let gx = 0; gx < GRID_W; gx++) {
           const p = gridToScreen(gx, gy, cam);
-          drawFloorTile(
+          drawEnhancedFloorTile(
             ctx,
-            p.x,
-            p.y,
             gx,
             gy,
-            currentLayout.getTileZone(gx, gy),
+            p.x,
+            p.y,
             cam.zoom,
-            night,
+            currentLayout.getTileZone(gx, gy),
             currentLayout.themePalette,
+            night,
+            timeSec,
           );
         }
       }
+
+      // 2b. 60 FPS Ambient Lighting Pools (radial gradients, zero expensive blur filters)
+      const drawRadialPool = (
+        gx: number,
+        gy: number,
+        radiusTiles: number,
+        innerColor: string,
+        outerColor: string,
+      ) => {
+        const pt = gridToScreen(gx, gy, cam);
+        const rad = radiusTiles * TILE_W * cam.zoom;
+        if (rad <= 0) return;
+        ctx.save();
+        const grad = ctx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, rad);
+        grad.addColorStop(0, innerColor);
+        grad.addColorStop(1, outerColor);
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.ellipse(pt.x, pt.y, rad, rad * 0.55, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      };
+
+      // Window daylight / moonlight beams from panoramic back walls
+      const winBeamColor = night ? 'rgba(110, 165, 255, 0.11)' : 'rgba(255, 246, 200, 0.16)';
+      drawRadialPool(3.5, 1.5, 2.6, winBeamColor, 'rgba(0,0,0,0)');
+      drawRadialPool(10.5, 1.5, 2.8, winBeamColor, 'rgba(0,0,0,0)');
+      drawRadialPool(1.5, 4.0, 2.2, winBeamColor, 'rgba(0,0,0,0)');
+
+      // Zone ambient glows (Coffee Lounge amber, Server Rack / War Room cyan-green)
+      const loungeAnchor = currentLayout.coffeeSlots[0] ?? currentLayout.loungeSeatSlots[0];
+      if (loungeAnchor) {
+        drawRadialPool(
+          loungeAnchor.gx,
+          loungeAnchor.gy,
+          2.2,
+          night ? 'rgba(255, 184, 77, 0.18)' : 'rgba(255, 205, 120, 0.08)',
+          'rgba(0,0,0,0)',
+        );
+      }
+      const serverAnchor = currentLayout.zoneSlots.SERVER_RACK[0];
+      if (serverAnchor) {
+        drawRadialPool(
+          serverAnchor.gx,
+          serverAnchor.gy,
+          1.9,
+          night ? 'rgba(60, 235, 180, 0.16)' : 'rgba(60, 235, 180, 0.06)',
+          'rgba(0,0,0,0)',
+        );
+      }
+      drawRadialPool(
+        currentLayout.presenterSlot.gx,
+        currentLayout.presenterSlot.gy,
+        2.1,
+        night ? 'rgba(80, 210, 255, 0.15)' : 'rgba(80, 210, 255, 0.06)',
+        'rgba(0,0,0,0)',
+      );
 
       // 3. Collect depth-sorted renderables (furniture, unlocked props, mascot, employees)
       interface RenderItem {
@@ -681,6 +751,8 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
               (item.kind === 'elevator_doors' && isElevatorBusy) ||
               (isWb && isPresenterActive);
             let deskLevel = 1;
+            let occupierModelFamily = 'pro';
+            let deskHasWorking = false;
             if (item.kind === 'dev_desk' || item.kind === 'qa_desk' || item.kind === 'exec_desk') {
               let bestDist = 1.65;
               for (const emp of currentFloor.employees) {
@@ -690,17 +762,44 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
                 if (d < bestDist) {
                   bestDist = d;
                   deskLevel = emp.level;
+                  occupierModelFamily = emp.modelFamily;
+                  deskHasWorking = emp.status === 'working';
                 }
               }
             }
-            drawFurniture(
+
+            // Soft elliptical furniture contact shadow
+            if (item.kind !== 'glass_partition_x' && item.kind !== 'glass_partition_y') {
+              ctx.save();
+              ctx.globalAlpha = night ? 0.3 : 0.2;
+              ctx.fillStyle = '#070a14';
+              ctx.beginPath();
+              ctx.ellipse(p.x, p.y + 4 * cam.zoom, 16 * cam.zoom, 7 * cam.zoom, 0, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.restore();
+            }
+
+            // Subtle monitor glow pool on active working desks
+            if (deskHasWorking) {
+              drawRadialPool(
+                item.gx,
+                item.gy,
+                1.15,
+                night ? 'rgba(92, 240, 255, 0.16)' : 'rgba(92, 240, 255, 0.06)',
+                'rgba(0,0,0,0)',
+              );
+            }
+
+            drawEnhancedFurniture(
               ctx,
               item.kind,
               p.x,
               p.y,
               cam.zoom,
               timeSec,
+              night,
               occupied,
+              occupierModelFamily,
               isWb && hoveredBoardRef.current,
               tRef.current.office.whiteboardLabel,
               deskLevel,
@@ -726,7 +825,14 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
           renderables.push({
             depth: pr.gx + pr.gy,
             draw: () => {
-              drawFurniture(ctx, pr.kind, p.x, p.y, cam.zoom, timeSec, true, false, '');
+              ctx.save();
+              ctx.globalAlpha = night ? 0.28 : 0.18;
+              ctx.fillStyle = '#070a14';
+              ctx.beginPath();
+              ctx.ellipse(p.x, p.y + 4 * cam.zoom, 14 * cam.zoom, 6 * cam.zoom, 0, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.restore();
+              drawEnhancedFurniture(ctx, pr.kind, p.x, p.y, cam.zoom, timeSec, night, true, 'pro', false, '', 1);
             },
           });
         }

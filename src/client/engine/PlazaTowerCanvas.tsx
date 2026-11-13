@@ -112,12 +112,12 @@ export const PlazaTowerCanvas: React.FC<PlazaTowerCanvasProps> = ({
       // 1. Dynamic Day / Night Sky
       const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
       if (night) {
-        skyGrad.addColorStop(0, '#090d1f');
-        skyGrad.addColorStop(0.65, '#151c3b');
-        skyGrad.addColorStop(1, '#1f284f');
+        skyGrad.addColorStop(0, '#070b1a');
+        skyGrad.addColorStop(0.55, '#111836');
+        skyGrad.addColorStop(1, '#1d274d');
       } else {
-        skyGrad.addColorStop(0, '#3c8ce7');
-        skyGrad.addColorStop(0.65, '#72c2f7');
+        skyGrad.addColorStop(0, '#327fd9');
+        skyGrad.addColorStop(0.6, '#6abdf5');
         skyGrad.addColorStop(1, '#b6e3ff');
       }
       ctx.fillStyle = skyGrad;
@@ -125,99 +125,214 @@ export const PlazaTowerCanvas: React.FC<PlazaTowerCanvasProps> = ({
 
       // Sun or Moon + Stars / Clouds
       if (night) {
-        // Twinkling pixel stars
-        for (let i = 0; i < 42; i++) {
-          const sx = ((i * 197 + 43) % Math.max(1, w));
-          const sy = ((i * 89 + 29) % Math.max(1, Math.floor(h * 0.65)));
+        for (let i = 0; i < 52; i++) {
+          const sx = (i * 197 + 43) % Math.max(1, w);
+          const sy = (i * 89 + 29) % Math.max(1, Math.floor(h * 0.65));
           const bright = Math.sin(timeSec * 2.5 + i) > 0.2 ? 3 : 2;
           ctx.fillStyle = i % 5 === 0 ? '#9ee8ff' : '#fff8cf';
           ctx.fillRect(sx, sy, bright, bright);
         }
-        // Pixel Moon
         const mx = w - 110;
         const my = 72;
+        ctx.fillStyle = 'rgba(255, 243, 176, 0.14)';
+        ctx.fillRect(mx - 26, my - 26, 52, 52);
         ctx.fillStyle = '#fff3b0';
         ctx.fillRect(mx - 18, my - 18, 36, 36);
-        ctx.fillStyle = '#0f1530';
+        ctx.fillStyle = '#0c1229';
         ctx.fillRect(mx - 6, my - 14, 18, 22);
       } else {
-        // Pixel Sun
         const sunX = w - 110;
         const sunY = 74;
+        ctx.fillStyle = 'rgba(255, 230, 77, 0.22)';
+        ctx.fillRect(sunX - 28, sunY - 28, 56, 56);
         ctx.fillStyle = '#ffe64d';
         ctx.fillRect(sunX - 20, sunY - 20, 40, 40);
         ctx.fillStyle = '#fff59e';
         ctx.fillRect(sunX - 14, sunY - 14, 28, 28);
 
-        // Drifting pixel clouds
-        for (let c = 0; c < 5; c++) {
-          const speed = 12 + c * 4;
-          const cx = ((c * 240 + timeSec * speed) % (w + 160)) - 80;
-          const cy = 58 + (c % 3) * 52;
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-          ctx.fillRect(Math.round(cx), cy, 68, 18);
-          ctx.fillRect(Math.round(cx + 12), cy - 10, 40, 12);
+        for (let c = 0; c < 6; c++) {
+          const speed = 10 + c * 3.5;
+          const cx = ((c * 240 + timeSec * speed) % (w + 180)) - 90;
+          const cy = 54 + (c % 3) * 48;
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
+          ctx.fillRect(Math.round(cx), cy, 72, 18);
+          ctx.fillRect(Math.round(cx + 12), cy - 10, 44, 12);
+          ctx.fillStyle = 'rgba(210, 232, 255, 0.65)';
+          ctx.fillRect(Math.round(cx + 4), cy + 14, 64, 4);
         }
       }
 
-      // 2. Background City Skyline
-      const groundY = h - 46;
-      const buildings = [
-        { x: 0.04, bw: 58, bh: 140 },
-        { x: 0.11, bw: 72, bh: 210 },
-        { x: 0.19, bw: 54, bh: 120 },
-        { x: 0.74, bw: 66, bh: 190 },
-        { x: 0.82, bw: 80, bh: 240 },
-        { x: 0.91, bw: 64, bh: 150 },
+      // 2. Multi-Layered Panoramic City Skyline
+      const groundY = h - 48;
+      const farBuildings = [
+        { x: 0.01, bw: 62, bh: 175 },
+        { x: 0.08, bw: 54, bh: 130 },
+        { x: 0.16, bw: 70, bh: 225 },
+        { x: 0.25, bw: 48, bh: 115 },
+        { x: 0.70, bw: 58, bh: 145 },
+        { x: 0.78, bw: 76, bh: 235 },
+        { x: 0.87, bw: 62, bh: 185 },
+        { x: 0.94, bw: 66, bh: 135 },
       ];
-      buildings.forEach((b, idx) => {
+      farBuildings.forEach((b) => {
         const bx = Math.round(b.x * w);
         const by = groundY - b.bh;
-        ctx.fillStyle = night ? '#11162b' : '#4f6d96';
+        ctx.fillStyle = night ? '#0e1326' : '#6382ab';
         ctx.fillRect(bx, by, b.bw, b.bh);
-        ctx.fillStyle = night ? '#1b2240' : '#6585b0';
+        ctx.fillStyle = night ? '#151c36' : '#7797bf';
+        ctx.fillRect(bx + 3, by + 3, b.bw - 6, 4);
+      });
+
+      const nearBuildings = [
+        { x: 0.04, bw: 58, bh: 140 },
+        { x: 0.12, bw: 72, bh: 198 },
+        { x: 0.20, bw: 52, bh: 112 },
+        { x: 0.74, bw: 66, bh: 178 },
+        { x: 0.82, bw: 80, bh: 218 },
+        { x: 0.91, bw: 64, bh: 146 },
+      ];
+      nearBuildings.forEach((b, idx) => {
+        const bx = Math.round(b.x * w);
+        const by = groundY - b.bh;
+        ctx.fillStyle = night ? '#131930' : '#4a6891';
+        ctx.fillRect(bx, by, b.bw, b.bh);
+        ctx.fillStyle = night ? '#1f284a' : '#5e7fa8';
         ctx.fillRect(bx + 4, by + 4, b.bw - 8, 6);
+        // Rooftop spire on alternating buildings
+        if (idx % 2 === 1) {
+          ctx.fillStyle = night ? '#273157' : '#3d577a';
+          ctx.fillRect(bx + Math.floor(b.bw / 2) - 2, by - 14, 4, 14);
+        }
         if (night) {
-          for (let wy = by + 18; wy < groundY - 16; wy += 18) {
-            for (let wx = bx + 10; wx < bx + b.bw - 12; wx += 14) {
-              const lit = ((wx + wy + idx * 7) % 5) !== 0;
-              ctx.fillStyle = lit ? '#ffcf56' : '#1d2542';
-              ctx.fillRect(wx, wy, 7, 9);
+          for (let wy = by + 18; wy < groundY - 16; wy += 16) {
+            for (let wx = bx + 10; wx < bx + b.bw - 12; wx += 13) {
+              const lit = (wx + wy + idx * 7) % 5 !== 0;
+              ctx.fillStyle = lit ? '#ffcf56' : '#1b223d';
+              ctx.fillRect(wx, wy, 6, 8);
             }
           }
         }
       });
 
-      // Street / Plaza Ground
-      ctx.fillStyle = night ? '#161b29' : '#3a4254';
-      ctx.fillRect(0, groundY, w, 46);
-      ctx.fillStyle = '#5a6680';
-      ctx.fillRect(0, groundY, w, 4);
+      // Street / Plaza Sidewalk, Curbs, Street Lamps & Trees
+      ctx.fillStyle = night ? '#141926' : '#343c4d';
+      ctx.fillRect(0, groundY, w, 48);
+      ctx.fillStyle = night ? '#262f45' : '#5b6882';
+      ctx.fillRect(0, groundY, w, 6);
+      ctx.fillStyle = night ? '#35415e' : '#7483a1';
+      for (let px = 0; px < w; px += 28) {
+        ctx.fillRect(px, groundY + 1, 24, 2);
+      }
 
-      // 3. Draw Central Isometric-Styled Plaza Skyscraper
+      // 3. Draw Central 2.5D Curtain-Wall Plaza Skyscraper
       const towerW = Math.min(440, Math.max(300, w * 0.44));
-      const sideDepth = 34;
+      const sideDepth = 36;
       const floorH = 68;
+      const lobbyPlinthH = 22;
       const towerX = Math.round((w - towerW - sideDepth) / 2);
-      const baseFloorY = groundY - 8 + scrollRef.current;
+      const baseFloorY = groundY - lobbyPlinthH + scrollRef.current;
+
+      // Curbside trees & street lamps flanking the Plaza Tower
+      const streetProps = [towerX - 58, towerX + towerW + sideDepth + 34];
+      for (const lx of streetProps) {
+        if (lx < 16 || lx > w - 16) continue;
+        // Street lamp post
+        ctx.fillStyle = '#252c3d';
+        ctx.fillRect(lx, groundY - 38, 3, 38);
+        ctx.fillRect(lx - 4, groundY - 40, 11, 3);
+        ctx.fillStyle = night ? '#ffe680' : '#d5e4f5';
+        ctx.fillRect(lx - 2, groundY - 37, 7, 4);
+        if (night) {
+          ctx.fillStyle = 'rgba(255, 224, 112, 0.16)';
+          ctx.beginPath();
+          ctx.moveTo(lx - 2, groundY - 33);
+          ctx.lineTo(lx + 5, groundY - 33);
+          ctx.lineTo(lx + 18, groundY);
+          ctx.lineTo(lx - 15, groundY);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+      const treePositions = [towerX - 92, towerX + towerW + sideDepth + 68];
+      for (const tx of treePositions) {
+        if (tx < 20 || tx > w - 20) continue;
+        ctx.fillStyle = '#4d3320';
+        ctx.fillRect(tx - 2, groundY - 16, 5, 16);
+        ctx.fillStyle = night ? '#1c4d39' : '#2d8a5e';
+        ctx.fillRect(tx - 10, groundY - 30, 21, 16);
+        ctx.fillStyle = night ? '#25664b' : '#3eb87a';
+        ctx.fillRect(tx - 7, groundY - 35, 15, 8);
+      }
+
+      // Double-Height Illuminated Glass Entrance Lobby Plinth at ground level
+      if (list.length > 0) {
+        ctx.fillStyle = night ? '#182033' : '#2b3954';
+        ctx.fillRect(towerX, baseFloorY, towerW, lobbyPlinthH);
+        // 2.5D right side of lobby
+        ctx.beginPath();
+        ctx.moveTo(towerX + towerW, baseFloorY);
+        ctx.lineTo(towerX + towerW + sideDepth, baseFloorY - 14);
+        ctx.lineTo(towerX + towerW + sideDepth, baseFloorY + lobbyPlinthH - 14);
+        ctx.lineTo(towerX + towerW, baseFloorY + lobbyPlinthH);
+        ctx.closePath();
+        ctx.fillStyle = night ? '#111726' : '#212c42';
+        ctx.fill();
+
+        // Warm illuminated glass entrance canopy & revolving doors
+        const doorW = 86;
+        const doorX = Math.round(towerX + towerW / 2 - doorW / 2);
+        ctx.fillStyle = '#5e6d8a';
+        ctx.fillRect(doorX - 10, baseFloorY - 2, doorW + 20, 4);
+        ctx.fillStyle = night ? '#ffdf78' : '#7fe3ff';
+        ctx.fillRect(doorX, baseFloorY + 2, doorW, lobbyPlinthH - 4);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+        ctx.fillRect(doorX + 6, baseFloorY + 3, 12, lobbyPlinthH - 6);
+        ctx.fillRect(doorX + doorW - 22, baseFloorY + 3, 12, lobbyPlinthH - 6);
+        // Revolving door mullions
+        ctx.fillStyle = '#1b2336';
+        ctx.fillRect(doorX + Math.floor(doorW / 2) - 1, baseFloorY + 2, 2, lobbyPlinthH - 4);
+        ctx.fillRect(doorX + 24, baseFloorY + 2, 2, lobbyPlinthH - 4);
+        ctx.fillRect(doorX + doorW - 26, baseFloorY + 2, 2, lobbyPlinthH - 4);
+      }
 
       const nextHitBoxes: FloorHitBox[] = [];
 
-      // Rooftop antenna / sign above highest floor
+      // Rooftop Neon SWARM PLAZA Crown Sign & Blinking Red Beacon Mast
       const topY = baseFloorY - list.length * floorH;
       if (list.length > 0) {
-        ctx.fillStyle = '#252c40';
-        ctx.fillRect(towerX + 20, topY - 22, towerW - 40, 22);
-        ctx.fillStyle = '#121624';
-        ctx.fillRect(towerX + towerW / 2 - 4, topY - 56, 8, 34);
-        const beacon = Math.sin(timeSec * 4) > 0 ? '#ff5666' : '#851f2b';
-        ctx.fillStyle = beacon;
-        ctx.fillRect(towerX + towerW / 2 - 5, topY - 62, 10, 8);
+        // Parapet & steel truss crown
+        ctx.fillStyle = '#1b2233';
+        ctx.fillRect(towerX + 10, topY - 28, towerW - 20, 28);
+        ctx.fillStyle = '#2d3752';
+        ctx.fillRect(towerX + 10, topY - 28, towerW - 20, 3);
+        ctx.fillStyle = '#0e121c';
+        ctx.fillRect(towerX + 22, topY - 22, towerW - 44, 18);
+
+        // Neon border pulse
+        const neonPulse = Math.sin(timeSec * 3.2) > -0.4;
+        ctx.strokeStyle = neonPulse ? '#3cd8ff' : '#2587a8';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(towerX + 22, topY - 22, towerW - 44, 18);
+
+        // Tall antenna mast + blinking red beacon
+        const mastX = Math.round(towerX + towerW / 2);
+        ctx.fillStyle = '#2e3852';
+        ctx.fillRect(mastX - 4, topY - 64, 8, 36);
+        ctx.fillStyle = '#4c5b82';
+        ctx.fillRect(mastX - 2, topY - 76, 4, 14);
+        const beaconOn = Math.sin(timeSec * 4.5) > 0;
+        if (beaconOn) {
+          ctx.fillStyle = 'rgba(255, 64, 92, 0.28)';
+          ctx.fillRect(mastX - 9, topY - 86, 18, 16);
+        }
+        ctx.fillStyle = beaconOn ? '#ff405c' : '#6e1a26';
+        ctx.fillRect(mastX - 4, topY - 82, 8, 7);
 
         ctx.font = 'bold 10px "Press Start 2P", monospace';
         ctx.fillStyle = '#ffd147';
         ctx.textAlign = 'center';
-        ctx.fillText('ANTIGRAVITY PLAZA', towerX + towerW / 2, topY - 7);
+        ctx.textBaseline = 'middle';
+        ctx.fillText('SWARM PLAZA', mastX, topY - 13);
       }
 
       list.forEach((floor, idx) => {
@@ -233,37 +348,53 @@ export const PlazaTowerCanvas: React.FC<PlazaTowerCanvasProps> = ({
           h: floorH,
         });
 
-        // Main front facade
+        // Main steel curtain-wall facade + spandrel band
         const facadeColor = floor.isDemo
           ? night
-            ? '#332859'
-            : '#4c3c82'
+            ? '#2d2352'
+            : '#47397d'
           : floor.floorNumber === 0
             ? night
-              ? '#24304a'
-              : '#3c5078'
+              ? '#1e2942'
+              : '#34496e'
             : night
-              ? '#273147'
-              : '#425273';
+              ? '#202a40'
+              : '#3b4d6e';
 
         ctx.fillStyle = facadeColor;
         ctx.fillRect(towerX, fy, towerW, floorH);
 
-        // 2.5D Isometric right-side wall
+        // Top steel spandrel band
+        ctx.fillStyle = night ? '#151b2b' : '#2a3752';
+        ctx.fillRect(towerX, fy, towerW, 28);
+        ctx.fillStyle = night ? '#313d5c' : '#53688f';
+        ctx.fillRect(towerX, fy, towerW, 2);
+
+        // 2.5D Isometric right-side curtain wall with spandrel bands
         ctx.beginPath();
         ctx.moveTo(towerX + towerW, fy);
         ctx.lineTo(towerX + towerW + sideDepth, fy - 14);
         ctx.lineTo(towerX + towerW + sideDepth, fy + floorH - 14);
         ctx.lineTo(towerX + towerW, fy + floorH);
         ctx.closePath();
-        ctx.fillStyle = night ? '#171d2b' : '#2b364d';
+        ctx.fillStyle = night ? '#131926' : '#253147';
         ctx.fill();
         ctx.strokeStyle = '#0d1018';
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        // Floor border & highlight
-        ctx.strokeStyle = isHovered ? '#3cd8ff' : isSelected ? '#ffd147' : '#101420';
+        // Side-wall spandrel & glass bay stripes
+        ctx.fillStyle = night ? 'rgba(100, 170, 255, 0.08)' : 'rgba(180, 225, 255, 0.16)';
+        ctx.beginPath();
+        ctx.moveTo(towerX + towerW + 6, fy + 28);
+        ctx.lineTo(towerX + towerW + sideDepth - 6, fy + 16);
+        ctx.lineTo(towerX + towerW + sideDepth - 6, fy + floorH - 18);
+        ctx.lineTo(towerX + towerW + 6, fy + floorH - 6);
+        ctx.closePath();
+        ctx.fill();
+
+        // Floor border & hover/selection highlight
+        ctx.strokeStyle = isHovered ? '#3cd8ff' : isSelected ? '#ffd147' : '#0f131f';
         ctx.lineWidth = isHovered || isSelected ? 3 : 2;
         ctx.strokeRect(towerX, fy, towerW, floorH);
 
@@ -274,13 +405,13 @@ export const PlazaTowerCanvas: React.FC<PlazaTowerCanvasProps> = ({
             ? tRef.current.elevator.lobby
             : `${tRef.current.elevator.floorPrefix}${floor.floorNumber}`;
 
-        ctx.fillStyle = '#101420';
-        ctx.fillRect(towerX + 8, fy + 8, 36, 20);
+        ctx.fillStyle = '#0e131f';
+        ctx.fillRect(towerX + 8, fy + 5, 36, 19);
         ctx.font = 'bold 10px "Press Start 2P", monospace';
         ctx.fillStyle = floor.activeCount > 0 ? '#3be87a' : '#ffd147';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(floorCode, towerX + 26, fy + 19);
+        ctx.fillText(floorCode, towerX + 26, fy + 15);
 
         // Company Name Sign
         ctx.font = 'bold 11px "JetBrains Mono", monospace';
@@ -288,57 +419,99 @@ export const PlazaTowerCanvas: React.FC<PlazaTowerCanvasProps> = ({
         ctx.textAlign = 'left';
         const label =
           floor.companyName.length > 22 ? `${floor.companyName.slice(0, 21)}…` : floor.companyName;
-        ctx.fillText(label, towerX + 52, fy + 18);
+        ctx.fillText(label, towerX + 52, fy + 15);
 
         // Tier badge
         ctx.font = 'bold 8px "Press Start 2P", monospace';
         ctx.fillStyle = '#ffbe3b';
         ctx.textAlign = 'right';
-        ctx.fillText(`T${floor.tier}`, towerX + towerW - 10, fy + 18);
+        ctx.fillText(`T${floor.tier}`, towerX + towerW - 10, fy + 15);
 
-        // Windows row (proportional to activeCount & waitingCount)
+        // Glass Curtain-Wall Bays with Steel Mullions & Micro Interior Silhouettes
         const totalWindows = 8;
-        const winW = Math.floor((towerW - 72) / totalWindows) - 6;
-        const winH = 22;
-        const winY = fy + 34;
+        const winW = Math.floor((towerW - 68) / totalWindows) - 4;
+        const winH = 26;
+        const winY = fy + 33;
 
         for (let wi = 0; wi < totalWindows; wi++) {
-          const wx = towerX + 52 + wi * (winW + 6);
-          let winColor = night ? '#131929' : '#263959';
-          if (wi < floor.activeCount) {
-            // Warm glowing yellow window for active agents
+          const wx = towerX + 48 + wi * (winW + 4);
+          const isActiveWin = wi < floor.activeCount;
+          const isWaitingWin = !isActiveWin && wi < floor.activeCount + floor.waitingCount;
+
+          let winColor = night ? '#111829' : '#243a5c';
+          if (isActiveWin) {
             winColor = Math.sin(timeSec * 3 + wi) > -0.7 ? '#ffd65c' : '#ffbe3b';
-          } else if (wi < floor.activeCount + floor.waitingCount) {
-            // Cool dim blue window for waiting agents
-            winColor = '#3a6ea5';
+          } else if (isWaitingWin) {
+            winColor = '#2f5987';
           }
+
           ctx.fillStyle = winColor;
           ctx.fillRect(wx, winY, winW, winH);
-          ctx.strokeStyle = '#0e121c';
+
+          // Micro desk, glowing monitor & agent silhouette inside occupied windows
+          if (isActiveWin || isWaitingWin) {
+            // Desk silhouette
+            ctx.fillStyle = isActiveWin ? '#704d1b' : '#1b314d';
+            ctx.fillRect(wx + 3, winY + winH - 6, Math.max(4, winW - 6), 4);
+            // Tiny glowing monitor
+            ctx.fillStyle = isActiveWin ? '#7ef3ff' : '#4a76a8';
+            ctx.fillRect(wx + 4, winY + winH - 12, Math.max(4, Math.floor(winW * 0.36)), 5);
+            // Tiny agent silhouette
+            ctx.fillStyle = isActiveWin ? '#1f263b' : '#162438';
+            ctx.fillRect(wx + Math.floor(winW * 0.56), winY + winH - 14, Math.max(4, Math.floor(winW * 0.28)), 8);
+            ctx.fillRect(wx + Math.floor(winW * 0.58), winY + winH - 18, Math.max(3, Math.floor(winW * 0.24)), 4);
+          } else {
+            // Diagonal curtain-wall sky reflection
+            ctx.fillStyle = night ? 'rgba(110, 175, 255, 0.1)' : 'rgba(195, 232, 255, 0.24)';
+            ctx.fillRect(wx + 2, winY + 3, Math.max(3, Math.floor(winW * 0.45)), 3);
+            ctx.fillRect(wx + 5, winY + 8, Math.max(3, Math.floor(winW * 0.35)), 2);
+          }
+
+          // Steel mullion frame
+          ctx.strokeStyle = '#0e131f';
           ctx.lineWidth = 1.5;
           ctx.strokeRect(wx, winY, winW, winH);
+          // Specular steel mullion rib between bays
+          ctx.fillStyle = night ? '#323f5e' : '#657da6';
+          ctx.fillRect(wx + winW + 1, winY - 2, 2, winH + 4);
         }
       });
 
-      // 4. Animated Glass Elevator Car on the left shaft
+      // 4. Polished Glass Elevator Shaft & Cab on the left
       if (list.length > 0) {
-        const shaftX = towerX - 30;
+        const shaftX = towerX - 32;
         const shaftTop = topY;
-        const shaftH = list.length * floorH;
-        ctx.fillStyle = 'rgba(15, 21, 36, 0.85)';
-        ctx.fillRect(shaftX, shaftTop, 24, shaftH);
+        const shaftH = list.length * floorH + lobbyPlinthH;
+        ctx.fillStyle = 'rgba(13, 19, 34, 0.88)';
+        ctx.fillRect(shaftX, shaftTop, 26, shaftH);
+        // Steel guide rails
+        ctx.fillStyle = '#4c5c82';
+        ctx.fillRect(shaftX + 4, shaftTop + 2, 2, shaftH - 4);
+        ctx.fillRect(shaftX + 20, shaftTop + 2, 2, shaftH - 4);
         ctx.strokeStyle = '#394769';
         ctx.lineWidth = 2;
-        ctx.strokeRect(shaftX, shaftTop, 24, shaftH);
+        ctx.strokeRect(shaftX, shaftTop, 26, shaftH);
 
-        const travel = list.length > 1 ? (Math.sin(timeSec * 0.55) * 0.5 + 0.5) : 0;
-        const carY = shaftTop + (shaftH - 38) * (1 - travel);
+        const travel = list.length > 1 ? Math.sin(timeSec * 0.55) * 0.5 + 0.5 : 0;
+        const carY = shaftTop + (shaftH - 40) * (1 - travel);
+        // Traveling steel cable
+        ctx.fillStyle = '#6c7da3';
+        ctx.fillRect(shaftX + 12, shaftTop, 2, Math.max(1, Math.round(carY - shaftTop)));
+        // Cab body & warm interior glow
         ctx.fillStyle = '#5ee6ff';
-        ctx.fillRect(shaftX + 3, carY, 18, 34);
+        ctx.fillRect(shaftX + 3, carY, 20, 36);
+        ctx.fillStyle = night ? '#fff0a8' : '#d6f8ff';
+        ctx.fillRect(shaftX + 6, carY + 5, 14, 24);
+        // Diagonal glass shine
         ctx.fillStyle = '#ffffff';
-        ctx.fillRect(shaftX + 5, carY + 4, 4, 24);
+        ctx.fillRect(shaftX + 6, carY + 6, 4, 20);
+        // Top/bottom steel caps
+        ctx.fillStyle = '#252e45';
+        ctx.fillRect(shaftX + 3, carY, 20, 4);
+        ctx.fillRect(shaftX + 3, carY + 32, 20, 4);
         ctx.strokeStyle = '#0e121c';
-        ctx.strokeRect(shaftX + 3, carY, 18, 34);
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(shaftX + 3, carY, 20, 36);
       }
 
       hitBoxesRef.current = nextHitBoxes;

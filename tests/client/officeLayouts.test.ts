@@ -7,7 +7,12 @@ import {
   THEME_PALETTES,
   type FloorLayout,
 } from '../../src/client/engine/officeLayouts.js';
-import { drawExtraFurnitureProp } from '../../src/client/engine/officePropsSprites.js';
+import {
+  drawEnhancedBackWalls,
+  drawEnhancedFloorTile,
+  drawEnhancedFurniture,
+  drawExtraFurnitureProp,
+} from '../../src/client/engine/officePropsSprites.js';
 import { buildWalkableGridForFurniture, findPath, type ZoneSlot } from '../../src/client/engine/pathfinding.js';
 import type { OfficeZone } from '../../src/shared/types.js';
 
@@ -283,6 +288,117 @@ describe('officeLayouts all 5 floor blueprints', () => {
                 `Invalid rect for '${kind}' at zoom=${zoom}: ${JSON.stringify(r)}`,
               );
             }
+          }
+        }
+      }
+    }
+  });
+
+  it('renders drawEnhancedFloorTile, drawEnhancedBackWalls, and drawEnhancedFurniture cleanly across all 5 blueprints, day/night, and zoom 0.75..2.0 with balanced save/restore', () => {
+    const zooms = [0.75, 1.0, 2.0];
+    const zones: OfficeZone[] = ['DESK_CODING', 'COFFEE_LOUNGE', 'SERVER_RACK', 'WAR_ROOM'];
+    const layouts = getAllFiveLayouts();
+
+    const makeMockCtx = () => {
+      const rects: Array<{ x: number; y: number; w: number; h: number }> = [];
+      let saveCount = 0;
+      let restoreCount = 0;
+      const noop = () => {};
+      const gradStub = { addColorStop: noop };
+      const ctx = {
+        fillStyle: '#000',
+        strokeStyle: '#000',
+        lineWidth: 1,
+        font: '10px monospace',
+        textAlign: 'left',
+        textBaseline: 'alphabetic',
+        globalAlpha: 1,
+        globalCompositeOperation: 'source-over',
+        save: () => {
+          saveCount += 1;
+        },
+        restore: () => {
+          restoreCount += 1;
+        },
+        beginPath: noop,
+        closePath: noop,
+        moveTo: noop,
+        lineTo: noop,
+        quadraticCurveTo: noop,
+        bezierCurveTo: noop,
+        ellipse: noop,
+        arc: noop,
+        rect: noop,
+        roundRect: noop,
+        clip: noop,
+        setLineDash: noop,
+        fill: noop,
+        stroke: noop,
+        fillText: noop,
+        strokeText: noop,
+        measureText: (t: string) => ({ width: t.length * 6 }),
+        createLinearGradient: () => gradStub,
+        createRadialGradient: () => gradStub,
+        fillRect: (x: number, y: number, w: number, h: number) => {
+          rects.push({ x, y, w, h });
+        },
+        strokeRect: (x: number, y: number, w: number, h: number) => {
+          rects.push({ x, y, w, h });
+        },
+      } as unknown as CanvasRenderingContext2D;
+      return { ctx, rects, getBalance: () => ({ saveCount, restoreCount }) };
+    };
+
+    for (const layout of layouts) {
+      const uniqueKinds = [...new Set(layout.furniture.map((f) => f.kind))];
+      for (const night of [false, true]) {
+        for (const zoom of zooms) {
+          const mock = makeMockCtx();
+
+          drawEnhancedBackWalls(
+            mock.ctx,
+            400,
+            100,
+            GRID_W,
+            GRID_H,
+            zoom,
+            night,
+            1.5,
+            layout.themePalette,
+          );
+
+          for (const z of zones) {
+            drawEnhancedFloorTile(mock.ctx, 2, 3, 400, 200, zoom, z, layout.themePalette, night, 1.5);
+          }
+
+          for (const kind of uniqueKinds) {
+            drawEnhancedFurniture(
+              mock.ctx,
+              kind,
+              320,
+              240,
+              zoom,
+              1.5,
+              night,
+              true,
+              'argon',
+              false,
+              'SWARM BOARD',
+              2,
+            );
+          }
+
+          const { saveCount, restoreCount } = mock.getBalance();
+          assert.equal(
+            saveCount,
+            restoreCount,
+            `Unbalanced save/restore on blueprint ${layout.blueprintIndex} (night=${night}, zoom=${zoom}): save=${saveCount}, restore=${restoreCount}`,
+          );
+          for (const r of mock.rects) {
+            assert.ok(
+              Number.isFinite(r.x) && Number.isFinite(r.y) && r.w > 0 && r.h > 0,
+              `Invalid enhanced rect on blueprint ${layout.blueprintIndex} (night=${night}, zoom=${zoom}): ${JSON.stringify(r)}`,
+            );
           }
         }
       }

@@ -13,9 +13,12 @@ import type { Facing } from './pathfinding';
 export type FemaleHairStyle = 'long_locks' | 'bob_cut' | 'ponytail' | 'bun_updo';
 export type MaleHairStyle = 'short_crop' | 'side_part' | 'spiky' | 'curly_top';
 export type FemaleOutfitStyle = 'skirt_blazer' | 'tailored_suit';
+export type MaleOutfitStyle = 'classic_suit' | 'tech_hoodie' | 'vest_ensemble';
+export type MaleFacialHair = 'clean' | 'light_stubble';
 
 const FEMALE_HAIR_STYLES: FemaleHairStyle[] = ['long_locks', 'bob_cut', 'ponytail', 'bun_updo'];
 const MALE_HAIR_STYLES: MaleHairStyle[] = ['short_crop', 'side_part', 'spiky', 'curly_top'];
+const MALE_OUTFIT_STYLES: MaleOutfitStyle[] = ['classic_suit', 'tech_hoodie', 'vest_ensemble'];
 const ACCESSORY_COLORS = ['#ff6b9d', '#ffd166', '#4dd4ff', '#c77dff'];
 
 export interface Palette {
@@ -27,8 +30,12 @@ export interface Palette {
   femaleHairStyle: FemaleHairStyle;
   maleHairStyle: MaleHairStyle;
   femaleOutfit: FemaleOutfitStyle;
+  maleOutfitStyle: MaleOutfitStyle;
+  maleFacialHair: MaleFacialHair;
   accessoryColor: string;
 }
+
+export type EmployeePalette = Palette;
 
 const SKIN_PALETTES: Array<{ skin: string; skinShadow: string }> = [
   { skin: '#fbdcc4', skinShadow: '#dfb08c' },
@@ -88,6 +95,9 @@ export function getEmployeePalette(
   const skin = SKIN_PALETTES[(h >>> 4) % SKIN_PALETTES.length];
   const hair = HAIR_PALETTES[(h >>> 7) % HAIR_PALETTES.length];
   const accessoryColor = ACCESSORY_COLORS[(h >>> 10) % ACCESSORY_COLORS.length];
+  const maleOutfitStyle = MALE_OUTFIT_STYLES[(h >>> 14) % MALE_OUTFIT_STYLES.length];
+  const maleFacialHair: MaleFacialHair =
+    ((h >>> 17) % 100) < 45 ? 'light_stubble' : 'clean';
   return {
     ...skin,
     ...hair,
@@ -95,6 +105,8 @@ export function getEmployeePalette(
     femaleHairStyle,
     maleHairStyle,
     femaleOutfit,
+    maleOutfitStyle,
+    maleFacialHair,
     accessoryColor,
   };
 }
@@ -848,119 +860,214 @@ function drawSpriteCostumeOverlay(
 
   if (eventKind === 'STAR_WARS_PARTY') {
     if (variant === 0) {
-      // Jedi hooded brown robe + glowing blue/green lightsaber
-      rect(cx - 8 * z, baseY - 21 * z, 16 * z, 14 * z, '#6b4226');
-      rect(cx - 5 * z, baseY - 20 * z, 10 * z, 11 * z, '#e7d7b8');
-      rect(cx - 6 * z, baseY - 14 * z, 12 * z, 2 * z, '#452814');
-      rect(cx - 8 * z, baseY - 38 * z, 16 * z, 7 * z, '#6b4226');
-      rect(cx - 7 * z, baseY - 36 * z, 14 * z, 3 * z, '#452814');
-      const hiltX = cx + saberSide * 9 * z;
-      rect(hiltX, baseY - 16 * z, 2 * z, 4 * z, '#b4bed4');
+      // Athletic V-taper Jedi Master hooded cloak + robe sleeves + crossed martial tunic + lightsaber
+      rect(cx - 7.8 * z, baseY - 19.6 * z, 15.6 * z, 11.6 * z, '#6b4226');
+      rect(cx - 9 * z, baseY - 18.8 * z, 3 * z, 3.4 * z, '#6b4226');
+      rect(cx + 6 * z, baseY - 18.8 * z, 3 * z, 3.4 * z, '#6b4226');
+      rect(cx - 8.2 * z, baseY - 15.6 * z, 2.4 * z, 3.8 * z, '#54321b');
+      rect(cx + 5.8 * z, baseY - 15.6 * z, 2.4 * z, 3.8 * z, '#54321b');
+      rect(cx - 6.6 * z, baseY - 19.2 * z, 13.2 * z, 3.8 * z, '#e7d7b8');
+      rect(cx - 5.2 * z, baseY - 15.4 * z, 10.4 * z, 3.8 * z, '#e7d7b8');
+      rect(cx - 6 * z, baseY - 11.6 * z, 12 * z, 3 * z, '#d8c5a2');
+      rect(cx - 1.8 * z, baseY - 19.2 * z, 3.6 * z, 3.5 * z, '#cbb692');
+      rect(cx - 5.4 * z, baseY - 13.8 * z, 10.8 * z, 1.8 * z, '#452814');
+      rect(cx - 1.2 * z, baseY - 13.8 * z, 2.4 * z, 1.8 * z, '#b4bed4');
+      rect(cx - 6 * z, baseY - 38.2 * z, 12 * z, 2.4 * z, '#6b4226');
+      rect(cx - 7.4 * z, baseY - 36.2 * z, 14.8 * z, 4.4 * z, '#6b4226');
+      rect(cx - 6.2 * z, baseY - 35 * z, 12.4 * z, 2.2 * z, '#452814');
+      const hiltX = cx + saberSide * 8 * z;
+      rect(hiltX, baseY - 15.5 * z, 2 * z, 4 * z, '#b4bed4');
       const bladeColor = Math.sin(timeSec * 8) > 0 ? '#3cd8ff' : '#3be87a';
-      rect(hiltX, baseY - 30 * z, 2 * z, 14 * z, bladeColor);
-      rect(hiltX + 0.5 * z, baseY - 29 * z, 1 * z, 12 * z, '#ffffff');
+      rect(hiltX, baseY - 29.5 * z, 2 * z, 14 * z, bladeColor);
+      rect(hiltX + 0.5 * z, baseY - 28.5 * z, 1 * z, 12 * z, '#ffffff');
     } else if (variant === 1) {
-      // Sith black Vader helmet + cape + crimson lightsaber
-      rect(cx - 9 * z, baseY - 21 * z, 18 * z, 15 * z, '#11131c');
-      rect(cx - 5 * z, baseY - 19 * z, 10 * z, 8 * z, '#1d2232');
-      rect(cx - 3 * z, baseY - 17 * z, 6 * z, 4 * z, '#4a556e');
-      rect(cx - 8 * z, baseY - 37 * z, 16 * z, 16 * z, '#161922');
-      rect(cx - 7 * z, baseY - 35 * z, 14 * z, 4 * z, '#2a3040');
-      rect(cx - 5 * z, baseY - 29 * z, 4 * z, 2 * z, '#ff384c');
-      rect(cx + 1 * z, baseY - 29 * z, 4 * z, 2 * z, '#ff384c');
-      rect(cx - 3 * z, baseY - 25 * z, 6 * z, 3 * z, '#11131c');
-      const hiltX = cx + saberSide * 9 * z;
-      rect(hiltX, baseY - 16 * z, 2 * z, 4 * z, '#9aa7c7');
-      rect(hiltX, baseY - 31 * z, 2 * z, 15 * z, '#ff384c');
-      rect(hiltX + 0.5 * z, baseY - 30 * z, 1 * z, 13 * z, '#ffb3bc');
+      // Sculpted V-taper Darth Vader obsidian armor + armored arms + stepped dome helmet + crimson saber
+      rect(cx - 8.2 * z, baseY - 19.6 * z, 16.4 * z, 12.5 * z, '#11131c');
+      rect(cx - 9 * z, baseY - 18.8 * z, 3 * z, 3.4 * z, '#1d2232');
+      rect(cx + 6 * z, baseY - 18.8 * z, 3 * z, 3.4 * z, '#1d2232');
+      rect(cx - 8 * z, baseY - 15.6 * z, 2 * z, 3.8 * z, '#161922');
+      rect(cx + 6 * z, baseY - 15.6 * z, 2 * z, 3.8 * z, '#161922');
+      rect(cx - 2.8 * z, baseY - 22.5 * z, 5.6 * z, 3.5 * z, '#1d2232');
+      rect(cx - 6.8 * z, baseY - 19.2 * z, 13.6 * z, 4 * z, '#1d2232');
+      rect(cx - 5.2 * z, baseY - 15.2 * z, 10.4 * z, 4 * z, '#1d2232');
+      rect(cx - 3 * z, baseY - 18 * z, 6 * z, 3.6 * z, '#4a556e');
+      rect(cx - 2.2 * z, baseY - 17.2 * z, 1.4 * z, 1.4 * z, '#ff384c');
+      rect(cx + 0.8 * z, baseY - 17.2 * z, 1.4 * z, 1.4 * z, '#3cd8ff');
+      rect(cx - 5.2 * z, baseY - 12.8 * z, 10.4 * z, 1.4 * z, '#2a3040');
+      rect(cx - 6 * z, baseY - 37 * z, 12 * z, 2.2 * z, '#161922');
+      rect(cx - 7.4 * z, baseY - 35.2 * z, 14.8 * z, 11.5 * z, '#161922');
+      rect(cx - 5.6 * z, baseY - 24 * z, 11.2 * z, 2.2 * z, '#11131c');
+      rect(cx - 6.4 * z, baseY - 34.5 * z, 12.8 * z, 3.2 * z, '#2a3040');
+      rect(cx - 4.6 * z, baseY - 29.2 * z, 3.6 * z, 2 * z, '#ff384c');
+      rect(cx + 1 * z, baseY - 29.2 * z, 3.6 * z, 2 * z, '#ff384c');
+      rect(cx - 2.4 * z, baseY - 25.6 * z, 4.8 * z, 2.4 * z, '#2a3040');
+      const hiltX = cx + saberSide * 8 * z;
+      rect(hiltX, baseY - 15.5 * z, 2 * z, 4 * z, '#9aa7c7');
+      rect(hiltX, baseY - 30.5 * z, 2 * z, 15 * z, '#ff384c');
+      rect(hiltX + 0.5 * z, baseY - 29.5 * z, 1 * z, 13 * z, '#ffb3bc');
     } else if (variant === 2) {
-      // Rebel white tunic + twin side buns / visor
-      rect(cx - 7 * z, baseY - 21 * z, 14 * z, 13 * z, '#f4f6fc');
-      rect(cx - 7 * z, baseY - 13 * z, 14 * z, 2 * z, '#c9d2e8');
-      rect(cx - 10 * z, baseY - 33 * z, 3 * z, 7 * z, hairColor);
-      rect(cx + 7 * z, baseY - 33 * z, 3 * z, 7 * z, hairColor);
-      rect(cx - 5 * z, baseY - 30 * z, 10 * z, 2 * z, '#ff9c3b');
+      // Athletic Rebel Commander V-taper white tunic + sleeves + comms ear-pods + amber blast visor
+      rect(cx - 9 * z, baseY - 18.8 * z, 3 * z, 3.2 * z, '#f4f6fc');
+      rect(cx + 6 * z, baseY - 18.8 * z, 3 * z, 3.2 * z, '#f4f6fc');
+      rect(cx - 8 * z, baseY - 15.6 * z, 2 * z, 3.6 * z, '#e9edf7');
+      rect(cx + 6 * z, baseY - 15.6 * z, 2 * z, 3.6 * z, '#e9edf7');
+      rect(cx - 6.8 * z, baseY - 19.2 * z, 13.6 * z, 4 * z, '#f4f6fc');
+      rect(cx - 5.4 * z, baseY - 15.2 * z, 10.8 * z, 4 * z, '#f4f6fc');
+      rect(cx - 6 * z, baseY - 11.4 * z, 12 * z, 2.4 * z, '#e9edf7');
+      rect(cx - 2 * z, baseY - 18.2 * z, 4 * z, 3.2 * z, '#dce4f7');
+      rect(cx - 5.4 * z, baseY - 13 * z, 10.8 * z, 1.6 * z, '#c9d2e8');
+      rect(cx - 1.2 * z, baseY - 13 * z, 2.4 * z, 1.6 * z, '#ff9c3b');
+      rect(cx - 8.6 * z, baseY - 32.5 * z, 2.4 * z, 5.5 * z, hairColor);
+      rect(cx + 6.2 * z, baseY - 32.5 * z, 2.4 * z, 5.5 * z, hairColor);
+      rect(cx - 5.2 * z, baseY - 30 * z, 10.4 * z, 2.2 * z, '#ff9c3b');
+      rect(cx - 3.8 * z, baseY - 29.6 * z, 3 * z, 0.9 * z, '#ffe6a3');
     } else {
-      // Mandalorian silver T-visor helmet + beskar chestplate
-      rect(cx - 7 * z, baseY - 21 * z, 14 * z, 12 * z, '#8f9bb8');
-      rect(cx - 5 * z, baseY - 19 * z, 10 * z, 6 * z, '#b4bed4');
-      rect(cx - 7 * z, baseY - 37 * z, 14 * z, 16 * z, '#b4bed4');
-      rect(cx - 6 * z, baseY - 35 * z, 12 * z, 3 * z, '#7a87a3');
-      rect(cx - 5 * z, baseY - 30 * z, 10 * z, 3 * z, '#11131c');
-      rect(cx - 1.5 * z, baseY - 28 * z, 3 * z, 6 * z, '#11131c');
-      rect(cx + 6 * z, baseY - 40 * z, 2 * z, 8 * z, '#ff9c3b');
+      // Athletic Mandalorian beskar pauldrons + vambraces + V-taper chestplate + stepped T-visor dome
+      rect(cx - 9 * z, baseY - 18.8 * z, 3 * z, 3.2 * z, '#b4bed4');
+      rect(cx + 6 * z, baseY - 18.8 * z, 3 * z, 3.2 * z, '#b4bed4');
+      rect(cx - 8 * z, baseY - 15.6 * z, 2 * z, 3.6 * z, '#596580');
+      rect(cx + 6 * z, baseY - 15.6 * z, 2 * z, 3.6 * z, '#596580');
+      rect(cx - 2.8 * z, baseY - 22.5 * z, 5.6 * z, 3.5 * z, '#454e66');
+      rect(cx - 6.8 * z, baseY - 19.2 * z, 13.6 * z, 4 * z, '#8f9bb8');
+      rect(cx - 5.2 * z, baseY - 15.2 * z, 10.4 * z, 4 * z, '#7a87a3');
+      rect(cx - 5 * z, baseY - 18.4 * z, 10 * z, 5 * z, '#b4bed4');
+      rect(cx - 5.4 * z, baseY - 12.8 * z, 10.8 * z, 1.6 * z, '#593724');
+      rect(cx - 5.8 * z, baseY - 36.6 * z, 11.6 * z, 2.2 * z, '#b4bed4');
+      rect(cx - 6.8 * z, baseY - 34.8 * z, 13.6 * z, 11.2 * z, '#b4bed4');
+      rect(cx - 5.2 * z, baseY - 23.8 * z, 10.4 * z, 1.8 * z, '#8f9bb8');
+      rect(cx - 5.8 * z, baseY - 34.2 * z, 11.6 * z, 2.6 * z, '#7a87a3');
+      rect(cx - 5 * z, baseY - 29.8 * z, 10 * z, 2.4 * z, '#11131c');
+      rect(cx - 1.4 * z, baseY - 27.8 * z, 2.8 * z, 5.4 * z, '#11131c');
+      rect(cx + 6.2 * z, baseY - 39.5 * z, 1.6 * z, 7.5 * z, '#ff9c3b');
     }
   } else if (eventKind === 'SUPERHERO_PARTY') {
     if (variant === 0) {
-      // Dark Knight eared cowl + dark cape + yellow utility belt
-      rect(cx - 9 * z, baseY - 21 * z, 18 * z, 14 * z, '#161a26');
-      rect(cx - 6 * z, baseY - 20 * z, 12 * z, 10 * z, '#2c344a');
-      rect(cx - 7 * z, baseY - 11 * z, 14 * z, 2 * z, '#ffd147');
-      rect(cx - 7 * z, baseY - 37 * z, 14 * z, 10 * z, '#1b2030');
-      rect(cx - 7 * z, baseY - 41 * z, 3 * z, 4 * z, '#1b2030');
-      rect(cx + 4 * z, baseY - 41 * z, 3 * z, 4 * z, '#1b2030');
-      rect(cx - 4 * z, baseY - 28 * z, 3 * z, 2 * z, '#ffffff');
-      rect(cx + 1 * z, baseY - 28 * z, 3 * z, 2 * z, '#ffffff');
+      // Dark Knight V-taper kevlar armor + gauntlets + scalloped dark cape + gold utility belt + pointed cowl
+      rect(cx - 8.2 * z, baseY - 19.6 * z, 16.4 * z, 12.4 * z, '#161a26');
+      rect(cx - 9 * z, baseY - 18.8 * z, 3 * z, 3.2 * z, '#2c344a');
+      rect(cx + 6 * z, baseY - 18.8 * z, 3 * z, 3.2 * z, '#2c344a');
+      rect(cx - 8 * z, baseY - 15.6 * z, 2 * z, 3.6 * z, '#1b2030');
+      rect(cx + 6 * z, baseY - 15.6 * z, 2 * z, 3.6 * z, '#1b2030');
+      rect(cx - 6.8 * z, baseY - 19.2 * z, 13.6 * z, 4 * z, '#2c344a');
+      rect(cx - 5.2 * z, baseY - 15.2 * z, 10.4 * z, 4.2 * z, '#2c344a');
+      rect(cx - 2.6 * z, baseY - 18 * z, 5.2 * z, 2 * z, '#ffd147');
+      rect(cx - 5.4 * z, baseY - 12.4 * z, 10.8 * z, 1.8 * z, '#ffd147');
+      rect(cx - 6.8 * z, baseY - 37.2 * z, 13.6 * z, 10 * z, '#1b2030');
+      rect(cx - 6.6 * z, baseY - 41.2 * z, 2.6 * z, 4.2 * z, '#1b2030');
+      rect(cx + 4 * z, baseY - 41.2 * z, 2.6 * z, 4.2 * z, '#1b2030');
+      rect(cx - 4.2 * z, baseY - 29.2 * z, 3 * z, 1.8 * z, '#ffffff');
+      rect(cx + 1.2 * z, baseY - 29.2 * z, 3 * z, 1.8 * z, '#ffffff');
     } else if (variant === 1) {
-      // Crimson flying cape + blue suit + gold chest emblem
-      rect(cx - 9 * z, baseY - 21 * z, 18 * z, 15 * z, '#d93838');
-      rect(cx - 6 * z, baseY - 20 * z, 12 * z, 12 * z, '#2b62d9');
-      rect(cx - 3 * z, baseY - 19 * z, 6 * z, 4 * z, '#ffd147');
-      rect(cx - 1 * z, baseY - 18 * z, 2 * z, 2 * z, '#d93838');
+      // Heroic crimson cape + athletic V-taper royal-blue suit & sleeves + gold belt + diamond emblem
+      rect(cx - 8 * z, baseY - 19.6 * z, 16 * z, 12.6 * z, '#d93838');
+      rect(cx - 9 * z, baseY - 18.8 * z, 3 * z, 3.2 * z, '#2b62d9');
+      rect(cx + 6 * z, baseY - 18.8 * z, 3 * z, 3.2 * z, '#2b62d9');
+      rect(cx - 8 * z, baseY - 15.6 * z, 2 * z, 3.6 * z, '#2b62d9');
+      rect(cx + 6 * z, baseY - 15.6 * z, 2 * z, 3.6 * z, '#2b62d9');
+      rect(cx - 6.8 * z, baseY - 19.2 * z, 13.6 * z, 4.2 * z, '#2b62d9');
+      rect(cx - 5.2 * z, baseY - 15 * z, 10.4 * z, 4.2 * z, '#2b62d9');
+      rect(cx - 5.2 * z, baseY - 12.2 * z, 10.4 * z, 1.4 * z, '#ffd147');
+      rect(cx - 3 * z, baseY - 18.4 * z, 6 * z, 3.6 * z, '#ffd147');
+      rect(cx - 1.2 * z, baseY - 17.4 * z, 2.4 * z, 1.8 * z, '#d93838');
     } else if (variant === 2) {
-      // Red-gold armored helmet + glowing cyan chest reactor
-      rect(cx - 7 * z, baseY - 21 * z, 14 * z, 13 * z, '#c42838');
-      rect(cx - 5 * z, baseY - 19 * z, 10 * z, 8 * z, '#ffd147');
-      rect(cx - 2 * z, baseY - 18 * z, 4 * z, 4 * z, '#7ef3ff');
-      rect(cx - 1 * z, baseY - 17 * z, 2 * z, 2 * z, '#ffffff');
-      rect(cx - 7 * z, baseY - 37 * z, 14 * z, 15 * z, '#c42838');
-      rect(cx - 5 * z, baseY - 33 * z, 10 * z, 10 * z, '#ffd147');
-      rect(cx - 4 * z, baseY - 29 * z, 3 * z, 2 * z, '#7ef3ff');
-      rect(cx + 1 * z, baseY - 29 * z, 3 * z, 2 * z, '#7ef3ff');
+      // V-taper crimson-gold Mark armor + armored gauntlets + glowing cyan arc reactor + faceplate helmet
+      rect(cx - 9 * z, baseY - 18.8 * z, 3 * z, 3.2 * z, '#c42838');
+      rect(cx + 6 * z, baseY - 18.8 * z, 3 * z, 3.2 * z, '#c42838');
+      rect(cx - 8 * z, baseY - 15.6 * z, 2 * z, 3.6 * z, '#ffd147');
+      rect(cx + 6 * z, baseY - 15.6 * z, 2 * z, 3.6 * z, '#ffd147');
+      rect(cx - 2.8 * z, baseY - 22.5 * z, 5.6 * z, 3.6 * z, '#9e1f2c');
+      rect(cx - 6.8 * z, baseY - 19.2 * z, 13.6 * z, 4.2 * z, '#c42838');
+      rect(cx - 5.2 * z, baseY - 15 * z, 10.4 * z, 4.4 * z, '#c42838');
+      rect(cx - 4.8 * z, baseY - 18.4 * z, 9.6 * z, 5.6 * z, '#ffd147');
+      rect(cx - 2 * z, baseY - 17.8 * z, 4 * z, 3.4 * z, '#7ef3ff');
+      rect(cx - 1 * z, baseY - 17 * z, 2 * z, 1.8 * z, '#ffffff');
+      rect(cx - 5.8 * z, baseY - 36.6 * z, 11.6 * z, 2.2 * z, '#c42838');
+      rect(cx - 6.8 * z, baseY - 34.8 * z, 13.6 * z, 11.2 * z, '#c42838');
+      rect(cx - 4.8 * z, baseY - 32.8 * z, 9.6 * z, 9.6 * z, '#ffd147');
+      rect(cx - 4.2 * z, baseY - 29.2 * z, 3 * z, 1.8 * z, '#7ef3ff');
+      rect(cx + 1.2 * z, baseY - 29.2 * z, 3 * z, 1.8 * z, '#7ef3ff');
     } else {
-      // Gold tiara + domino eye mask + crimson-gold armor
-      rect(cx - 7 * z, baseY - 21 * z, 14 * z, 13 * z, '#b82e43');
-      rect(cx - 5 * z, baseY - 20 * z, 10 * z, 4 * z, '#ffd147');
-      rect(cx - 6 * z, baseY - 12 * z, 12 * z, 2 * z, '#ffd147');
-      rect(cx - 6 * z, baseY - 38 * z, 12 * z, 3 * z, '#ffd147');
-      rect(cx - 1 * z, baseY - 40 * z, 2 * z, 2 * z, '#ff5666');
-      rect(cx - 6 * z, baseY - 30 * z, 12 * z, 3 * z, '#1b2030');
+      // Heroic Champion V-taper crimson-gold cuirass + gold bracers + circlet + sleek domino mask
+      rect(cx - 9 * z, baseY - 18.8 * z, 3 * z, 3 * z, '#b82e43');
+      rect(cx + 6 * z, baseY - 18.8 * z, 3 * z, 3 * z, '#b82e43');
+      rect(cx - 8 * z, baseY - 14.4 * z, 2 * z, 2.2 * z, '#ffd147');
+      rect(cx + 6 * z, baseY - 14.4 * z, 2 * z, 2.2 * z, '#ffd147');
+      rect(cx - 6.8 * z, baseY - 19.2 * z, 13.6 * z, 4 * z, '#b82e43');
+      rect(cx - 5.2 * z, baseY - 15.2 * z, 10.4 * z, 4.2 * z, '#b82e43');
+      rect(cx - 5.6 * z, baseY - 18.8 * z, 11.2 * z, 2.4 * z, '#ffd147');
+      rect(cx - 5.4 * z, baseY - 12.4 * z, 10.8 * z, 1.8 * z, '#ffd147');
+      rect(cx - 5.8 * z, baseY - 36.2 * z, 11.6 * z, 2.2 * z, '#ffd147');
+      rect(cx - 1 * z, baseY - 37.6 * z, 2 * z, 2 * z, '#ff5666');
+      rect(cx - 5.4 * z, baseY - 30 * z, 10.8 * z, 2.4 * z, '#1b2030');
+      rect(cx - 3.6 * z, baseY - 29.4 * z, 1.4 * z, 1 * z, '#ffffff');
+      rect(cx + 2.2 * z, baseY - 29.4 * z, 1.4 * z, 1 * z, '#ffffff');
     }
   } else {
-    // HALLOWEEN_PARTY
+    // HALLOWEEN_PARTY (male)
     if (variant === 0) {
-      // Pointed witch/wizard hat with purple ribbon + dark cloak
-      rect(cx - 8 * z, baseY - 21 * z, 16 * z, 14 * z, '#1a1529');
-      rect(cx - 10 * z, baseY - 37 * z, 20 * z, 3 * z, '#241c38');
-      rect(cx - 6 * z, baseY - 41 * z, 12 * z, 4 * z, '#241c38');
-      rect(cx - 4 * z, baseY - 45 * z, 8 * z, 4 * z, '#241c38');
-      rect(cx - 2 * z, baseY - 48 * z, 4 * z, 3 * z, '#241c38');
-      rect(cx - 6 * z, baseY - 39 * z, 12 * z, 2 * z, '#b07cff');
+      // Arcane Warlock V-taper dark robe + sleeves + purple sash + stepped pointed wizard hat
+      rect(cx - 9 * z, baseY - 18.8 * z, 3 * z, 3.4 * z, '#1a1529');
+      rect(cx + 6 * z, baseY - 18.8 * z, 3 * z, 3.4 * z, '#1a1529');
+      rect(cx - 8 * z, baseY - 15.6 * z, 2 * z, 3.8 * z, '#241c38');
+      rect(cx + 6 * z, baseY - 15.6 * z, 2 * z, 3.8 * z, '#241c38');
+      rect(cx - 6.8 * z, baseY - 19.2 * z, 13.6 * z, 4 * z, '#1a1529');
+      rect(cx - 5.4 * z, baseY - 15.2 * z, 10.8 * z, 4 * z, '#1a1529');
+      rect(cx - 6.2 * z, baseY - 11.4 * z, 12.4 * z, 2.8 * z, '#241c38');
+      rect(cx - 5.4 * z, baseY - 13.2 * z, 10.8 * z, 1.6 * z, '#b07cff');
+      rect(cx - 9.2 * z, baseY - 37 * z, 18.4 * z, 2.4 * z, '#241c38');
+      rect(cx - 6 * z, baseY - 40.8 * z, 12 * z, 3.8 * z, '#241c38');
+      rect(cx - 4 * z, baseY - 44.4 * z, 8 * z, 3.6 * z, '#241c38');
+      rect(cx - 2 * z, baseY - 47.4 * z, 4 * z, 3 * z, '#241c38');
+      rect(cx - 6 * z, baseY - 38.8 * z, 12 * z, 1.8 * z, '#b07cff');
     } else if (variant === 1) {
-      // Glowing Jack-o'-Lantern pumpkin head + yellow eyes/grin + green stem
-      rect(cx - 7 * z, baseY - 21 * z, 14 * z, 13 * z, '#241c38');
-      rect(cx - 8 * z, baseY - 36 * z, 16 * z, 15 * z, '#ff7b1c');
-      rect(cx - 6 * z, baseY - 35 * z, 12 * z, 13 * z, '#ff9838');
-      rect(cx - 2 * z, baseY - 39 * z, 4 * z, 3 * z, '#3be87a');
-      rect(cx - 4 * z, baseY - 30 * z, 3 * z, 3 * z, '#ffe64d');
-      rect(cx + 1 * z, baseY - 30 * z, 3 * z, 3 * z, '#ffe64d');
-      rect(cx - 4 * z, baseY - 25 * z, 8 * z, 2 * z, '#ffe64d');
+      // Sculpted ribbed Jack-o'-Lantern head + V-taper dark suit & sleeves
+      rect(cx - 9 * z, baseY - 18.8 * z, 3 * z, 3.2 * z, '#241c38');
+      rect(cx + 6 * z, baseY - 18.8 * z, 3 * z, 3.2 * z, '#241c38');
+      rect(cx - 8 * z, baseY - 15.6 * z, 2 * z, 3.6 * z, '#1a1529');
+      rect(cx + 6 * z, baseY - 15.6 * z, 2 * z, 3.6 * z, '#1a1529');
+      rect(cx - 2.8 * z, baseY - 22.5 * z, 5.6 * z, 3.5 * z, '#241c38');
+      rect(cx - 6.8 * z, baseY - 19.2 * z, 13.6 * z, 4 * z, '#241c38');
+      rect(cx - 5.2 * z, baseY - 15.2 * z, 10.4 * z, 4.2 * z, '#241c38');
+      rect(cx - 5.2 * z, baseY - 13 * z, 10.4 * z, 1.4 * z, '#ff7b1c');
+      rect(cx - 6.4 * z, baseY - 36 * z, 12.8 * z, 1.8 * z, '#ff7b1c');
+      rect(cx - 7.6 * z, baseY - 34.4 * z, 15.2 * z, 11.4 * z, '#ff7b1c');
+      rect(cx - 5.4 * z, baseY - 33.8 * z, 10.8 * z, 10.6 * z, '#ff9838');
+      rect(cx - 1.8 * z, baseY - 38.6 * z, 3.6 * z, 2.6 * z, '#3be87a');
+      rect(cx - 4.2 * z, baseY - 29.8 * z, 3 * z, 2.6 * z, '#ffe64d');
+      rect(cx + 1.2 * z, baseY - 29.8 * z, 3 * z, 2.6 * z, '#ffe64d');
+      rect(cx - 3.6 * z, baseY - 25.4 * z, 7.2 * z, 1.8 * z, '#ffe64d');
     } else if (variant === 2) {
-      // High-collared black-crimson Vampire cape + tiny white fangs
-      rect(cx - 9 * z, baseY - 24 * z, 18 * z, 17 * z, '#161822');
-      rect(cx - 8 * z, baseY - 25 * z, 3 * z, 6 * z, '#b82e43');
-      rect(cx + 5 * z, baseY - 25 * z, 3 * z, 6 * z, '#b82e43');
-      rect(cx - 4 * z, baseY - 20 * z, 8 * z, 10 * z, '#d93838');
-      rect(cx - 2 * z, baseY - 24 * z, 1.5 * z, 2 * z, '#ffffff');
-      rect(cx + 0.5 * z, baseY - 24 * z, 1.5 * z, 2 * z, '#ffffff');
+      // Count Vampire high crimson-lined cape collar + dark tailcoat sleeves + crimson waistcoat + fangs
+      rect(cx - 9 * z, baseY - 18.8 * z, 3 * z, 3.2 * z, '#161822');
+      rect(cx + 6 * z, baseY - 18.8 * z, 3 * z, 3.2 * z, '#161822');
+      rect(cx - 8 * z, baseY - 15.6 * z, 2 * z, 3.6 * z, '#161822');
+      rect(cx + 6 * z, baseY - 15.6 * z, 2 * z, 3.6 * z, '#161822');
+      rect(cx - 8.2 * z, baseY - 23.8 * z, 5.6 * z, 15 * z, '#161822');
+      rect(cx + 2.6 * z, baseY - 23.8 * z, 5.6 * z, 15 * z, '#161822');
+      rect(cx - 7.8 * z, baseY - 25 * z, 2.8 * z, 6 * z, '#b82e43');
+      rect(cx + 5 * z, baseY - 25 * z, 2.8 * z, 6 * z, '#b82e43');
+      rect(cx - 5 * z, baseY - 18.8 * z, 10 * z, 7.4 * z, '#d93838');
+      rect(cx - 1.2 * z, baseY - 18.4 * z, 2.4 * z, 5 * z, '#161822');
+      rect(cx - 0.8 * z, baseY - 16.8 * z, 1.6 * z, 1.2 * z, '#ffd147');
+      rect(cx - 1.8 * z + saberSide * 0.4 * z, baseY - 24.4 * z, 1.1 * z, 1.5 * z, '#ffffff');
+      rect(cx + 0.7 * z + saberSide * 0.4 * z, baseY - 24.4 * z, 1.1 * z, 1.5 * z, '#ffffff');
     } else {
-      // Cute white ghost / skeleton hooded costume
-      rect(cx - 8 * z, baseY - 21 * z, 16 * z, 14 * z, '#eef2fc');
-      rect(cx - 4 * z, baseY - 19 * z, 8 * z, 2 * z, '#cfd6e6');
-      rect(cx - 4 * z, baseY - 15 * z, 8 * z, 2 * z, '#cfd6e6');
-      rect(cx - 8 * z, baseY - 37 * z, 16 * z, 15 * z, '#eef2fc');
-      rect(cx - 4 * z, baseY - 29 * z, 3 * z, 3 * z, '#1b2030');
-      rect(cx + 1 * z, baseY - 29 * z, 3 * z, 3 * z, '#1b2030');
+      // Spectral Phantom / Skeleton V-taper ribcage tunic + bone sleeves + rounded hood
+      rect(cx - 9 * z, baseY - 18.8 * z, 3 * z, 3.2 * z, '#eef2fc');
+      rect(cx + 6 * z, baseY - 18.8 * z, 3 * z, 3.2 * z, '#eef2fc');
+      rect(cx - 8 * z, baseY - 15.6 * z, 2 * z, 3.6 * z, '#cfd6e6');
+      rect(cx + 6 * z, baseY - 15.6 * z, 2 * z, 3.6 * z, '#cfd6e6');
+      rect(cx - 6.8 * z, baseY - 19.2 * z, 13.6 * z, 4 * z, '#eef2fc');
+      rect(cx - 5.4 * z, baseY - 15.2 * z, 10.8 * z, 4 * z, '#eef2fc');
+      rect(cx - 6.2 * z, baseY - 11.4 * z, 12.4 * z, 2.8 * z, '#eef2fc');
+      rect(cx - 3.8 * z, baseY - 18 * z, 7.6 * z, 1.5 * z, '#cfd6e6');
+      rect(cx - 3.2 * z, baseY - 15 * z, 6.4 * z, 1.5 * z, '#cfd6e6');
+      rect(cx - 6 * z, baseY - 36.4 * z, 12 * z, 2 * z, '#eef2fc');
+      rect(cx - 7.2 * z, baseY - 34.8 * z, 14.4 * z, 12.2 * z, '#eef2fc');
+      rect(cx - 4.2 * z, baseY - 29.4 * z, 3 * z, 3 * z, '#1b2030');
+      rect(cx + 1.2 * z, baseY - 29.4 * z, 3 * z, 3 * z, '#1b2030');
+      rect(cx - 3 * z, baseY - 29 * z, 1 * z, 1 * z, '#7ef3ff');
+      rect(cx + 2.4 * z, baseY - 29 * z, 1 * z, 1 * z, '#7ef3ff');
     }
   }
 }
@@ -1076,85 +1183,120 @@ function drawPortraitCostumeOverlay(
 
   if (eventKind === 'STAR_WARS_PARTY') {
     if (variant === 0) {
-      px(6, 21, 20, 11, '#6b4226');
-      px(11, 22, 10, 10, '#e7d7b8');
-      px(8, 5, 16, 5, '#6b4226');
+      px(6, 23, 20, 9, '#6b4226');
+      px(9, 22, 14, 2, '#6b4226');
+      px(10, 23, 12, 9, '#e7d7b8');
+      px(14, 23, 4, 4, '#cbb692');
+      px(9, 5, 14, 3, '#6b4226');
+      px(8, 7, 16, 3, '#6b4226');
+      px(9, 8, 14, 2, '#452814');
       px(26, 8, 2, 18, '#3cd8ff');
       px(26, 26, 2, 5, '#b4bed4');
     } else if (variant === 1) {
-      px(5, 21, 22, 11, '#11131c');
-      px(11, 22, 10, 10, '#2a3040');
-      px(8, 5, 16, 17, '#161922');
-      px(9, 7, 14, 4, '#2a3040');
+      px(6, 23, 20, 9, '#11131c');
+      px(8, 24, 16, 8, '#1d2232');
+      px(12, 25, 8, 5, '#4a556e');
+      px(13, 26, 2, 2, '#ff384c');
+      px(17, 26, 2, 2, '#3cd8ff');
+      px(10, 5, 12, 2, '#161922');
+      px(8, 7, 16, 14, '#161922');
+      px(9, 8, 14, 3, '#2a3040');
       px(11, 13, 4, 2, '#ff384c');
       px(17, 13, 4, 2, '#ff384c');
+      px(13, 17, 6, 3, '#2a3040');
       px(26, 7, 2, 19, '#ff384c');
     } else if (variant === 2) {
-      px(8, 22, 16, 10, '#f4f6fc');
-      px(6, 11, 3, 7, hairColor);
-      px(23, 11, 3, 7, hairColor);
-      px(10, 12, 12, 2, '#ff9c3b');
+      px(7, 24, 18, 8, '#f4f6fc');
+      px(9, 23, 14, 2, '#f4f6fc');
+      px(13, 24, 6, 4, '#dce4f7');
+      px(6, 11, 3, 6, hairColor);
+      px(23, 11, 3, 6, hairColor);
+      px(10, 13, 12, 2, '#ff9c3b');
+      px(11, 13, 4, 1, '#ffe6a3');
     } else {
-      px(8, 22, 16, 10, '#8f9bb8');
-      px(9, 6, 14, 16, '#b4bed4');
-      px(11, 12, 10, 3, '#11131c');
+      px(7, 24, 18, 8, '#8f9bb8');
+      px(9, 23, 14, 2, '#8f9bb8');
+      px(10, 24, 12, 7, '#b4bed4');
+      px(10, 5, 12, 2, '#b4bed4');
+      px(9, 7, 14, 14, '#b4bed4');
+      px(10, 8, 12, 2, '#7a87a3');
+      px(10, 13, 12, 2, '#11131c');
       px(15, 15, 2, 6, '#11131c');
       px(23, 4, 2, 8, '#ff9c3b');
     }
   } else if (eventKind === 'SUPERHERO_PARTY') {
     if (variant === 0) {
-      px(6, 21, 20, 11, '#161a26');
-      px(9, 22, 14, 10, '#2c344a');
-      px(9, 6, 14, 9, '#1b2030');
+      px(6, 23, 20, 9, '#161a26');
+      px(8, 24, 16, 8, '#2c344a');
+      px(13, 25, 6, 2, '#ffd147');
+      px(9, 6, 14, 10, '#1b2030');
       px(9, 2, 3, 4, '#1b2030');
       px(20, 2, 3, 4, '#1b2030');
-      px(12, 14, 3, 2, '#ffffff');
-      px(17, 14, 3, 2, '#ffffff');
+      px(11, 14, 4, 2, '#ffffff');
+      px(17, 14, 4, 2, '#ffffff');
     } else if (variant === 1) {
-      px(5, 21, 22, 11, '#d93838');
-      px(8, 22, 16, 10, '#2b62d9');
-      px(13, 24, 6, 4, '#ffd147');
+      px(6, 23, 20, 9, '#d93838');
+      px(7, 24, 18, 8, '#2b62d9');
+      px(9, 23, 14, 2, '#2b62d9');
+      px(13, 25, 6, 4, '#ffd147');
+      px(15, 26, 2, 2, '#d93838');
     } else if (variant === 2) {
-      px(8, 22, 16, 10, '#c42838');
-      px(14, 24, 4, 4, '#7ef3ff');
-      px(9, 6, 14, 15, '#c42838');
+      px(7, 24, 18, 8, '#c42838');
+      px(9, 23, 14, 2, '#c42838');
+      px(11, 24, 10, 7, '#ffd147');
+      px(14, 25, 4, 4, '#7ef3ff');
+      px(15, 26, 2, 2, '#ffffff');
+      px(10, 5, 12, 2, '#c42838');
+      px(9, 7, 14, 14, '#c42838');
       px(11, 10, 10, 10, '#ffd147');
-      px(12, 13, 3, 2, '#7ef3ff');
-      px(17, 13, 3, 2, '#7ef3ff');
+      px(11, 13, 4, 2, '#7ef3ff');
+      px(17, 13, 4, 2, '#7ef3ff');
     } else {
-      px(8, 22, 16, 10, '#b82e43');
-      px(10, 22, 12, 3, '#ffd147');
-      px(10, 5, 12, 3, '#ffd147');
-      px(10, 13, 12, 3, '#1b2030');
+      px(7, 24, 18, 8, '#b82e43');
+      px(9, 23, 14, 2, '#ffd147');
+      px(10, 6, 12, 2, '#ffd147');
+      px(15, 5, 2, 2, '#ff5666');
+      px(10, 13, 12, 2, '#1b2030');
+      px(12, 14, 2, 1, '#ffffff');
+      px(18, 14, 2, 1, '#ffffff');
     }
   } else {
-    // HALLOWEEN_PARTY
+    // HALLOWEEN_PARTY (male)
     if (variant === 0) {
-      px(6, 21, 20, 11, '#1a1529');
-      px(6, 6, 20, 3, '#241c38');
-      px(10, 2, 12, 4, '#241c38');
-      px(13, 0, 6, 2, '#241c38');
-      px(10, 4, 12, 2, '#b07cff');
+      px(7, 23, 18, 9, '#1a1529');
+      px(12, 25, 8, 2, '#b07cff');
+      px(5, 6, 22, 2, '#241c38');
+      px(9, 2, 14, 4, '#241c38');
+      px(12, 0, 8, 2, '#241c38');
+      px(9, 5, 14, 1, '#b07cff');
     } else if (variant === 1) {
-      px(8, 22, 16, 10, '#241c38');
-      px(8, 7, 16, 15, '#ff7b1c');
+      px(7, 24, 18, 8, '#241c38');
+      px(10, 6, 12, 2, '#ff7b1c');
+      px(8, 8, 16, 13, '#ff7b1c');
+      px(10, 8, 12, 12, '#ff9838');
       px(14, 4, 4, 3, '#3be87a');
-      px(11, 12, 3, 3, '#ffe64d');
-      px(18, 12, 3, 3, '#ffe64d');
+      px(11, 13, 3, 3, '#ffe64d');
+      px(18, 13, 3, 3, '#ffe64d');
       px(12, 17, 8, 2, '#ffe64d');
     } else if (variant === 2) {
-      px(5, 18, 22, 14, '#161822');
+      px(5, 18, 7, 14, '#161822');
+      px(20, 18, 7, 14, '#161822');
       px(6, 16, 4, 7, '#b82e43');
       px(22, 16, 4, 7, '#b82e43');
-      px(11, 22, 10, 10, '#d93838');
+      px(10, 24, 12, 8, '#d93838');
+      px(15, 25, 2, 2, '#ffd147');
       px(14, 18, 1, 2, '#ffffff');
       px(17, 18, 1, 2, '#ffffff');
     } else {
-      px(7, 21, 18, 11, '#eef2fc');
-      px(11, 24, 10, 2, '#cfd6e6');
-      px(8, 7, 16, 15, '#eef2fc');
-      px(12, 13, 3, 3, '#1b2030');
-      px(17, 13, 3, 3, '#1b2030');
+      px(7, 23, 18, 9, '#eef2fc');
+      px(11, 25, 10, 2, '#cfd6e6');
+      px(12, 28, 8, 2, '#cfd6e6');
+      px(10, 6, 12, 2, '#eef2fc');
+      px(8, 8, 16, 13, '#eef2fc');
+      px(11, 13, 4, 3, '#1b2030');
+      px(17, 13, 4, 3, '#1b2030');
+      px(12, 14, 1, 1, '#7ef3ff');
+      px(19, 14, 1, 1, '#7ef3ff');
     }
   }
 }
@@ -1395,27 +1537,102 @@ export function drawEmployeeSprite(
       rect(cx + 1 * z, baseY - 2 * z - fLegSwing, 2 * z, 0.8 * z, uniform.trim);
     }
   } else {
-    ctx.fillStyle = '#1b2030';
+    // Tailored male trousers with belt + metal buckle, crease shading, sock trim & two-tone Oxfords / sneakers
+    const isSneaker = palette.maleOutfitStyle === 'tech_hoodie';
+    const trouserMain =
+      palette.maleOutfitStyle === 'tech_hoodie'
+        ? '#2b354f'
+        : palette.maleOutfitStyle === 'vest_ensemble'
+          ? '#2a3145'
+          : '#22293d';
+    const trouserDark =
+      palette.maleOutfitStyle === 'tech_hoodie'
+        ? '#1d2438'
+        : palette.maleOutfitStyle === 'vest_ensemble'
+          ? '#1b2030'
+          : '#151a28';
+    const beltColor =
+      palette.maleOutfitStyle === 'vest_ensemble'
+        ? '#4a2c18'
+        : palette.maleOutfitStyle === 'tech_hoodie'
+          ? '#181c29'
+          : '#161924';
+    const buckleColor = palette.maleOutfitStyle === 'tech_hoodie' ? '#9aa7c7' : '#ffd147';
+    const mLegSwing = legSwing * 0.8;
+
+    // Waist belt + gleaming center buckle
+    rect(cx - 5 * z, baseY - 11.4 * z, 10 * z, 1.4 * z, beltColor);
+    rect(cx - 1 * z, baseY - 11.4 * z, 2 * z, 1.4 * z, buckleColor);
+
     if (seated) {
-      ctx.fillRect(Math.round(cx - 6 * z), Math.round(baseY - 6 * z), Math.ceil(5 * z), Math.ceil(5 * z));
-      ctx.fillRect(Math.round(cx + 1 * z), Math.round(baseY - 6 * z), Math.ceil(5 * z), Math.ceil(5 * z));
+      // Seated hip & thighs + creased shins + sock peek + two-tone Oxfords / sneakers
+      rect(cx - 5 * z, baseY - 10 * z, 10 * z, 2.5 * z, trouserDark);
+      rect(cx - 4.6 * z, baseY - 9.8 * z, 3.6 * z, 2.4 * z, trouserMain);
+      rect(cx + 1 * z, baseY - 9.8 * z, 3.6 * z, 2.4 * z, trouserMain);
+      rect(cx - 4 * z, baseY - 7.4 * z, 3 * z, 4.6 * z, trouserMain);
+      rect(cx + 1 * z, baseY - 7.4 * z, 3 * z, 4.6 * z, trouserMain);
+      rect(cx - 2 * z, baseY - 7.2 * z, 1 * z, 4.2 * z, trouserDark);
+      rect(cx + 1 * z, baseY - 7.2 * z, 1 * z, 4.2 * z, trouserDark);
+      // Thin sock trim
+      rect(cx - 4 * z, baseY - 2.8 * z, 3 * z, 0.9 * z, uniform.dark);
+      rect(cx + 1 * z, baseY - 2.8 * z, 3 * z, 0.9 * z, uniform.dark);
+      if (isSneaker) {
+        rect(cx - 4.4 * z, baseY - 2 * z, 3.4 * z, 1.4 * z, '#1e2436');
+        rect(cx + 1 * z, baseY - 2 * z, 3.4 * z, 1.4 * z, '#1e2436');
+        rect(cx - 3.6 * z, baseY - 1.8 * z, 1.6 * z, 0.8 * z, uniform.trim);
+        rect(cx + 2 * z, baseY - 1.8 * z, 1.6 * z, 0.8 * z, uniform.trim);
+        rect(cx - 4.4 * z, baseY - 0.8 * z, 3.4 * z, 0.8 * z, '#f2f5ff');
+        rect(cx + 1 * z, baseY - 0.8 * z, 3.4 * z, 0.8 * z, '#f2f5ff');
+      } else {
+        const vampCol = palette.maleOutfitStyle === 'vest_ensemble' ? '#382216' : '#2b1a12';
+        const capCol = palette.maleOutfitStyle === 'vest_ensemble' ? '#5e3a24' : '#4d3020';
+        rect(cx - 4.4 * z, baseY - 2 * z, 3.4 * z, 1.4 * z, vampCol);
+        rect(cx + 1 * z, baseY - 2 * z, 3.4 * z, 1.4 * z, vampCol);
+        rect(cx - 4.4 * z, baseY - 1.8 * z, 1.6 * z, 1 * z, capCol);
+        rect(cx + 2.8 * z, baseY - 1.8 * z, 1.6 * z, 1 * z, capCol);
+        rect(cx - 4.4 * z, baseY - 0.8 * z, 3.4 * z, 0.8 * z, '#11131c');
+        rect(cx + 1 * z, baseY - 0.8 * z, 3.4 * z, 0.8 * z, '#11131c');
+      }
     } else {
-      ctx.fillRect(
-        Math.round(cx - 5 * z),
-        Math.round(baseY - 8 * z + legSwing),
-        Math.ceil(4 * z),
-        Math.ceil(8 * z),
-      );
-      ctx.fillRect(
-        Math.round(cx + 1 * z),
-        Math.round(baseY - 8 * z - legSwing),
-        Math.ceil(4 * z),
-        Math.ceil(8 * z),
-      );
+      // Standing/walking tailored pelvis + tapered creased trouser legs + cuff break + sock edge + two-tone shoes
+      rect(cx - 5 * z, baseY - 10 * z, 10 * z, 1.8 * z, trouserDark);
+      rect(cx - 4.6 * z, baseY - 9.8 * z, 3.8 * z, 1.6 * z, trouserMain);
+      rect(cx + 0.8 * z, baseY - 9.8 * z, 3.8 * z, 1.6 * z, trouserMain);
+      // Upper thighs
+      rect(cx - 4.6 * z, baseY - 8.4 * z + mLegSwing, 3.6 * z, 3.2 * z, trouserMain);
+      rect(cx + 1 * z, baseY - 8.4 * z - mLegSwing, 3.6 * z, 3.2 * z, trouserMain);
+      // Tapered lower legs + inner crease & cuff fold
+      rect(cx - 4 * z, baseY - 5.4 * z + mLegSwing, 3 * z, 2.8 * z, trouserMain);
+      rect(cx + 1 * z, baseY - 5.4 * z - mLegSwing, 3 * z, 2.8 * z, trouserMain);
+      rect(cx - 2 * z, baseY - 8 * z + mLegSwing, 1 * z, 5 * z, trouserDark);
+      rect(cx + 1 * z, baseY - 8 * z - mLegSwing, 1 * z, 5 * z, trouserDark);
+      rect(cx - 4.2 * z, baseY - 3.4 * z + mLegSwing, 3.2 * z, 0.8 * z, trouserDark);
+      rect(cx + 1 * z, baseY - 3.4 * z - mLegSwing, 3.2 * z, 0.8 * z, trouserDark);
+      // Thin sock trim
+      rect(cx - 4 * z, baseY - 2.7 * z + mLegSwing, 3 * z, 0.8 * z, uniform.dark);
+      rect(cx + 1 * z, baseY - 2.7 * z - mLegSwing, 3 * z, 0.8 * z, uniform.dark);
+      // Two-tone Oxford dress shoes or tech sneakers
+      if (isSneaker) {
+        rect(cx - 4.4 * z, baseY - 2 * z + mLegSwing, 3.4 * z, 1.4 * z, '#1e2436');
+        rect(cx + 1 * z, baseY - 2 * z - mLegSwing, 3.4 * z, 1.4 * z, '#1e2436');
+        rect(cx - 3.6 * z, baseY - 1.8 * z + mLegSwing, 1.6 * z, 0.8 * z, uniform.trim);
+        rect(cx + 2 * z, baseY - 1.8 * z - mLegSwing, 1.6 * z, 0.8 * z, uniform.trim);
+        rect(cx - 4.4 * z, baseY - 0.8 * z + mLegSwing, 3.4 * z, 0.8 * z, '#f2f5ff');
+        rect(cx + 1 * z, baseY - 0.8 * z - mLegSwing, 3.4 * z, 0.8 * z, '#f2f5ff');
+      } else {
+        const vampCol = palette.maleOutfitStyle === 'vest_ensemble' ? '#382216' : '#2b1a12';
+        const capCol = palette.maleOutfitStyle === 'vest_ensemble' ? '#5e3a24' : '#4d3020';
+        rect(cx - 4.4 * z, baseY - 2 * z + mLegSwing, 3.4 * z, 1.4 * z, vampCol);
+        rect(cx + 1 * z, baseY - 2 * z - mLegSwing, 3.4 * z, 1.4 * z, vampCol);
+        rect(cx - 4.4 * z, baseY - 1.8 * z + mLegSwing, 1.6 * z, 1 * z, capCol);
+        rect(cx + 2.8 * z, baseY - 1.8 * z - mLegSwing, 1.6 * z, 1 * z, capCol);
+        rect(cx - 4.4 * z, baseY - 0.8 * z + mLegSwing, 3.4 * z, 0.8 * z, '#11131c');
+        rect(cx + 1 * z, baseY - 0.8 * z - mLegSwing, 3.4 * z, 0.8 * z, '#11131c');
+      }
     }
   }
 
-  // 3. Torso, Neck & Arms (Hourglass feminine silhouette vs classic male uniform)
+  // 3. Torso, Neck & Arms (Hourglass feminine silhouette vs Athletic V-Taper male silhouette)
   if (palette.gender === 'female') {
     // Slender 4*z neck between tapered chin and silk V-neck collar
     rect(cx - 2 * z, baseY - 22 * z, 4 * z, 1 * z, palette.skinShadow);
@@ -1458,33 +1675,101 @@ export function drawEmployeeSprite(
       rect(cx + 3.8 * z, baseY - 21 * z, 1 * z, 2 * z, palette.hairHighlight);
     }
   } else {
-    // Male Torso (Model Uniform)
-    ctx.fillStyle = uniform.dark;
-    ctx.fillRect(Math.round(cx - 7 * z), Math.round(baseY - 21 * z), Math.ceil(14 * z), Math.ceil(14 * z));
-    ctx.fillStyle = uniform.main;
-    ctx.fillRect(Math.round(cx - 6 * z), Math.round(baseY - 20 * z), Math.ceil(12 * z), Math.ceil(12 * z));
-    ctx.fillStyle = uniform.trim;
-    ctx.fillRect(Math.round(cx - 1 * z), Math.round(baseY - 19 * z), Math.ceil(2 * z), Math.ceil(8 * z));
+    // Sturdy 5-6*z masculine neck between chiselled chin and shirt collar
+    rect(cx - 3 * z, baseY - 22.4 * z, 6 * z, 2.8 * z, palette.skinShadow);
+    rect(cx - 2 * z, baseY - 21.4 * z, 4 * z, 2 * z, palette.skin);
 
-    // Male Arms
-    ctx.fillStyle = uniform.main;
-    ctx.fillRect(
-      Math.round(cx - 10 * z),
-      Math.round(baseY - 19 * z),
-      Math.ceil(3 * z),
-      Math.ceil(9 * z),
-    );
-    ctx.fillRect(
-      Math.round(cx + 7 * z),
-      Math.round(baseY - 19 * z),
-      Math.ceil(3 * z),
-      Math.ceil(9 * z),
-    );
+    const showSideHands = isWalking || (emp.activity !== 'coding' && emp.activity !== 'terminal');
+
+    if (palette.maleOutfitStyle === 'tech_hoodie') {
+      // Athletic V-taper layered tech hoodie (14*z shoulders -> 12*z lats -> 10*z waist, 18*z arm-to-arm span)
+      rect(cx - 5 * z, baseY - 20.4 * z, 10 * z, 1.6 * z, uniform.dark);
+      rect(cx - 7 * z, baseY - 19.2 * z, 14 * z, 3.4 * z, uniform.dark);
+      rect(cx - 6 * z, baseY - 19 * z, 12 * z, 3.2 * z, uniform.main);
+      rect(cx - 6 * z, baseY - 15.8 * z, 12 * z, 2.6 * z, uniform.dark);
+      rect(cx - 5 * z, baseY - 15.8 * z, 10 * z, 2.6 * z, uniform.main);
+      rect(cx - 5 * z, baseY - 13.2 * z, 10 * z, 2 * z, uniform.dark);
+      rect(cx - 4 * z, baseY - 13.2 * z, 8 * z, 1.4 * z, uniform.main);
+      // Peeking shirt collar tips + dark crew tee + drawstrings + metallic zipper + kangaroo pockets
+      rect(cx - 2 * z, baseY - 20 * z, 4 * z, 2 * z, '#1b2234');
+      rect(cx - 2.4 * z, baseY - 20.2 * z, 1.2 * z, 1.2 * z, '#f4f6fc');
+      rect(cx + 1.2 * z, baseY - 20.2 * z, 1.2 * z, 1.2 * z, '#f4f6fc');
+      rect(cx - 2.4 * z, baseY - 18.4 * z, 0.9 * z, 2.6 * z, uniform.trim);
+      rect(cx + 1.5 * z, baseY - 18.4 * z, 0.9 * z, 2.6 * z, uniform.trim);
+      rect(cx - 0.5 * z, baseY - 18.4 * z, 1 * z, 7 * z, '#9aa7c7');
+      rect(cx - 0.6 * z, baseY - 17 * z, 1.2 * z, 1 * z, '#ffffff');
+      rect(cx - 4.2 * z, baseY - 14.4 * z, 3 * z, 2 * z, uniform.dark);
+      rect(cx + 1.2 * z, baseY - 14.4 * z, 3 * z, 2 * z, uniform.dark);
+      // Tapered athletic hoodie sleeves (18*z total span, 1*z waist daylight gap)
+      rect(cx - 9 * z, baseY - 18.8 * z, 3 * z, 3.2 * z, uniform.main);
+      rect(cx + 6 * z, baseY - 18.8 * z, 3 * z, 3.2 * z, uniform.main);
+      rect(cx - 8 * z, baseY - 15.6 * z, 2 * z, 2.8 * z, uniform.main);
+      rect(cx + 6 * z, baseY - 15.6 * z, 2 * z, 2.8 * z, uniform.main);
+      rect(cx - 8 * z, baseY - 12.8 * z, 2 * z, 0.9 * z, uniform.dark);
+      rect(cx + 6 * z, baseY - 12.8 * z, 2 * z, 0.9 * z, uniform.dark);
+    } else if (palette.maleOutfitStyle === 'vest_ensemble') {
+      // Buttoned waistcoat + crisp dress shirt + rolled-up shirt sleeves + silk tie
+      rect(cx - 5 * z, baseY - 20.2 * z, 10 * z, 1.4 * z, '#dce4f7');
+      // Dress shirt shoulders (14*z) + vest V-taper body (12*z -> 10*z)
+      rect(cx - 7 * z, baseY - 19.2 * z, 14 * z, 3.4 * z, '#eef2fc');
+      rect(cx - 5.6 * z, baseY - 19.2 * z, 11.2 * z, 3.4 * z, uniform.dark);
+      rect(cx - 4.8 * z, baseY - 19 * z, 9.6 * z, 3.2 * z, uniform.main);
+      rect(cx - 6 * z, baseY - 15.8 * z, 12 * z, 2.6 * z, uniform.dark);
+      rect(cx - 5 * z, baseY - 15.8 * z, 10 * z, 2.6 * z, uniform.main);
+      rect(cx - 5 * z, baseY - 13.2 * z, 10 * z, 2 * z, uniform.dark);
+      rect(cx - 4.2 * z, baseY - 13.2 * z, 8.4 * z, 1.6 * z, uniform.main);
+      // Shirt collar + silk tie + 3 waistcoat buttons
+      rect(cx - 2.6 * z, baseY - 20.2 * z, 5.2 * z, 1.6 * z, '#f6f7fc');
+      rect(cx - 1.8 * z, baseY - 18.6 * z, 3.6 * z, 2.8 * z, '#f6f7fc');
+      rect(cx - 0.9 * z, baseY - 19.2 * z, 1.8 * z, 3.6 * z, uniform.trim);
+      rect(cx - 0.5 * z, baseY - 15.2 * z, 1 * z, 0.8 * z, uniform.trim);
+      rect(cx - 0.5 * z, baseY - 13.8 * z, 1 * z, 0.8 * z, uniform.trim);
+      rect(cx - 0.5 * z, baseY - 12.4 * z, 1 * z, 0.8 * z, uniform.trim);
+      // Rolled-up white shirt biceps (18*z span) + folded elbow cuffs + toned bare forearms
+      rect(cx - 9 * z, baseY - 18.8 * z, 3 * z, 3 * z, '#eef2fc');
+      rect(cx + 6 * z, baseY - 18.8 * z, 3 * z, 3 * z, '#eef2fc');
+      rect(cx - 9 * z, baseY - 16 * z, 3 * z, 1.1 * z, '#cfd8ee');
+      rect(cx + 6 * z, baseY - 16 * z, 3 * z, 1.1 * z, '#cfd8ee');
+      rect(cx - 8 * z, baseY - 14.9 * z, 2 * z, 3 * z, palette.skin);
+      rect(cx + 6 * z, baseY - 14.9 * z, 2 * z, 3 * z, palette.skin);
+      rect(cx - 8 * z, baseY - 14.9 * z, 0.8 * z, 3 * z, palette.skinShadow);
+      rect(cx + 7.2 * z, baseY - 14.9 * z, 0.8 * z, 3 * z, palette.skinShadow);
+    } else {
+      // 'classic_suit': Tailored V-taper blazer + notched lapels + crisp shirt collar + silk tie & tie pin
+      rect(cx - 5 * z, baseY - 20.2 * z, 10 * z, 1.4 * z, uniform.dark);
+      rect(cx - 7 * z, baseY - 19.2 * z, 14 * z, 3.4 * z, uniform.dark);
+      rect(cx - 6 * z, baseY - 19 * z, 12 * z, 3.2 * z, uniform.main);
+      rect(cx - 6 * z, baseY - 15.8 * z, 12 * z, 2.6 * z, uniform.dark);
+      rect(cx - 5 * z, baseY - 15.8 * z, 10 * z, 2.6 * z, uniform.main);
+      rect(cx - 5 * z, baseY - 13.2 * z, 10 * z, 2 * z, uniform.dark);
+      rect(cx - 4.2 * z, baseY - 13.2 * z, 8.4 * z, 1.6 * z, uniform.main);
+      // Crisp white dress shirt V + notched lapels + silk tie + metallic tie pin + pocket square
+      rect(cx - 2.6 * z, baseY - 20.2 * z, 5.2 * z, 1.6 * z, '#f6f7fc');
+      rect(cx - 1.8 * z, baseY - 18.6 * z, 3.6 * z, 3.6 * z, '#f6f7fc');
+      rect(cx - 1 * z, baseY - 15 * z, 2 * z, 1.6 * z, '#f6f7fc');
+      rect(cx - 3 * z, baseY - 18.8 * z, 1.2 * z, 3.6 * z, uniform.dark);
+      rect(cx + 1.8 * z, baseY - 18.8 * z, 1.2 * z, 3.6 * z, uniform.dark);
+      rect(cx - 0.9 * z, baseY - 19.2 * z, 1.8 * z, 5.6 * z, uniform.trim);
+      rect(cx - 1 * z, baseY - 16.4 * z, 2 * z, 0.8 * z, '#ffffff');
+      rect(cx + 2.4 * z, baseY - 17 * z, 1.6 * z, 0.9 * z, uniform.trim);
+      // Structured blazer sleeves (18*z total span, 1*z waist daylight gap) + crisp white shirt cuffs
+      rect(cx - 9 * z, baseY - 18.8 * z, 3 * z, 3.2 * z, uniform.main);
+      rect(cx + 6 * z, baseY - 18.8 * z, 3 * z, 3.2 * z, uniform.main);
+      rect(cx - 8 * z, baseY - 15.6 * z, 2 * z, 3 * z, uniform.main);
+      rect(cx + 6 * z, baseY - 15.6 * z, 2 * z, 3 * z, uniform.main);
+      rect(cx - 8 * z, baseY - 12.6 * z, 2 * z, 0.8 * z, '#f6f7fc');
+      rect(cx + 6 * z, baseY - 12.6 * z, 2 * z, 0.8 * z, '#f6f7fc');
+    }
+
+    if (showSideHands) {
+      rect(cx - 8 * z, baseY - 11.9 * z, 2 * z, 1.8 * z, palette.skin);
+      rect(cx + 6 * z, baseY - 11.9 * z, 2 * z, 1.8 * z, palette.skin);
+    }
   }
 
   // Activity props & hand animations
   if (!isWalking) {
-    const handSpanX = palette.gender === 'female' ? 5.5 : 7;
+    const handSpanX = palette.gender === 'female' ? 5.5 : 6.4;
     if (emp.activity === 'coding' || emp.activity === 'terminal') {
       // Forearms resting forward at keyboard height with subtle 1px finger taps
       const tapL = Math.sin(timeSec * 18) > 0 ? 1 * z : 0;
@@ -1494,8 +1779,8 @@ export function drawEmployeeSprite(
         rect(cx - 6.2 * z, baseY - 12.8 * z + tapL, 2.6 * z, 2 * z, palette.skin);
         rect(cx + 3.6 * z, baseY - 12.8 * z + tapR, 2.6 * z, 2 * z, palette.skin);
       } else {
-        ctx.fillRect(Math.round(cx - 8 * z), Math.round(baseY - 13 * z + tapL), Math.ceil(4 * z), Math.ceil(3 * z));
-        ctx.fillRect(Math.round(cx + 4 * z), Math.round(baseY - 13 * z + tapR), Math.ceil(4 * z), Math.ceil(3 * z));
+        rect(cx - 7.4 * z, baseY - 12.8 * z + tapL, 3 * z, 2.2 * z, palette.skin);
+        rect(cx + 4.4 * z, baseY - 12.8 * z + tapR, 3 * z, 2.2 * z, palette.skin);
       }
 
       // Floating code glyphs near monitor
@@ -1566,6 +1851,9 @@ export function drawEmployeeSprite(
   const fShift = dirFlip * 0.6 * z;
   const fEyeLx = cx - 3 * z + fShift;
   const fEyeRx = cx + 1 * z + fShift;
+  const mShift = dirFlip * 0.6 * z;
+  const mEyeLx = cx - 3.6 * z + mShift;
+  const mEyeRx = cx + 1.6 * z + mShift;
 
   if (palette.gender === 'female') {
     // Tapered oval chibi head: rounded 10*z top -> 12*z soft cheeks -> 10*z jaw -> 6*z–7*z delicate chin
@@ -1611,31 +1899,51 @@ export function drawEmployeeSprite(
     rect(fEyeRx + 1.2 * z, baseY - 25.8 * z, 2 * z, 1 * z, 'rgba(255, 130, 162, 0.45)');
     rect(cx - 1 * z + fShift, baseY - 24.3 * z, 2 * z, 0.9 * z, '#e56b88');
   } else {
-    // Male Head (Chibi/Habbo proportions untouched)
-    ctx.fillStyle = palette.skinShadow;
-    ctx.fillRect(Math.round(cx - 7 * z), Math.round(baseY - 35 * z), Math.ceil(14 * z), Math.ceil(14 * z));
-    ctx.fillStyle = palette.skin;
-    ctx.fillRect(Math.round(cx - 6 * z), Math.round(baseY - 34 * z), Math.ceil(12 * z), Math.ceil(12 * z));
+    // Structured masculine chibi head with chiselled angular jawline (12*z top -> 14*z brow/cheek -> 12*z jaw -> 8*z square chin)
+    rect(cx - 6 * z, baseY - 35.4 * z, 12 * z, 1.6 * z, palette.skinShadow);
+    rect(cx - 7 * z, baseY - 34 * z, 14 * z, 8 * z, palette.skinShadow);
+    rect(cx - 6 * z, baseY - 26 * z, 12 * z, 2.2 * z, palette.skinShadow);
+    rect(cx - 4 * z, baseY - 23.8 * z, 8 * z, 1.6 * z, palette.skinShadow);
+
+    rect(cx - 5 * z, baseY - 35 * z, 10 * z, 1.6 * z, palette.skin);
+    rect(cx - 6 * z, baseY - 33.8 * z, 12 * z, 7.8 * z, palette.skin);
+    rect(cx - 5 * z, baseY - 26.2 * z, 10 * z, 2.4 * z, palette.skin);
+    rect(cx - 3 * z, baseY - 23.9 * z, 6 * z, 1.5 * z, palette.skin);
+
+    // Masculine ears & subtle cheekbone contour shading
+    if (!enclosingHelmet) {
+      rect(cx - 8 * z, baseY - 29.6 * z, 1 * z, 2.4 * z, palette.skinShadow);
+      rect(cx + 7 * z, baseY - 29.6 * z, 1 * z, 2.4 * z, palette.skinShadow);
+    }
+    rect(cx - 5.6 * z, baseY - 27 * z, 1 * z, 1.6 * z, palette.skinShadow);
+    rect(cx + 4.6 * z, baseY - 27 * z, 1 * z, 1.6 * z, palette.skinShadow);
+
+    // Determined straight/angled masculine brows (no eyelashes, no lipstick)
+    rect(mEyeLx - 0.4 * z, baseY - 31.2 * z, 2.8 * z, 1.1 * z, palette.hair);
+    rect(mEyeRx - 0.4 * z, baseY - 31.2 * z, 2.8 * z, 1.1 * z, palette.hair);
 
     if (emp.activity === 'sleeping') {
-      ctx.fillStyle = '#231b19';
-      ctx.fillRect(Math.round(cx - 4 * z), Math.round(baseY - 27 * z), Math.ceil(3 * z), Math.ceil(1 * z));
-      ctx.fillRect(Math.round(cx + 1 * z), Math.round(baseY - 27 * z), Math.ceil(3 * z), Math.ceil(1 * z));
+      rect(mEyeLx - 0.3 * z, baseY - 28 * z, 2.6 * z, 1 * z, '#161926');
+      rect(mEyeRx - 0.3 * z, baseY - 28 * z, 2.6 * z, 1 * z, '#161926');
     } else {
-      ctx.fillStyle = '#11131c';
-      const eyeShift = dirFlip > 0 ? 1 : -1;
-      ctx.fillRect(
-        Math.round(cx + (-3 + eyeShift) * z),
-        Math.round(baseY - 28 * z),
-        Math.ceil(2 * z),
-        Math.ceil(3 * z),
-      );
-      ctx.fillRect(
-        Math.round(cx + (2 + eyeShift) * z),
-        Math.round(baseY - 28 * z),
-        Math.ceil(2 * z),
-        Math.ceil(3 * z),
-      );
+      // Focused dark iris (#161926) + 1*z upper-corner white catchlight (#ffffff)
+      rect(mEyeLx, baseY - 29.4 * z, 2 * z, 2.6 * z, '#161926');
+      rect(mEyeRx, baseY - 29.4 * z, 2 * z, 2.6 * z, '#161926');
+      const catchOffset = dirFlip > 0 ? 1 * z : 0;
+      rect(mEyeLx + catchOffset, baseY - 29.3 * z, 0.9 * z, 0.9 * z, '#ffffff');
+      rect(mEyeRx + catchOffset, baseY - 29.3 * z, 0.9 * z, 0.9 * z, '#ffffff');
+    }
+
+    // Subtle nose shadow + neutral mouth line
+    rect(cx - 0.5 * z + mShift, baseY - 26.8 * z, 1 * z, 1 * z, palette.skinShadow);
+    rect(cx - 1.1 * z + mShift, baseY - 24.6 * z, 2.2 * z, 0.8 * z, palette.skinShadow);
+
+    // Translucent light_stubble along upper lip & jawline ONLY (no heavy beard or goatee)
+    if (palette.maleFacialHair === 'light_stubble' && !enclosingHelmet) {
+      rect(cx - 1.8 * z + mShift, baseY - 25.5 * z, 3.6 * z, 0.9 * z, 'rgba(28, 32, 46, 0.22)');
+      rect(cx - 5 * z, baseY - 25.8 * z, 1.6 * z, 2 * z, 'rgba(28, 32, 46, 0.22)');
+      rect(cx + 3.4 * z, baseY - 25.8 * z, 1.6 * z, 2 * z, 'rgba(28, 32, 46, 0.22)');
+      rect(cx - 3.6 * z, baseY - 23.9 * z, 7.2 * z, 1.3 * z, 'rgba(28, 32, 46, 0.22)');
     }
   }
 
@@ -1688,25 +1996,73 @@ export function drawEmployeeSprite(
         rect(cx + 4.8 * z, baseY - 28.6 * z, 1 * z, 1.5 * z, palette.hair);
       }
     }
-  } else if (palette.maleHairStyle === 'side_part') {
-    rect(cx - 7 * z, baseY - 37 * z, 14 * z, 5 * z, palette.hair);
-    rect(cx - 6 * z, baseY - 33 * z, 5 * z, 2 * z, palette.hair);
-    rect(cx + 1 * z, baseY - 36 * z, 4 * z, 2 * z, palette.hairHighlight);
-  } else if (palette.maleHairStyle === 'spiky') {
-    rect(cx - 7 * z, baseY - 36 * z, 14 * z, 5 * z, palette.hair);
-    rect(cx - 5 * z, baseY - 39 * z, 3 * z, 3 * z, palette.hair);
-    rect(cx - 1 * z, baseY - 40 * z, 3 * z, 4 * z, palette.hair);
-    rect(cx + 3 * z, baseY - 39 * z, 3 * z, 3 * z, palette.hair);
-    rect(cx - 1 * z, baseY - 38 * z, 2 * z, 2 * z, palette.hairHighlight);
-  } else if (palette.maleHairStyle === 'curly_top') {
-    rect(cx - 8 * z, baseY - 38 * z, 16 * z, 6 * z, palette.hair);
-    rect(cx - 6 * z, baseY - 39 * z, 4 * z, 2 * z, palette.hairHighlight);
-    rect(cx + 2 * z, baseY - 39 * z, 4 * z, 2 * z, palette.hairHighlight);
-    rect(cx - 7 * z, baseY - 33 * z, 2 * z, 3 * z, palette.hair);
-    rect(cx + 5 * z, baseY - 33 * z, 2 * z, 3 * z, palette.hair);
-  } else {
-    rect(cx - 7 * z, baseY - 37 * z, 14 * z, 6 * z, palette.hair);
-    rect(cx - 5 * z, baseY - 36 * z, 6 * z, 2 * z, palette.hairHighlight);
+  } else if (!enclosingHelmet) {
+    // 4 multi-layered sculpted masculine hairstyles (tall crests tucked cleanly under Jedi hood / Batman cowl / Wizard hat)
+    if (hideTopChignon) {
+      rect(cx - 6.8 * z, baseY - 34 * z, 1.2 * z, 3.8 * z, palette.hair);
+      rect(cx + 5.6 * z, baseY - 34 * z, 1.2 * z, 3.8 * z, palette.hair);
+      rect(cx - 6.2 * z, baseY - 35.8 * z, 12.4 * z, 2.4 * z, palette.hair);
+      rect(cx - 4.6 * z, baseY - 33.8 * z, 9.2 * z, 1.2 * z, palette.hair);
+    } else if (palette.maleHairStyle === 'side_part') {
+      // Tapered gentleman side-part + lifted pompadour wave + multi-step sheen
+      rect(cx - 7 * z, baseY - 34 * z, 1.2 * z, 4.2 * z, palette.hair);
+      rect(cx + 5.8 * z, baseY - 34 * z, 1.2 * z, 4.2 * z, palette.hair);
+      rect(cx - 6.6 * z, baseY - 36.2 * z, 13.2 * z, 2.6 * z, palette.hair);
+      rect(cx - 5.4 * z, baseY - 38 * z, 11.4 * z, 2 * z, palette.hair);
+      rect(cx - 2 * z, baseY - 39.2 * z, 7.2 * z, 1.5 * z, palette.hair);
+      // Crisp left part notch + swept forelock wave
+      rect(cx - 6 * z, baseY - 34 * z, 2 * z, 1.2 * z, palette.hair);
+      rect(cx - 2.6 * z, baseY - 34 * z, 7.2 * z, 1.6 * z, palette.hair);
+      rect(cx + 1.2 * z, baseY - 32.6 * z, 3.2 * z, 1 * z, palette.hair);
+      rect(cx - 1.2 * z, baseY - 38.4 * z, 4.8 * z, 1.2 * z, palette.hairHighlight);
+      rect(cx + 1.6 * z, baseY - 36.4 * z, 3.4 * z, 1.1 * z, palette.hairHighlight);
+    } else if (palette.maleHairStyle === 'spiky') {
+      // Multi-layered dynamic fanned spikes + directional highlight streaks
+      rect(cx - 7 * z, baseY - 34 * z, 1.2 * z, 4.4 * z, palette.hair);
+      rect(cx + 5.8 * z, baseY - 34 * z, 1.2 * z, 4.4 * z, palette.hair);
+      rect(cx - 6.6 * z, baseY - 36.4 * z, 13.2 * z, 2.8 * z, palette.hair);
+      rect(cx - 4.8 * z, baseY - 33.8 * z, 1.8 * z, 1.2 * z, palette.hair);
+      rect(cx - 0.8 * z, baseY - 33.8 * z, 1.8 * z, 1.3 * z, palette.hair);
+      rect(cx + 3 * z, baseY - 33.8 * z, 1.8 * z, 1.2 * z, palette.hair);
+      // 4 stepped dynamic spikes fanning upward
+      rect(cx - 7.4 * z, baseY - 38.2 * z, 2.4 * z, 2.2 * z, palette.hair);
+      rect(cx - 7.8 * z, baseY - 39.4 * z, 1.6 * z, 1.4 * z, palette.hair);
+      rect(cx - 4.4 * z, baseY - 39.6 * z, 2.8 * z, 3.2 * z, palette.hair);
+      rect(cx - 4.8 * z, baseY - 41 * z, 1.6 * z, 1.5 * z, palette.hair);
+      rect(cx - 1.2 * z, baseY - 40.6 * z, 3 * z, 4.2 * z, palette.hair);
+      rect(cx - 0.6 * z, baseY - 41.8 * z, 1.8 * z, 1.4 * z, palette.hair);
+      rect(cx + 2.6 * z, baseY - 39.4 * z, 2.8 * z, 3 * z, palette.hair);
+      rect(cx + 4 * z, baseY - 40.6 * z, 1.8 * z, 1.4 * z, palette.hair);
+      rect(cx - 3.8 * z, baseY - 39.2 * z, 1.2 * z, 2 * z, palette.hairHighlight);
+      rect(cx - 0.4 * z, baseY - 40.2 * z, 1.4 * z, 2.4 * z, palette.hairHighlight);
+      rect(cx + 3.2 * z, baseY - 39 * z, 1.2 * z, 1.8 * z, palette.hairHighlight);
+    } else if (palette.maleHairStyle === 'curly_top') {
+      // Sculpted multi-lobed textured curl crown + fade sides + ringlet highlights
+      rect(cx - 7 * z, baseY - 33.8 * z, 1 * z, 3.2 * z, palette.hair);
+      rect(cx + 6 * z, baseY - 33.8 * z, 1 * z, 3.2 * z, palette.hair);
+      rect(cx - 7.4 * z, baseY - 37 * z, 14.8 * z, 3.2 * z, palette.hair);
+      rect(cx - 6.2 * z, baseY - 39 * z, 12.4 * z, 2.4 * z, palette.hair);
+      rect(cx - 4.2 * z, baseY - 40.2 * z, 8.4 * z, 1.6 * z, palette.hair);
+      rect(cx - 5 * z, baseY - 34 * z, 2.2 * z, 1.4 * z, palette.hair);
+      rect(cx - 1.2 * z, baseY - 34.2 * z, 2.4 * z, 1.6 * z, palette.hair);
+      rect(cx + 2.8 * z, baseY - 34 * z, 2.2 * z, 1.4 * z, palette.hair);
+      rect(cx - 5.4 * z, baseY - 38.4 * z, 2.2 * z, 1.2 * z, palette.hairHighlight);
+      rect(cx - 1.4 * z, baseY - 39.4 * z, 2.6 * z, 1.2 * z, palette.hairHighlight);
+      rect(cx + 3 * z, baseY - 38.2 * z, 2.2 * z, 1.2 * z, palette.hairHighlight);
+      rect(cx - 2.6 * z, baseY - 36.2 * z, 2 * z, 1 * z, palette.hairHighlight);
+    } else {
+      // 'short_crop': Modern skin-fade crew cut + crisp architectural lineup + textured tufts
+      rect(cx - 7 * z, baseY - 33.6 * z, 1 * z, 2.6 * z, palette.hair);
+      rect(cx + 6 * z, baseY - 33.6 * z, 1 * z, 2.6 * z, palette.hair);
+      rect(cx - 6.2 * z, baseY - 35.6 * z, 12.4 * z, 2.2 * z, palette.hair);
+      rect(cx - 5.6 * z, baseY - 37.2 * z, 11.2 * z, 2 * z, palette.hair);
+      rect(cx - 4.2 * z, baseY - 38.4 * z, 8.4 * z, 1.4 * z, palette.hair);
+      rect(cx - 6.2 * z, baseY - 33.6 * z, 1.6 * z, 1 * z, palette.hair);
+      rect(cx + 4.6 * z, baseY - 33.6 * z, 1.6 * z, 1 * z, palette.hair);
+      rect(cx - 3.8 * z, baseY - 37.4 * z, 2 * z, 1 * z, palette.hairHighlight);
+      rect(cx - 0.6 * z, baseY - 37.8 * z, 2 * z, 1 * z, palette.hairHighlight);
+      rect(cx + 2.2 * z, baseY - 37 * z, 2 * z, 1 * z, palette.hairHighlight);
+    }
   }
 
   // 6. Model-specific headgear & accessories (suppressed during costume parties so costumes shine)
@@ -1724,7 +2080,7 @@ export function drawEmployeeSprite(
       palette.gender === 'female',
     );
   } else if (emp.modelFamily === 'argon' || emp.isCoordinator) {
-    // Gold crown (perched cleanly above chignon on female bun_updo so both bun & crown shine!)
+    // Gold crown (perched cleanly above chignon / spikes / curls with burnished royal band!)
     if (palette.gender === 'female') {
       const crownBaseY = palette.femaleHairStyle === 'bun_updo' ? baseY - 42.6 * z : baseY - 40.4 * z;
       rect(cx - 4 * z, crownBaseY, 8 * z, 2.4 * z, '#ffd147');
@@ -1732,11 +2088,16 @@ export function drawEmployeeSprite(
       rect(cx - 0.8 * z, crownBaseY - 2 * z, 1.6 * z, 2 * z, '#ffd147');
       rect(cx + 2.4 * z, crownBaseY - 1.6 * z, 1.6 * z, 1.6 * z, '#ffd147');
     } else {
-      ctx.fillStyle = '#ffd147';
-      ctx.fillRect(Math.round(cx - 5 * z), Math.round(baseY - 41 * z), Math.ceil(10 * z), Math.ceil(4 * z));
-      ctx.fillRect(Math.round(cx - 5 * z), Math.round(baseY - 43 * z), Math.ceil(2 * z), Math.ceil(2 * z));
-      ctx.fillRect(Math.round(cx - 1 * z), Math.round(baseY - 43 * z), Math.ceil(2 * z), Math.ceil(2 * z));
-      ctx.fillRect(Math.round(cx + 3 * z), Math.round(baseY - 43 * z), Math.ceil(2 * z), Math.ceil(2 * z));
+      const mCrownY =
+        palette.maleHairStyle === 'spiky' || palette.maleHairStyle === 'curly_top'
+          ? baseY - 43.6 * z
+          : baseY - 41.2 * z;
+      rect(cx - 4.6 * z, mCrownY + 2 * z, 9.2 * z, 0.9 * z, '#9e680d');
+      rect(cx - 4.6 * z, mCrownY, 9.2 * z, 2.2 * z, '#ffd147');
+      rect(cx - 4.6 * z, mCrownY - 1.8 * z, 1.8 * z, 1.8 * z, '#ffd147');
+      rect(cx - 0.9 * z, mCrownY - 2.2 * z, 1.8 * z, 2.2 * z, '#ffd147');
+      rect(cx + 2.8 * z, mCrownY - 1.8 * z, 1.8 * z, 1.8 * z, '#ffd147');
+      rect(cx - 0.6 * z, mCrownY + 0.6 * z, 1.2 * z, 1 * z, '#ff5666');
     }
   } else if (emp.modelFamily === 'hydrogen') {
     // Cyan headphones
@@ -1745,9 +2106,9 @@ export function drawEmployeeSprite(
       rect(cx - 7.4 * z, baseY - 31.8 * z, 1.8 * z, 5.8 * z, '#3cd8ff');
       rect(cx + 5.6 * z, baseY - 31.8 * z, 1.8 * z, 5.8 * z, '#3cd8ff');
     } else {
-      ctx.fillStyle = '#3cd8ff';
-      ctx.fillRect(Math.round(cx - 8 * z), Math.round(baseY - 32 * z), Math.ceil(2 * z), Math.ceil(7 * z));
-      ctx.fillRect(Math.round(cx + 6 * z), Math.round(baseY - 32 * z), Math.ceil(2 * z), Math.ceil(7 * z));
+      rect(cx - 5.6 * z, baseY - 39.2 * z, 11.2 * z, 1.1 * z, '#3cd8ff');
+      rect(cx - 8.4 * z, baseY - 32 * z, 2 * z, 6 * z, '#3cd8ff');
+      rect(cx + 6.4 * z, baseY - 32 * z, 2 * z, 6 * z, '#3cd8ff');
     }
   } else if (emp.modelFamily === 'flash') {
     // Emerald-yellow speed visor
@@ -1755,8 +2116,8 @@ export function drawEmployeeSprite(
       rect(cx - 4.5 * z + fShift * 0.5, baseY - 29.8 * z, 9 * z, 2.2 * z, '#ffe64d');
       rect(cx - 3.2 * z + fShift * 0.5, baseY - 29.5 * z, 2.5 * z, 0.9 * z, '#fffbe0');
     } else {
-      ctx.fillStyle = '#ffe64d';
-      ctx.fillRect(Math.round(cx - 5 * z), Math.round(baseY - 30 * z), Math.ceil(10 * z), Math.ceil(3 * z));
+      rect(cx - 5.2 * z + mShift * 0.5, baseY - 30 * z, 10.4 * z, 2.4 * z, '#ffe64d');
+      rect(cx - 3.6 * z + mShift * 0.5, baseY - 29.6 * z, 3 * z, 0.9 * z, '#fffbe0');
     }
   } else if (emp.modelFamily === 'carbon') {
     // Crimson/white lab coat lapel + cyber glasses
@@ -1770,23 +2131,26 @@ export function drawEmployeeSprite(
       rect(fEyeLx - 0.6 * z, baseY - 29.2 * z, 3.2 * z, 2.2 * z, 'rgba(126, 243, 255, 0.24)');
       rect(fEyeRx - 0.6 * z, baseY - 29.2 * z, 3.2 * z, 2.2 * z, 'rgba(126, 243, 255, 0.24)');
     } else {
-      ctx.fillStyle = '#f2f5ff';
-      ctx.fillRect(Math.round(cx - 5 * z), Math.round(baseY - 21 * z), Math.ceil(3 * z), Math.ceil(8 * z));
-      ctx.fillRect(Math.round(cx + 2 * z), Math.round(baseY - 21 * z), Math.ceil(3 * z), Math.ceil(8 * z));
-      ctx.fillStyle = '#7ef3ff';
-      ctx.fillRect(Math.round(cx - 5 * z), Math.round(baseY - 29 * z), Math.ceil(4 * z), Math.ceil(2 * z));
-      ctx.fillRect(Math.round(cx + 1 * z), Math.round(baseY - 29 * z), Math.ceil(4 * z), Math.ceil(2 * z));
+      rect(cx - 4.4 * z, baseY - 19 * z, 2 * z, 6.4 * z, '#f2f5ff');
+      rect(cx + 2.4 * z, baseY - 19 * z, 2 * z, 6.4 * z, '#f2f5ff');
+      rect(mEyeLx - 0.6 * z, baseY - 30 * z, 3.2 * z, 0.8 * z, '#7ef3ff');
+      rect(mEyeRx - 0.6 * z, baseY - 30 * z, 3.2 * z, 0.8 * z, '#7ef3ff');
+      rect(cx - 1 * z + mShift, baseY - 29.6 * z, 2 * z, 0.8 * z, '#7ef3ff');
+      rect(mEyeLx - 0.6 * z, baseY - 29.4 * z, 3.2 * z, 2.2 * z, 'rgba(126, 243, 255, 0.24)');
+      rect(mEyeRx - 0.6 * z, baseY - 29.4 * z, 3.2 * z, 2.2 * z, 'rgba(126, 243, 255, 0.24)');
     }
   } else if (emp.modelFamily === 'pro') {
-    // Navy/gold executive suit tie (male only) + glasses
+    // Navy/gold executive accent + half-rim glasses preserving eye catchlight sparkle!
     if (palette.gender === 'male') {
-      ctx.fillStyle = '#ffd147';
-      ctx.fillRect(Math.round(cx - 1 * z), Math.round(baseY - 21 * z), Math.ceil(2 * z), Math.ceil(7 * z));
-      ctx.fillStyle = '#e6ecff';
-      ctx.fillRect(Math.round(cx - 5 * z), Math.round(baseY - 29 * z), Math.ceil(4 * z), Math.ceil(2 * z));
-      ctx.fillRect(Math.round(cx + 1 * z), Math.round(baseY - 29 * z), Math.ceil(4 * z), Math.ceil(2 * z));
+      if (palette.maleOutfitStyle !== 'tech_hoodie') {
+        rect(cx - 0.9 * z, baseY - 19.2 * z, 1.8 * z, 5.4 * z, '#ffd147');
+      }
+      rect(mEyeLx - 0.6 * z, baseY - 30 * z, 3.2 * z, 0.8 * z, '#e6ecff');
+      rect(mEyeRx - 0.6 * z, baseY - 30 * z, 3.2 * z, 0.8 * z, '#e6ecff');
+      rect(cx - 1 * z + mShift, baseY - 29.6 * z, 2 * z, 0.8 * z, '#ffd147');
+      rect(mEyeLx - 0.6 * z, baseY - 29.4 * z, 3.2 * z, 2.2 * z, 'rgba(230, 236, 255, 0.22)');
+      rect(mEyeRx - 0.6 * z, baseY - 29.4 * z, 3.2 * z, 2.2 * z, 'rgba(230, 236, 255, 0.22)');
     } else {
-      // Chic half-rim executive glasses preserving eye catchlight sparkle!
       rect(fEyeLx - 0.6 * z, baseY - 29.8 * z, 3.2 * z, 0.8 * z, '#e6ecff');
       rect(fEyeRx - 0.6 * z, baseY - 29.8 * z, 3.2 * z, 0.8 * z, '#e6ecff');
       rect(cx - 1 * z + fShift, baseY - 29.4 * z, 2 * z, 0.8 * z, '#ffd147');
@@ -1800,12 +2164,9 @@ export function drawEmployeeSprite(
       rect(cx - 5.2 * z, baseY - 39.8 * z, 10.4 * z, 3 * z, '#e07a52');
       rect(cx - 0.8 * z, baseY - 41.2 * z, 1.6 * z, 1.5 * z, '#fff1d6');
     } else {
-      ctx.fillStyle = '#fff1d6';
-      ctx.fillRect(Math.round(cx - 4 * z), Math.round(baseY - 21 * z), Math.ceil(8 * z), Math.ceil(2 * z));
-      ctx.fillStyle = '#e07a52';
-      ctx.fillRect(Math.round(cx - 6 * z), Math.round(baseY - 40 * z), Math.ceil(12 * z), Math.ceil(4 * z));
-      ctx.fillStyle = '#fff1d6';
-      ctx.fillRect(Math.round(cx - 1 * z), Math.round(baseY - 42 * z), Math.ceil(2 * z), Math.ceil(2 * z));
+      rect(cx - 3.4 * z, baseY - 20.2 * z, 6.8 * z, 1.6 * z, '#fff1d6');
+      rect(cx - 5.8 * z, baseY - 40.4 * z, 11.6 * z, 3.2 * z, '#e07a52');
+      rect(cx - 0.9 * z, baseY - 42 * z, 1.8 * z, 1.6 * z, '#fff1d6');
     }
   } else if (emp.modelFamily === 'gpt') {
     // Teal/slate turtleneck + cyber headset with mic boom
@@ -1814,11 +2175,9 @@ export function drawEmployeeSprite(
       rect(cx + 5.4 * z, baseY - 31.5 * z, 1.6 * z, 5 * z, '#7efaa8');
       rect(cx + 2 * z, baseY - 25 * z, 3.8 * z, 1.2 * z, '#7efaa8');
     } else {
-      ctx.fillStyle = '#0d4a46';
-      ctx.fillRect(Math.round(cx - 4 * z), Math.round(baseY - 22 * z), Math.ceil(8 * z), Math.ceil(3 * z));
-      ctx.fillStyle = '#7efaa8';
-      ctx.fillRect(Math.round(cx + 6 * z), Math.round(baseY - 32 * z), Math.ceil(2 * z), Math.ceil(6 * z));
-      ctx.fillRect(Math.round(cx + 2 * z), Math.round(baseY - 25 * z), Math.ceil(5 * z), Math.ceil(2 * z));
+      rect(cx - 3.2 * z, baseY - 21.2 * z, 6.4 * z, 2.2 * z, '#0d4a46');
+      rect(cx + 6.4 * z, baseY - 31.6 * z, 1.8 * z, 5.4 * z, '#7efaa8');
+      rect(cx + 2.4 * z, baseY - 25.2 * z, 4.4 * z, 1.3 * z, '#7efaa8');
     }
   } else {
     // Indigo polo + lanyard badge
@@ -1826,10 +2185,8 @@ export function drawEmployeeSprite(
       rect(cx - 0.8 * z, baseY - 18.5 * z, 1.6 * z, 3.5 * z, '#b7c4ff');
       rect(cx - 1.6 * z, baseY - 15.5 * z, 3.2 * z, 2.2 * z, '#ffd147');
     } else {
-      ctx.fillStyle = '#b7c4ff';
-      ctx.fillRect(Math.round(cx - 1 * z), Math.round(baseY - 21 * z), Math.ceil(2 * z), Math.ceil(5 * z));
-      ctx.fillStyle = '#ffd147';
-      ctx.fillRect(Math.round(cx - 2 * z), Math.round(baseY - 16 * z), Math.ceil(4 * z), Math.ceil(3 * z));
+      rect(cx - 1 * z, baseY - 19.2 * z, 2 * z, 4 * z, '#b7c4ff');
+      rect(cx - 1.8 * z, baseY - 15.6 * z, 3.6 * z, 2.4 * z, '#ffd147');
     }
   }
 
@@ -2078,9 +2435,49 @@ export function drawEmployeePortrait(
       px(21, 22, 1, 3, palette.hairHighlight);
     }
   } else {
-    px(6, 21, 20, 11, uniform.dark);
-    px(8, 22, 16, 10, uniform.main);
-    px(15, 22, 2, 8, uniform.trim);
+    // Sturdy 6px masculine neck (x: 13..18, y: 20..22) + sloped 18px athletic shoulders (x: 7..24)
+    px(13, 20, 6, 3, palette.skinShadow);
+    px(14, 21, 4, 2, palette.skin);
+
+    if (palette.maleOutfitStyle === 'tech_hoodie') {
+      px(10, 22, 12, 2, uniform.dark);
+      px(9, 23, 14, 1, uniform.dark);
+      px(7, 24, 18, 8, uniform.dark);
+      px(8, 24, 16, 8, uniform.main);
+      px(14, 22, 4, 3, '#1b2234');
+      px(13, 22, 1, 2, '#f4f6fc');
+      px(18, 22, 1, 2, '#f4f6fc');
+      px(12, 24, 1, 5, uniform.trim);
+      px(19, 24, 1, 5, uniform.trim);
+      px(15, 25, 2, 7, '#9aa7c7');
+      px(15, 26, 2, 1, '#ffffff');
+    } else if (palette.maleOutfitStyle === 'vest_ensemble') {
+      // Dress shirt shoulders (x: 7..24) + buttoned V-neck waistcoat + silk tie
+      px(9, 23, 14, 1, '#dce4f7');
+      px(7, 24, 18, 8, '#eef2fc');
+      px(7, 29, 3, 2, '#cfd8ee');
+      px(22, 29, 3, 2, '#cfd8ee');
+      px(10, 23, 12, 9, uniform.dark);
+      px(11, 24, 10, 8, uniform.main);
+      px(12, 22, 8, 2, '#f6f7fc');
+      px(14, 24, 4, 4, '#f6f7fc');
+      px(15, 23, 2, 5, uniform.trim);
+      px(15, 29, 2, 1, uniform.trim);
+      px(15, 31, 2, 1, uniform.trim);
+    } else {
+      // 'classic_suit': 18px tailored blazer (x: 7..24) + shirt collar + notched lapels + silk tie & tie pin
+      px(11, 22, 10, 1, uniform.dark);
+      px(9, 23, 14, 1, uniform.dark);
+      px(7, 24, 18, 8, uniform.dark);
+      px(8, 24, 16, 8, uniform.main);
+      px(12, 22, 8, 2, '#f6f7fc');
+      px(14, 24, 4, 5, '#f6f7fc');
+      px(12, 24, 2, 6, uniform.dark);
+      px(18, 24, 2, 6, uniform.dark);
+      px(15, 23, 2, 9, uniform.trim);
+      px(15, 27, 2, 1, '#ffffff');
+      px(19, 27, 2, 1, uniform.trim);
+    }
   }
 
   // 3. Head & Expressive Face
@@ -2120,10 +2517,40 @@ export function drawEmployeePortrait(
     px(20, 17, 2, 1, 'rgba(255, 130, 162, 0.45)');
     px(15, 18, 2, 1, '#e56b88');
   } else {
-    px(9, 8, 14, 14, palette.skinShadow);
-    px(10, 9, 12, 12, palette.skin);
-    px(12, 14, 2, 3, '#11131c');
-    px(18, 14, 2, 3, '#11131c');
+    // Angular masculine face: x: 10..21 top -> x: 9..22 brow/cheek -> x: 10..21 jaw -> x: 12..19 square chin at y=20
+    px(10, 8, 12, 1, palette.skinShadow);
+    px(9, 9, 14, 8, palette.skinShadow);
+    px(10, 17, 12, 2, palette.skinShadow);
+    px(11, 19, 10, 1, palette.skinShadow);
+    px(12, 20, 8, 1, palette.skinShadow);
+
+    px(10, 8, 12, 2, palette.skin);
+    px(10, 9, 12, 8, palette.skin);
+    px(11, 17, 10, 2, palette.skin);
+    px(12, 19, 8, 1, palette.skin);
+    px(13, 20, 6, 1, palette.skin);
+
+    if (!enclosingHelmet) {
+      px(8, 13, 1, 3, palette.skinShadow);
+      px(23, 13, 1, 3, palette.skinShadow);
+    }
+    // Determined masculine brows + #161926 iris + 1x1 white catchlights + nose/mouth contour
+    px(11, 12, 3, 1, palette.hair);
+    px(18, 12, 3, 1, palette.hair);
+    px(12, 14, 2, 3, '#161926');
+    px(18, 14, 2, 3, '#161926');
+    px(13, 14, 1, 1, '#ffffff');
+    px(19, 14, 1, 1, '#ffffff');
+    px(15, 16, 2, 1, palette.skinShadow);
+    px(14, 18, 4, 1, palette.skinShadow);
+
+    if (palette.maleFacialHair === 'light_stubble' && !enclosingHelmet) {
+      px(14, 17, 4, 1, 'rgba(28, 32, 46, 0.22)');
+      px(11, 17, 2, 2, 'rgba(28, 32, 46, 0.22)');
+      px(19, 17, 2, 2, 'rgba(28, 32, 46, 0.22)');
+      px(12, 19, 8, 1, 'rgba(28, 32, 46, 0.22)');
+      px(13, 20, 6, 1, 'rgba(28, 32, 46, 0.22)');
+    }
   }
 
   // 4. Front hair / sculpted crown dome / bangs / male styles
@@ -2169,25 +2596,67 @@ export function drawEmployeePortrait(
         px(21, 14, 1, 2, palette.hair);
       }
     }
-  } else if (palette.maleHairStyle === 'side_part') {
-    px(9, 6, 14, 5, palette.hair);
-    px(10, 10, 6, 2, palette.hair);
-    px(17, 7, 4, 2, palette.hairHighlight);
-  } else if (palette.maleHairStyle === 'spiky') {
-    px(9, 7, 14, 4, palette.hair);
-    px(10, 4, 3, 3, palette.hair);
-    px(15, 3, 3, 4, palette.hair);
-    px(20, 4, 3, 3, palette.hair);
-    px(15, 5, 2, 2, palette.hairHighlight);
-  } else if (palette.maleHairStyle === 'curly_top') {
-    px(8, 5, 16, 6, palette.hair);
-    px(10, 4, 4, 2, palette.hairHighlight);
-    px(18, 4, 4, 2, palette.hairHighlight);
-    px(9, 10, 2, 4, palette.hair);
-    px(21, 10, 2, 4, palette.hair);
-  } else {
-    px(9, 6, 14, 5, palette.hair);
-    px(11, 7, 6, 2, palette.hairHighlight);
+  } else if (!enclosingHelmet) {
+    if (hideTopChignon) {
+      px(9, 9, 1, 5, palette.hair);
+      px(22, 9, 1, 5, palette.hair);
+      px(9, 7, 14, 3, palette.hair);
+      px(11, 10, 10, 1, palette.hair);
+    } else if (palette.maleHairStyle === 'side_part') {
+      px(9, 9, 1, 5, palette.hair);
+      px(22, 9, 1, 5, palette.hair);
+      px(9, 7, 14, 3, palette.hair);
+      px(10, 5, 12, 2, palette.hair);
+      px(14, 4, 7, 1, palette.hair);
+      px(10, 9, 2, 1, palette.hair);
+      px(13, 9, 8, 2, palette.hair);
+      px(17, 11, 3, 1, palette.hair);
+      px(14, 5, 5, 1, palette.hairHighlight);
+      px(17, 7, 4, 1, palette.hairHighlight);
+    } else if (palette.maleHairStyle === 'spiky') {
+      px(9, 9, 1, 5, palette.hair);
+      px(22, 9, 1, 5, palette.hair);
+      px(9, 7, 14, 3, palette.hair);
+      px(11, 10, 2, 1, palette.hair);
+      px(15, 10, 2, 1, palette.hair);
+      px(19, 10, 2, 1, palette.hair);
+      px(8, 5, 3, 2, palette.hair);
+      px(7, 4, 2, 1, palette.hair);
+      px(11, 4, 3, 3, palette.hair);
+      px(11, 3, 2, 1, palette.hair);
+      px(15, 3, 3, 4, palette.hair);
+      px(16, 2, 2, 1, palette.hair);
+      px(19, 4, 3, 3, palette.hair);
+      px(21, 3, 2, 1, palette.hair);
+      px(12, 4, 1, 2, palette.hairHighlight);
+      px(16, 3, 1, 3, palette.hairHighlight);
+      px(20, 4, 1, 2, palette.hairHighlight);
+    } else if (palette.maleHairStyle === 'curly_top') {
+      px(9, 9, 1, 4, palette.hair);
+      px(22, 9, 1, 4, palette.hair);
+      px(8, 6, 16, 3, palette.hair);
+      px(9, 4, 14, 3, palette.hair);
+      px(11, 3, 10, 2, palette.hair);
+      px(10, 9, 3, 2, palette.hair);
+      px(15, 9, 3, 2, palette.hair);
+      px(19, 9, 3, 2, palette.hair);
+      px(10, 5, 2, 1, palette.hairHighlight);
+      px(15, 4, 3, 1, palette.hairHighlight);
+      px(19, 6, 2, 1, palette.hairHighlight);
+      px(13, 7, 2, 1, palette.hairHighlight);
+    } else {
+      // 'short_crop'
+      px(9, 9, 1, 4, palette.hair);
+      px(22, 9, 1, 4, palette.hair);
+      px(9, 7, 14, 3, palette.hair);
+      px(10, 6, 12, 2, palette.hair);
+      px(11, 5, 10, 1, palette.hair);
+      px(10, 10, 2, 1, palette.hair);
+      px(20, 10, 2, 1, palette.hair);
+      px(11, 6, 2, 1, palette.hairHighlight);
+      px(15, 6, 2, 1, palette.hairHighlight);
+      px(19, 7, 2, 1, palette.hairHighlight);
+    }
   }
 
   // 5. Headgear & outfit accessories (or Costume Party overlay)
@@ -2212,11 +2681,18 @@ export function drawEmployeePortrait(
         px(15, 1, 2, 2, '#ffd147');
         px(19, 1, 2, 2, '#ffd147');
       }
+    } else if (palette.maleHairStyle === 'spiky' || palette.maleHairStyle === 'curly_top') {
+      px(10, 2, 12, 1, '#9e680d');
+      px(10, 1, 12, 1, '#ffd147');
+      px(10, 0, 2, 1, '#ffd147');
+      px(15, 0, 2, 1, '#ffd147');
+      px(20, 0, 2, 1, '#ffd147');
     } else {
-      px(10, 3, 12, 3, '#ffd147');
-      px(10, 1, 2, 2, '#ffd147');
-      px(15, 1, 2, 2, '#ffd147');
-      px(20, 1, 2, 2, '#ffd147');
+      px(10, 3, 12, 1, '#9e680d');
+      px(10, 2, 12, 1, '#ffd147');
+      px(10, 0, 2, 2, '#ffd147');
+      px(15, 0, 2, 2, '#ffd147');
+      px(20, 0, 2, 2, '#ffd147');
     }
   } else if (emp.modelFamily === 'hydrogen') {
     if (palette.gender === 'female') {
@@ -2224,15 +2700,17 @@ export function drawEmployeePortrait(
       px(8, 11, 2, 5, '#3cd8ff');
       px(22, 11, 2, 5, '#3cd8ff');
     } else {
-      px(8, 10, 2, 7, '#3cd8ff');
-      px(22, 10, 2, 7, '#3cd8ff');
+      px(10, 4, 12, 1, '#3cd8ff');
+      px(7, 11, 2, 6, '#3cd8ff');
+      px(23, 11, 2, 6, '#3cd8ff');
     }
   } else if (emp.modelFamily === 'flash') {
     if (palette.gender === 'female') {
       px(11, 13, 10, 2, '#ffe64d');
       px(12, 13, 3, 1, '#fffbe0');
     } else {
-      px(10, 12, 12, 3, '#ffe64d');
+      px(10, 13, 12, 2, '#ffe64d');
+      px(11, 13, 4, 1, '#fffbe0');
     }
   } else if (emp.modelFamily === 'carbon') {
     if (palette.gender === 'female') {
@@ -2244,16 +2722,24 @@ export function drawEmployeePortrait(
       px(11, 14, 4, 2, 'rgba(126, 243, 255, 0.24)');
       px(17, 14, 4, 2, 'rgba(126, 243, 255, 0.24)');
     } else {
-      px(10, 22, 3, 9, '#f2f5ff');
-      px(19, 22, 3, 9, '#f2f5ff');
-      px(11, 13, 4, 2, '#7ef3ff');
-      px(17, 13, 4, 2, '#7ef3ff');
+      px(10, 24, 3, 8, '#f2f5ff');
+      px(19, 24, 3, 8, '#f2f5ff');
+      px(11, 13, 4, 1, '#7ef3ff');
+      px(17, 13, 4, 1, '#7ef3ff');
+      px(15, 14, 2, 1, '#7ef3ff');
+      px(11, 14, 4, 2, 'rgba(126, 243, 255, 0.24)');
+      px(17, 14, 4, 2, 'rgba(126, 243, 255, 0.24)');
     }
   } else if (emp.modelFamily === 'pro') {
     if (palette.gender === 'male') {
-      px(15, 22, 2, 9, '#ffd147');
-      px(11, 13, 4, 2, '#e6ecff');
-      px(17, 13, 4, 2, '#e6ecff');
+      if (palette.maleOutfitStyle !== 'tech_hoodie') {
+        px(15, 23, 2, 8, '#ffd147');
+      }
+      px(11, 13, 4, 1, '#e6ecff');
+      px(17, 13, 4, 1, '#e6ecff');
+      px(15, 14, 2, 1, '#ffd147');
+      px(11, 14, 4, 2, 'rgba(230, 236, 255, 0.22)');
+      px(17, 14, 4, 2, 'rgba(230, 236, 255, 0.22)');
     } else {
       px(11, 13, 4, 1, '#e6ecff');
       px(17, 13, 4, 1, '#e6ecff');
@@ -2268,8 +2754,8 @@ export function drawEmployeePortrait(
       px(15, 3, 2, 1, '#fff1d6');
     } else {
       px(12, 22, 8, 2, '#fff1d6');
-      px(9, 4, 14, 3, '#e07a52');
-      px(15, 2, 2, 2, '#fff1d6');
+      px(9, 3, 14, 3, '#e07a52');
+      px(15, 2, 2, 1, '#fff1d6');
     }
   } else if (emp.modelFamily === 'gpt') {
     if (palette.gender === 'female') {
@@ -2277,17 +2763,17 @@ export function drawEmployeePortrait(
       px(22, 11, 2, 5, '#7efaa8');
       px(18, 17, 4, 1, '#7efaa8');
     } else {
-      px(12, 21, 8, 3, '#0d4a46');
-      px(22, 11, 2, 6, '#7efaa8');
-      px(18, 17, 5, 2, '#7efaa8');
+      px(13, 21, 6, 2, '#0d4a46');
+      px(23, 11, 2, 5, '#7efaa8');
+      px(18, 17, 5, 1, '#7efaa8');
     }
   } else {
     if (palette.gender === 'female') {
       px(15, 24, 2, 4, '#b7c4ff');
       px(14, 28, 4, 3, '#ffd147');
     } else {
-      px(15, 22, 2, 5, '#b7c4ff');
-      px(14, 27, 4, 3, '#ffd147');
+      px(15, 23, 2, 5, '#b7c4ff');
+      px(14, 28, 4, 3, '#ffd147');
     }
   }
 }
