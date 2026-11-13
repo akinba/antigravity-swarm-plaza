@@ -20,6 +20,7 @@ export type CompanyTier = 1 | 2 | 3 | 4;
 
 export type ToolActivityStatus = 'reading' | 'writing' | 'testing' | 'searching' | 'error' | 'idle';
 export type SwarmRole = 'coordinator' | 'worker' | 'monitor' | 'narrator' | 'verifier' | 'other';
+export type EmployeeGender = 'female' | 'male';
 
 export type FloorEventKind =
   | 'PIZZA_PARTY'
@@ -89,6 +90,7 @@ export interface OfficeEmployee {
   id: string;
   name: string;
   roleTitle: string;
+  gender?: EmployeeGender;
   isCoordinator: boolean;
   modelId: string;
   modelFamily: ModelFamily;

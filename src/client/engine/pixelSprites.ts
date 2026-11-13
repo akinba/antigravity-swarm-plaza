@@ -10,11 +10,24 @@ import {
 } from './officePropsSprites';
 import type { Facing } from './pathfinding';
 
+export type FemaleHairStyle = 'long_locks' | 'bob_cut' | 'ponytail' | 'bun_updo';
+export type MaleHairStyle = 'short_crop' | 'side_part' | 'spiky' | 'curly_top';
+export type FemaleOutfitStyle = 'skirt_blazer' | 'tailored_suit';
+
+const FEMALE_HAIR_STYLES: FemaleHairStyle[] = ['long_locks', 'bob_cut', 'ponytail', 'bun_updo'];
+const MALE_HAIR_STYLES: MaleHairStyle[] = ['short_crop', 'side_part', 'spiky', 'curly_top'];
+const ACCESSORY_COLORS = ['#ff6b9d', '#ffd166', '#4dd4ff', '#c77dff'];
+
 export interface Palette {
   skin: string;
   skinShadow: string;
   hair: string;
   hairHighlight: string;
+  gender: 'female' | 'male';
+  femaleHairStyle: FemaleHairStyle;
+  maleHairStyle: MaleHairStyle;
+  femaleOutfit: FemaleOutfitStyle;
+  accessoryColor: string;
 }
 
 const SKIN_PALETTES: Array<{ skin: string; skinShadow: string }> = [
@@ -54,14 +67,36 @@ export function hashString(str: string): number {
     h ^= str.charCodeAt(i);
     h = Math.imul(h, 16777619);
   }
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b);
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35);
+  h ^= h >>> 16;
   return h >>> 0;
 }
 
-export function getEmployeePalette(employeeId: string): Palette {
+export function getEmployeePalette(
+  employeeId: string,
+  genderOverride?: 'female' | 'male',
+): Palette {
   const h = hashString(employeeId);
-  const skin = SKIN_PALETTES[h % SKIN_PALETTES.length];
-  const hair = HAIR_PALETTES[(h >>> 4) % HAIR_PALETTES.length];
-  return { ...skin, ...hair };
+  const gender: 'female' | 'male' = genderOverride ?? ((h & 1) === 1 ? 'female' : 'male');
+  const femaleHairStyle = FEMALE_HAIR_STYLES[(h >>> 1) & 3];
+  const maleHairStyle = MALE_HAIR_STYLES[(h >>> 1) & 3];
+  const femaleOutfit: FemaleOutfitStyle =
+    ((h >>> 3) & 1) === 1 ? 'tailored_suit' : 'skirt_blazer';
+  const skin = SKIN_PALETTES[(h >>> 4) % SKIN_PALETTES.length];
+  const hair = HAIR_PALETTES[(h >>> 7) % HAIR_PALETTES.length];
+  const accessoryColor = ACCESSORY_COLORS[(h >>> 10) % ACCESSORY_COLORS.length];
+  return {
+    ...skin,
+    ...hair,
+    gender,
+    femaleHairStyle,
+    maleHairStyle,
+    femaleOutfit,
+    accessoryColor,
+  };
 }
 
 /** Draws a 2:1 isometric diamond tile centered at (cx, cy) top-center vertex? No, centered at (cx, cy) */
@@ -625,8 +660,19 @@ export function drawEmployeeSprite(
   showSpeechBubble = true,
 ): void {
   const z = zoom;
-  const palette = getEmployeePalette(emp.id);
+  const empGender = (emp as OfficeEmployee & { gender?: 'female' | 'male' }).gender;
+  const palette = getEmployeePalette(emp.id, empGender);
   const uniform = UNIFORM_COLORS[emp.modelFamily] || UNIFORM_COLORS.other;
+
+  const rect = (x: number, y: number, w: number, h: number, color: string) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(
+      Math.round(x),
+      Math.round(y),
+      Math.max(1, Math.ceil(w)),
+      Math.max(1, Math.ceil(h)),
+    );
+  };
 
   const bob = isWalking ? Math.abs(Math.sin(walkPhase * Math.PI * 2)) * 3 * z : 0;
   const legSwing = isWalking ? Math.sin(walkPhase * Math.PI * 2) * 3 * z : 0;
@@ -674,24 +720,66 @@ export function drawEmployeeSprite(
   const seatOffsetY = seated ? 4 * z : 0;
   const baseY = cy - bob + seatOffsetY;
 
-  // Legs (2-frame walk animation, or bent seated legs on cushion)
-  ctx.fillStyle = '#1b2030';
-  if (seated) {
-    ctx.fillRect(Math.round(cx - 6 * z), Math.round(baseY - 6 * z), Math.ceil(5 * z), Math.ceil(5 * z));
-    ctx.fillRect(Math.round(cx + 1 * z), Math.round(baseY - 6 * z), Math.ceil(5 * z), Math.ceil(5 * z));
+  // Legs & Skirt (2-frame walk animation, or bent seated pose on cushion)
+  if (palette.gender === 'female' && palette.femaleOutfit === 'skirt_blazer') {
+    if (seated) {
+      // A-line pleated skirt on cushion + skin lower legs + trimmed shoes
+      rect(cx - 7 * z, baseY - 8 * z, 14 * z, 4 * z, uniform.dark);
+      rect(cx - 5 * z, baseY - 8 * z, 10 * z, 3 * z, uniform.main);
+      rect(cx - 1 * z, baseY - 8 * z, 2 * z, 4 * z, uniform.dark);
+      rect(cx - 5 * z, baseY - 4 * z, 4 * z, 2 * z, palette.skin);
+      rect(cx + 1 * z, baseY - 4 * z, 4 * z, 2 * z, palette.skin);
+      rect(cx - 5 * z, baseY - 2 * z, 4 * z, 2 * z, '#1b2030');
+      rect(cx + 1 * z, baseY - 2 * z, 4 * z, 2 * z, '#1b2030');
+      rect(cx - 4 * z, baseY - 2 * z, 2 * z, 1 * z, uniform.trim);
+      rect(cx + 2 * z, baseY - 2 * z, 2 * z, 1 * z, uniform.trim);
+    } else {
+      // Standing/walking pleated A-line skirt + skin lower legs + trimmed shoes
+      rect(cx - 7 * z, baseY - 9 * z, 14 * z, 4 * z, uniform.dark);
+      rect(cx - 6 * z, baseY - 9 * z, 12 * z, 3 * z, uniform.main);
+      rect(cx - 1 * z, baseY - 9 * z, 2 * z, 4 * z, uniform.dark);
+      rect(cx - 4 * z, baseY - 5 * z + legSwing, 3 * z, 3 * z, palette.skin);
+      rect(cx + 1 * z, baseY - 5 * z - legSwing, 3 * z, 3 * z, palette.skin);
+      rect(cx - 4 * z, baseY - 2 * z + legSwing, 3 * z, 2 * z, '#1b2030');
+      rect(cx + 1 * z, baseY - 2 * z - legSwing, 3 * z, 2 * z, '#1b2030');
+      rect(cx - 4 * z, baseY - 2 * z + legSwing, 2 * z, 1 * z, uniform.trim);
+      rect(cx + 1 * z, baseY - 2 * z - legSwing, 2 * z, 1 * z, uniform.trim);
+    }
+  } else if (palette.gender === 'female' && palette.femaleOutfit === 'tailored_suit') {
+    if (seated) {
+      rect(cx - 6 * z, baseY - 6 * z, 5 * z, 4 * z, '#22283d');
+      rect(cx + 1 * z, baseY - 6 * z, 5 * z, 4 * z, '#22283d');
+      rect(cx - 6 * z, baseY - 2 * z, 5 * z, 2 * z, '#141824');
+      rect(cx + 1 * z, baseY - 2 * z, 5 * z, 2 * z, '#141824');
+      rect(cx - 5 * z, baseY - 2 * z, 2 * z, 1 * z, uniform.trim);
+      rect(cx + 2 * z, baseY - 2 * z, 2 * z, 1 * z, uniform.trim);
+    } else {
+      rect(cx - 5 * z, baseY - 8 * z + legSwing, 4 * z, 6 * z, '#22283d');
+      rect(cx + 1 * z, baseY - 8 * z - legSwing, 4 * z, 6 * z, '#22283d');
+      rect(cx - 5 * z, baseY - 2 * z + legSwing, 4 * z, 2 * z, '#141824');
+      rect(cx + 1 * z, baseY - 2 * z - legSwing, 4 * z, 2 * z, '#141824');
+      rect(cx - 4 * z, baseY - 2 * z + legSwing, 2 * z, 1 * z, uniform.trim);
+      rect(cx + 2 * z, baseY - 2 * z - legSwing, 2 * z, 1 * z, uniform.trim);
+    }
   } else {
-    ctx.fillRect(
-      Math.round(cx - 5 * z),
-      Math.round(baseY - 8 * z + legSwing),
-      Math.ceil(4 * z),
-      Math.ceil(8 * z),
-    );
-    ctx.fillRect(
-      Math.round(cx + 1 * z),
-      Math.round(baseY - 8 * z - legSwing),
-      Math.ceil(4 * z),
-      Math.ceil(8 * z),
-    );
+    ctx.fillStyle = '#1b2030';
+    if (seated) {
+      ctx.fillRect(Math.round(cx - 6 * z), Math.round(baseY - 6 * z), Math.ceil(5 * z), Math.ceil(5 * z));
+      ctx.fillRect(Math.round(cx + 1 * z), Math.round(baseY - 6 * z), Math.ceil(5 * z), Math.ceil(5 * z));
+    } else {
+      ctx.fillRect(
+        Math.round(cx - 5 * z),
+        Math.round(baseY - 8 * z + legSwing),
+        Math.ceil(4 * z),
+        Math.ceil(8 * z),
+      );
+      ctx.fillRect(
+        Math.round(cx + 1 * z),
+        Math.round(baseY - 8 * z - legSwing),
+        Math.ceil(4 * z),
+        Math.ceil(8 * z),
+      );
+    }
   }
 
   // Torso (Model Uniform)
@@ -700,9 +788,17 @@ export function drawEmployeeSprite(
   ctx.fillStyle = uniform.main;
   ctx.fillRect(Math.round(cx - 6 * z), Math.round(baseY - 20 * z), Math.ceil(12 * z), Math.ceil(12 * z));
 
-  // Uniform trim / tie / stripe
-  ctx.fillStyle = uniform.trim;
-  ctx.fillRect(Math.round(cx - 1 * z), Math.round(baseY - 19 * z), Math.ceil(2 * z), Math.ceil(8 * z));
+  if (palette.gender === 'female') {
+    // Soft light blouse V-neck + necklace/brooch pendant (no male tie)
+    rect(cx - 3 * z, baseY - 20 * z, 6 * z, 2 * z, '#f4f6fc');
+    rect(cx - 2 * z, baseY - 18 * z, 4 * z, 2 * z, '#f4f6fc');
+    rect(cx - 1 * z, baseY - 16 * z, 2 * z, 2 * z, '#f4f6fc');
+    rect(cx - 1 * z, baseY - 17 * z, 2 * z, 2 * z, uniform.trim);
+  } else {
+    // Uniform trim / tie / stripe
+    ctx.fillStyle = uniform.trim;
+    ctx.fillRect(Math.round(cx - 1 * z), Math.round(baseY - 19 * z), Math.ceil(2 * z), Math.ceil(8 * z));
+  }
 
   // Arms: shoulders stay 100% LEVEL and STILL (zero shoulder-shrug seesaw!)
   ctx.fillStyle = uniform.main;
@@ -793,6 +889,29 @@ export function drawEmployeeSprite(
     }
   }
 
+  // Back hair layer (for female styles, drawn before head so it flows behind shoulders/back)
+  if (palette.gender === 'female') {
+    if (palette.femaleHairStyle === 'long_locks') {
+      rect(cx - 8 * z, baseY - 36 * z, 16 * z, 18 * z, palette.hair);
+      rect(cx - 7 * z, baseY - 33 * z, 2 * z, 13 * z, palette.hairHighlight);
+      rect(cx + 5 * z, baseY - 33 * z, 2 * z, 13 * z, palette.hairHighlight);
+    } else if (palette.femaleHairStyle === 'bob_cut') {
+      rect(cx - 8 * z, baseY - 36 * z, 16 * z, 12 * z, palette.hair);
+      rect(cx - 7 * z, baseY - 33 * z, 2 * z, 8 * z, palette.hairHighlight);
+    } else if (palette.femaleHairStyle === 'ponytail') {
+      rect(cx - 7 * z, baseY - 36 * z, 14 * z, 8 * z, palette.hair);
+      const tailX = dirFlip > 0 ? cx - 10 * z : cx + 6 * z;
+      rect(tailX, baseY - 34 * z, 4 * z, 12 * z, palette.hair);
+      rect(tailX + 1 * z, baseY - 33 * z, 2 * z, 9 * z, palette.hairHighlight);
+      rect(tailX + 0.5 * z, baseY - 34 * z, 3 * z, 2 * z, palette.accessoryColor);
+    } else if (palette.femaleHairStyle === 'bun_updo') {
+      rect(cx - 7 * z, baseY - 36 * z, 14 * z, 7 * z, palette.hair);
+      rect(cx - 4 * z, baseY - 40 * z, 8 * z, 4 * z, palette.hair);
+      rect(cx - 3 * z, baseY - 39 * z, 4 * z, 2 * z, palette.hairHighlight);
+      rect(cx - 4 * z, baseY - 37 * z, 8 * z, 2 * z, palette.accessoryColor);
+    }
+  }
+
   // Head (Chibi/Habbo proportions)
   ctx.fillStyle = palette.skinShadow;
   ctx.fillRect(Math.round(cx - 7 * z), Math.round(baseY - 35 * z), Math.ceil(14 * z), Math.ceil(14 * z));
@@ -819,13 +938,56 @@ export function drawEmployeeSprite(
       Math.ceil(2 * z),
       Math.ceil(3 * z),
     );
+    if (palette.gender === 'female') {
+      // 1px outer upper eyelash tips + soft cheek blush
+      rect(cx + (-4 + eyeShift) * z, baseY - 29 * z, 1 * z, 1 * z, '#11131c');
+      rect(cx + (4 + eyeShift) * z, baseY - 29 * z, 1 * z, 1 * z, '#11131c');
+      rect(cx + (-5 + eyeShift) * z, baseY - 25 * z, 2 * z, 2 * z, 'rgba(255, 122, 158, 0.55)');
+      rect(cx + (3 + eyeShift) * z, baseY - 25 * z, 2 * z, 2 * z, 'rgba(255, 122, 158, 0.55)');
+    }
   }
 
-  // Hair
-  ctx.fillStyle = palette.hair;
-  ctx.fillRect(Math.round(cx - 7 * z), Math.round(baseY - 37 * z), Math.ceil(14 * z), Math.ceil(6 * z));
-  ctx.fillStyle = palette.hairHighlight;
-  ctx.fillRect(Math.round(cx - 5 * z), Math.round(baseY - 36 * z), Math.ceil(6 * z), Math.ceil(2 * z));
+  // Front hair / bangs / male styles (kept above baseY - 29*z eye/visor band)
+  if (palette.gender === 'female') {
+    rect(cx - 7 * z, baseY - 37 * z, 14 * z, 5 * z, palette.hair);
+    rect(cx - 5 * z, baseY - 36 * z, 6 * z, 2 * z, palette.hairHighlight);
+    if (palette.femaleHairStyle === 'long_locks') {
+      rect(cx - 7 * z, baseY - 32 * z, 2 * z, 9 * z, palette.hair);
+      rect(cx + 5 * z, baseY - 32 * z, 2 * z, 9 * z, palette.hair);
+      rect(cx - 5 * z, baseY - 33 * z, 3 * z, 2 * z, palette.hair);
+      rect(cx + 2 * z, baseY - 33 * z, 3 * z, 2 * z, palette.hair);
+    } else if (palette.femaleHairStyle === 'bob_cut') {
+      rect(cx - 7 * z, baseY - 32 * z, 2 * z, 6 * z, palette.hair);
+      rect(cx + 5 * z, baseY - 32 * z, 2 * z, 6 * z, palette.hair);
+      rect(cx - 5 * z, baseY - 33 * z, 4 * z, 2 * z, palette.hair);
+      rect(cx + 4 * z, baseY - 34 * z, 2 * z, 2 * z, palette.accessoryColor);
+    } else if (palette.femaleHairStyle === 'ponytail') {
+      rect(cx - 5 * z, baseY - 33 * z, 4 * z, 2 * z, palette.hair);
+      rect(cx + 2 * z, baseY - 33 * z, 3 * z, 2 * z, palette.hair);
+    } else if (palette.femaleHairStyle === 'bun_updo') {
+      rect(cx - 6 * z, baseY - 33 * z, 3 * z, 2 * z, palette.hair);
+      rect(cx + 3 * z, baseY - 33 * z, 3 * z, 2 * z, palette.hair);
+    }
+  } else if (palette.maleHairStyle === 'side_part') {
+    rect(cx - 7 * z, baseY - 37 * z, 14 * z, 5 * z, palette.hair);
+    rect(cx - 6 * z, baseY - 33 * z, 5 * z, 2 * z, palette.hair);
+    rect(cx + 1 * z, baseY - 36 * z, 4 * z, 2 * z, palette.hairHighlight);
+  } else if (palette.maleHairStyle === 'spiky') {
+    rect(cx - 7 * z, baseY - 36 * z, 14 * z, 5 * z, palette.hair);
+    rect(cx - 5 * z, baseY - 39 * z, 3 * z, 3 * z, palette.hair);
+    rect(cx - 1 * z, baseY - 40 * z, 3 * z, 4 * z, palette.hair);
+    rect(cx + 3 * z, baseY - 39 * z, 3 * z, 3 * z, palette.hair);
+    rect(cx - 1 * z, baseY - 38 * z, 2 * z, 2 * z, palette.hairHighlight);
+  } else if (palette.maleHairStyle === 'curly_top') {
+    rect(cx - 8 * z, baseY - 38 * z, 16 * z, 6 * z, palette.hair);
+    rect(cx - 6 * z, baseY - 39 * z, 4 * z, 2 * z, palette.hairHighlight);
+    rect(cx + 2 * z, baseY - 39 * z, 4 * z, 2 * z, palette.hairHighlight);
+    rect(cx - 7 * z, baseY - 33 * z, 2 * z, 3 * z, palette.hair);
+    rect(cx + 5 * z, baseY - 33 * z, 2 * z, 3 * z, palette.hair);
+  } else {
+    rect(cx - 7 * z, baseY - 37 * z, 14 * z, 6 * z, palette.hair);
+    rect(cx - 5 * z, baseY - 36 * z, 6 * z, 2 * z, palette.hairHighlight);
+  }
 
   // Model-specific headgear & accessories
   if (emp.modelFamily === 'argon' || emp.isCoordinator) {
@@ -853,9 +1015,11 @@ export function drawEmployeeSprite(
     ctx.fillRect(Math.round(cx - 5 * z), Math.round(baseY - 29 * z), Math.ceil(4 * z), Math.ceil(2 * z));
     ctx.fillRect(Math.round(cx + 1 * z), Math.round(baseY - 29 * z), Math.ceil(4 * z), Math.ceil(2 * z));
   } else if (emp.modelFamily === 'pro') {
-    // Navy/gold executive suit tie + glasses
-    ctx.fillStyle = '#ffd147';
-    ctx.fillRect(Math.round(cx - 1 * z), Math.round(baseY - 21 * z), Math.ceil(2 * z), Math.ceil(7 * z));
+    // Navy/gold executive suit tie (male only) + glasses
+    if (palette.gender === 'male') {
+      ctx.fillStyle = '#ffd147';
+      ctx.fillRect(Math.round(cx - 1 * z), Math.round(baseY - 21 * z), Math.ceil(2 * z), Math.ceil(7 * z));
+    }
     ctx.fillStyle = '#e6ecff';
     ctx.fillRect(Math.round(cx - 5 * z), Math.round(baseY - 29 * z), Math.ceil(4 * z), Math.ceil(2 * z));
     ctx.fillRect(Math.round(cx + 1 * z), Math.round(baseY - 29 * z), Math.ceil(4 * z), Math.ceil(2 * z));
@@ -1015,7 +1179,8 @@ export function drawEmployeePortrait(
   ctx.clearRect(0, 0, size, size);
 
   const uniform = UNIFORM_COLORS[emp.modelFamily] || UNIFORM_COLORS.other;
-  const palette = getEmployeePalette(emp.id);
+  const empGender = (emp as OfficeEmployee & { gender?: 'female' | 'male' }).gender;
+  const palette = getEmployeePalette(emp.id, empGender);
 
   // Background gradient
   ctx.fillStyle = '#181e30';
@@ -1026,25 +1191,104 @@ export function drawEmployeePortrait(
   const scale = size / 32;
   const px = (x: number, y: number, w: number, h: number, color: string) => {
     ctx.fillStyle = color;
-    ctx.fillRect(Math.round(x * scale), Math.round(y * scale), Math.ceil(w * scale), Math.ceil(h * scale));
+    ctx.fillRect(
+      Math.round(x * scale),
+      Math.round(y * scale),
+      Math.max(1, Math.ceil(w * scale)),
+      Math.max(1, Math.ceil(h * scale)),
+    );
   };
 
   // Shoulders / Uniform
   px(6, 21, 20, 11, uniform.dark);
   px(8, 22, 16, 10, uniform.main);
-  px(15, 22, 2, 8, uniform.trim);
+  if (palette.gender === 'female') {
+    // Light blouse V-neck + uniform.trim pendant
+    px(12, 22, 8, 2, '#f4f6fc');
+    px(13, 24, 6, 2, '#f4f6fc');
+    px(14, 26, 4, 2, '#f4f6fc');
+    px(15, 25, 2, 2, uniform.trim);
+  } else {
+    px(15, 22, 2, 8, uniform.trim);
+  }
+
+  // Back hair layer for female styles
+  if (palette.gender === 'female') {
+    if (palette.femaleHairStyle === 'long_locks') {
+      px(7, 7, 18, 21, palette.hair);
+      px(8, 10, 2, 15, palette.hairHighlight);
+      px(22, 10, 2, 15, palette.hairHighlight);
+    } else if (palette.femaleHairStyle === 'bob_cut') {
+      px(7, 7, 18, 15, palette.hair);
+      px(8, 10, 2, 10, palette.hairHighlight);
+    } else if (palette.femaleHairStyle === 'ponytail') {
+      px(8, 7, 16, 10, palette.hair);
+      px(5, 10, 4, 15, palette.hair);
+      px(6, 11, 2, 11, palette.hairHighlight);
+      px(5, 10, 4, 2, palette.accessoryColor);
+    } else if (palette.femaleHairStyle === 'bun_updo') {
+      px(8, 7, 16, 9, palette.hair);
+      px(12, 3, 8, 4, palette.hair);
+      px(13, 4, 4, 2, palette.hairHighlight);
+      px(12, 6, 8, 2, palette.accessoryColor);
+    }
+  }
 
   // Head
   px(9, 8, 14, 14, palette.skinShadow);
   px(10, 9, 12, 12, palette.skin);
 
-  // Hair
-  px(9, 6, 14, 5, palette.hair);
-  px(11, 7, 6, 2, palette.hairHighlight);
-
-  // Eyes
+  // Eyes + female lashes & blush
   px(12, 14, 2, 3, '#11131c');
   px(18, 14, 2, 3, '#11131c');
+  if (palette.gender === 'female') {
+    px(11, 13, 1, 1, '#11131c');
+    px(20, 13, 1, 1, '#11131c');
+    px(10, 17, 2, 2, 'rgba(255, 122, 158, 0.55)');
+    px(20, 17, 2, 2, 'rgba(255, 122, 158, 0.55)');
+  }
+
+  // Front hair / bangs / male styles
+  if (palette.gender === 'female') {
+    px(9, 6, 14, 5, palette.hair);
+    px(11, 7, 6, 2, palette.hairHighlight);
+    if (palette.femaleHairStyle === 'long_locks') {
+      px(9, 11, 2, 11, palette.hair);
+      px(21, 11, 2, 11, palette.hair);
+      px(11, 10, 4, 2, palette.hair);
+      px(17, 10, 4, 2, palette.hair);
+    } else if (palette.femaleHairStyle === 'bob_cut') {
+      px(9, 11, 2, 7, palette.hair);
+      px(21, 11, 2, 7, palette.hair);
+      px(11, 10, 5, 2, palette.hair);
+      px(20, 9, 2, 2, palette.accessoryColor);
+    } else if (palette.femaleHairStyle === 'ponytail') {
+      px(11, 10, 5, 2, palette.hair);
+      px(18, 10, 3, 2, palette.hair);
+    } else if (palette.femaleHairStyle === 'bun_updo') {
+      px(10, 10, 3, 2, palette.hair);
+      px(19, 10, 3, 2, palette.hair);
+    }
+  } else if (palette.maleHairStyle === 'side_part') {
+    px(9, 6, 14, 5, palette.hair);
+    px(10, 10, 6, 2, palette.hair);
+    px(17, 7, 4, 2, palette.hairHighlight);
+  } else if (palette.maleHairStyle === 'spiky') {
+    px(9, 7, 14, 4, palette.hair);
+    px(10, 4, 3, 3, palette.hair);
+    px(15, 3, 3, 4, palette.hair);
+    px(20, 4, 3, 3, palette.hair);
+    px(15, 5, 2, 2, palette.hairHighlight);
+  } else if (palette.maleHairStyle === 'curly_top') {
+    px(8, 5, 16, 6, palette.hair);
+    px(10, 4, 4, 2, palette.hairHighlight);
+    px(18, 4, 4, 2, palette.hairHighlight);
+    px(9, 10, 2, 4, palette.hair);
+    px(21, 10, 2, 4, palette.hair);
+  } else {
+    px(9, 6, 14, 5, palette.hair);
+    px(11, 7, 6, 2, palette.hairHighlight);
+  }
 
   // Headgear & outfit accessories
   if (emp.modelFamily === 'argon' || emp.isCoordinator) {
@@ -1063,7 +1307,9 @@ export function drawEmployeePortrait(
     px(11, 13, 4, 2, '#7ef3ff');
     px(17, 13, 4, 2, '#7ef3ff');
   } else if (emp.modelFamily === 'pro') {
-    px(15, 22, 2, 9, '#ffd147');
+    if (palette.gender === 'male') {
+      px(15, 22, 2, 9, '#ffd147');
+    }
     px(11, 13, 4, 2, '#e6ecff');
     px(17, 13, 4, 2, '#e6ecff');
   } else if (emp.modelFamily === 'claude') {

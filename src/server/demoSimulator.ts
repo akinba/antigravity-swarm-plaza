@@ -2,6 +2,7 @@ import type {
   ActivityTimelineBucket,
   AgentActivityKind,
   AgentLogEntry,
+  EmployeeGender,
   FloorAnalytics,
   OfficeEmployee,
   OfficeZone,
@@ -17,6 +18,7 @@ interface DemoEmployeeTemplate {
   id: string;
   name: string;
   roleTitle: string;
+  gender?: EmployeeGender;
   isCoordinator: boolean;
   swarmRole: SwarmRole;
   modelId: string;
@@ -30,6 +32,7 @@ const DEMO_ROSTER: DemoEmployeeTemplate[] = [
     id: 'demo-chief-architect',
     name: 'Chief-Architect',
     roleTitle: 'Boss',
+    gender: 'female',
     isCoordinator: true,
     swarmRole: 'coordinator',
     modelId: 'gemini-argon-orchestrator',
@@ -41,6 +44,7 @@ const DEMO_ROSTER: DemoEmployeeTemplate[] = [
     id: 'demo-coder-core',
     name: 'coder-core',
     roleTitle: 'Backend Engineer',
+    gender: 'male',
     isCoordinator: false,
     swarmRole: 'worker',
     modelId: 'gemini-hydrogen-pro',
@@ -52,6 +56,7 @@ const DEMO_ROSTER: DemoEmployeeTemplate[] = [
     id: 'demo-coder-ui',
     name: 'coder-ui',
     roleTitle: 'Frontend Architect',
+    gender: 'female',
     isCoordinator: false,
     swarmRole: 'worker',
     modelId: 'gemini-hydrogen-pro',
@@ -63,6 +68,7 @@ const DEMO_ROSTER: DemoEmployeeTemplate[] = [
     id: 'demo-analyst-grill',
     name: 'analyst-grill',
     roleTitle: 'Stall Monitor & Risk Analyst',
+    gender: 'male',
     isCoordinator: false,
     swarmRole: 'monitor',
     modelId: 'gemini-flash-2.5',
@@ -74,6 +80,7 @@ const DEMO_ROSTER: DemoEmployeeTemplate[] = [
     id: 'demo-verifier-qa',
     name: 'verifier-qa',
     roleTitle: 'QA & Integration',
+    gender: 'female',
     isCoordinator: false,
     swarmRole: 'verifier',
     modelId: 'gemini-flash-2.5',
@@ -290,6 +297,7 @@ export function getDemoFloor(advance = true): PlazaFloor {
       id: tmpl.id,
       name: tmpl.name,
       roleTitle: tmpl.roleTitle,
+      gender: tmpl.gender,
       isCoordinator: tmpl.isCoordinator,
       modelId: tmpl.modelId,
       modelFamily: tmpl.modelFamily,
