@@ -16,7 +16,12 @@ import {
 } from './config.js';
 import { getDemoAgentLogs, getDemoEmployee, resetDemoTick } from './demoSimulator.js';
 import { buildPlazaSnapshot } from './gamification.js';
-import { rerollFloorLayout, triggerFloorEvent } from './officeEvents.js';
+import {
+  canTriggerAutoFloorEvent,
+  rerollFloorLayout,
+  triggerFloorEvent,
+  tryTriggerAutoFloorEvent,
+} from './officeEvents.js';
 
 export interface PlazaAppOptions {
   agyDataDir?: string;
@@ -290,16 +295,16 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
   const ambientTimer =
     broadcastIntervalMs > 0
       ? setInterval(() => {
+          const nowMs = Date.now();
           const snap = getSnapshot();
-          const eligible = snap.floors.filter(
-            (f) => f.employees.length >= 1 && !f.activeEvent,
-          );
+          const eligible = snap.floors.filter((f) => canTriggerAutoFloorEvent(f, nowMs));
           if (eligible.length > 0) {
             const pick = eligible[Math.floor(Math.random() * eligible.length)];
-            triggerFloorEvent(pick.id);
-            broadcastSnapshot();
+            if (tryTriggerAutoFloorEvent(pick, nowMs)) {
+              broadcastSnapshot();
+            }
           }
-        }, 65_000)
+        }, 90_000)
       : null;
 
   if (ambientTimer && typeof ambientTimer.unref === 'function') {

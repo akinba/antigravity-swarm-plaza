@@ -33,11 +33,16 @@ import {
 import type { OfficeEmployee } from '../../src/shared/types.js';
 import { createPlazaApp } from '../../src/server/index.js';
 import {
+  AUTO_EVENT_COOLDOWN_MS,
+  MIN_BREAK_AGENTS_FOR_SOCIAL_EVENT,
+  countOnBreakOrWaitingAgents,
   getActiveFloorEvent,
   getFloorLayoutSeed,
+  isSocialFloorEvent,
   rerollFloorLayout,
   resetOfficeEventsState,
   triggerFloorEvent,
+  tryTriggerAutoFloorEvent,
 } from '../../src/server/officeEvents.js';
 
 function makeTempDataDir(): string {
@@ -783,6 +788,84 @@ describe('Per-floor layout reroll, random events, and real-work integrity', () =
     assert.equal(workingCoder.activity, 'coding');
     assert.equal(idle1.activity, 'watercooler');
     assert.equal(waiting1.activity, 'watercooler');
+  });
+
+  it('requires >= 2 on-break/waiting agents for auto social events and enforces inter-event cooldown', () => {
+    resetOfficeEventsState();
+    assert.equal(MIN_BREAK_AGENTS_FOR_SOCIAL_EVENT, 2);
+    assert.ok(AUTO_EVENT_COOLDOWN_MS >= 120_000);
+
+    const baseTime = 1_000_000;
+    const makeEmp = (
+      id: string,
+      status: OfficeEmployee['status'],
+      zone: OfficeEmployee['zone'],
+      activity: OfficeEmployee['activity'],
+    ): OfficeEmployee => ({
+      id,
+      name: `emp-${id}`,
+      roleTitle: 'Engineer',
+      isCoordinator: false,
+      modelId: 'gemini-hydrogen',
+      modelFamily: 'hydrogen',
+      workspaceMode: 'inherit',
+      status,
+      zone,
+      activity,
+      xp: 100,
+      level: 2,
+      stepCount: 5,
+      inputTokens: 0,
+      cacheReadTokens: 0,
+      outputTokens: 0,
+      lastActiveAt: new Date(baseTime).toISOString(),
+    });
+
+    // Only 1 agent on break -> social/costume events must NOT auto-trigger
+    const oneBreakFloor = {
+      id: 'floor-1-break',
+      employees: [
+        makeEmp('w1', 'working', 'DESK_CODING', 'coding'),
+        makeEmp('w2', 'working', 'DESK_QA', 'terminal'),
+        makeEmp('b1', 'waiting', 'COFFEE_LOUNGE', 'coffee'),
+      ],
+      activeEvent: null,
+    };
+    assert.equal(countOnBreakOrWaitingAgents(oneBreakFloor.employees), 1);
+
+    const firstAuto = tryTriggerAutoFloorEvent(oneBreakFloor, baseTime);
+    assert.ok(firstAuto);
+    assert.equal(isSocialFloorEvent(firstAuto.kind), false);
+
+    // Cooldown prevents immediate re-trigger even after event expires (16s < 150s)
+    assert.equal(tryTriggerAutoFloorEvent(oneBreakFloor, baseTime + 20_000), null);
+
+    // After cooldown expires, still < 2 on break -> still non-social only
+    const secondAuto = tryTriggerAutoFloorEvent(
+      oneBreakFloor,
+      baseTime + AUTO_EVENT_COOLDOWN_MS + 1000,
+    );
+    assert.ok(secondAuto);
+    assert.equal(isSocialFloorEvent(secondAuto.kind), false);
+
+    // >= 2 agents on break -> social/costume event CAN auto-trigger once cooldown has elapsed
+    const twoBreakFloor = {
+      id: 'floor-2-break',
+      employees: [
+        makeEmp('w1', 'working', 'DESK_CODING', 'coding'),
+        makeEmp('b1', 'waiting', 'COFFEE_LOUNGE', 'coffee'),
+        makeEmp('b2', 'idle', 'COFFEE_LOUNGE', 'lounging'),
+      ],
+      activeEvent: null,
+    };
+    assert.equal(countOnBreakOrWaitingAgents(twoBreakFloor.employees), 2);
+    const socialAuto = tryTriggerAutoFloorEvent(twoBreakFloor, baseTime);
+    assert.ok(socialAuto);
+    assert.equal(isSocialFloorEvent(socialAuto.kind), true);
+
+    // Manual triggerFloorEvent still works immediately regardless of break count or cooldown
+    const manualEv = triggerFloorEvent('floor-1-break', 'PIZZA_PARTY', baseTime + 5000);
+    assert.equal(manualEv.kind, 'PIZZA_PARTY');
   });
 });
 
