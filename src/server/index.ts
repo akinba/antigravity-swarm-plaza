@@ -149,7 +149,13 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
 
   // Serve built frontend if dist/client/index.html exists
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
-  const clientDistDir = path.resolve(__dirname, '../../dist/client');
+  const clientCandidates = [
+    path.resolve(__dirname, '../client'),
+    path.resolve(__dirname, '../../dist/client'),
+  ];
+  const clientDistDir =
+    clientCandidates.find((dir) => fs.existsSync(path.join(dir, 'index.html'))) ??
+    clientCandidates[1];
   const clientIndexHtml = path.join(clientDistDir, 'index.html');
 
   if (fs.existsSync(clientIndexHtml)) {

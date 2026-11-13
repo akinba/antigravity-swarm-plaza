@@ -47,6 +47,33 @@
 
 ---
 
+### ⚡ Tek Komutla Çalıştırma (`npx`)
+
+Kurulum veya derleme yapmadan doğrudan çalıştırın (Node.js `>= 22.5.0` gerekir):
+
+```bash
+npx antigravity-swarm-plaza
+```
+
+| Bayrak / Flag | Açıklama |
+| :--- | :--- |
+| `--demo` | Demo modu açık başlatır (örnek ajanlar ve canlı swarm mesajlarıyla) |
+| `--port <n>` | Özel HTTP/WS portu belirler (varsayılan: `3210`) |
+| `--no-open` | Tarayıcıyı otomatik açmaz |
+| `--workspace <yol>` | Belirli bir çalışma alanı dizinini öne çıkarır |
+
+### 🧩 Antigravity Eklentisi (Plugin)
+
+Dashboard'u doğrudan Google Antigravity içinden skill olarak başlatmak için eklentiyi tek komutla kurabilirsiniz:
+
+```bash
+npx antigravity-swarm-plaza --install-plugin
+```
+
+Bu komut eklenti paketini `~/.gemini/config/plugins/antigravity-swarm-plaza/` dizinine kurar (`swarm-plaza` skill'i ile).
+
+---
+
 ### 🚀 Kurulum ve Çalıştırma
 
 #### Gereksinimler
@@ -92,7 +119,32 @@ npm test           # Sunucu ve istemci birim/entegrasyon testleri (37 test)
 - **60-Min Analytics, Follow Cam & PNG Export:** 60-minute activity timeline, model breakdown charts, wheel zoom/drag pan, Follow Cam, 8-bit/browser alert notifications, XP-based desk evolution, and one-click PNG snapshot download.
 - **100% Read-Only Safety:** Strictly inspects `~/.gemini/antigravity` with read-only SQLite (`?mode=ro`) and file streams. Never mutates user data.
 
-### ⚡ Quick Start
+### ⚡ Quick Run (`npx`)
+
+Run immediately without cloning or building (requires Node.js `>= 22.5.0`):
+
+```bash
+npx antigravity-swarm-plaza
+```
+
+| Flag | Description |
+| :--- | :--- |
+| `--demo` | Start with Demo Mode enabled (sample agents & live swarm feed) |
+| `--port <n>` | Specify a custom HTTP/WS port (default: `3210`) |
+| `--no-open` | Do not automatically open the browser |
+| `--workspace <path>` | Highlight a specific workspace directory |
+
+### 🧩 Antigravity Plugin
+
+Install the bundled Antigravity plugin (`swarm-plaza` skill) with one command:
+
+```bash
+npx antigravity-swarm-plaza --install-plugin
+```
+
+This installs the plugin into `~/.gemini/config/plugins/antigravity-swarm-plaza/`.
+
+### 🚀 Quick Start (From Source)
 
 ```bash
 # Requires Node.js >= 22.5.0

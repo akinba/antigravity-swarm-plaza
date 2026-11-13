@@ -119,19 +119,101 @@ export function drawExtraFurnitureProp(
     return true;
   }
 
-  if (kind === 'glass_partition') {
-    const px = cx - 16 * z;
-    const py = cy - 28 * z;
-    ctx.fillStyle = 'rgba(110, 210, 255, 0.28)';
-    ctx.fillRect(Math.round(px), Math.round(py), Math.ceil(32 * z), Math.ceil(26 * z));
-    ctx.strokeStyle = '#6ec8f5';
-    ctx.lineWidth = Math.max(1, 1.5 * z);
-    ctx.strokeRect(Math.round(px), Math.round(py), Math.ceil(32 * z), Math.ceil(26 * z));
+  if (kind === 'glass_partition' || kind === 'glass_partition_x') {
+    // Thin 2.5D isometric glass wall panel (Y-axis: NE<->SW, X-axis: NW<->SE)
+    const isX = kind === 'glass_partition_x';
+    const x1 = isX ? cx - 18 * z : cx + 18 * z;
+    const y1 = cy - 9 * z;
+    const x2 = isX ? cx + 18 * z : cx - 18 * z;
+    const y2 = cy + 9 * z;
+    const wallH = 30 * z;
+
+    // Aluminum floor track
+    ctx.strokeStyle = '#4d5d7a';
+    ctx.lineWidth = Math.max(2, 3 * z);
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+
+    // Translucent glass pane
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.lineTo(x2, y2 - wallH);
+    ctx.lineTo(x1, y1 - wallH);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(130, 222, 255, 0.34)';
+    ctx.fill();
+
+    // Aluminum frame (posts + top rail)
+    ctx.strokeStyle = '#7cd7ff';
+    ctx.lineWidth = Math.max(1.2, 1.8 * z);
+    ctx.stroke();
+
+    // Center mullion & diagonal specular reflection
+    ctx.strokeStyle = 'rgba(210, 245, 255, 0.75)';
+    ctx.lineWidth = Math.max(1, 1.2 * z);
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx, cy - wallH);
+    ctx.moveTo(cx - 10 * z, cy - 6 * z);
+    ctx.lineTo(cx - 2 * z, cy - 22 * z);
+    ctx.moveTo(cx + 4 * z, cy - 11 * z);
+    ctx.lineTo(cx + 10 * z, cy - 24 * z);
+    ctx.stroke();
     return true;
   }
 
-  if (kind === 'wood_partition') {
-    drawBox(ctx, cx, cy, 16, 4, 22, '#9c683e', '#754c2b', '#52341c', z);
+  if (kind === 'wood_partition' || kind === 'wood_partition_x') {
+    // Thin 2.5D isometric wood-slat acoustic partition wall
+    const isX = kind === 'wood_partition_x';
+    const x1 = isX ? cx - 18 * z : cx + 18 * z;
+    const y1 = cy - 9 * z;
+    const x2 = isX ? cx + 18 * z : cx - 18 * z;
+    const y2 = cy + 9 * z;
+    const wallH = 26 * z;
+
+    // Dark aluminum floor track
+    ctx.strokeStyle = '#1f2536';
+    ctx.lineWidth = Math.max(2, 3 * z);
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+
+    // Warm wood panel face
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.lineTo(x2, y2 - wallH);
+    ctx.lineTo(x1, y1 - wallH);
+    ctx.closePath();
+    ctx.fillStyle = isX ? '#7c512f' : '#94623a';
+    ctx.fill();
+
+    // Vertical acoustic wood slats
+    ctx.strokeStyle = '#52341c';
+    ctx.lineWidth = Math.max(1, 1.3 * z);
+    for (let i = 1; i <= 5; i++) {
+      const t = i / 6;
+      const sx = x1 + (x2 - x1) * t;
+      const sy = y1 + (y2 - y1) * t;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy - 2 * z);
+      ctx.lineTo(sx, sy - wallH + 2 * z);
+      ctx.stroke();
+    }
+
+    // Aluminum frame posts & top rail
+    ctx.strokeStyle = '#2c3347';
+    ctx.lineWidth = Math.max(1.2, 1.8 * z);
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x1, y1 - wallH);
+    ctx.lineTo(x2, y2 - wallH);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
     return true;
   }
 

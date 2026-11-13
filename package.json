@@ -1,14 +1,25 @@
 {
-  "name": "swarm-plaza-dashboard",
-  "version": "1.0.0",
-  "private": true,
+  "name": "antigravity-swarm-plaza",
+  "version": "1.1.0",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.5.0"
+  },
   "type": "module",
+  "bin": {
+    "antigravity-swarm-plaza": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "plugin",
+    "README.md"
+  ],
   "scripts": {
     "dev": "concurrently \"npm.cmd run dev:server\" \"npm.cmd run dev:client\"",
     "dev:server": "tsx watch src/server/index.ts",
     "dev:client": "vite",
-    "build": "vite build",
-    "start": "tsx src/server/index.ts",
+    "build": "vite build && tsc -p tsconfig.server.json",
+    "start": "node dist/cli.js --no-open",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/server/*.test.ts tests/client/*.test.ts"
   },
