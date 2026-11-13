@@ -577,4 +577,129 @@ describe('Renamed project display names & subagent/task messages/*.json board', 
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
+
+  it('normalizes Swarm Worker (coder-ui) and Swarm Worker (monitor) to @coder-ui / @monitor in boardMessages and swarmEdges', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'plaza-worker-norm-'));
+    try {
+      const db = new DatabaseSync(path.join(tmpDir, 'conversation_summaries.db'));
+      db.exec(`
+        CREATE TABLE conversation_summaries (
+          conversation_id TEXT PRIMARY KEY,
+          title TEXT,
+          step_count INTEGER,
+          last_modified_time TEXT,
+          workspace_uris TEXT,
+          status TEXT,
+          project_id TEXT,
+          agent_name TEXT,
+          parent_conversation_id TEXT,
+          not_fully_idle INTEGER,
+          killed INTEGER
+        );
+      `);
+      const nowIso = new Date().toISOString();
+      const stmt = db.prepare(
+        `INSERT INTO conversation_summaries (conversation_id, title, step_count, last_modified_time, workspace_uris, status, project_id, agent_name, parent_conversation_id, not_fully_idle, killed)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      );
+      stmt.run(
+        'root-w',
+        'Coordinator',
+        15,
+        nowIso,
+        '["file:///d%3A/Projects/Norm"]',
+        'CASCADE_RUN_STATUS_RUNNING',
+        'proj-norm',
+        'coordinator',
+        null,
+        1,
+        0,
+      );
+      stmt.run(
+        'sub-ui',
+        'coder-ui',
+        10,
+        nowIso,
+        '[]',
+        'CASCADE_RUN_STATUS_RUNNING',
+        'proj-norm',
+        'Swarm Worker (coder-ui)',
+        'root-w',
+        1,
+        0,
+      );
+      stmt.run(
+        'sub-mon',
+        'monitor',
+        5,
+        nowIso,
+        '[]',
+        'CASCADE_RUN_STATUS_RUNNING',
+        'proj-norm',
+        'Swarm Worker (monitor)',
+        'root-w',
+        1,
+        0,
+      );
+      db.close();
+
+      const subDir = path.join(tmpDir, 'brain', 'root-w', '.system_generated', 'subagents');
+      const msgDir = path.join(tmpDir, 'brain', 'root-w', '.system_generated', 'messages');
+      fs.mkdirSync(subDir, { recursive: true });
+      fs.mkdirSync(msgDir, { recursive: true });
+
+      fs.writeFileSync(
+        path.join(subDir, 'sub-ui.json'),
+        JSON.stringify({
+          conversationId: 'sub-ui',
+          subagentDescriptor: { typeName: 'worker', role: 'Swarm Worker (coder-ui)' },
+          prompt: 'Build UI',
+        }),
+        'utf8',
+      );
+      fs.writeFileSync(
+        path.join(subDir, 'sub-mon.json'),
+        JSON.stringify({
+          conversationId: 'sub-mon',
+          subagentDescriptor: { typeName: 'worker', role: 'Swarm Worker (monitor)' },
+          prompt: 'Watch board',
+        }),
+        'utf8',
+      );
+      fs.writeFileSync(
+        path.join(msgDir, 'm1.json'),
+        JSON.stringify({
+          id: 'm1',
+          sender: 'root-w',
+          recipient: 'sub-ui',
+          timestamp: nowIso,
+          renderDetails: { messageTitle: 'Handoff' },
+          content: '@Swarm Worker (coder-ui) please check @Swarm Worker (monitor)',
+        }),
+        'utf8',
+      );
+
+      const snap = buildPlazaSnapshot(tmpDir, '', false);
+      const floor = snap.floors.find((f) => f.companyName === 'Norm');
+      assert.ok(floor);
+      assert.ok(
+        floor.boardMessages.some(
+          (m) => m.text.includes('@coder-ui') && m.text.includes('@monitor'),
+        ),
+      );
+      assert.ok(
+        !floor.boardMessages.some((m) => m.text.includes('Swarm Worker (')),
+      );
+      assert.ok(floor.swarmEdges && floor.swarmEdges.length >= 2);
+      assert.ok(
+        floor.swarmEdges.some((e) => e.from === 'coordinator' && e.to === 'coder-ui'),
+      );
+      assert.ok(
+        floor.swarmEdges.some((e) => e.from === 'coordinator' && e.to === 'monitor'),
+      );
+      assert.ok(!floor.swarmEdges.some((e) => e.to === 'Swarm'));
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });

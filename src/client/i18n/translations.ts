@@ -110,6 +110,9 @@ export interface Translations {
     noEdges: string;
     mentionsUnit: string;
     lastSeqPrefix: string;
+    liveActive: string;
+    jumpToLive: string;
+    newMessagesSuffix: string;
   };
   analyticsModal: {
     title: string;
@@ -292,6 +295,9 @@ const TR: Translations = {
     noEdges: 'Henüz @mention etkileşimi kaydedilmedi.',
     mentionsUnit: 'etkileşim',
     lastSeqPrefix: 'Son #',
+    liveActive: '● CANLI TAKİP',
+    jumpToLive: '↓ SON MESAJLAR',
+    newMessagesSuffix: 'yeni',
   },
   analyticsModal: {
     title: 'KAT ANALİTİĞİ & TELEMETRİ',
@@ -474,6 +480,9 @@ const EN: Translations = {
     noEdges: 'No @mention interactions recorded yet.',
     mentionsUnit: 'mentions',
     lastSeqPrefix: 'Last #',
+    liveActive: '● LIVE',
+    jumpToLive: '↓ JUMP TO LIVE',
+    newMessagesSuffix: 'new',
   },
   analyticsModal: {
     title: 'FLOOR ANALYTICS & TELEMETRY',
@@ -614,7 +623,7 @@ export function detectDefaultLocale(navLanguage?: string): Locale {
   return (navLanguage || '').toLowerCase().startsWith('tr') ? 'tr' : 'en';
 }
 
-const DICTIONARIES: Record<Locale, Translations> = { tr: TR, en: EN };
+export const DICTIONARIES: Record<Locale, Translations> = { tr: TR, en: EN };
 const LOCALE_STORAGE_KEY = 'swarm_plaza_locale';
 
 interface I18nContextValue {

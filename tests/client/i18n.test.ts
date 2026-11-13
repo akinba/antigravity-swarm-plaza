@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  DICTIONARIES,
   detectDefaultLocale,
   localizeServerText,
   localizeSnapshot,
@@ -239,5 +240,15 @@ describe('i18n browser locale & server snapshot localization', () => {
       );
       assert.ok(SERVER_TR_TO_EN[key].length > 0, `Empty translation for: ${key}`);
     }
+  });
+
+  it('whiteboardModal includes liveActive, jumpToLive, and newMessagesSuffix for tr and en', () => {
+    assert.equal(DICTIONARIES.tr.whiteboardModal.liveActive, '● CANLI TAKİP');
+    assert.equal(DICTIONARIES.tr.whiteboardModal.jumpToLive, '↓ SON MESAJLAR');
+    assert.equal(DICTIONARIES.tr.whiteboardModal.newMessagesSuffix, 'yeni');
+
+    assert.equal(DICTIONARIES.en.whiteboardModal.liveActive, '● LIVE');
+    assert.equal(DICTIONARIES.en.whiteboardModal.jumpToLive, '↓ JUMP TO LIVE');
+    assert.equal(DICTIONARIES.en.whiteboardModal.newMessagesSuffix, 'new');
   });
 });

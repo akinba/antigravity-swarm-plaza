@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { SwarmBoardMessage, SwarmMentionEdge } from '../../shared/types';
 import { playSelectBlip } from '../audio/retroSynth';
 import { useI18n } from '../i18n/translations';
@@ -55,6 +55,14 @@ function deriveEdgesFromMessages(messages: SwarmBoardMessage[]): SwarmMentionEdg
   return Array.from(map.values()).sort((a, b) => b.count - a.count || b.lastSeq - a.lastSeq);
 }
 
+function getMaxSeq(messages: SwarmBoardMessage[]): number {
+  let max = 0;
+  for (const m of messages) {
+    if (m.seq > max) max = m.seq;
+  }
+  return max;
+}
+
 export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
   companyName,
   swarmTitle,
@@ -64,6 +72,111 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
 }) => {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<'feed' | 'graph'>('feed');
+  const feedRef = useRef<HTMLDivElement | null>(null);
+  const isProgrammaticScrollRef = useRef(false);
+  const scrollTimerRef = useRef<number | null>(null);
+  const [isLiveFollow, setIsLiveFollow] = useState(true);
+  const isLiveFollowRef = useRef(true);
+  const initialMaxSeqRef = useRef<number>(getMaxSeq(messages));
+  const pausedMaxSeqRef = useRef<number>(getMaxSeq(messages));
+
+  useEffect(() => {
+    isLiveFollowRef.current = isLiveFollow;
+  }, [isLiveFollow]);
+
+  useEffect(() => {
+    const maxSeq = getMaxSeq(messages);
+    initialMaxSeqRef.current = maxSeq;
+    pausedMaxSeqRef.current = maxSeq;
+    isLiveFollowRef.current = true;
+    setIsLiveFollow(true);
+    // Reset only when switching floors/companies
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyName]);
+
+  useEffect(() => {
+    return () => {
+      if (scrollTimerRef.current !== null) {
+        window.clearTimeout(scrollTimerRef.current);
+      }
+    };
+  }, []);
+
+  const scrollToLatest = useCallback((smooth = false) => {
+    const el = feedRef.current;
+    if (!el) return;
+
+    if (scrollTimerRef.current !== null) {
+      window.clearTimeout(scrollTimerRef.current);
+      scrollTimerRef.current = null;
+    }
+
+    isProgrammaticScrollRef.current = true;
+    if (smooth) {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    } else {
+      el.scrollTop = el.scrollHeight;
+    }
+
+    requestAnimationFrame(() => {
+      if (!smooth && feedRef.current) {
+        feedRef.current.scrollTop = feedRef.current.scrollHeight;
+      }
+      scrollTimerRef.current = window.setTimeout(() => {
+        isProgrammaticScrollRef.current = false;
+        scrollTimerRef.current = null;
+      }, smooth ? 650 : 80);
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (activeTab === 'feed' && isLiveFollow) {
+      scrollToLatest(false);
+    }
+  }, [activeTab, isLiveFollow, messages, scrollToLatest]);
+
+  const handleFeedScroll = useCallback(() => {
+    const el = feedRef.current;
+    if (!el) return;
+    const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (isProgrammaticScrollRef.current) {
+      if (dist <= 20) {
+        isProgrammaticScrollRef.current = false;
+        if (scrollTimerRef.current !== null) {
+          window.clearTimeout(scrollTimerRef.current);
+          scrollTimerRef.current = null;
+        }
+      }
+      return;
+    }
+    if (dist > 48 && isLiveFollowRef.current) {
+      pausedMaxSeqRef.current = getMaxSeq(messages);
+      isLiveFollowRef.current = false;
+      setIsLiveFollow(false);
+    } else if (dist <= 20 && !isLiveFollowRef.current) {
+      isLiveFollowRef.current = true;
+      setIsLiveFollow(true);
+    }
+  }, [messages]);
+
+  const handleJumpToLive = useCallback(() => {
+    playSelectBlip();
+    setActiveTab('feed');
+    isLiveFollowRef.current = true;
+    setIsLiveFollow(true);
+    requestAnimationFrame(() => {
+      scrollToLatest(true);
+    });
+  }, [scrollToLatest]);
+
+  const unreadCount = useMemo(() => {
+    if (isLiveFollow) return 0;
+    let count = 0;
+    for (const msg of messages) {
+      if (msg.seq > pausedMaxSeqRef.current) count += 1;
+    }
+    return count;
+  }, [isLiveFollow, messages]);
 
   const edges = useMemo(() => {
     if (swarmEdges && swarmEdges.length > 0) {
@@ -129,9 +242,20 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                 {swarmTitle}
               </span>
             )}
-            <span className="pixel-badge" style={{ color: '#3be87a' }}>
+            <button
+              type="button"
+              className="pixel-badge"
+              onClick={handleJumpToLive}
+              style={{
+                color: '#3be87a',
+                cursor: 'pointer',
+                border: '1px solid #2b6b45',
+                background: '#14231d',
+                fontFamily: 'inherit',
+              }}
+            >
               ● {messages.length} {t.whiteboardModal.messagesCount}
-            </span>
+            </button>
             <span className="pixel-badge" style={{ color: '#b07cff' }}>
               ⇄ {edges.length} {t.whiteboardModal.edgesCount}
             </span>
@@ -171,74 +295,130 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
           >
             {t.whiteboardModal.tabGraph} ({edges.length})
           </button>
+          <button
+            type="button"
+            className={`pixel-btn ${isLiveFollow ? 'active' : 'primary'}`}
+            onClick={handleJumpToLive}
+            style={{
+              marginLeft: 'auto',
+              fontSize: 10,
+              padding: '4px 10px',
+              color: isLiveFollow ? '#3be87a' : '#ffd147',
+              borderColor: isLiveFollow ? '#3be87a' : '#ffd147',
+              background: isLiveFollow ? '#13281d' : '#252116',
+            }}
+          >
+            {isLiveFollow
+              ? t.whiteboardModal.liveActive
+              : `${t.whiteboardModal.jumpToLive}${
+                  unreadCount > 0 ? ` (+${unreadCount} ${t.whiteboardModal.newMessagesSuffix})` : ''
+                }`}
+          </button>
         </div>
 
         {activeTab === 'feed' ? (
           /* Messages Feed */
           <div
-            className="pixel-panel-inset"
             style={{
+              position: 'relative',
               flex: 1,
               minHeight: 280,
               maxHeight: 460,
-              overflowY: 'auto',
-              padding: 12,
               display: 'flex',
               flexDirection: 'column',
-              gap: 8,
             }}
           >
-            {messages.length === 0 ? (
-              <div style={{ fontSize: 12, color: 'var(--text-dim)', padding: 20, textAlign: 'center' }}>
-                {t.whiteboardModal.empty}
-              </div>
-            ) : (
-              messages.map((msg) => (
-                <div
-                  key={`${msg.seq}-${msg.time}`}
-                  style={{
-                    padding: '8px 10px',
-                    background: '#171c2b',
-                    border: '1px solid #2d3654',
-                    fontSize: 12,
-                    lineHeight: 1.45,
-                  }}
-                >
+            <div
+              ref={feedRef}
+              onScroll={handleFeedScroll}
+              className="pixel-panel-inset"
+              style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: 12,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+              }}
+            >
+              {messages.length === 0 ? (
+                <div style={{ fontSize: 12, color: 'var(--text-dim)', padding: 20, textAlign: 'center' }}>
+                  {t.whiteboardModal.empty}
+                </div>
+              ) : (
+                messages.map((msg) => (
                   <div
+                    key={`${msg.seq}-${msg.time}`}
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: 8,
-                      marginBottom: 4,
+                      padding: '8px 10px',
+                      background: '#171c2b',
+                      border: '1px solid #2d3654',
+                      borderLeft:
+                        msg.seq > initialMaxSeqRef.current ? '3px solid #3be87a' : '1px solid #2d3654',
+                      fontSize: 12,
+                      lineHeight: 1.45,
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                      <span className="pixel-badge" style={{ color: '#ffd147' }}>
-                        #{msg.seq}
-                      </span>
-                      <span
-                        className="pixel-badge"
-                        style={{
-                          color: msg.agent === 'coordinator' ? '#ffd147' : '#3cd8ff',
-                          background: '#222940',
-                        }}
-                      >
-                        {msg.agent === 'coordinator' ? '★ BOSS' : msg.agent}
-                      </span>
-                      {msg.kind && (
-                        <span className="pixel-badge" style={{ color: '#9aa7c7' }}>
-                          {msg.kind}
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 8,
+                        marginBottom: 4,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <span className="pixel-badge" style={{ color: '#ffd147' }}>
+                          #{msg.seq}
                         </span>
-                      )}
+                        <span
+                          className="pixel-badge"
+                          style={{
+                            color: msg.agent === 'coordinator' ? '#ffd147' : '#3cd8ff',
+                            background: '#222940',
+                          }}
+                        >
+                          {msg.agent === 'coordinator' ? '★ BOSS' : msg.agent}
+                        </span>
+                        {msg.kind && (
+                          <span className="pixel-badge" style={{ color: '#9aa7c7' }}>
+                            {msg.kind}
+                          </span>
+                        )}
+                      </div>
+                      <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{msg.time}</span>
                     </div>
-                    <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{msg.time}</span>
+                    <div style={{ color: '#eef2fc', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                      {renderMessageText(msg.text)}
+                    </div>
                   </div>
-                  <div style={{ color: '#eef2fc', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                    {renderMessageText(msg.text)}
-                  </div>
-                </div>
-              ))
+                ))
+              )}
+            </div>
+
+            {activeTab === 'feed' && !isLiveFollow && messages.length > 0 && (
+              <button
+                type="button"
+                className="pixel-btn primary"
+                onClick={handleJumpToLive}
+                style={{
+                  position: 'absolute',
+                  bottom: 12,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  zIndex: 5,
+                  fontSize: 10,
+                  padding: '5px 12px',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.55)',
+                  borderColor: '#ffd147',
+                  color: '#ffd147',
+                  background: '#1c2235',
+                }}
+              >
+                {t.whiteboardModal.jumpToLive}
+                {unreadCount > 0 ? ` (+${unreadCount} ${t.whiteboardModal.newMessagesSuffix})` : ''}
+              </button>
             )}
           </div>
         ) : (
