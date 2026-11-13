@@ -21,6 +21,7 @@ interface WhiteboardModalProps {
   employees?: OfficeEmployee[];
   agentResources?: AgentResourceUsage[];
   activeEventKind?: FloorEventKind | null;
+  initialTab?: 'feed' | 'personnel' | 'tasks' | 'gantt';
   onSelectEmployee?: (employee: OfficeEmployee) => void;
   onClose: () => void;
 }
@@ -192,11 +193,12 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
   employees = [],
   agentResources = [],
   activeEventKind = null,
+  initialTab = 'feed',
   onSelectEmployee,
   onClose,
 }) => {
   const { t, locale } = useI18n();
-  const [activeTab, setActiveTab] = useState<'feed' | 'personnel' | 'tasks' | 'gantt'>('feed');
+  const [activeTab, setActiveTab] = useState<'feed' | 'personnel' | 'tasks' | 'gantt'>(initialTab);
   const [selectedGanttBlock, setSelectedGanttBlock] = useState<{
     agentName: string;
     phase: WorkPhase;
@@ -804,18 +806,25 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                                 >
                                   {resource?.modelName ?? emp.modelId}
                                 </span>
-                                {emp.health?.isVerifiedOutput && (
-                                  <span
-                                    className="pixel-badge"
-                                    style={{
-                                      color: '#3be87a',
-                                      background: '#13281d',
-                                      borderColor: '#2d7a4f',
-                                    }}
-                                  >
-                                    ✅ {emp.health.verifiedLabel || t.rpgModal.verifiedBadgeLabel}
-                                  </span>
-                                )}
+                                {emp.health?.isVerifiedOutput && (() => {
+                                  const rawLabel =
+                                    emp.health.verifiedLabel || t.rpgModal.verifiedBadgeLabel;
+                                  const displayLabel = rawLabel.trim().startsWith('✅')
+                                    ? rawLabel.trim()
+                                    : `✅ ${rawLabel}`;
+                                  return (
+                                    <span
+                                      className="pixel-badge"
+                                      style={{
+                                        color: '#3be87a',
+                                        background: '#13281d',
+                                        borderColor: '#2d7a4f',
+                                      }}
+                                    >
+                                      {displayLabel}
+                                    </span>
+                                  );
+                                })()}
                               </div>
 
                               <div style={{ fontSize: 11, color: '#dce6ff', lineHeight: 1.35 }}>
@@ -1222,7 +1231,9 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                             className="pixel-badge"
                             style={{ color: '#ffd147', background: '#252116', borderColor: '#786221' }}
                           >
-                            ✅ {node.verifiedKeyword}
+                            {node.verifiedKeyword.trim().startsWith('✅')
+                              ? node.verifiedKeyword.trim()
+                              : `✅ ${node.verifiedKeyword}`}
                           </span>
                         )}
                         {node.evidenceBadges.map((badge, idx) => (

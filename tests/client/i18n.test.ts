@@ -305,5 +305,9 @@ describe('i18n browser locale & server snapshot localization', () => {
       assert.ok(DICTIONARIES.tr.whiteboardModal[key].length > 0, `tr.whiteboardModal.${key}`);
       assert.ok(DICTIONARIES.en.whiteboardModal[key].length > 0, `en.whiteboardModal.${key}`);
     }
+
+    // RPG Modal Back to List translation
+    assert.equal(DICTIONARIES.tr.rpgModal.backToList, '⬅ LİSTEYE DÖN');
+    assert.equal(DICTIONARIES.en.rpgModal.backToList, '⬅ BACK TO LIST');
   });
 });

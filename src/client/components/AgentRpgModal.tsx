@@ -8,6 +8,7 @@ import { sidecarFetch } from '../sidecarBridge';
 interface AgentRpgModalProps {
   employee: OfficeEmployee;
   activeEventKind?: FloorEventKind | null;
+  onBack?: () => void;
   onClose: () => void;
 }
 
@@ -17,7 +18,12 @@ function formatNumber(n: number): string {
   return String(n);
 }
 
-export const AgentRpgModal: React.FC<AgentRpgModalProps> = ({ employee, activeEventKind, onClose }) => {
+export const AgentRpgModal: React.FC<AgentRpgModalProps> = ({
+  employee,
+  activeEventKind,
+  onBack,
+  onClose,
+}) => {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<'profile' | 'logs'>('profile');
   const [liveEmp, setLiveEmp] = useState<OfficeEmployee>(employee);
@@ -83,7 +89,19 @@ export const AgentRpgModal: React.FC<AgentRpgModalProps> = ({ employee, activeEv
             paddingBottom: 10,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            {onBack && (
+              <button
+                type="button"
+                className="pixel-btn cyan"
+                onClick={() => {
+                  playSelectBlip();
+                  onBack();
+                }}
+              >
+                {t.rpgModal.backToList}
+              </button>
+            )}
             <span
               className="pixel-badge"
               style={{ background: uniform.dark, color: uniform.trim, borderColor: uniform.trim }}

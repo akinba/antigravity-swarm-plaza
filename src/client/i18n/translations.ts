@@ -103,6 +103,7 @@ export interface Translations {
     stepsErrorsLabel: string;
     verifiedBadgeLabel: string;
     unverifiedBadgeLabel: string;
+    backToList: string;
   };
   whiteboardModal: {
     title: string;
@@ -336,6 +337,7 @@ const TR: Translations = {
     stepsErrorsLabel: 'Adım / Hata',
     verifiedBadgeLabel: 'DOĞRULANDI',
     unverifiedBadgeLabel: 'DOĞRULANMADI',
+    backToList: '⬅ LİSTEYE DÖN',
   },
   whiteboardModal: {
     title: 'SWARM BEYAZ TAHTA PANOSU',
@@ -570,6 +572,7 @@ const EN: Translations = {
     stepsErrorsLabel: 'Steps / Errors',
     verifiedBadgeLabel: 'VERIFIED',
     unverifiedBadgeLabel: 'UNVERIFIED',
+    backToList: '⬅ BACK TO LIST',
   },
   whiteboardModal: {
     title: 'SWARM WHITEBOARD',

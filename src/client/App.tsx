@@ -48,6 +48,10 @@ export const App: React.FC = () => {
     isNotificationsEnabled(),
   );
   const [followCam, setFollowCam] = useState<boolean>(false);
+  const [rpgOpenedFromWhiteboard, setRpgOpenedFromWhiteboard] = useState<boolean>(false);
+  const [whiteboardInitialTab, setWhiteboardInitialTab] = useState<
+    'feed' | 'personnel' | 'tasks' | 'gantt'
+  >('feed');
   const [wsConnected, setWsConnected] = useState<boolean>(false);
 
   const [selectedEmployee, setSelectedEmployee] = useState<OfficeEmployee | null>(null);
@@ -444,7 +448,20 @@ export const App: React.FC = () => {
             selectedEmployee
           }
           activeEventKind={activeFloor?.activeEvent?.kind ?? null}
-          onClose={() => setSelectedEmployee(null)}
+          onBack={
+            rpgOpenedFromWhiteboard
+              ? () => {
+                  setSelectedEmployee(null);
+                  setRpgOpenedFromWhiteboard(false);
+                  setWhiteboardInitialTab('personnel');
+                  setWhiteboardOpen(true);
+                }
+              : undefined
+          }
+          onClose={() => {
+            setSelectedEmployee(null);
+            setRpgOpenedFromWhiteboard(false);
+          }}
         />
       )}
 
@@ -458,11 +475,16 @@ export const App: React.FC = () => {
           employees={activeFloor.employees}
           agentResources={activeFloor.analytics?.agentResources}
           activeEventKind={activeFloor.activeEvent?.kind ?? null}
+          initialTab={whiteboardInitialTab}
           onSelectEmployee={(emp) => {
             setWhiteboardOpen(false);
+            setRpgOpenedFromWhiteboard(true);
             setSelectedEmployee(emp);
           }}
-          onClose={() => setWhiteboardOpen(false)}
+          onClose={() => {
+            setWhiteboardOpen(false);
+            setWhiteboardInitialTab('feed');
+          }}
         />
       )}
 
