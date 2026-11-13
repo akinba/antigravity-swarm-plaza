@@ -3,6 +3,7 @@ import type { AgentDetailResponse, AgentLogEntry, OfficeEmployee } from '../../s
 import { playSelectBlip } from '../audio/retroSynth';
 import { drawEmployeePortrait, UNIFORM_COLORS } from '../engine/pixelSprites';
 import { useI18n } from '../i18n/translations';
+import { sidecarFetch } from '../sidecarBridge';
 
 interface AgentRpgModalProps {
   employee: OfficeEmployee;
@@ -41,7 +42,7 @@ export const AgentRpgModal: React.FC<AgentRpgModalProps> = ({ employee, onClose 
 
     const fetchLogs = async () => {
       try {
-        const res = await fetch(`/api/agents/${encodeURIComponent(employee.id)}/logs`);
+        const res = await sidecarFetch(`/api/agents/${encodeURIComponent(employee.id)}/logs`);
         if (!res.ok) return;
         const data = (await res.json()) as AgentDetailResponse;
         if (cancelled) return;

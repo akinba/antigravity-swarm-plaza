@@ -1,4 +1,5 @@
 node_modules/
 dist/
+plugin/sidecars/swarm_plaza/dist/
 .env
 *.log

@@ -21,6 +21,7 @@ import { TopHud } from './components/TopHud';
 import { WhiteboardModal } from './components/WhiteboardModal';
 import { OfficeCanvas } from './engine/OfficeCanvas';
 import { PlazaTowerCanvas } from './engine/PlazaTowerCanvas';
+import { buildSidecarWsUrl, sidecarFetch } from './sidecarBridge';
 import { useI18n } from './i18n/translations';
 
 function pickInitialFloorId(snap: PlazaSnapshot): string | null {
@@ -51,6 +52,27 @@ export const App: React.FC = () => {
 
   const [selectedEmployee, setSelectedEmployee] = useState<OfficeEmployee | null>(null);
   const [whiteboardOpen, setWhiteboardOpen] = useState<boolean>(false);
+
+  const [isCompactPane, setIsCompactPane] = useState<boolean>(() =>
+    typeof window !== 'undefined' ? window.innerWidth < 760 : false,
+  );
+  const [isElevatorOpen, setIsElevatorOpen] = useState<boolean>(() =>
+    typeof window !== 'undefined' ? window.innerWidth >= 760 : true,
+  );
+
+  useEffect(() => {
+    const onResize = () => {
+      const compact = window.innerWidth < 760;
+      setIsCompactPane((prev) => {
+        if (prev !== compact) {
+          setIsElevatorOpen(!compact);
+        }
+        return compact;
+      });
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
   const [analyticsOpen, setAnalyticsOpen] = useState<boolean>(false);
 
   const exportPngRef = useRef<(() => void) | null>(null);
@@ -153,7 +175,7 @@ export const App: React.FC = () => {
 
     const fetchInitial = async () => {
       try {
-        const res = await fetch('/api/plaza');
+        const res = await sidecarFetch('/api/plaza');
         if (!res.ok) return;
         const data = (await res.json()) as PlazaSnapshot;
         if (!closed) applySnapshot(data);
@@ -164,8 +186,7 @@ export const App: React.FC = () => {
 
     const connectWs = () => {
       if (closed) return;
-      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${proto}//${window.location.host}/ws`;
+      const wsUrl = buildSidecarWsUrl();
       ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
@@ -220,7 +241,7 @@ export const App: React.FC = () => {
 
   const handleToggleDemo = async () => {
     try {
-      const res = await fetch('/api/demo/toggle', { method: 'POST' });
+      const res = await sidecarFetch('/api/demo/toggle', { method: 'POST' });
       if (!res.ok) return;
       const data = (await res.json()) as PlazaSnapshot | { snapshot?: PlazaSnapshot };
       const snap = 'floors' in data ? data : data.snapshot;
@@ -277,7 +298,7 @@ export const App: React.FC = () => {
   const handleRerollLayout = async () => {
     if (!activeFloor) return;
     try {
-      const res = await fetch(`/api/floors/${encodeURIComponent(activeFloor.id)}/reroll`, {
+      const res = await sidecarFetch(`/api/floors/${encodeURIComponent(activeFloor.id)}/reroll`, {
         method: 'POST',
       });
       if (!res.ok) return;
@@ -293,7 +314,7 @@ export const App: React.FC = () => {
     if (!activeFloor) return;
     playEventJingle();
     try {
-      const res = await fetch(`/api/floors/${encodeURIComponent(activeFloor.id)}/event`, {
+      const res = await sidecarFetch(`/api/floors/${encodeURIComponent(activeFloor.id)}/event`, {
         method: 'POST',
       });
       if (!res.ok) return;
@@ -315,6 +336,9 @@ export const App: React.FC = () => {
     setSelectedFloorId(floorId);
     setViewMode('office');
     setSelectedEmployee(null);
+    if (isCompactPane) {
+      setIsElevatorOpen(false);
+    }
   };
 
   return (
@@ -340,14 +364,21 @@ export const App: React.FC = () => {
         onRerollLayout={handleRerollLayout}
         onTriggerEvent={handleTriggerEvent}
         wsConnected={wsConnected}
+        isCompactPane={isCompactPane}
+        isElevatorOpen={isElevatorOpen}
+        onToggleElevator={() => setIsElevatorOpen((open) => !open)}
       />
 
       <main className="plaza-main">
-        <ElevatorPanel
-          floors={snapshot?.floors ?? []}
-          selectedFloorId={activeFloor?.id ?? null}
-          onSelectFloor={handleSelectFloorFromElevator}
-        />
+        {isElevatorOpen && (
+          <ElevatorPanel
+            floors={snapshot?.floors ?? []}
+            selectedFloorId={activeFloor?.id ?? null}
+            onSelectFloor={handleSelectFloorFromElevator}
+            isOverlay={isCompactPane}
+            onClose={() => setIsElevatorOpen(false)}
+          />
+        )}
 
         <div className="plaza-viewport">
           {viewMode === 'plaza' ? (

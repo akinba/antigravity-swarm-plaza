@@ -1,0 +1,21 @@
+{
+  "command": "node",
+  "args": ["dist/server.cjs"],
+  "restart_policy": "always",
+  "display_name": "Swarm Plaza",
+  "description": "2.5D retro pixel-art isometric office dashboard for live Antigravity agents, swarms, and analytics.",
+  "has_web_ui": true,
+  "agent_permissions": {
+    "allows_user_interactions": true
+  },
+  "ui_config": {
+    "display_name": "Swarm Plaza",
+    "views": [
+      {
+        "title": "Swarm Plaza",
+        "path": "/",
+        "entrypoint": "SIDECAR_UI_ENTRYPOINT_AUX_PANE"
+      }
+    ]
+  }
+}

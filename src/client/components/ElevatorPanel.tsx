@@ -7,12 +7,16 @@ interface ElevatorPanelProps {
   floors: PlazaFloor[];
   selectedFloorId: string | null;
   onSelectFloor: (floorId: string) => void;
+  isOverlay?: boolean;
+  onClose?: () => void;
 }
 
 export const ElevatorPanel: React.FC<ElevatorPanelProps> = ({
   floors,
   selectedFloorId,
   onSelectFloor,
+  isOverlay = false,
+  onClose,
 }) => {
   const { t } = useI18n();
 
@@ -28,13 +32,27 @@ export const ElevatorPanel: React.FC<ElevatorPanelProps> = ({
   return (
     <aside
       className="pixel-panel"
-      style={{
-        width: 230,
-        display: 'flex',
-        flexDirection: 'column',
-        zIndex: 15,
-        flexShrink: 0,
-      }}
+      style={
+        isOverlay
+          ? {
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: 240,
+              maxWidth: '82vw',
+              display: 'flex',
+              flexDirection: 'column',
+              zIndex: 30,
+            }
+          : {
+              width: 230,
+              display: 'flex',
+              flexDirection: 'column',
+              zIndex: 15,
+              flexShrink: 0,
+            }
+      }
     >
       <div
         className="pixel-panel-inset"
@@ -49,7 +67,19 @@ export const ElevatorPanel: React.FC<ElevatorPanelProps> = ({
         <span className="pixel-title" style={{ fontSize: 10, color: '#ffd147' }}>
           {t.elevator.title}
         </span>
-        <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{floors.length}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{floors.length}</span>
+          {isOverlay && onClose && (
+            <button
+              type="button"
+              className="pixel-btn danger"
+              style={{ padding: '2px 6px', fontSize: 9 }}
+              onClick={onClose}
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </div>
 
       <div

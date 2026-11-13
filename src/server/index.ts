@@ -7,7 +7,13 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { WebSocket, WebSocketServer } from 'ws';
 import type { AgentDetailResponse, OfficeEmployee, PlazaSnapshot } from '../shared/types.js';
 import { readAgentLogs } from './brainScanner.js';
-import { AGY_DATA_DIR, CURRENT_WORKSPACE, PORT } from './config.js';
+import {
+  AGY_DATA_DIR,
+  BIND_HOST,
+  CURRENT_WORKSPACE,
+  PORT,
+  resolveSidecarToken,
+} from './config.js';
 import { getDemoAgentLogs, getDemoEmployee } from './demoSimulator.js';
 import { buildPlazaSnapshot } from './gamification.js';
 import { rerollFloorLayout, triggerFloorEvent } from './officeEvents.js';
@@ -17,6 +23,8 @@ export interface PlazaAppOptions {
   currentWorkspace?: string;
   initialDemoMode?: boolean;
   broadcastIntervalMs?: number;
+  clientDistDir?: string;
+  sidecarToken?: string;
 }
 
 export interface PlazaAppInstance {
@@ -33,10 +41,49 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
   const currentWorkspace = options.currentWorkspace ?? CURRENT_WORKSPACE;
   let demoMode = options.initialDemoMode ?? false;
   const broadcastIntervalMs = options.broadcastIntervalMs ?? 1500;
+  const activeToken = options.sidecarToken ?? resolveSidecarToken();
 
   const app = express();
   app.use(cors());
   app.use(express.json());
+
+  app.get('/preload.js', (_req, res) => {
+    res.type('application/javascript').send(`(function () {
+  var params = new URLSearchParams(window.location.search);
+  var token = params.get('token') || '';
+  var conversationId = params.get('conversationId') || '';
+  window.sidecar = window.sidecar || { token: token, conversationId: conversationId };
+  if (token && typeof window.fetch === 'function') {
+    var origFetch = window.fetch.bind(window);
+    window.fetch = function (input, init) {
+      var nextInit = Object.assign({}, init || {});
+      var headers = new Headers(nextInit.headers || undefined);
+      if (!headers.has('X-Sidecar-Token')) {
+        headers.set('X-Sidecar-Token', token);
+      }
+      nextInit.headers = headers;
+      return origFetch(input, nextInit);
+    };
+  }
+})();`);
+  });
+
+  if (activeToken) {
+    app.use('/api', (req, res, next) => {
+      if (req.method === 'GET') {
+        next();
+        return;
+      }
+      const headerToken = req.headers['x-sidecar-token'];
+      const queryToken = typeof req.query.token === 'string' ? req.query.token : '';
+      const provided = typeof headerToken === 'string' ? headerToken : queryToken;
+      if (provided !== activeToken) {
+        res.status(401).json({ error: 'Unauthorized sidecar request' });
+        return;
+      }
+      next();
+    });
+  }
 
   const server = http.createServer(app);
   const wss = new WebSocketServer({ server, path: '/ws' });
@@ -55,7 +102,17 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
     return snapshot;
   };
 
-  wss.on('connection', (ws) => {
+  wss.on('connection', (ws, req) => {
+    if (activeToken) {
+      const reqUrl = req.url || '';
+      const qIndex = reqUrl.indexOf('?');
+      const params = new URLSearchParams(qIndex >= 0 ? reqUrl.slice(qIndex) : '');
+      const wsToken = params.get('token') || '';
+      if (wsToken !== activeToken) {
+        ws.close(1008, 'Unauthorized sidecar WebSocket');
+        return;
+      }
+    }
     try {
       const snapshot = getSnapshot();
       ws.send(JSON.stringify({ type: 'plaza_snapshot', data: snapshot }));
@@ -148,14 +205,18 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
   });
 
   // Serve built frontend if dist/client/index.html exists
-  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const currentDir =
+    typeof import.meta?.url === 'string'
+      ? path.dirname(fileURLToPath(import.meta.url))
+      : process.cwd();
   const clientCandidates = [
-    path.resolve(__dirname, '../client'),
-    path.resolve(__dirname, '../../dist/client'),
+    ...(options.clientDistDir ? [options.clientDistDir] : []),
+    path.resolve(currentDir, '../client'),
+    path.resolve(currentDir, '../../dist/client'),
   ];
   const clientDistDir =
     clientCandidates.find((dir) => fs.existsSync(path.join(dir, 'index.html'))) ??
-    clientCandidates[1];
+    clientCandidates[clientCandidates.length - 1];
   const clientIndexHtml = path.join(clientDistDir, 'index.html');
 
   if (fs.existsSync(clientIndexHtml)) {
@@ -224,13 +285,16 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
   };
 }
 
+export const createPlazaServer = createPlazaApp;
+
 const isMainModule =
+  typeof import.meta?.url === 'string' &&
   typeof process.argv[1] === 'string' &&
   import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
 
 if (isMainModule) {
   const instance = createPlazaApp();
-  instance.server.listen(PORT, () => {
-    console.log(`[antigravity-plaza] Server listening on http://localhost:${PORT}`);
+  instance.server.listen(PORT, BIND_HOST, () => {
+    console.log(`[antigravity-plaza] Server listening on http://${BIND_HOST}:${PORT}`);
   });
 }

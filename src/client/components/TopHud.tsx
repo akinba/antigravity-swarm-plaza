@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { PlazaFloor } from '../../shared/types';
 import { playSelectBlip } from '../audio/retroSynth';
 import { useI18n } from '../i18n/translations';
@@ -24,6 +24,9 @@ interface TopHudProps {
   onRerollLayout: () => void;
   onTriggerEvent: () => void;
   wsConnected: boolean;
+  isCompactPane: boolean;
+  isElevatorOpen: boolean;
+  onToggleElevator: () => void;
 }
 
 export const TopHud: React.FC<TopHudProps> = ({
@@ -47,14 +50,211 @@ export const TopHud: React.FC<TopHudProps> = ({
   onRerollLayout,
   onTriggerEvent,
   wsConnected,
+  isCompactPane,
+  isElevatorOpen,
+  onToggleElevator,
 }) => {
   const { locale, setLocale, t } = useI18n();
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const xpRatio = floor
     ? Math.min(100, Math.round((floor.companyXp / Math.max(1, floor.nextTierXp)) * 100))
     : 0;
   const ecoScore = floor ? floor.ecoScore : globalEcoScore;
   const ecoColor = ecoScore >= 75 ? '#3be87a' : ecoScore >= 45 ? '#ffbe3b' : '#ff5666';
+
+  const floorCode = floor
+    ? floor.isDemo
+      ? t.elevator.penthouse
+      : floor.floorNumber === 0
+        ? t.elevator.lobby
+        : `${t.elevator.floorPrefix}${floor.floorNumber}`
+    : t.elevator.title;
+
+  if (isCompactPane) {
+    return (
+      <header
+        className="pixel-panel"
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 6,
+          padding: '6px 8px',
+          zIndex: 25,
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 6,
+            flexWrap: 'nowrap',
+            minHeight: 34,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+            <span className={`led-dot ${wsConnected ? 'green' : 'amber'}`} />
+            <button
+              type="button"
+              className={`pixel-btn ${isElevatorOpen ? 'gold' : ''}`}
+              style={{ padding: '4px 7px', fontSize: 8 }}
+              onClick={() => {
+                playSelectBlip();
+                onToggleElevator();
+              }}
+            >
+              🏢 {floorCode} ▾
+            </button>
+
+            {floor && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span className="pixel-badge" style={{ color: '#3be87a', padding: '2px 5px' }}>
+                  ●{floor.activeCount}
+                </span>
+                <span className="pixel-badge" style={{ color: '#ffbe3b', padding: '2px 5px' }}>
+                  ◐{floor.waitingCount}
+                </span>
+                {(floor.offDutyCount ?? 0) > 0 && (
+                  <span className="pixel-badge" style={{ color: '#9aa7c7', padding: '2px 5px' }}>
+                    🏠{floor.offDutyCount}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <button
+              type="button"
+              className="pixel-btn cyan"
+              style={{ padding: '4px 7px', fontSize: 8 }}
+              onClick={() => {
+                playSelectBlip();
+                onChangeViewMode(viewMode === 'office' ? 'plaza' : 'office');
+              }}
+            >
+              {viewMode === 'office' ? t.hud.viewPlaza : t.hud.viewOffice}
+            </button>
+
+            <button
+              type="button"
+              className="pixel-btn gold"
+              style={{ padding: '4px 7px', fontSize: 8 }}
+              onClick={() => {
+                playSelectBlip();
+                onOpenWhiteboard();
+              }}
+            >
+              📋
+            </button>
+
+            <button
+              type="button"
+              className="pixel-btn cyan"
+              style={{ padding: '4px 7px', fontSize: 8 }}
+              onClick={() => {
+                playSelectBlip();
+                onOpenAnalytics();
+              }}
+            >
+              📊
+            </button>
+
+            <button
+              type="button"
+              className={`pixel-btn ${moreOpen ? 'cyan' : ''}`}
+              style={{ padding: '4px 7px', fontSize: 9 }}
+              onClick={() => {
+                playSelectBlip();
+                setMoreOpen((v) => !v);
+              }}
+            >
+              ⋯
+            </button>
+          </div>
+        </div>
+
+        {moreOpen && (
+          <div
+            className="pixel-panel-inset"
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: 6,
+              padding: '6px 8px',
+            }}
+          >
+            {floor && (
+              <>
+                <button
+                  type="button"
+                  className="pixel-btn"
+                  style={{ padding: '4px 7px', fontSize: 8 }}
+                  onClick={() => {
+                    playSelectBlip();
+                    onRerollLayout();
+                  }}
+                >
+                  {t.hud.rerollLayout}
+                </button>
+                <button
+                  type="button"
+                  className="pixel-btn cyan"
+                  style={{ padding: '4px 7px', fontSize: 8 }}
+                  onClick={onTriggerEvent}
+                >
+                  {t.hud.triggerEvent}
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              className={`pixel-btn ${demoMode ? 'active' : ''}`}
+              style={{ padding: '4px 7px', fontSize: 8 }}
+              onClick={() => {
+                playSelectBlip();
+                onToggleDemo();
+              }}
+            >
+              {demoMode ? t.hud.demoOn : t.hud.demoOff}
+            </button>
+            <button
+              type="button"
+              className="pixel-btn"
+              style={{ padding: '4px 7px', fontSize: 8 }}
+              onClick={() => {
+                playSelectBlip();
+                onToggleNight();
+              }}
+            >
+              {isNight ? t.hud.nightMode : t.hud.dayMode}
+            </button>
+            <button
+              type="button"
+              className="pixel-btn"
+              style={{ padding: '4px 7px', fontSize: 8 }}
+              onClick={onToggleMute}
+            >
+              {muted ? t.hud.soundOff : t.hud.soundOn}
+            </button>
+            <button
+              type="button"
+              className="pixel-btn"
+              style={{ padding: '4px 7px', fontSize: 8 }}
+              onClick={() => {
+                playSelectBlip();
+                setLocale(locale === 'tr' ? 'en' : 'tr');
+              }}
+            >
+              {locale === 'tr' ? 'TR | EN' : 'EN | TR'}
+            </button>
+          </div>
+        )}
+      </header>
+    );
+  }
 
   return (
     <header
@@ -69,8 +269,8 @@ export const TopHud: React.FC<TopHudProps> = ({
         zIndex: 20,
       }}
     >
-      {/* Left: Brand & Floor Company Info */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      {/* Left: Brand, Elevator Toggle & Floor Company Info */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span className={`led-dot ${wsConnected ? 'green' : 'amber'}`} />
           <span className="pixel-title" style={{ fontSize: 11, color: '#ffd147' }}>
@@ -80,6 +280,17 @@ export const TopHud: React.FC<TopHudProps> = ({
             {wsConnected ? t.hud.wsConnected : t.hud.wsReconnecting}
           </span>
         </div>
+
+        <button
+          type="button"
+          className={`pixel-btn ${isElevatorOpen ? 'gold' : ''}`}
+          onClick={() => {
+            playSelectBlip();
+            onToggleElevator();
+          }}
+        >
+          🏢 {floorCode} ▾
+        </button>
 
         {floor && (
           <div

@@ -1,7 +1,13 @@
 {
   "name": "antigravity-swarm-plaza",
-  "version": "1.1.0",
-  "description": "2.5D retro pixel-art isometric office dashboard for visualizing Google Antigravity agents and swarms.",
+  "displayName": "Antigravity Swarm Plaza",
+  "version": "1.2.0",
+  "description": "2.5D retro pixel-art isometric office dashboard for visualizing live Google Antigravity agents, swarms, and analytics.",
+  "logo": "assets/logo.svg",
   "author": "akinba",
-  "license": "MIT"
+  "repository": "https://github.com/akinba/antigravity-swarm-plaza",
+  "suggestedPrompts": [
+    "Open Antigravity Swarm Plaza in the side panel",
+    "Show active agents and swarm activity on this project"
+  ]
 }

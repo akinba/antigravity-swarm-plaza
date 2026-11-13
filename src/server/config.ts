@@ -6,7 +6,27 @@ export const AGY_DATA_DIR =
 
 export const CURRENT_WORKSPACE = process.env.AGY_WORKSPACE || process.cwd();
 
-export const PORT = Number(process.env.PORT || 3210);
+export function resolveDefaultPort(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = env.ANTIGRAVITY_SIDECAR_WEB_PORT || env.PORT || '3210';
+  const parsed = Number(raw);
+  if (Number.isInteger(parsed) && parsed >= 1 && parsed <= 65535) {
+    return parsed;
+  }
+  return 3210;
+}
+
+export const PORT = resolveDefaultPort();
+
+export const BIND_HOST = process.env.HOST || '127.0.0.1';
+
+export function resolveSidecarToken(env: NodeJS.ProcessEnv = process.env): string {
+  return (
+    env.ANTIGRAVITY_SIDECAR_UI_TOKEN ||
+    env.ANTIGRAVITY_SIDECAR_AUTH_TOKEN ||
+    env.ANTIGRAVITY_SIDECAR_WEB_TOKEN ||
+    ''
+  );
+}
 
 export const GO_HOME_MINUTES = Number(process.env.AGY_GO_HOME_MINUTES || 8);
 

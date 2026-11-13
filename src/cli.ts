@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PORT as DEFAULT_PORT } from './server/config.js';
+import { BIND_HOST, PORT as DEFAULT_PORT, resolveDefaultPort } from './server/config.js';
 import { createPlazaApp } from './server/index.js';
 
 export interface CliOptions {
@@ -19,7 +19,7 @@ export interface CliOptions {
 
 export function parseCliArgs(argv: string[]): CliOptions {
   const options: CliOptions = {
-    port: DEFAULT_PORT,
+    port: resolveDefaultPort(),
     demo: false,
     open: true,
     installPlugin: false,
@@ -63,12 +63,15 @@ export function parseCliArgs(argv: string[]): CliOptions {
 }
 
 function getPackageRoot(): string {
-  const __dirname = path.dirname(fileURLToPath(import.meta.url));
-  const candidate1 = path.resolve(__dirname, '..');
+  const currentDir =
+    typeof import.meta?.url === 'string'
+      ? path.dirname(fileURLToPath(import.meta.url))
+      : process.cwd();
+  const candidate1 = path.resolve(currentDir, '..');
   if (fs.existsSync(path.join(candidate1, 'package.json'))) {
     return candidate1;
   }
-  return path.resolve(__dirname, '../..');
+  return path.resolve(currentDir, '../..');
 }
 
 function getPackageVersion(): string {
@@ -163,8 +166,8 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
   });
 
   await new Promise<void>((resolve) => {
-    instance.server.listen(opts.port, () => {
-      const url = `http://localhost:${opts.port}`;
+    instance.server.listen(opts.port, BIND_HOST, () => {
+      const url = `http://${BIND_HOST}:${opts.port}`;
       console.log(`[antigravity-swarm-plaza] Server listening on ${url}`);
       if (opts.open) {
         openBrowser(url);
@@ -181,7 +184,7 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
 }
 
 function checkIsMainModule(): boolean {
-  if (typeof process.argv[1] !== 'string') return false;
+  if (typeof import.meta?.url !== 'string' || typeof process.argv[1] !== 'string') return false;
   try {
     const realArgv1 = fs.realpathSync(path.resolve(process.argv[1]));
     const selfPath = fs.realpathSync(fileURLToPath(import.meta.url));

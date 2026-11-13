@@ -7,18 +7,29 @@ description: Launch and open Antigravity Swarm Plaza 2.5D Pixel Office dashboard
 
 Use this skill when the user wants to open, launch, or inspect the **Antigravity Swarm Plaza** 2.5D retro pixel-art office dashboard.
 
-## Instructions
+**Antigravity Swarm Plaza** runs natively as an embedded Auxiliary Pane sidecar inside Antigravity!
 
-1. **Check if the dashboard is already running** on the default port (`3210`):
-   - Run a quick non-blocking check (e.g., `curl -s -o /dev/null -w "%{http_code}" http://localhost:3210/api/plaza` or PowerShell `Invoke-WebRequest -UseBasicParsing http://localhost:3210/api/plaza`).
-   - If it returns HTTP `200`, the server is already live — skip launching a new process.
+## Primary Action: Embedded Auxiliary Pane Sidecar
 
-2. **Start the server if it is not running**:
-   - Prefer `npx antigravity-swarm-plaza --no-open` (or add `--demo` if the user wants demo agents, or `--port <n>` if port `3210` is busy).
-   - If you are inside the `antigravity-swarm-plaza` repository workspace and `dist/cli.js` is built, you may also run `npm start` as a background daemon.
-   - Start it as a background daemon/task so it keeps serving while the user interacts with it.
-   - Wait briefly until `http://localhost:3210/api/plaza` responds with `200`.
+When the user asks to view or open Swarm Plaza, surface the one-click sidecar navigation pill directly in your response:
+
+[Swarm Plaza](sidecar://antigravity-swarm-plaza/swarm_plaza/)
+
+- Clicking this pill opens the live 2.5D office directly inside the Antigravity IDE Auxiliary Side Pane.
+- The web port (`ANTIGRAVITY_SIDECAR_WEB_PORT`) and process lifecycle are managed automatically by the Antigravity sidecar manager.
+- The sidecar automatically adapts to compact pane widths (`< 760px`) with collapsible elevator drawer and HUD controls.
+
+## Secondary Fallback: Standalone Web App
+
+If running outside the IDE or if the user requests a standalone browser window:
+
+1. **Check if the dashboard is already running** on default port `3210`:
+   - Quick check: `http://localhost:3210/api/plaza`.
+   - If HTTP `200`, the server is already live.
+
+2. **Start the standalone server if needed**:
+   - Run `npx antigravity-swarm-plaza --no-open` (or `npm start` inside the repo).
+   - The server accesses `~/.gemini/antigravity` strictly in **read-only** mode (`?mode=ro`).
 
 3. **Surface the dashboard link to the user**:
-   - Provide the clickable URL **`http://localhost:3210`** (or the custom `--port` URL).
-   - Mention that `~/.gemini/antigravity` is read strictly in **read-only** mode (`?mode=ro`).
+   - Provide the clickable link: **`http://localhost:3210`**.
