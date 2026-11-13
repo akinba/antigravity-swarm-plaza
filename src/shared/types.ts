@@ -1,4 +1,4 @@
-export type ModelFamily = 'argon' | 'hydrogen' | 'flash' | 'carbon' | 'other';
+export type ModelFamily = 'argon' | 'hydrogen' | 'flash' | 'carbon' | 'pro' | 'claude' | 'gpt' | 'other';
 export type OfficeZone = 'DESK_ARCHITECT' | 'DESK_CODING' | 'DESK_QA' | 'WAR_ROOM' | 'SERVER_RACK' | 'COFFEE_LOUNGE' | 'ELEVATOR';
 export type AgentActivityKind =
   | 'coding'
@@ -17,6 +17,9 @@ export type AgentActivityKind =
   | 'going_home'
   | 'error';
 export type CompanyTier = 1 | 2 | 3 | 4;
+
+export type ToolActivityStatus = 'reading' | 'writing' | 'testing' | 'searching' | 'error' | 'idle';
+export type SwarmRole = 'coordinator' | 'worker' | 'monitor' | 'narrator' | 'verifier' | 'other';
 
 export type FloorEventKind =
   | 'PIZZA_PARTY'
@@ -48,6 +51,38 @@ export interface SwarmBoardMessage {
   text: string;
   time: string;
   kind: string;
+  mentions?: string[];
+}
+
+export interface SwarmMentionEdge {
+  from: string;
+  to: string;
+  count: number;
+  lastSeq: number;
+  lastTime: string;
+}
+
+export interface ActivityTimelineBucket {
+  bucketStart: string;
+  label: string;
+  activeCount: number;
+  completedTasks: number;
+  errorCount: number;
+}
+
+export interface ModelBreakdownEntry {
+  modelFamily: ModelFamily;
+  modelId: string;
+  agentCount: number;
+  activeCount: number;
+  totalTokens: number;
+}
+
+export interface FloorAnalytics {
+  timeline60m: ActivityTimelineBucket[];
+  completedTasks60m: number;
+  peakActive60m: number;
+  modelBreakdown: ModelBreakdownEntry[];
 }
 
 export interface OfficeEmployee {
@@ -59,6 +94,8 @@ export interface OfficeEmployee {
   modelFamily: ModelFamily;
   workspaceMode: string;
   status: 'working' | 'waiting' | 'idle' | 'error';
+  toolActivity?: ToolActivityStatus;
+  swarmRole?: SwarmRole;
   zone: OfficeZone;
   activity: AgentActivityKind;
   speechBubble?: string;
@@ -94,11 +131,16 @@ export interface PlazaFloor {
   unlockedProps: string[];
   employees: OfficeEmployee[];
   boardMessages: SwarmBoardMessage[];
+  swarmEdges?: SwarmMentionEdge[];
   swarmTitle?: string;
   layoutSeed?: number;
   activeEvent?: FloorRandomEvent | null;
+  analytics?: FloorAnalytics;
   lastModifiedAt: string;
 }
+
+export type AgentInfo = OfficeEmployee;
+export type FloorInfo = PlazaFloor;
 
 export interface PlazaSnapshot {
   generatedAt: string;
@@ -107,6 +149,8 @@ export interface PlazaSnapshot {
   totalActiveAgents: number;
   globalEcoScore: number;
   floors: PlazaFloor[];
+  timeline60m?: ActivityTimelineBucket[];
+  modelBreakdown?: ModelBreakdownEntry[];
 }
 
 export interface AgentDetailResponse {

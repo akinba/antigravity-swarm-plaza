@@ -1,10 +1,18 @@
 const MUTE_STORAGE_KEY = 'swarm_plaza_muted';
+const NOTIFY_STORAGE_KEY = 'swarm_plaza_notifications';
 
 let audioCtx: AudioContext | null = null;
 let unlocked = false;
 let mutedState = (() => {
   try {
     return localStorage.getItem(MUTE_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+})();
+let notificationsEnabledState = (() => {
+  try {
+    return localStorage.getItem(NOTIFY_STORAGE_KEY) === 'true';
   } catch {
     return false;
   }
@@ -138,4 +146,53 @@ export function playEventJingle(): void {
   playTone(587.33, 0.09, 'triangle', 0.09, 0);
   playTone(783.99, 0.09, 'triangle', 0.09, 0.08);
   playTone(1174.66, 0.22, 'triangle', 0.1, 0.16);
+}
+
+/** Urgent 8-bit alert jingle when an agent stalls or errors */
+export function playAlertJingle(): void {
+  playTone(523.25, 0.08, 'sawtooth', 0.065, 0);
+  playTone(392.0, 0.08, 'sawtooth', 0.065, 0.09);
+  playTone(523.25, 0.08, 'sawtooth', 0.065, 0.18);
+  playTone(329.63, 0.22, 'square', 0.075, 0.27);
+}
+
+export function isNotificationsEnabled(): boolean {
+  return notificationsEnabledState;
+}
+
+export function setNotificationsEnabled(enabled: boolean): void {
+  notificationsEnabledState = enabled;
+  try {
+    localStorage.setItem(NOTIFY_STORAGE_KEY, String(enabled));
+  } catch {
+    // ignore
+  }
+}
+
+export async function requestNotificationPermission(): Promise<NotificationPermission | 'unsupported'> {
+  if (typeof window === 'undefined' || typeof Notification === 'undefined') {
+    return 'unsupported';
+  }
+  if (Notification.permission === 'granted' || Notification.permission === 'denied') {
+    return Notification.permission;
+  }
+  try {
+    return await Notification.requestPermission();
+  } catch {
+    return Notification.permission;
+  }
+}
+
+export function sendAgentAlertNotification(title: string, body: string): void {
+  if (!notificationsEnabledState) return;
+  if (typeof window === 'undefined' || typeof Notification === 'undefined') return;
+  if (Notification.permission !== 'granted') return;
+  try {
+    new Notification(title, {
+      body,
+      tag: 'swarm-plaza-alert',
+    });
+  } catch {
+    // ignore browser notification errors
+  }
 }

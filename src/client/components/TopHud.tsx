@@ -15,6 +15,12 @@ interface TopHudProps {
   muted: boolean;
   onToggleMute: () => void;
   onOpenWhiteboard: () => void;
+  onOpenAnalytics: () => void;
+  followCam: boolean;
+  onToggleFollowCam: () => void;
+  onExportPng: () => void;
+  notificationsEnabled: boolean;
+  onToggleNotifications: () => void;
   onRerollLayout: () => void;
   onTriggerEvent: () => void;
   wsConnected: boolean;
@@ -32,6 +38,12 @@ export const TopHud: React.FC<TopHudProps> = ({
   muted,
   onToggleMute,
   onOpenWhiteboard,
+  onOpenAnalytics,
+  followCam,
+  onToggleFollowCam,
+  onExportPng,
+  notificationsEnabled,
+  onToggleNotifications,
   onRerollLayout,
   onTriggerEvent,
   wsConnected,
@@ -170,6 +182,44 @@ export const TopHud: React.FC<TopHudProps> = ({
           {t.hud.swarmBoard}
         </button>
 
+        {/* Analytics Modal */}
+        <button
+          type="button"
+          className="pixel-btn cyan"
+          onClick={() => {
+            playSelectBlip();
+            onOpenAnalytics();
+          }}
+        >
+          {t.hud.analytics}
+        </button>
+
+        {/* Office Camera & PNG Snapshot */}
+        {viewMode === 'office' && floor && (
+          <>
+            <button
+              type="button"
+              className={`pixel-btn ${followCam ? 'active' : ''}`}
+              onClick={() => {
+                playSelectBlip();
+                onToggleFollowCam();
+              }}
+            >
+              {followCam ? t.hud.followCamOn : t.hud.followCamOff}
+            </button>
+            <button
+              type="button"
+              className="pixel-btn"
+              onClick={() => {
+                playSelectBlip();
+                onExportPng();
+              }}
+            >
+              {t.hud.snapshotPng}
+            </button>
+          </>
+        )}
+
         {/* Reroll Layout & Trigger Event */}
         {floor && (
           <>
@@ -220,6 +270,18 @@ export const TopHud: React.FC<TopHudProps> = ({
         {/* SFX Mute */}
         <button type="button" className="pixel-btn" onClick={onToggleMute}>
           {muted ? t.hud.soundOff : t.hud.soundOn}
+        </button>
+
+        {/* Browser Notifications */}
+        <button
+          type="button"
+          className={`pixel-btn ${notificationsEnabled ? 'active' : ''}`}
+          onClick={() => {
+            playSelectBlip();
+            onToggleNotifications();
+          }}
+        >
+          {notificationsEnabled ? t.hud.alertsOn : t.hud.alertsOff}
         </button>
 
         {/* Language Switcher */}

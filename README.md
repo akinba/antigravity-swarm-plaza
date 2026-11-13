@@ -1,8 +1,19 @@
 # Antigravity Swarm Plaza 🏢🎮
 
+[![CI](https://github.com/akinba/antigravity-swarm-plaza/actions/workflows/ci.yml/badge.svg)](https://github.com/akinba/antigravity-swarm-plaza/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/akinba/antigravity-swarm-plaza?include_prereleases)](https://github.com/akinba/antigravity-swarm-plaza/releases)
+
 > Google Antigravity projelerindeki otonom ajanları bir plazanın katlarındaki gerçek ofis çalışanları gibi gösteren 2.5B retro izometrik oyunlaştırılmış gösterge paneli.
 >
 > *A 2.5D retro isometric gamified dashboard that visualizes Google Antigravity autonomous agents as living office workers across multi-tenant skyscraper floors.*
+
+---
+
+## 📸 Ekran Görüntüleri / Screenshots
+
+| 2.5B İzometrik Ofis & BOSS / Model Kıyafetleri | 60 Dakikalık Analitik & Model Dağılımı | Canlı Swarm Board & `@mention` Grafiği |
+| :---: | :---: | :---: |
+| ![Main 2.5D Office](docs/screenshots/office-main.png) | ![Analytics Modal](docs/screenshots/analytics-modal.png) | ![Swarm Board Graph](docs/screenshots/swarm-board-graph.png) |
 
 ---
 
@@ -13,79 +24,58 @@
 - **🏢 Plaza Kulesi & Asansör Kat Geçişi:**
   - Her Antigravity projesi gökdelende bağımsız bir şirket katı olarak temsil edilir (`K0` Giriş Lobisi, `K1..KN` Projeler ve Çatı Katı Demo Penthouse).
   - Tüm mimari planlarda sabit sol duvar asansör girişi (`gx: 0, gy: 6..7`), yaklaşan ajanlara otomatik açılan fırçalanmış çelik sürgülü kapılar ve yumuşak iniş/çıkış animasyonları.
-- **📐 5 Mimari Ofis Planı & 5 Masa Stili (`🎲 DÜZEN`):**
-  - Ahşap ve cam bölme duvarlarla ayrılmış gerçekçi oda yerleşimleri (Yönetici Ofisi, Yazılım & QA Odası, Toplantı Odası, Sunucu Odası ve Dinlenme Salonu).
-  - 5 farklı masa ergonomisi: `clover_desk` (4'lü yonca pod), `single_desk` (bağımsız masalar), `bench_desk` (uzun startup sırası), `u_pod_desk` (U biçimli takım adası), `twin_desk` (çiftli çalışma masası).
-  - 5 tema paleti ile toplam 25 benzersiz düzen kombinasyonu.
-- **☕ Canlı Ajan Yaşam Döngüsü (%100 Kameraya Dönük Pozlar):**
-  - **Masada Seated Coding:** Ergonomik tekerlekli sandalyede, alçak masa ve yan monitörlerle klavyede yazma, havada süzülen kod glifleri (`</>`, `{}`).
-  - **Toplantı Odası (War Room):** Aktif konuşan ajan elinde lazer çubukla sunum ekranında mimari akışları sunar (`presenting`), dinleyiciler konferans sandalyelerinde oturur (`meeting`).
-  - **Koltukta Dinlenme & 2 Kişilik Konsol Oyunu:** Bekleyen ajanlar kanepede dinlenir (`lounging`), ikili eşleşerek retro TV'de konsol dövüş/yarış oyunu oynar (`gaming`).
-  - **Ofis Evcil Hayvanları:** Akvaryum (yüzen pikseller), tekir kedi, smokin kedi, robot süpürge (`robo_vac`) ve ofis köpeği (`office_dog`).
-  - **Mesai Bitti / Eve Gidiş:** `8` dakika boyunca pasif kalan ajanlar asansöre yönelir (`going_home`), `9.5` dakika sonra asansöre binerek mesaiyi tamamlar (`offDutyCount`).
-- **⚡ Rastgele Ofis Olayları (`⚡ OLAY` & 65s Otomatik Döngü):**
-  - `PIZZA_PARTY` (masada sıcak pizza kutusu ve dilim kapma), `WATERCOOLER_GOSSIP` (su sebili başı dedikodusu), `SPRINT_CELEBRATION` (renkli piksel konfeti yağmuru), `MASCOT_ZOOMIES` (maskot turbo hızda koşar), `COFFEE_BREW` (taze espresso molası).
-  - *Gerçek İş Bütünlüğü:* Aktif çalışan ajanlar (`working`) asla masalarından veya görevlerinden koparılmaz.
+- **👔 BOSS & 8 Modele Özel Kıyafet / Renk Paleti:**
+  - Koordinatör ajanlar tüm arayüzde **★ BOSS** olarak gösterilir ve yönetici masasında altın taçla yer alır.
+  - 8 farklı model ailesi kendine özgü kıyafet, aksesuar ve renk paletine sahiptir: `argon` (Mor ceket + taç), `hydrogen` (Turkuaz hoodie + kulaklık), `flash` (Zümrüt/Sarı yarış ceketi + vizör), `carbon` (Kırmızı/Beyaz önlük + siber gözlük), `pro` (Lacivert/Altın takım + kravat), `claude` (Kiremit örgü kazak + bere), `gpt` (Petrol balıkçı yaka + kulaklık), `other` (İndigo polo + yaka kartı).
+- **💬 Sadeleştirilmiş Ajan Üstü & Araç Aktivitesi:**
+  - İsim etiketleri yalnızca fare üzerine gelindiğinde (hover) veya ajan seçildiğinde görünür; diğer zamanlarda sade bir durum noktası ve aktif araç ikonu (`📖`, `✏️`, `🧪`, `🌐`, `⚠️`) gösterilir.
+  - Konuşma balonları sürekli açık kalmaz; yeni mesaj geldiğinde 4.5 saniye görünüp kaybolur (veya hover/seçimde açılır).
+- **📡 Canlı Swarm Board, `@mention` Grafiği & Piksel Sinyaller:**
+  - `brain/<id>/.system_generated/swarm/` verisinden canlı mesaj akışı, yönlü `@mention` etkileşim grafiği (`WhiteboardModal`) ve ofis içinde ajanlar arası kavisli piksel zarf/sinyal animasyonu.
+- **📊 60 Dakikalık Analitik Paneli & Akıllı Bildirimler:**
+  - Son 60 dakikalık aktivite zaman çizelgesi (5 dakikalık 12 dilim), tamamlanan görev sayıları ve model dağılımı (`AnalyticsModal`).
+  - Hata/takılma durumunda opsiyonel 8-bit uyarı sesi ve tarayıcı bildirimi.
+- **🔍 Kamera Takibi (Follow Cam), Zoom/Pan & PNG İndirme:**
+  - Fare tekerleği ile yakınlaştırma, sürükleyerek gezme, çift tıkla sıfırlama, seçili ajanı takip eden **Follow Cam** ve tek tıkla kat görüntüsünü PNG olarak indirme.
+- **📐 5 Mimari Ofis Planı, 5 Masa Stili & XP Masa Evrimi:**
+  - `clover_desk`, `single_desk`, `bench_desk`, `u_pod_desk`, `twin_desk` ile 25 tema-plan kombinasyonu.
+  - Ajan XP seviyesi arttıkça masa donanımı evrilir (Lv3+ çift monitör, Lv5+ bitki & kupa, Lv8+ altın klavye & kupa).
+- **☕ Canlı Yaşam Döngüsü, Evcil Hayvanlar & Rastgele Olaylar:**
+  - Masada kodlama, Toplantı Odası sunumu, kanepede dinlenme, 2 kişilik konsol oyunu, ofis evcil hayvanları, 8–9.5 dk pasiflikte asansörle mesai bitimi ve `PIZZA_PARTY`, `WATERCOOLER_GOSSIP`, `SPRINT_CELEBRATION`, `MASCOT_ZOOMIES`, `COFFEE_BREW` olayları.
 - **🛡️ %100 Salt-Okunur (Read-Only) Güvenli Mimari:**
-  - `~/.gemini/antigravity` dizinindeki hiçbir dosya veya oturum kesinlikle değiştirilmez, kilitlenmez veya silinmez.
-  - SQLite veritabanı (`conversation_summaries.db`) salt-okunur URI (`?mode=ro`) ile açılır (Node.js `>= 22.5` yerleşik `node:sqlite`).
-  - Veri bulunmadığında veya keşif amacıyla tek tıkla etkileşimli Demo Modu devreye alınabilir.
-- **🎨 Retro Atmosfer & Ses Efektleri:**
-  - Türkçe / İngilizce anında dil değiştirici (`TR | EN`).
-  - Dinamik Gece / Gündüz gökyüzü ve aydınlatması.
-  - Web Audio API ile sıfır harici bağımlılıklı 8-bit retro ses efektleri (asansör çanı, seçim bip'i, pano bildirimi, olay jingle'ı, oyun kumandası bip'i).
+  - `~/.gemini/antigravity` dizinindeki hiçbir dosya veya oturum değiştirilmez; SQLite salt-okunur (`?mode=ro`) açılır.
 
 ---
 
-### 🚀 Gereksinimler & Hızlı Başlangıç
+### 🚀 Kurulum ve Çalıştırma
 
 #### Gereksinimler
 - **Node.js `>= 22.5.0`** (Yerleşik `node:sqlite` desteği gereklidir, harici SQLite derleyicisi gerekmez).
 - **npm `>= 10`**
 
-#### Kurulum ve Çalıştırma
-
+#### 1) Kaynaktan Çalıştırma
 ```bash
-# Bağımlılıkları yükleyin
+git clone https://github.com/akinba/antigravity-swarm-plaza.git
+cd antigravity-swarm-plaza
 npm install
-
-# İstemciyi derleyin
 npm run build
-
-# Üretim sunucusunu başlatın (Express + Dahili Vite İstemcisi)
 npm start
 ```
 Tarayıcınızda açın: **`http://localhost:3210`**
 
-#### Geliştirici Modu (Hot Reload)
-
+#### 2) GitHub Release Paketinden Çalıştırma
+[Releases](https://github.com/akinba/antigravity-swarm-plaza/releases) sayfasından son `.zip` veya `.tar.gz` arşivini indirip açın:
 ```bash
-# Sunucu ve Vite istemcisini eşzamanlı çalıştırır
-npm run dev
+npm install --omit=dev
+npm start
 ```
 
-#### Testler ve Tip Kontrolü
-
+#### Geliştirici Modu & Testler
 ```bash
-# TypeScript tip kontrolü
-npm run typecheck
-
-# Sunucu ve entegrasyon testleri (Node Test Runner)
-npm test
+npm run dev        # Sunucu + Vite hot-reload
+npm run typecheck  # TypeScript tip kontrolü
+npm test           # Sunucu ve istemci birim/entegrasyon testleri (37 test)
 ```
-
----
-
-### ⚙️ Ortam Değişkenleri
-
-Sunucu yapılandırması `src/server/config.ts` üzerinden aşağıdaki değişkenlerle özelleştirilebilir:
-
-| Değişken | Varsayılan | Açıklama |
-| :--- | :--- | :--- |
-| `PORT` | `3210` | Web sunucusu ve WebSocket portu |
-| `AGY_DATA_DIR` | `~/.gemini/antigravity` | Antigravity ana veri dizini (Salt-okunur taranır) |
-| `AGY_WORKSPACE` | `process.cwd()` | Etkin proje katını belirlemek için çalışma dizini |
-| `AGY_GO_HOME_MINUTES` | `8` | Ajanların asansörle mesaiyi bitirme eşik süresi (dakika) |
 
 ---
 
@@ -93,36 +83,31 @@ Sunucu yapılandırması `src/server/config.ts` üzerinden aşağıdaki değişk
 
 ### 🌟 Overview
 
-**Antigravity Swarm Plaza** is a standalone, 2.5D retro pixel-art isometric dashboard that visualizes autonomous AI agents in Google Antigravity as living, breathing office workers inside a multi-story skyscraper.
+**Antigravity Swarm Plaza** is a standalone, 2.5D retro pixel-art isometric dashboard that visualizes autonomous AI agents in Google Antigravity as living office workers inside a multi-story skyscraper.
 
-- **Skyscraper & Elevator Navigation:** Every Antigravity project maps to its own company floor with an authentic steel elevator foyer (`gx: 0, gy: 6..7`) and animated sliding doors.
-- **5 Architectural Blueprints & Desk Styles:** Real partitioned layouts with Clover Pods, Single Desks, Startup Benches, U-Pods, and Twin Desks.
-- **Living Agent Lifecycle (100% Camera-Facing):** Seated keyboard typing with code glyphs, War Room whiteboard & presentation screen with pointer stick, sofa lounging, 2-player paired console gaming, office pets, and realistic go-home lifecycles after inactivity.
-- **Random Office Events:** Pizza parties, watercooler chats, sprint celebrations with confetti, and mascot zoomies—without disrupting active coders.
-- **100% Read-Only Safety:** Strictly inspects `~/.gemini/antigravity` with read-only SQLite (`?mode=ro`) and file streams. Never mutates, locks, or alters user data.
-- **Bilingual TR/EN, Day/Night Atmosphere & 8-bit Chiptune SFX.**
+- **Skyscraper & Elevator Navigation:** Every Antigravity project maps to its own floor (`K0` Lobby, `K1..KN` Projects, Penthouse Demo) with animated sliding steel elevator doors.
+- **★ BOSS & 8 Model-Specific Outfits:** Coordinators appear as **★ BOSS** with a gold crown; `argon`, `hydrogen`, `flash`, `carbon`, `pro`, `claude`, `gpt`, and `other` models each wear distinct uniforms, colors, and accessories.
+- **Uncluttered Overhead UI:** Name tags appear on hover/selection, and speech bubbles pop up for 4.5s on new messages (or on hover/selection), leaving only a clean status dot and active tool icon (`reading`, `writing`, `testing`, `searching`, `error`).
+- **Live Swarm Board & `@mention` Graph:** Read-only swarm board feed, SVG `@mention` network graph, and arcing pixel envelope signals across the office floor.
+- **60-Min Analytics, Follow Cam & PNG Export:** 60-minute activity timeline, model breakdown charts, wheel zoom/drag pan, Follow Cam, 8-bit/browser alert notifications, XP-based desk evolution, and one-click PNG snapshot download.
+- **100% Read-Only Safety:** Strictly inspects `~/.gemini/antigravity` with read-only SQLite (`?mode=ro`) and file streams. Never mutates user data.
 
 ### ⚡ Quick Start
 
 ```bash
-# 1. Install dependencies (Node.js >= 22.5 required)
+# Requires Node.js >= 22.5.0
+git clone https://github.com/akinba/antigravity-swarm-plaza.git
+cd antigravity-swarm-plaza
 npm install
-
-# 2. Build client bundle
 npm run build
-
-# 3. Start the standalone server
 npm start
 ```
-Open **`http://localhost:3210`** in your browser.
+Open **`http://localhost:3210`** in your browser (or download a prebuilt archive from [Releases](https://github.com/akinba/antigravity-swarm-plaza/releases)).
 
 ```bash
-# Development mode with hot-reloading
-npm run dev
-
-# Run automated tests & typecheck
-npm test
-npm run typecheck
+npm run dev        # Development mode (hot reload)
+npm run typecheck  # TypeScript check
+npm test           # Run all server & client tests
 ```
 
 ---

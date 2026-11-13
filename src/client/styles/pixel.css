@@ -276,3 +276,76 @@ canvas {
   font-weight: 700;
   border-radius: 2px;
 }
+
+.pixel-tabs {
+  display: flex;
+  gap: 6px;
+  border-bottom: 2px solid var(--border-dark);
+  padding-bottom: 8px;
+}
+
+.pixel-tab {
+  padding: 6px 12px;
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  color: var(--text-dim);
+  background: #171c2b;
+  border: 2px solid var(--border-dark);
+  box-shadow: inset 1px 1px 0 #2d3654;
+  cursor: pointer;
+}
+
+.pixel-tab:hover {
+  color: var(--text-main);
+  background: #222940;
+}
+
+.pixel-tab.active {
+  color: #ffd147;
+  background: #28304d;
+  box-shadow:
+    inset 2px 2px 0 #5a6994,
+    inset -2px -2px 0 #121524;
+}
+
+.pixel-chart-card {
+  background: #141826;
+  border: 2px solid var(--border-dark);
+  box-shadow: inset 1px 1px 0 #2c3554;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pixel-spark-grid {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 110px;
+  padding: 8px 6px 4px;
+  background: #0c0f18;
+  border: 2px solid #05060a;
+  box-shadow: inset 1px 1px 0 #232a42;
+}
+
+.pixel-spark-col {
+  flex: 1;
+  min-width: 6px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 2px;
+}
+
+.pixel-spark-bar {
+  width: 100%;
+  min-height: 2px;
+  transition: height 0.25s steps(8);
+}
+
+.pixel-badge.red {
+  color: var(--accent-red);
+}

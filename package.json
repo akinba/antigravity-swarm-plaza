@@ -10,7 +10,7 @@
     "build": "vite build",
     "start": "tsx src/server/index.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/server/*.test.ts"
+    "test": "tsx --test tests/server/*.test.ts tests/client/*.test.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",

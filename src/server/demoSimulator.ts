@@ -1,11 +1,16 @@
 import type {
+  ActivityTimelineBucket,
   AgentActivityKind,
   AgentLogEntry,
+  FloorAnalytics,
   OfficeEmployee,
   OfficeZone,
   PlazaFloor,
   SwarmBoardMessage,
+  SwarmRole,
 } from '../shared/types.js';
+import { buildSwarmMentionEdges, extractMentions } from './brainScanner.js';
+import { classifyToolActivity, computeModelBreakdown } from './gamification.js';
 import { getActiveFloorEvent, getFloorLayoutSeed } from './officeEvents.js';
 
 interface DemoEmployeeTemplate {
@@ -13,6 +18,7 @@ interface DemoEmployeeTemplate {
   name: string;
   roleTitle: string;
   isCoordinator: boolean;
+  swarmRole: SwarmRole;
   modelId: string;
   modelFamily: OfficeEmployee['modelFamily'];
   workspaceMode: string;
@@ -23,8 +29,9 @@ const DEMO_ROSTER: DemoEmployeeTemplate[] = [
   {
     id: 'demo-chief-architect',
     name: 'Chief-Architect',
-    roleTitle: 'Swarm Coordinator',
+    roleTitle: 'Boss',
     isCoordinator: true,
+    swarmRole: 'coordinator',
     modelId: 'gemini-argon-orchestrator',
     modelFamily: 'argon',
     workspaceMode: 'inherit',
@@ -35,6 +42,7 @@ const DEMO_ROSTER: DemoEmployeeTemplate[] = [
     name: 'coder-core',
     roleTitle: 'Backend Engineer',
     isCoordinator: false,
+    swarmRole: 'worker',
     modelId: 'gemini-hydrogen-pro',
     modelFamily: 'hydrogen',
     workspaceMode: 'share',
@@ -45,6 +53,7 @@ const DEMO_ROSTER: DemoEmployeeTemplate[] = [
     name: 'coder-ui',
     roleTitle: 'Frontend Architect',
     isCoordinator: false,
+    swarmRole: 'worker',
     modelId: 'gemini-hydrogen-pro',
     modelFamily: 'hydrogen',
     workspaceMode: 'share',
@@ -53,8 +62,9 @@ const DEMO_ROSTER: DemoEmployeeTemplate[] = [
   {
     id: 'demo-analyst-grill',
     name: 'analyst-grill',
-    roleTitle: 'Spec & Risk Analyst',
+    roleTitle: 'Stall Monitor & Risk Analyst',
     isCoordinator: false,
+    swarmRole: 'monitor',
     modelId: 'gemini-flash-2.5',
     modelFamily: 'flash',
     workspaceMode: 'inherit',
@@ -65,6 +75,7 @@ const DEMO_ROSTER: DemoEmployeeTemplate[] = [
     name: 'verifier-qa',
     roleTitle: 'QA & Integration',
     isCoordinator: false,
+    swarmRole: 'verifier',
     modelId: 'gemini-flash-2.5',
     modelFamily: 'flash',
     workspaceMode: 'inherit',
@@ -284,6 +295,7 @@ export function getDemoFloor(advance = true): PlazaFloor {
       modelFamily: tmpl.modelFamily,
       workspaceMode: tmpl.workspaceMode,
       status: phase.status,
+      swarmRole: tmpl.swarmRole,
       zone: phase.zone,
       activity: phase.activity,
       speechBubble: phase.speechBubble,
@@ -387,7 +399,7 @@ export function getDemoFloor(advance = true): PlazaFloor {
       });
     }
 
-  const boardMessages: SwarmBoardMessage[] = [
+  const rawBoardMessages: SwarmBoardMessage[] = [
     {
       seq: 1 + demoTick,
       agent: 'Chief-Architect',
@@ -417,6 +429,11 @@ export function getDemoFloor(advance = true): PlazaFloor {
       kind: 'message',
     },
   ];
+  const boardMessages: SwarmBoardMessage[] = rawBoardMessages.map((m) => ({
+    ...m,
+    mentions: extractMentions(m.text),
+  }));
+  const swarmEdges = buildSwarmMentionEdges(boardMessages);
 
   const nowMs = Date.now();
   const layoutSeed = getFloorLayoutSeed('demo-penthouse');
@@ -479,8 +496,47 @@ export function getDemoFloor(advance = true): PlazaFloor {
     employees[4].currentTarget = undefined;
   }
 
+  for (const emp of employees) {
+    emp.toolActivity = classifyToolActivity({
+      status: emp.status,
+      toolName: emp.currentTool,
+      targetSummary: emp.currentTarget,
+    });
+  }
+
   const activeCount = employees.filter((e) => e.status === 'working').length;
   const waitingCount = employees.filter((e) => e.status === 'waiting').length;
+
+  const BUCKET_COUNT = 12;
+  const BUCKET_MS = 5 * 60_000;
+  const windowStartMs = nowMs - BUCKET_COUNT * BUCKET_MS;
+  const timeline60m: ActivityTimelineBucket[] = [];
+  let completedTasks60m = 0;
+  let peakActive60m = activeCount;
+  for (let i = 0; i < BUCKET_COUNT; i++) {
+    const startMs = windowStartMs + i * BUCKET_MS;
+    const endMs = startMs + BUCKET_MS;
+    const isLast = i === BUCKET_COUNT - 1;
+    const bucketActive = isLast ? activeCount : 2 + ((demoTick + i) % 4);
+    const completed = 3 + ((demoTick * 2 + i * 3) % 7);
+    const err = (demoTick + i) % 11 === 0 ? 1 : 0;
+    completedTasks60m += completed;
+    if (bucketActive > peakActive60m) peakActive60m = bucketActive;
+    timeline60m.push({
+      bucketStart: new Date(startMs).toISOString(),
+      label: new Date(endMs).toISOString().slice(11, 16),
+      activeCount: bucketActive,
+      completedTasks: completed,
+      errorCount: err,
+    });
+  }
+
+  const analytics: FloorAnalytics = {
+    timeline60m,
+    completedTasks60m,
+    peakActive60m,
+    modelBreakdown: computeModelBreakdown(employees),
+  };
 
   return {
     id: 'demo-penthouse',
@@ -501,7 +557,9 @@ export function getDemoFloor(advance = true): PlazaFloor {
     unlockedProps: ['plants', 'dual_monitors', 'trophy', 'espresso', 'arcade', 'hologram'],
     employees,
     boardMessages,
+    swarmEdges,
     swarmTitle: 'Antigravity Plaza Demo Swarm',
+    analytics,
     lastModifiedAt: now,
   };
 }

@@ -1,6 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import type { AgentLogEntry, SwarmBoardMessage } from '../shared/types.js';
+import type {
+  AgentLogEntry,
+  SwarmBoardMessage,
+  SwarmMentionEdge,
+  SwarmRole,
+} from '../shared/types.js';
 
 export interface SubagentMeta {
   conversationId: string;
@@ -26,6 +31,11 @@ export interface SwarmMemberMeta {
   killed?: boolean;
 }
 
+export interface TranscriptStepEvent {
+  timestamp: string;
+  status: string;
+}
+
 export interface TranscriptSummary {
   inputTokens: number;
   cacheReadTokens: number;
@@ -35,6 +45,7 @@ export interface TranscriptSummary {
   latestThoughtSnippet?: string;
   lastStepStatus?: string;
   lastTimestamp?: string;
+  recentSteps?: TranscriptStepEvent[];
 }
 
 export interface BrainScanResult {
@@ -176,6 +187,7 @@ function parseTranscriptSummary(text: string): TranscriptSummary {
     inputTokens: 0,
     cacheReadTokens: 0,
     outputTokens: 0,
+    recentSteps: [],
   };
 
   const lines = text.split('\n');
@@ -200,6 +212,10 @@ function parseTranscriptSummary(text: string): TranscriptSummary {
     }
     if (typeof entry.created_at === 'string' && entry.created_at) {
       summary.lastTimestamp = entry.created_at;
+      summary.recentSteps!.push({
+        timestamp: entry.created_at,
+        status: typeof entry.status === 'string' && entry.status ? entry.status : 'DONE',
+      });
     }
 
     const toolCalls = entry.tool_calls;
@@ -207,10 +223,7 @@ function parseTranscriptSummary(text: string): TranscriptSummary {
       const lastCall = toolCalls[toolCalls.length - 1] as Record<string, unknown> | undefined;
       if (lastCall && typeof lastCall.name === 'string') {
         summary.latestToolName = lastCall.name;
-        const target = extractTargetSummary(lastCall.args ?? lastCall.arguments);
-        if (target) {
-          summary.latestTargetSummary = target;
-        }
+        summary.latestTargetSummary = extractTargetSummary(lastCall.args ?? lastCall.arguments);
       }
     }
 
@@ -324,6 +337,66 @@ export function readAgentLogs(agyDataDir: string, convId: string, limit = 25): A
   return entries.slice(entries.length - limit);
 }
 
+export function extractMentions(text: string): string[] {
+  const matches = text.matchAll(/@([a-zA-Z0-9_-]+)/g);
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const match of matches) {
+    const name = match[1];
+    if (name && !seen.has(name)) {
+      seen.add(name);
+      result.push(name);
+    }
+  }
+  return result;
+}
+
+export function buildSwarmMentionEdges(messages: SwarmBoardMessage[]): SwarmMentionEdge[] {
+  const edgeMap = new Map<string, SwarmMentionEdge>();
+
+  for (const msg of messages) {
+    const mentions = msg.mentions ?? extractMentions(msg.text);
+    for (const target of mentions) {
+      if (!target || target === msg.agent) continue;
+      const key = `${msg.agent}->${target}`;
+      const existing = edgeMap.get(key);
+      if (existing) {
+        existing.count += 1;
+        if (msg.seq >= existing.lastSeq) {
+          existing.lastSeq = msg.seq;
+          existing.lastTime = msg.time;
+        }
+      } else {
+        edgeMap.set(key, {
+          from: msg.agent,
+          to: target,
+          count: 1,
+          lastSeq: msg.seq,
+          lastTime: msg.time,
+        });
+      }
+    }
+  }
+
+  return Array.from(edgeMap.values()).sort((a, b) => b.lastSeq - a.lastSeq);
+}
+
+export function classifySwarmRole(
+  rosterName?: string,
+  role?: string,
+  isCoordinator?: boolean,
+): SwarmRole {
+  const combined = `${rosterName || ''} ${role || ''}`.toLowerCase();
+  if (isCoordinator || combined.includes('coordinator') || combined.includes('architect')) {
+    return 'coordinator';
+  }
+  if (combined.includes('monitor')) return 'monitor';
+  if (combined.includes('narrator')) return 'narrator';
+  if (combined.includes('verifier') || combined.includes('qa')) return 'verifier';
+  if (combined.includes('worker') || rosterName || role) return 'worker';
+  return 'other';
+}
+
 function readBoardMessages(boardPath: string, limit = 40): SwarmBoardMessage[] {
   const tailed = tailFileText(boardPath, 32768);
   if (!tailed || !tailed.text) return [];
@@ -335,12 +408,15 @@ function readBoardMessages(boardPath: string, limit = 40): SwarmBoardMessage[] {
     if (!line) continue;
     try {
       const parsed = JSON.parse(line) as Record<string, unknown>;
+      const text = typeof parsed.text === 'string' ? parsed.text : '';
+      const mentions = extractMentions(text);
       messages.push({
         seq: Number(parsed.seq || 0),
         agent: typeof parsed.agent === 'string' ? parsed.agent : 'unknown',
-        text: typeof parsed.text === 'string' ? parsed.text : '',
+        text,
         time: typeof parsed.time === 'string' ? parsed.time : '',
         kind: typeof parsed.kind === 'string' ? parsed.kind : 'message',
+        mentions,
       });
     } catch {
       // Skip malformed line

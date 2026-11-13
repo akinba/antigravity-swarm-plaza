@@ -1,17 +1,23 @@
 import crypto from 'node:crypto';
 import type {
+  ActivityTimelineBucket,
   AgentActivityKind,
   CompanyTier,
+  FloorAnalytics,
   FloorRandomEvent,
+  ModelBreakdownEntry,
   ModelFamily,
   OfficeEmployee,
   OfficeZone,
   PlazaFloor,
   PlazaSnapshot,
   SwarmBoardMessage,
+  ToolActivityStatus,
 } from '../shared/types.js';
 import { getActiveFloorEvent, getFloorLayoutSeed } from './officeEvents.js';
 import {
+  buildSwarmMentionEdges,
+  classifySwarmRole,
   scanBrainData,
   type BrainScanResult,
   type SubagentMeta,
@@ -74,12 +80,239 @@ export function applyGoHomeLifecycle(
   return { employees: present, offDutyCount };
 }
 
+export function classifyToolActivity(params: {
+  status: OfficeEmployee['status'];
+  toolName?: string;
+  targetSummary?: string;
+  lastStepStatus?: string;
+}): ToolActivityStatus {
+  if (params.status === 'error' || params.lastStepStatus?.toUpperCase() === 'ERROR') {
+    return 'error';
+  }
+  if (params.status !== 'working') {
+    return 'idle';
+  }
+
+  const tool = (params.toolName || '').toLowerCase();
+  const target = (params.targetSummary || '').toLowerCase();
+
+  if (tool.includes('command_status')) {
+    return 'testing';
+  }
+  if (tool.includes('run_command') || tool === 'bash' || tool === 'shell') {
+    if (
+      target.includes('grep') ||
+      target.includes('rg ') ||
+      target.includes('select-string') ||
+      target.includes('findstr')
+    ) {
+      return 'searching';
+    }
+    if (
+      target.includes('get-content') ||
+      target.includes('cat ') ||
+      target.includes('head ') ||
+      target.includes('tail ') ||
+      target.includes('get-childitem') ||
+      target.includes('ls ')
+    ) {
+      return 'reading';
+    }
+    return 'testing';
+  }
+
+  if (tool.includes('search') || tool === 'find_by_name') {
+    return 'searching';
+  }
+
+  if (
+    tool.includes('read') ||
+    tool.includes('view_file') ||
+    tool.includes('list') ||
+    (tool === 'swarm' && (target === 'status' || target === 'models'))
+  ) {
+    return 'reading';
+  }
+
+  if (
+    tool.includes('write') ||
+    tool.includes('edit') ||
+    tool.includes('replace') ||
+    tool.includes('post_message') ||
+    tool.includes('delete') ||
+    tool === 'swarm'
+  ) {
+    return 'writing';
+  }
+
+  return tool ? 'writing' : 'reading';
+}
+
+export function computeModelBreakdown(employees: OfficeEmployee[]): ModelBreakdownEntry[] {
+  const byModel = new Map<string, ModelBreakdownEntry>();
+
+  for (const emp of employees) {
+    const key = `${emp.modelFamily}::${emp.modelId}`;
+    const tokens = emp.inputTokens + emp.cacheReadTokens + emp.outputTokens;
+    const existing = byModel.get(key);
+    if (existing) {
+      existing.agentCount += 1;
+      if (emp.status === 'working') existing.activeCount += 1;
+      existing.totalTokens += tokens;
+    } else {
+      byModel.set(key, {
+        modelFamily: emp.modelFamily,
+        modelId: emp.modelId,
+        agentCount: 1,
+        activeCount: emp.status === 'working' ? 1 : 0,
+        totalTokens: tokens,
+      });
+    }
+  }
+
+  return Array.from(byModel.values()).sort(
+    (a, b) => b.agentCount - a.agentCount || b.totalTokens - a.totalTokens,
+  );
+}
+
+export function computeFloorAnalytics(params: {
+  employees: OfficeEmployee[];
+  stepEventsByAgent?: Map<string, Array<{ timestamp: string; status: string }>>;
+  nowMs: number;
+}): FloorAnalytics {
+  const BUCKET_COUNT = 12;
+  const BUCKET_MS = 5 * 60_000;
+  const windowStartMs = params.nowMs - BUCKET_COUNT * BUCKET_MS;
+
+  const buckets: ActivityTimelineBucket[] = [];
+  const activeAgentsPerBucket: Array<Set<string>> = [];
+
+  for (let i = 0; i < BUCKET_COUNT; i++) {
+    const startMs = windowStartMs + i * BUCKET_MS;
+    const endMs = startMs + BUCKET_MS;
+    buckets.push({
+      bucketStart: new Date(startMs).toISOString(),
+      label: new Date(endMs).toISOString().slice(11, 16),
+      activeCount: 0,
+      completedTasks: 0,
+      errorCount: 0,
+    });
+    activeAgentsPerBucket.push(new Set<string>());
+  }
+
+  if (params.stepEventsByAgent) {
+    for (const [agentId, events] of params.stepEventsByAgent.entries()) {
+      for (const ev of events) {
+        const tsMs = parseTimestampMs(ev.timestamp);
+        if (tsMs < windowStartMs || tsMs > params.nowMs) continue;
+        const idx = Math.min(
+          BUCKET_COUNT - 1,
+          Math.max(0, Math.floor((tsMs - windowStartMs) / BUCKET_MS)),
+        );
+        activeAgentsPerBucket[idx].add(agentId);
+        if (ev.status.toUpperCase() === 'ERROR') {
+          buckets[idx].errorCount += 1;
+        } else {
+          buckets[idx].completedTasks += 1;
+        }
+      }
+    }
+  }
+
+  for (const emp of params.employees) {
+    const lastMs = parseTimestampMs(emp.lastActiveAt);
+    if (lastMs >= windowStartMs && lastMs <= params.nowMs) {
+      const idx = Math.min(
+        BUCKET_COUNT - 1,
+        Math.max(0, Math.floor((lastMs - windowStartMs) / BUCKET_MS)),
+      );
+      activeAgentsPerBucket[idx].add(emp.id);
+    }
+    if (emp.status === 'working') {
+      activeAgentsPerBucket[BUCKET_COUNT - 1].add(emp.id);
+    }
+  }
+
+  let completedTasks60m = 0;
+  let peakActive60m = 0;
+  for (let i = 0; i < BUCKET_COUNT; i++) {
+    buckets[i].activeCount = activeAgentsPerBucket[i].size;
+    completedTasks60m += buckets[i].completedTasks;
+    if (buckets[i].activeCount > peakActive60m) {
+      peakActive60m = buckets[i].activeCount;
+    }
+  }
+
+  return {
+    timeline60m: buckets,
+    completedTasks60m,
+    peakActive60m,
+    modelBreakdown: computeModelBreakdown(params.employees),
+  };
+}
+
+export function aggregatePlazaAnalytics(
+  floors: PlazaFloor[],
+  nowMs: number,
+): { timeline60m: ActivityTimelineBucket[]; modelBreakdown: ModelBreakdownEntry[] } {
+  const BUCKET_COUNT = 12;
+  const BUCKET_MS = 5 * 60_000;
+  const windowStartMs = nowMs - BUCKET_COUNT * BUCKET_MS;
+
+  const timeline60m: ActivityTimelineBucket[] = [];
+  for (let i = 0; i < BUCKET_COUNT; i++) {
+    const startMs = windowStartMs + i * BUCKET_MS;
+    const endMs = startMs + BUCKET_MS;
+    timeline60m.push({
+      bucketStart: new Date(startMs).toISOString(),
+      label: new Date(endMs).toISOString().slice(11, 16),
+      activeCount: 0,
+      completedTasks: 0,
+      errorCount: 0,
+    });
+  }
+
+  const allEmployees: OfficeEmployee[] = [];
+  for (const floor of floors) {
+    allEmployees.push(...floor.employees);
+    if (floor.analytics?.timeline60m) {
+      for (let i = 0; i < Math.min(BUCKET_COUNT, floor.analytics.timeline60m.length); i++) {
+        const b = floor.analytics.timeline60m[i];
+        timeline60m[i].activeCount += b.activeCount;
+        timeline60m[i].completedTasks += b.completedTasks;
+        timeline60m[i].errorCount += b.errorCount;
+      }
+    }
+  }
+
+  return {
+    timeline60m,
+    modelBreakdown: computeModelBreakdown(allEmployees),
+  };
+}
+
 export function classifyModelFamily(modelId: string | undefined | null): ModelFamily {
   const lower = (modelId || '').toLowerCase();
   if (lower.includes('argon') || lower.includes('orchestrator')) return 'argon';
   if (lower.includes('hydrogen')) return 'hydrogen';
   if (lower.includes('flash')) return 'flash';
   if (lower.includes('carbon')) return 'carbon';
+  if (
+    lower.includes('claude') ||
+    lower.includes('sonnet') ||
+    lower.includes('opus') ||
+    lower.includes('haiku')
+  ) {
+    return 'claude';
+  }
+  if (
+    lower.includes('gpt') ||
+    lower.includes('chatgpt') ||
+    /(^|[^a-z0-9])o[134]([^a-z0-9]|$)/.test(lower)
+  ) {
+    return 'gpt';
+  }
+  if (lower.includes('pro') || lower.includes('ultra')) return 'pro';
   return 'other';
 }
 
@@ -132,7 +365,9 @@ export function computeEcoScore(employees: OfficeEmployee[]): number {
     // Reward lightweight/efficient model families
     if (emp.modelFamily === 'flash') score += 22;
     else if (emp.modelFamily === 'hydrogen') score += 16;
-    else if (emp.modelFamily === 'carbon') score += 8;
+    else if (emp.modelFamily === 'claude') score += 10;
+    else if (emp.modelFamily === 'carbon' || emp.modelFamily === 'gpt') score += 8;
+    else if (emp.modelFamily === 'pro') score += 6;
     else if (emp.modelFamily === 'argon') score += 4;
 
     // Reward prompt cache utilization
@@ -642,10 +877,11 @@ function buildEmployeeFromRow(
     row.title?.trim() ||
     convId.slice(0, 8);
 
+  const rawRole = swarmMember?.role === 'coordinator' ? 'Boss' : swarmMember?.role;
   const roleTitle =
-    swarmMember?.role ||
+    rawRole ||
     subagentMeta?.role ||
-    (isCoordinator ? 'Swarm Coordinator' : 'Agent Worker');
+    (isCoordinator ? 'Boss' : 'Agent Worker');
 
   const modelId =
     swarmMember?.appliedModel ||
@@ -676,6 +912,13 @@ function buildEmployeeFromRow(
 
   const stepCount = Math.max(0, Number(row.step_count || 0));
   const { xp, level } = computeEmployeeXpAndLevel(stepCount);
+  const toolActivity = classifyToolActivity({
+    status,
+    toolName: transcript?.latestToolName,
+    targetSummary: transcript?.latestTargetSummary,
+    lastStepStatus: transcript?.lastStepStatus,
+  });
+  const swarmRole = classifySwarmRole(swarmMember?.rosterName, swarmMember?.role, isCoordinator);
 
   return {
     id: convId,
@@ -686,6 +929,8 @@ function buildEmployeeFromRow(
     modelFamily,
     workspaceMode: swarmMember?.workspaceMode || 'inherit',
     status,
+    toolActivity,
+    swarmRole,
     zone,
     activity,
     speechBubble,
@@ -854,6 +1099,21 @@ export function buildPlazaSnapshot(
       0,
     );
 
+    const stepEventsByAgent = new Map<string, Array<{ timestamp: string; status: string }>>();
+    for (const r of group.rows) {
+      const steps = scan.transcriptByConvId.get(r.conversation_id)?.recentSteps;
+      if (steps && steps.length > 0) {
+        stepEventsByAgent.set(r.conversation_id, steps);
+      }
+    }
+
+    const swarmEdges = buildSwarmMentionEdges(trimmedBoard);
+    const analytics = computeFloorAnalytics({
+      employees,
+      stepEventsByAgent,
+      nowMs,
+    });
+
     builtFloors.push({
       id: group.id,
       floorNumber: group.isLobby ? 0 : 1,
@@ -870,7 +1130,9 @@ export function buildPlazaSnapshot(
       unlockedProps,
       employees,
       boardMessages: trimmedBoard,
+      swarmEdges,
       swarmTitle,
+      analytics,
       lastModifiedAt:
         latestModifiedMs > 0 ? new Date(latestModifiedMs).toISOString() : new Date().toISOString(),
     });
@@ -910,6 +1172,7 @@ export function buildPlazaSnapshot(
     floors.length > 0
       ? Math.round(floors.reduce((sum, f) => sum + f.ecoScore, 0) / floors.length)
       : 100;
+  const { timeline60m, modelBreakdown } = aggregatePlazaAnalytics(floors, nowMs);
 
   return {
     generatedAt: new Date(nowMs).toISOString(),
@@ -918,5 +1181,7 @@ export function buildPlazaSnapshot(
     totalActiveAgents,
     globalEcoScore,
     floors,
+    timeline60m,
+    modelBreakdown,
   };
 }

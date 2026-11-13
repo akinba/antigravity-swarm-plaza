@@ -139,6 +139,15 @@ describe('Gamification rules', () => {
     assert.equal(classifyModelFamily('gemini-hydrogen-pro'), 'hydrogen');
     assert.equal(classifyModelFamily('gemini-2.5-flash'), 'flash');
     assert.equal(classifyModelFamily('gemini-carbon-lite'), 'carbon');
+    assert.equal(classifyModelFamily('claude-3.7-sonnet'), 'claude');
+    assert.equal(classifyModelFamily('anthropic-opus-4'), 'claude');
+    assert.equal(classifyModelFamily('haiku-3.5'), 'claude');
+    assert.equal(classifyModelFamily('gpt-4o'), 'gpt');
+    assert.equal(classifyModelFamily('o3-mini'), 'gpt');
+    assert.equal(classifyModelFamily('o1'), 'gpt');
+    assert.equal(classifyModelFamily('chatgpt-4o-latest'), 'gpt');
+    assert.equal(classifyModelFamily('gemini-2.5-pro'), 'pro');
+    assert.equal(classifyModelFamily('gemini-ultra'), 'pro');
     assert.equal(classifyModelFamily('unknown-model'), 'other');
 
     const empXp = computeEmployeeXpAndLevel(20);

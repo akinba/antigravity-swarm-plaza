@@ -8,10 +8,13 @@ import {
   GRID_H,
   GRID_W,
   gridToScreen,
+  TILE_H,
+  TILE_W,
   type GridPoint,
   type IsoCamera,
 } from './isoMath';
 import { ELEVATOR_SLOT, getFloorLayout, type FloorLayout } from './officeLayouts';
+import { drawMentionEnvelope } from './officePropsSprites';
 import {
   buildWalkableGridForFurniture,
   facingFromDelta,
@@ -32,6 +35,9 @@ interface OfficeCanvasProps {
   selectedEmployeeId: string | null;
   onSelectEmployee: (emp: OfficeEmployee) => void;
   onOpenWhiteboard: () => void;
+  followCam?: boolean;
+  onFollowCamChange?: (enabled: boolean) => void;
+  onRegisterExportPng?: (exportFn: (() => void) | null) => void;
 }
 
 interface ActorState {
@@ -55,6 +61,9 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
   selectedEmployeeId,
   onSelectEmployee,
   onOpenWhiteboard,
+  followCam = false,
+  onFollowCamChange,
+  onRegisterExportPng,
 }) => {
   const { locale, t } = useI18n();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -101,6 +110,25 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
   const selectedIdRef = useRef(selectedEmployeeId);
   selectedIdRef.current = selectedEmployeeId;
 
+  const followCamRef = useRef(followCam);
+  followCamRef.current = followCam;
+
+  const mentionSignalsRef = useRef<
+    Array<{
+      fromGx: number;
+      fromGy: number;
+      toGx: number;
+      toGy: number;
+      startSec: number;
+      duration: number;
+      color: string;
+    }>
+  >([]);
+  const lastBoardSeqByFloorRef = useRef<Map<string, number>>(new Map());
+  const bubbleTimersRef = useRef<Map<string, { lastBubbleText: string; bubbleShownAtMs: number }>>(
+    new Map(),
+  );
+
   const hoveredAgentRef = useRef(hoveredAgentId);
   hoveredAgentRef.current = hoveredAgentId;
 
@@ -129,6 +157,95 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
     if (!el) return;
     setCamera(getDefaultCamera(el.clientWidth, el.clientHeight));
   }, []);
+
+  // Register PNG snapshot export callback
+  useEffect(() => {
+    if (!onRegisterExportPng) return;
+    const exportPng = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const url = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `swarm-office-f${floorRef.current.floorNumber}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    };
+    onRegisterExportPng(exportPng);
+    return () => onRegisterExportPng(null);
+  }, [onRegisterExportPng]);
+
+  // Spawn @mention envelope animations when new swarm board messages arrive
+  useEffect(() => {
+    const msgs = floor.boardMessages || [];
+    const maxSeq = msgs.reduce((m, msg) => Math.max(m, msg.seq), 0);
+    const seenMap = lastBoardSeqByFloorRef.current;
+    if (!seenMap.has(floor.id)) {
+      seenMap.set(floor.id, maxSeq);
+      return;
+    }
+    const prevSeq = seenMap.get(floor.id) ?? 0;
+    if (maxSeq <= prevSeq) return;
+    seenMap.set(floor.id, maxSeq);
+
+    const actors = actorsRef.current;
+    const findEmp = (nameOrId: string) => {
+      const needle = nameOrId.toLowerCase();
+      return floor.employees.find(
+        (e) =>
+          e.name.toLowerCase() === needle ||
+          e.id.toLowerCase() === needle ||
+          e.name.toLowerCase().includes(needle),
+      );
+    };
+
+    const nowSec = performance.now() / 1000;
+    for (const msg of msgs) {
+      if (msg.seq <= prevSeq) continue;
+      const senderEmp = findEmp(msg.agent);
+      const senderActor = senderEmp ? actors.get(senderEmp.id) : undefined;
+      if (!senderActor) continue;
+
+      const mentionTokens =
+        msg.mentions && msg.mentions.length > 0
+          ? msg.mentions
+          : Array.from(msg.text.matchAll(/@([a-zA-Z0-9_-]+)/g), (m) => m[1]);
+
+      for (const target of mentionTokens) {
+        if (target.toLowerCase() === 'all') {
+          for (const emp of floor.employees) {
+            if (emp.id === senderEmp?.id) continue;
+            const recActor = actors.get(emp.id);
+            if (!recActor) continue;
+            mentionSignalsRef.current.push({
+              fromGx: senderActor.gx,
+              fromGy: senderActor.gy,
+              toGx: recActor.gx,
+              toGy: recActor.gy,
+              startSec: nowSec,
+              duration: 1.4,
+              color: '#3cd8ff',
+            });
+          }
+          continue;
+        }
+        const recEmp = findEmp(target);
+        if (!recEmp || recEmp.id === senderEmp?.id) continue;
+        const recActor = actors.get(recEmp.id);
+        if (!recActor) continue;
+        mentionSignalsRef.current.push({
+          fromGx: senderActor.gx,
+          fromGy: senderActor.gy,
+          toGx: recActor.gx,
+          toGy: recActor.gy,
+          startSec: nowSec,
+          duration: 1.4,
+          color: '#ffd147',
+        });
+      }
+    }
+  }, [floor.id, floor.boardMessages, floor.employees]);
 
   // Re-center on initial mount or floor change
   useEffect(() => {
@@ -364,6 +481,20 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
         }
       }
 
+      // Follow Cam: smoothly track selected employee when enabled
+      if (followCamRef.current && selectedIdRef.current && !dragRef.current.active) {
+        const targetActor = actors.get(selectedIdRef.current);
+        if (targetActor) {
+          const isoX = (targetActor.gx - targetActor.gy) * (TILE_W / 2);
+          const isoY = (targetActor.gx + targetActor.gy) * (TILE_H / 2);
+          const targetOffsetX = viewW / 2 - isoX * cam.zoom;
+          const targetOffsetY = viewH / 2 - isoY * cam.zoom + 16 * cam.zoom;
+          const lerpAlpha = 1 - Math.exp(-8 * dt);
+          cam.offsetX += (targetOffsetX - cam.offsetX) * lerpAlpha;
+          cam.offsetY += (targetOffsetY - cam.offsetY) * lerpAlpha;
+        }
+      }
+
       // Update roaming mascot
       const currentLayout = layoutRef.current;
       const currentGrid = walkableGridRef.current;
@@ -485,6 +616,19 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
               (item.kind === 'lounge_table' && isPizzaActive) ||
               (item.kind === 'elevator_doors' && isElevatorBusy) ||
               (isWb && isPresenterActive);
+            let deskLevel = 1;
+            if (item.kind === 'dev_desk' || item.kind === 'qa_desk' || item.kind === 'exec_desk') {
+              let bestDist = 1.65;
+              for (const emp of currentFloor.employees) {
+                const actor = actors.get(emp.id);
+                if (!actor) continue;
+                const d = Math.hypot(item.gx - actor.targetSlotGx, item.gy - actor.targetSlotGy);
+                if (d < bestDist) {
+                  bestDist = d;
+                  deskLevel = emp.level;
+                }
+              }
+            }
             drawFurniture(
               ctx,
               item.kind,
@@ -495,6 +639,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
               occupied,
               isWb && hoveredBoardRef.current,
               tRef.current.office.whiteboardLabel,
+              deskLevel,
             );
           },
         });
@@ -543,6 +688,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
 
       // Employees
       const nextHitBoxes: Array<{ emp: OfficeEmployee; x: number; y: number; r: number }> = [];
+      const bubbleTimers = bubbleTimersRef.current;
       for (const emp of currentFloor.employees) {
         const actor = actors.get(emp.id);
         if (!actor) continue;
@@ -551,6 +697,24 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
         const distElev = Math.hypot(actor.gx - ELEVATOR_SLOT.gx, actor.gy - ELEVATOR_SLOT.gy);
         const alpha =
           emp.activity === 'going_home' ? Math.max(0.12, Math.min(1, distElev / 1.5)) : 1;
+
+        let isBubbleFresh = false;
+        if (emp.speechBubble) {
+          const prev = bubbleTimers.get(emp.id);
+          if (!prev || prev.lastBubbleText !== emp.speechBubble) {
+            bubbleTimers.set(emp.id, { lastBubbleText: emp.speechBubble, bubbleShownAtMs: now });
+            isBubbleFresh = true;
+          } else {
+            isBubbleFresh = now - prev.bubbleShownAtMs <= 4500;
+          }
+        } else {
+          bubbleTimers.delete(emp.id);
+        }
+
+        const isHovered = hoveredAgentRef.current === emp.id;
+        const isSelected = selectedIdRef.current === emp.id;
+        const showSpeechBubble = Boolean(emp.speechBubble) && (isHovered || isSelected || isBubbleFresh);
+
         nextHitBoxes.push({
           emp,
           x: p.x,
@@ -570,9 +734,10 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
               actor.isWalking,
               actor.walkPhase,
               timeSec,
-              hoveredAgentRef.current === emp.id,
-              selectedIdRef.current === emp.id,
+              isHovered,
+              isSelected,
               alpha,
+              showSpeechBubble,
             );
           },
         });
@@ -583,6 +748,24 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
       renderables.sort((a, b) => a.depth - b.depth);
       for (const r of renderables) {
         r.draw();
+      }
+
+      // Live @mention envelope signals arcing between sender and recipient
+      if (mentionSignalsRef.current.length > 0) {
+        const activeSignals = mentionSignalsRef.current.filter(
+          (sig) => timeSec - sig.startSec <= sig.duration,
+        );
+        mentionSignalsRef.current = activeSignals;
+        for (const sig of activeSignals) {
+          const t = Math.max(0, Math.min(1, (timeSec - sig.startSec) / sig.duration));
+          const fromPt = gridToScreen(sig.fromGx, sig.fromGy, cam);
+          const toPt = gridToScreen(sig.toGx, sig.toGy, cam);
+          const moveT = Math.min(1, t / 0.85);
+          const x = fromPt.x + (toPt.x - fromPt.x) * moveT;
+          const arcLift = Math.sin(moveT * Math.PI) * 38 * cam.zoom;
+          const y = fromPt.y + (toPt.y - fromPt.y) * moveT - 22 * cam.zoom - arcLift;
+          drawMentionEnvelope(ctx, x, y, cam.zoom, t, sig.color);
+        }
       }
 
       // Falling pixel confetti during SPRINT_CELEBRATION
@@ -610,8 +793,8 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
       moved: false,
       startX: e.clientX,
       startY: e.clientY,
-      camStartX: camera.offsetX,
-      camStartY: camera.offsetY,
+      camStartX: cameraRef.current.offsetX,
+      camStartY: cameraRef.current.offsetY,
     };
     e.currentTarget.setPointerCapture(e.pointerId);
   };
@@ -625,6 +808,9 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
       const dx = e.clientX - dragRef.current.startX;
       const dy = e.clientY - dragRef.current.startY;
       if (Math.hypot(dx, dy) > 4) {
+        if (!dragRef.current.moved && followCamRef.current) {
+          onFollowCamChange?.(false);
+        }
         dragRef.current.moved = true;
       }
       if (dragRef.current.moved) {
@@ -718,6 +904,10 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        onDoubleClick={() => {
+          onFollowCamChange?.(false);
+          resetCamera();
+        }}
         onWheel={handleWheel}
         style={{ display: 'block', cursor: cursorStyle, touchAction: 'none' }}
       />

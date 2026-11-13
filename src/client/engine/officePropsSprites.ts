@@ -232,3 +232,210 @@ export function drawOfficeDog(
 
   ctx.restore();
 }
+
+export type ToolBubbleKind = 'reading' | 'writing' | 'testing' | 'searching' | 'error';
+
+/**
+ * Draws XP/level-based desk upgrades on top of dev_desk, qa_desk, or exec_desk:
+ * - Lv3+: Dual monitor upgrade
+ * - Lv5+: Desk succulent plant & steaming coffee mug
+ * - Lv8+: Gold mechanical keyboard & golden trophy
+ */
+export function drawDeskEvolutionExtras(
+  ctx: CanvasRenderingContext2D,
+  kind: string,
+  cx: number,
+  cy: number,
+  zoom: number,
+  timeSec: number,
+  isOccupied: boolean,
+  level: number,
+): void {
+  if (level < 3) return;
+  const z = zoom;
+
+  // Lv3+: Dual monitor (qa_desk & exec_desk get a second left monitor; dev_desk gets an ultrawide top bar)
+  if (kind === 'qa_desk' || kind === 'exec_desk') {
+    const mx = kind === 'exec_desk' ? cx - 15 * z : cx - 13 * z;
+    const my = cy - 23 * z;
+    ctx.fillStyle = '#141824';
+    ctx.fillRect(Math.round(mx), Math.round(my), Math.ceil(11 * z), Math.ceil(9 * z));
+    ctx.fillStyle = isOccupied ? '#3cd8ff' : '#243147';
+    ctx.fillRect(Math.round(mx + 2 * z), Math.round(my + 2 * z), Math.ceil(7 * z), Math.ceil(5 * z));
+  } else if (kind === 'dev_desk') {
+    // Subtle dual-monitor status LED bar
+    ctx.fillStyle = isOccupied ? '#3be87a' : '#2a3954';
+    ctx.fillRect(Math.round(cx - 13 * z), Math.round(cy - 24 * z), Math.ceil(6 * z), Math.ceil(1 * z));
+    ctx.fillRect(Math.round(cx + 7 * z), Math.round(cy - 24 * z), Math.ceil(6 * z), Math.ceil(1 * z));
+  }
+
+  // Lv5+: Mini desk plant (left corner) & steaming mug (right corner)
+  if (level >= 5) {
+    // Mini pot + succulent
+    ctx.fillStyle = '#a65c3a';
+    ctx.fillRect(Math.round(cx - 19 * z), Math.round(cy - 13 * z), Math.ceil(5 * z), Math.ceil(4 * z));
+    ctx.fillStyle = '#3be87a';
+    ctx.fillRect(Math.round(cx - 20 * z), Math.round(cy - 17 * z), Math.ceil(7 * z), Math.ceil(4 * z));
+    ctx.fillStyle = '#7efaa8';
+    ctx.fillRect(Math.round(cx - 18 * z), Math.round(cy - 19 * z), Math.ceil(3 * z), Math.ceil(2 * z));
+
+    // Coffee mug + animated steam
+    ctx.fillStyle = '#f4f6fc';
+    ctx.fillRect(Math.round(cx + 12 * z), Math.round(cy - 13 * z), Math.ceil(4 * z), Math.ceil(4 * z));
+    ctx.fillStyle = '#73381d';
+    ctx.fillRect(Math.round(cx + 13 * z), Math.round(cy - 13 * z), Math.ceil(2 * z), Math.ceil(1 * z));
+    const steamY = cy - (15 + ((timeSec * 4) % 4)) * z;
+    ctx.fillStyle = 'rgba(220, 240, 255, 0.7)';
+    ctx.fillRect(Math.round(cx + 13 * z), Math.round(steamY), Math.ceil(2 * z), Math.ceil(2 * z));
+  }
+
+  // Lv8+: Gold mechanical keyboard & golden trophy
+  if (level >= 8) {
+    const shimmer = Math.sin(timeSec * 4) > 0.3 ? '#fff3a1' : '#ffd147';
+    ctx.fillStyle = '#b8860b';
+    ctx.fillRect(Math.round(cx - 7 * z), Math.round(cy - 10 * z), Math.ceil(10 * z), Math.ceil(3 * z));
+    ctx.fillStyle = shimmer;
+    ctx.fillRect(Math.round(cx - 6 * z), Math.round(cy - 9 * z), Math.ceil(8 * z), Math.ceil(1 * z));
+
+    // Golden trophy on desk corner
+    ctx.fillStyle = '#8c6211';
+    ctx.fillRect(Math.round(cx + 15 * z), Math.round(cy - 11 * z), Math.ceil(4 * z), Math.ceil(2 * z));
+    ctx.fillStyle = '#ffd147';
+    ctx.fillRect(Math.round(cx + 16 * z), Math.round(cy - 15 * z), Math.ceil(2 * z), Math.ceil(4 * z));
+    ctx.fillRect(Math.round(cx + 14 * z), Math.round(cy - 18 * z), Math.ceil(6 * z), Math.ceil(3 * z));
+    ctx.fillStyle = shimmer;
+    ctx.fillRect(Math.round(cx + 15 * z), Math.round(cy - 18 * z), Math.ceil(2 * z), Math.ceil(2 * z));
+  }
+}
+
+/**
+ * Draws a compact pixel-art tool activity icon bubble above a working/errored agent.
+ */
+export function drawToolStatusBubble(
+  ctx: CanvasRenderingContext2D,
+  kind: ToolBubbleKind,
+  cx: number,
+  cy: number,
+  zoom: number,
+  timeSec: number,
+): void {
+  const z = zoom;
+  const bob = Math.sin(timeSec * 5) * 1.5 * z;
+  const bx = cx - 8 * z;
+  const by = cy - 14 * z + bob;
+  const size = 15 * z;
+
+  const accentMap: Record<ToolBubbleKind, string> = {
+    reading: '#3cd8ff',
+    writing: '#3be87a',
+    testing: '#ffd147',
+    searching: '#b07cff',
+    error: '#ff5666',
+  };
+  const accent = accentMap[kind];
+
+  ctx.save();
+  ctx.fillStyle = 'rgba(13, 16, 28, 0.94)';
+  ctx.fillRect(Math.round(bx), Math.round(by), Math.ceil(size), Math.ceil(size));
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = Math.max(1, z);
+  ctx.strokeRect(Math.round(bx), Math.round(by), Math.ceil(size), Math.ceil(size));
+
+  // Tiny pointer tail
+  ctx.fillStyle = accent;
+  ctx.fillRect(Math.round(cx - 1.5 * z), Math.round(by + size), Math.ceil(3 * z), Math.ceil(2 * z));
+
+  const ix = bx + 3 * z;
+  const iy = by + 3 * z;
+  ctx.fillStyle = accent;
+
+  if (kind === 'reading') {
+    // Open book icon
+    ctx.fillRect(Math.round(ix), Math.round(iy + 1 * z), Math.ceil(4 * z), Math.ceil(7 * z));
+    ctx.fillRect(Math.round(ix + 5 * z), Math.round(iy + 1 * z), Math.ceil(4 * z), Math.ceil(7 * z));
+    ctx.fillStyle = '#0d101c';
+    ctx.fillRect(Math.round(ix + 1 * z), Math.round(iy + 3 * z), Math.ceil(2 * z), Math.ceil(1 * z));
+    ctx.fillRect(Math.round(ix + 6 * z), Math.round(iy + 3 * z), Math.ceil(2 * z), Math.ceil(1 * z));
+  } else if (kind === 'writing') {
+    // Pixel pencil / edit icon
+    ctx.fillRect(Math.round(ix + 6 * z), Math.round(iy), Math.ceil(3 * z), Math.ceil(3 * z));
+    ctx.fillRect(Math.round(ix + 3 * z), Math.round(iy + 3 * z), Math.ceil(3 * z), Math.ceil(3 * z));
+    ctx.fillRect(Math.round(ix), Math.round(iy + 6 * z), Math.ceil(3 * z), Math.ceil(3 * z));
+    ctx.fillStyle = '#ffd147';
+    ctx.fillRect(Math.round(ix), Math.round(iy + 7 * z), Math.ceil(2 * z), Math.ceil(2 * z));
+  } else if (kind === 'testing') {
+    // Flask / beaker icon
+    ctx.fillRect(Math.round(ix + 3 * z), Math.round(iy), Math.ceil(3 * z), Math.ceil(3 * z));
+    ctx.fillRect(Math.round(ix + 1 * z), Math.round(iy + 3 * z), Math.ceil(7 * z), Math.ceil(5 * z));
+    ctx.fillStyle = '#3be87a';
+    ctx.fillRect(Math.round(ix + 2 * z), Math.round(iy + 5 * z), Math.ceil(5 * z), Math.ceil(2 * z));
+  } else if (kind === 'searching') {
+    // Magnifying glass icon
+    ctx.fillRect(Math.round(ix + 1 * z), Math.round(iy), Math.ceil(5 * z), Math.ceil(5 * z));
+    ctx.fillStyle = '#0d101c';
+    ctx.fillRect(Math.round(ix + 2 * z), Math.round(iy + 1 * z), Math.ceil(3 * z), Math.ceil(3 * z));
+    ctx.fillStyle = accent;
+    ctx.fillRect(Math.round(ix + 5 * z), Math.round(iy + 5 * z), Math.ceil(3 * z), Math.ceil(3 * z));
+  } else {
+    // Error exclamation
+    ctx.fillRect(Math.round(ix + 3.5 * z), Math.round(iy), Math.ceil(2 * z), Math.ceil(5 * z));
+    ctx.fillRect(Math.round(ix + 3.5 * z), Math.round(iy + 7 * z), Math.ceil(2 * z), Math.ceil(2 * z));
+  }
+
+  ctx.restore();
+}
+
+/**
+ * Draws an arcing pixel-art @mention envelope signal between two agents on the floor.
+ */
+export function drawMentionEnvelope(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  zoom: number,
+  progress: number,
+  color: string,
+): void {
+  const z = zoom;
+  ctx.save();
+
+  if (progress > 0.85) {
+    // Landing pulse ring
+    const ringT = (progress - 0.85) / 0.15;
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = Math.max(0, 1 - ringT);
+    ctx.lineWidth = Math.max(1.5, 2 * z);
+    ctx.beginPath();
+    ctx.ellipse(x, y, (8 + ringT * 14) * z, (4 + ringT * 7) * z, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
+
+  // Pixel envelope body
+  const ew = 12 * z;
+  const eh = 8 * z;
+  const ex = x - ew / 2;
+  const ey = y - eh / 2;
+
+  ctx.fillStyle = '#fffdf2';
+  ctx.fillRect(Math.round(ex), Math.round(ey), Math.ceil(ew), Math.ceil(eh));
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(1, 1.2 * z);
+  ctx.strokeRect(Math.round(ex), Math.round(ey), Math.ceil(ew), Math.ceil(eh));
+
+  // Envelope V-flap
+  ctx.beginPath();
+  ctx.moveTo(ex, ey);
+  ctx.lineTo(x, ey + eh * 0.55);
+  ctx.lineTo(ex + ew, ey);
+  ctx.strokeStyle = '#141824';
+  ctx.lineWidth = Math.max(1, z);
+  ctx.stroke();
+
+  // Sparkle pixel
+  ctx.fillStyle = color;
+  ctx.fillRect(Math.round(x - 1 * z), Math.round(ey - 4 * z), Math.ceil(2 * z), Math.ceil(2 * z));
+
+  ctx.restore();
+}

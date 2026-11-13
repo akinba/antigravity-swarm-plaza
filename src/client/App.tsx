@@ -3,18 +3,25 @@ import type { OfficeEmployee, PlazaFloor, PlazaSnapshot } from '../shared/types'
 import {
   initAudioUnlock,
   isMuted,
+  isNotificationsEnabled,
+  playAlertJingle,
   playEventJingle,
   playLevelUp,
   playMentionChime,
   playSelectBlip,
+  requestNotificationPermission,
+  sendAgentAlertNotification,
+  setNotificationsEnabled,
   toggleMuted,
 } from './audio/retroSynth';
 import { AgentRpgModal } from './components/AgentRpgModal';
+import { AnalyticsModal } from './components/AnalyticsModal';
 import { ElevatorPanel } from './components/ElevatorPanel';
 import { TopHud } from './components/TopHud';
 import { WhiteboardModal } from './components/WhiteboardModal';
 import { OfficeCanvas } from './engine/OfficeCanvas';
 import { PlazaTowerCanvas } from './engine/PlazaTowerCanvas';
+import { useI18n } from './i18n/translations';
 
 function pickInitialFloorId(snap: PlazaSnapshot): string | null {
   if (snap.activeProjectFloorId) {
@@ -30,80 +37,113 @@ function pickInitialFloorId(snap: PlazaSnapshot): string | null {
 }
 
 export const App: React.FC = () => {
+  const { t } = useI18n();
   const [snapshot, setSnapshot] = useState<PlazaSnapshot | null>(null);
   const [selectedFloorId, setSelectedFloorId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'plaza' | 'office'>('office');
   const [isNight, setIsNight] = useState<boolean>(true);
   const [muted, setMutedState] = useState<boolean>(() => isMuted());
+  const [notificationsEnabled, setNotificationsEnabledState] = useState<boolean>(() =>
+    isNotificationsEnabled(),
+  );
+  const [followCam, setFollowCam] = useState<boolean>(false);
   const [wsConnected, setWsConnected] = useState<boolean>(false);
 
   const [selectedEmployee, setSelectedEmployee] = useState<OfficeEmployee | null>(null);
   const [whiteboardOpen, setWhiteboardOpen] = useState<boolean>(false);
+  const [analyticsOpen, setAnalyticsOpen] = useState<boolean>(false);
 
+  const exportPngRef = useRef<(() => void) | null>(null);
   const prevBoardSeqRef = useRef<Map<string, number>>(new Map());
   const prevTierRef = useRef<Map<string, number>>(new Map());
   const prevEventIdRef = useRef<Map<string, string | null>>(new Map());
+  const prevErrorAgentsRef = useRef<Set<string>>(new Set());
   const hasInitializedRef = useRef<boolean>(false);
 
   useEffect(() => {
     return initAudioUnlock();
   }, []);
 
-  const applySnapshot = useCallback((next: PlazaSnapshot) => {
-    if (hasInitializedRef.current) {
-      let shouldChime = false;
-      let shouldLevelUp = false;
-      let shouldEventJingle = false;
+  const applySnapshot = useCallback(
+    (next: PlazaSnapshot) => {
+      const nextErrorIds = new Set<string>();
+      const newlyErroredNames: string[] = [];
 
       for (const fl of next.floors) {
-        const lastSeq = fl.boardMessages.length
-          ? fl.boardMessages[fl.boardMessages.length - 1].seq
-          : 0;
-        const prevSeq = prevBoardSeqRef.current.get(fl.id) ?? lastSeq;
-        if (lastSeq > prevSeq) {
-          shouldChime = true;
+        for (const emp of fl.employees) {
+          if (emp.status === 'error' || emp.toolActivity === 'error') {
+            nextErrorIds.add(emp.id);
+            if (hasInitializedRef.current && !prevErrorAgentsRef.current.has(emp.id)) {
+              newlyErroredNames.push(emp.name);
+            }
+          }
         }
-        prevBoardSeqRef.current.set(fl.id, lastSeq);
+      }
+      prevErrorAgentsRef.current = nextErrorIds;
 
-        const prevTier = prevTierRef.current.get(fl.id) ?? fl.tier;
-        if (fl.tier > prevTier) {
-          shouldLevelUp = true;
-        }
-        prevTierRef.current.set(fl.id, fl.tier);
+      if (hasInitializedRef.current) {
+        let shouldChime = false;
+        let shouldLevelUp = false;
+        let shouldEventJingle = false;
+        const shouldAlert = newlyErroredNames.length > 0;
 
-        const nextEventId = fl.activeEvent?.id ?? null;
-        const prevEventId = prevEventIdRef.current.get(fl.id) ?? null;
-        if (nextEventId && nextEventId !== prevEventId) {
-          shouldEventJingle = true;
+        for (const fl of next.floors) {
+          const lastSeq = fl.boardMessages.length
+            ? fl.boardMessages[fl.boardMessages.length - 1].seq
+            : 0;
+          const prevSeq = prevBoardSeqRef.current.get(fl.id) ?? lastSeq;
+          if (lastSeq > prevSeq) {
+            shouldChime = true;
+          }
+          prevBoardSeqRef.current.set(fl.id, lastSeq);
+
+          const prevTier = prevTierRef.current.get(fl.id) ?? fl.tier;
+          if (fl.tier > prevTier) {
+            shouldLevelUp = true;
+          }
+          prevTierRef.current.set(fl.id, fl.tier);
+
+          const nextEventId = fl.activeEvent?.id ?? null;
+          const prevEventId = prevEventIdRef.current.get(fl.id) ?? null;
+          if (nextEventId && nextEventId !== prevEventId) {
+            shouldEventJingle = true;
+          }
+          prevEventIdRef.current.set(fl.id, nextEventId);
         }
-        prevEventIdRef.current.set(fl.id, nextEventId);
+
+        if (shouldAlert) {
+          playAlertJingle();
+          sendAgentAlertNotification(
+            t.notifications.agentAlertTitle,
+            `${newlyErroredNames.join(', ')} ${t.notifications.agentStallOrError}`,
+          );
+        } else if (shouldLevelUp) {
+          playLevelUp();
+        } else if (shouldEventJingle) {
+          playEventJingle();
+        } else if (shouldChime) {
+          playMentionChime();
+        }
+      } else {
+        for (const fl of next.floors) {
+          const lastSeq = fl.boardMessages.length
+            ? fl.boardMessages[fl.boardMessages.length - 1].seq
+            : 0;
+          prevBoardSeqRef.current.set(fl.id, lastSeq);
+          prevTierRef.current.set(fl.id, fl.tier);
+          prevEventIdRef.current.set(fl.id, fl.activeEvent?.id ?? null);
+        }
+        hasInitializedRef.current = true;
       }
 
-      if (shouldLevelUp) {
-        playLevelUp();
-      } else if (shouldEventJingle) {
-        playEventJingle();
-      } else if (shouldChime) {
-        playMentionChime();
-      }
-    } else {
-      for (const fl of next.floors) {
-        const lastSeq = fl.boardMessages.length
-          ? fl.boardMessages[fl.boardMessages.length - 1].seq
-          : 0;
-        prevBoardSeqRef.current.set(fl.id, lastSeq);
-        prevTierRef.current.set(fl.id, fl.tier);
-        prevEventIdRef.current.set(fl.id, fl.activeEvent?.id ?? null);
-      }
-      hasInitializedRef.current = true;
-    }
-
-    setSnapshot(next);
-    setSelectedFloorId((curr) => {
-      if (curr && next.floors.some((f) => f.id === curr)) return curr;
-      return pickInitialFloorId(next);
-    });
-  }, []);
+      setSnapshot(next);
+      setSelectedFloorId((curr) => {
+        if (curr && next.floors.some((f) => f.id === curr)) return curr;
+        return pickInitialFloorId(next);
+      });
+    },
+    [t.notifications.agentAlertTitle, t.notifications.agentStallOrError],
+  );
 
   // Initial /api/plaza fetch + WebSocket with auto-reconnect
   useEffect(() => {
@@ -205,6 +245,35 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleToggleNotifications = async () => {
+    const next = !notificationsEnabled;
+    if (next) {
+      await requestNotificationPermission();
+    }
+    setNotificationsEnabled(next);
+    setNotificationsEnabledState(next);
+  };
+
+  const handleToggleFollowCam = () => {
+    setFollowCam((curr) => {
+      const next = !curr;
+      if (next && !selectedEmployee && activeFloor && activeFloor.employees.length > 0) {
+        const preferred =
+          activeFloor.employees.find((e) => e.status === 'working') ?? activeFloor.employees[0];
+        if (preferred) setSelectedEmployee(preferred);
+      }
+      return next;
+    });
+  };
+
+  const handleRegisterExportPng = useCallback((fn: (() => void) | null) => {
+    exportPngRef.current = fn;
+  }, []);
+
+  const handleExportPng = () => {
+    exportPngRef.current?.();
+  };
+
   const handleRerollLayout = async () => {
     if (!activeFloor) return;
     try {
@@ -262,6 +331,12 @@ export const App: React.FC = () => {
         muted={muted}
         onToggleMute={handleToggleMute}
         onOpenWhiteboard={() => setWhiteboardOpen(true)}
+        onOpenAnalytics={() => setAnalyticsOpen(true)}
+        followCam={followCam}
+        onToggleFollowCam={handleToggleFollowCam}
+        onExportPng={handleExportPng}
+        notificationsEnabled={notificationsEnabled}
+        onToggleNotifications={handleToggleNotifications}
         onRerollLayout={handleRerollLayout}
         onTriggerEvent={handleTriggerEvent}
         wsConnected={wsConnected}
@@ -289,6 +364,9 @@ export const App: React.FC = () => {
               selectedEmployeeId={selectedEmployee?.id ?? null}
               onSelectEmployee={(emp) => setSelectedEmployee(emp)}
               onOpenWhiteboard={() => setWhiteboardOpen(true)}
+              followCam={followCam}
+              onFollowCamChange={setFollowCam}
+              onRegisterExportPng={handleRegisterExportPng}
             />
           ) : (
             <div
@@ -319,7 +397,16 @@ export const App: React.FC = () => {
           companyName={activeFloor.companyName}
           swarmTitle={activeFloor.swarmTitle}
           messages={activeFloor.boardMessages}
+          swarmEdges={activeFloor.swarmEdges}
           onClose={() => setWhiteboardOpen(false)}
+        />
+      )}
+
+      {analyticsOpen && (
+        <AnalyticsModal
+          floor={activeFloor}
+          snapshot={snapshot}
+          onClose={() => setAnalyticsOpen(false)}
         />
       )}
     </div>

@@ -1,11 +1,18 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import type { AgentActivityKind, CompanyTier, FloorEventKind, OfficeZone } from '../../shared/types';
+import type {
+  AgentActivityKind,
+  CompanyTier,
+  FloorEventKind,
+  ModelFamily,
+  OfficeZone,
+} from '../../shared/types';
 
 export type Locale = 'tr' | 'en';
 
 export interface Translations {
   appTitle: string;
   companyTiers: Record<CompanyTier, string>;
+  modelFamilies: Record<ModelFamily, string>;
   zones: Record<OfficeZone, string>;
   activities: Record<AgentActivityKind, string>;
   statuses: Record<'working' | 'waiting' | 'idle' | 'error', string>;
@@ -31,6 +38,12 @@ export interface Translations {
     rerollLayout: string;
     triggerEvent: string;
     offDuty: string;
+    analytics: string;
+    followCamOn: string;
+    followCamOff: string;
+    snapshotPng: string;
+    alertsOn: string;
+    alertsOff: string;
   };
   blueprints: string[];
   events: Record<FloorEventKind, string>;
@@ -90,6 +103,36 @@ export interface Translations {
     empty: string;
     messagesCount: string;
     liveSync: string;
+    tabFeed: string;
+    tabGraph: string;
+    edgesCount: string;
+    noEdges: string;
+    mentionsUnit: string;
+    lastSeqPrefix: string;
+  };
+  analyticsModal: {
+    title: string;
+    close: string;
+    scopeFloor: string;
+    scopeGlobal: string;
+    completedTasks60m: string;
+    peakActive60m: string;
+    errorsCount: string;
+    timelineTitle: string;
+    completedTitle: string;
+    modelDistTitle: string;
+    activeLegend: string;
+    completedLegend: string;
+    errorLegend: string;
+    agentsUnit: string;
+    activeUnit: string;
+    tokensUnit: string;
+    noTimeline: string;
+    noModels: string;
+  };
+  notifications: {
+    agentAlertTitle: string;
+    agentStallOrError: string;
   };
 }
 
@@ -100,6 +143,16 @@ const TR: Translations = {
     2: 'Butik Teknoloji Ofisi',
     3: 'Scale-Up Katı',
     4: 'Plaza Holding HQ',
+  },
+  modelFamilies: {
+    argon: 'Argon',
+    hydrogen: 'Hydrogen',
+    flash: 'Flash',
+    carbon: 'Carbon',
+    pro: 'Gemini Pro',
+    claude: 'Claude',
+    gpt: 'GPT / OpenAI',
+    other: 'Diğer',
   },
   zones: {
     DESK_ARCHITECT: 'Yönetici Köşesi',
@@ -155,6 +208,12 @@ const TR: Translations = {
     rerollLayout: '🎲 DÜZEN',
     triggerEvent: '⚡ OLAY',
     offDuty: 'MESAİ DIŞI',
+    analytics: '📊 ANALİTİK',
+    followCamOn: '🎯 TAKİP: AÇIK',
+    followCamOff: '🎯 TAKİP',
+    snapshotPng: '📷 PNG',
+    alertsOn: '🔔 UYARI: AÇIK',
+    alertsOff: '🔕 UYARI',
   },
   blueprints: [
     'Klasik Köşe Stüdyo',
@@ -218,7 +277,7 @@ const TR: Translations = {
     logsTitle: 'Düşünce & Araç Akışı (Salt Okunur)',
     logsRefreshing: '2 sn yenileme',
     noLogs: 'Henüz kayıtlı adım bulunamadı.',
-    coordinatorBadge: 'KOORDİNATÖR',
+    coordinatorBadge: 'BOSS',
   },
   whiteboardModal: {
     title: 'SWARM BEYAZ TAHTA PANOSU',
@@ -226,6 +285,36 @@ const TR: Translations = {
     empty: 'Bu katın Swarm panosunda henüz mesaj yok.',
     messagesCount: 'mesaj',
     liveSync: 'Canlı Senkron',
+    tabFeed: 'MESAJ AKIŞI',
+    tabGraph: '@MENTION AĞI',
+    edgesCount: 'bağlantı',
+    noEdges: 'Henüz @mention etkileşimi kaydedilmedi.',
+    mentionsUnit: 'etkileşim',
+    lastSeqPrefix: 'Son #',
+  },
+  analyticsModal: {
+    title: 'KAT ANALİTİĞİ & TELEMETRİ',
+    close: 'KAPAT',
+    scopeFloor: 'KAT',
+    scopeGlobal: 'PLAZA GENELİ',
+    completedTasks60m: 'Tamamlanan Görev (60dk)',
+    peakActive60m: 'Zirve Aktif Ajan',
+    errorsCount: 'Hata / Uyarı',
+    timelineTitle: '60 DAKİKALIK KAT AKTİVİTESİ',
+    completedTitle: 'GÖREV TAMAMLAMALARI (60DK)',
+    modelDistTitle: 'MODEL DAĞILIMI',
+    activeLegend: 'Aktif Ajan',
+    completedLegend: 'Tamamlanan',
+    errorLegend: 'Hata',
+    agentsUnit: 'ajan',
+    activeUnit: 'aktif',
+    tokensUnit: 'token',
+    noTimeline: 'Henüz 60 dakikalık zaman serisi verisi yok.',
+    noModels: 'Bu katta kayıtlı model verisi yok.',
+  },
+  notifications: {
+    agentAlertTitle: 'Swarm Plaza Ajan Uyarısı',
+    agentStallOrError: 'hata verdi veya beklemede takıldı.',
   },
 };
 
@@ -236,6 +325,16 @@ const EN: Translations = {
     2: 'Boutique Tech Office',
     3: 'Scale-Up Floor',
     4: 'Plaza Holding HQ',
+  },
+  modelFamilies: {
+    argon: 'Argon',
+    hydrogen: 'Hydrogen',
+    flash: 'Flash',
+    carbon: 'Carbon',
+    pro: 'Gemini Pro',
+    claude: 'Claude',
+    gpt: 'GPT / OpenAI',
+    other: 'Other',
   },
   zones: {
     DESK_ARCHITECT: 'Executive Corner',
@@ -291,6 +390,12 @@ const EN: Translations = {
     rerollLayout: '🎲 LAYOUT',
     triggerEvent: '⚡ EVENT',
     offDuty: 'OFF-DUTY',
+    analytics: '📊 ANALYTICS',
+    followCamOn: '🎯 FOLLOW: ON',
+    followCamOff: '🎯 FOLLOW CAM',
+    snapshotPng: '📷 PNG',
+    alertsOn: '🔔 ALERTS: ON',
+    alertsOff: '🔕 ALERTS',
   },
   blueprints: [
     'Classic Corner Studio',
@@ -354,7 +459,7 @@ const EN: Translations = {
     logsTitle: 'Thought & Tool Stream (Read-Only)',
     logsRefreshing: '2s refresh',
     noLogs: 'No recorded steps yet.',
-    coordinatorBadge: 'COORDINATOR',
+    coordinatorBadge: 'BOSS',
   },
   whiteboardModal: {
     title: 'SWARM WHITEBOARD',
@@ -362,6 +467,36 @@ const EN: Translations = {
     empty: 'No messages on this floor’s Swarm board yet.',
     messagesCount: 'messages',
     liveSync: 'Live Sync',
+    tabFeed: 'MESSAGE FEED',
+    tabGraph: '@MENTION GRAPH',
+    edgesCount: 'links',
+    noEdges: 'No @mention interactions recorded yet.',
+    mentionsUnit: 'mentions',
+    lastSeqPrefix: 'Last #',
+  },
+  analyticsModal: {
+    title: 'FLOOR ANALYTICS & TELEMETRY',
+    close: 'CLOSE',
+    scopeFloor: 'FLOOR',
+    scopeGlobal: 'PLAZA GLOBAL',
+    completedTasks60m: 'Completed Tasks (60m)',
+    peakActive60m: 'Peak Active Agents',
+    errorsCount: 'Errors / Alerts',
+    timelineTitle: '60-MIN FLOOR ACTIVITY TIMELINE',
+    completedTitle: 'TASK COMPLETIONS (60M)',
+    modelDistTitle: 'MODEL DISTRIBUTION',
+    activeLegend: 'Active Agents',
+    completedLegend: 'Completed',
+    errorLegend: 'Errors',
+    agentsUnit: 'agents',
+    activeUnit: 'active',
+    tokensUnit: 'tokens',
+    noTimeline: 'No 60-min timeline data available yet.',
+    noModels: 'No model breakdown recorded on this floor.',
+  },
+  notifications: {
+    agentAlertTitle: 'Swarm Plaza Agent Alert',
+    agentStallOrError: 'encountered an error or stalled.',
   },
 };
 

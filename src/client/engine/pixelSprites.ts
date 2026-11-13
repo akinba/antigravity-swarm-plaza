@@ -1,7 +1,13 @@
 import type { ModelFamily, OfficeEmployee, OfficeZone } from '../../shared/types';
 import { TILE_H, TILE_W } from './isoMath';
 import type { MascotKind, ThemePalette } from './officeLayouts';
-import { drawExtraFurnitureProp, drawOfficeDog } from './officePropsSprites';
+import {
+  drawDeskEvolutionExtras,
+  drawExtraFurnitureProp,
+  drawOfficeDog,
+  drawToolStatusBubble,
+  type ToolBubbleKind,
+} from './officePropsSprites';
 import type { Facing } from './pathfinding';
 
 export interface Palette {
@@ -36,6 +42,9 @@ export const UNIFORM_COLORS: Record<
   hydrogen: { main: '#1e90b8', dark: '#115873', trim: '#7ef3ff', badge: 'HYDRO' },
   flash: { main: '#1fa368', dark: '#11633f', trim: '#ffe64d', badge: 'FLASH' },
   carbon: { main: '#b82e43', dark: '#751827', trim: '#f2f5ff', badge: 'CARBON' },
+  pro: { main: '#243b6b', dark: '#152342', trim: '#ffd147', badge: 'PRO' },
+  claude: { main: '#c96b42', dark: '#874123', trim: '#fff1d6', badge: 'CLAUDE' },
+  gpt: { main: '#167a73', dark: '#0d4a46', trim: '#7efaa8', badge: 'GPT' },
   other: { main: '#4654a3', dark: '#2a336b', trim: '#b7c4ff', badge: 'AGENT' },
 };
 
@@ -334,6 +343,7 @@ export function drawFurniture(
   isOccupied: boolean,
   isHovered: boolean,
   whiteboardLabel: string,
+  deskLevel = 1,
 ): void {
   const z = zoom;
   ctx.save();
@@ -353,6 +363,7 @@ export function drawFurniture(
     ctx.fillRect(Math.round(cx - 9 * z), Math.round(cy - 9 * z), Math.ceil(9 * z), Math.ceil(3 * z));
     ctx.fillStyle = '#ffd147';
     ctx.fillRect(Math.round(cx - 5 * z), Math.round(cy - 5 * z), Math.ceil(10 * z), Math.ceil(3 * z));
+    drawDeskEvolutionExtras(ctx, kind, cx, cy, z, timeSec, isOccupied, deskLevel);
   } else if (kind === 'dev_desk') {
     // Low 10px desk with monitors angled toward side corners so seated face & hands stay visible
     drawIsoBox(ctx, cx, cy, 22, 11, 10, '#d4b48c', '#a38560', '#7d6344', z);
@@ -374,6 +385,7 @@ export function drawFurniture(
     ctx.fillRect(Math.round(cx - 6 * z), Math.round(cy - 9 * z), Math.ceil(8 * z), Math.ceil(1 * z));
     ctx.fillStyle = '#2a3347';
     ctx.fillRect(Math.round(cx + 5 * z), Math.round(cy - 10 * z), Math.ceil(5 * z), Math.ceil(3 * z));
+    drawDeskEvolutionExtras(ctx, kind, cx, cy, z, timeSec, isOccupied, deskLevel);
   } else if (kind === 'qa_desk') {
     drawIsoBox(ctx, cx, cy, 20, 10, 10, '#cbb59a', '#9c8870', '#756450', z);
     ctx.fillStyle = '#141824';
@@ -384,6 +396,7 @@ export function drawFurniture(
     ctx.fillRect(Math.round(cx - 8 * z), Math.round(cy - 10 * z), Math.ceil(10 * z), Math.ceil(3 * z));
     ctx.fillStyle = '#2a3347';
     ctx.fillRect(Math.round(cx + 4 * z), Math.round(cy - 10 * z), Math.ceil(4 * z), Math.ceil(3 * z));
+    drawDeskEvolutionExtras(ctx, kind, cx, cy, z, timeSec, isOccupied, deskLevel);
   } else if (kind === 'desk_chair') {
     // Ergonomic office swivel chair
     drawIsoBox(ctx, cx, cy, 9, 5, 5, '#2b3347', '#1a202e', '#11151f', z);
@@ -603,6 +616,7 @@ export function drawEmployeeSprite(
   isHovered: boolean,
   isSelected: boolean,
   alpha = 1,
+  showSpeechBubble = true,
 ): void {
   const z = zoom;
   const palette = getEmployeePalette(emp.id);
@@ -807,7 +821,7 @@ export function drawEmployeeSprite(
   ctx.fillStyle = palette.hairHighlight;
   ctx.fillRect(Math.round(cx - 5 * z), Math.round(baseY - 36 * z), Math.ceil(6 * z), Math.ceil(2 * z));
 
-  // Model-specific headgear
+  // Model-specific headgear & accessories
   if (emp.modelFamily === 'argon' || emp.isCoordinator) {
     // Gold crown
     ctx.fillStyle = '#ffd147';
@@ -824,6 +838,42 @@ export function drawEmployeeSprite(
     // Emerald-yellow speed visor
     ctx.fillStyle = '#ffe64d';
     ctx.fillRect(Math.round(cx - 5 * z), Math.round(baseY - 30 * z), Math.ceil(10 * z), Math.ceil(3 * z));
+  } else if (emp.modelFamily === 'carbon') {
+    // Crimson/white lab coat lapel + cyber glasses
+    ctx.fillStyle = '#f2f5ff';
+    ctx.fillRect(Math.round(cx - 5 * z), Math.round(baseY - 21 * z), Math.ceil(3 * z), Math.ceil(8 * z));
+    ctx.fillRect(Math.round(cx + 2 * z), Math.round(baseY - 21 * z), Math.ceil(3 * z), Math.ceil(8 * z));
+    ctx.fillStyle = '#7ef3ff';
+    ctx.fillRect(Math.round(cx - 5 * z), Math.round(baseY - 29 * z), Math.ceil(4 * z), Math.ceil(2 * z));
+    ctx.fillRect(Math.round(cx + 1 * z), Math.round(baseY - 29 * z), Math.ceil(4 * z), Math.ceil(2 * z));
+  } else if (emp.modelFamily === 'pro') {
+    // Navy/gold executive suit tie + glasses
+    ctx.fillStyle = '#ffd147';
+    ctx.fillRect(Math.round(cx - 1 * z), Math.round(baseY - 21 * z), Math.ceil(2 * z), Math.ceil(7 * z));
+    ctx.fillStyle = '#e6ecff';
+    ctx.fillRect(Math.round(cx - 5 * z), Math.round(baseY - 29 * z), Math.ceil(4 * z), Math.ceil(2 * z));
+    ctx.fillRect(Math.round(cx + 1 * z), Math.round(baseY - 29 * z), Math.ceil(4 * z), Math.ceil(2 * z));
+  } else if (emp.modelFamily === 'claude') {
+    // Terracotta/cream beret + cozy collar
+    ctx.fillStyle = '#fff1d6';
+    ctx.fillRect(Math.round(cx - 4 * z), Math.round(baseY - 21 * z), Math.ceil(8 * z), Math.ceil(2 * z));
+    ctx.fillStyle = '#e07a52';
+    ctx.fillRect(Math.round(cx - 6 * z), Math.round(baseY - 40 * z), Math.ceil(12 * z), Math.ceil(4 * z));
+    ctx.fillStyle = '#fff1d6';
+    ctx.fillRect(Math.round(cx - 1 * z), Math.round(baseY - 42 * z), Math.ceil(2 * z), Math.ceil(2 * z));
+  } else if (emp.modelFamily === 'gpt') {
+    // Teal/slate turtleneck + cyber headset with mic boom
+    ctx.fillStyle = '#0d4a46';
+    ctx.fillRect(Math.round(cx - 4 * z), Math.round(baseY - 22 * z), Math.ceil(8 * z), Math.ceil(3 * z));
+    ctx.fillStyle = '#7efaa8';
+    ctx.fillRect(Math.round(cx + 6 * z), Math.round(baseY - 32 * z), Math.ceil(2 * z), Math.ceil(6 * z));
+    ctx.fillRect(Math.round(cx + 2 * z), Math.round(baseY - 25 * z), Math.ceil(5 * z), Math.ceil(2 * z));
+  } else {
+    // Indigo polo + lanyard badge
+    ctx.fillStyle = '#b7c4ff';
+    ctx.fillRect(Math.round(cx - 1 * z), Math.round(baseY - 21 * z), Math.ceil(2 * z), Math.ceil(5 * z));
+    ctx.fillStyle = '#ffd147';
+    ctx.fillRect(Math.round(cx - 2 * z), Math.round(baseY - 16 * z), Math.ceil(4 * z), Math.ceil(3 * z));
   }
 
   // Floating Zzz, ♪ lounging sparkle, gaming excitement ★, or Error !
@@ -854,22 +904,7 @@ export function drawEmployeeSprite(
     ctx.fillText('!', cx, baseY - 44 * z);
   }
 
-  // Overhead Role Tag + Status Dot
-  const tagText = emp.name.length > 14 ? `${emp.name.slice(0, 13)}…` : emp.name;
-  ctx.font = `bold ${Math.max(8, Math.round(8 * z))}px "JetBrains Mono", monospace`;
-  const textW = ctx.measureText(tagText).width;
-  const pillW = textW + 16 * z;
-  const pillH = 14 * z;
-  const pillX = cx - pillW / 2;
-  const pillY = baseY - 56 * z;
-
-  ctx.fillStyle = 'rgba(12, 15, 25, 0.86)';
-  ctx.fillRect(Math.round(pillX), Math.round(pillY), Math.ceil(pillW), Math.ceil(pillH));
-  ctx.strokeStyle = isHovered ? '#3cd8ff' : '#4a5780';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(Math.round(pillX), Math.round(pillY), Math.ceil(pillW), Math.ceil(pillH));
-
-  // Status dot
+  // Status dot color
   const dotColor =
     emp.status === 'working'
       ? '#3be87a'
@@ -878,23 +913,56 @@ export function drawEmployeeSprite(
         : emp.status === 'waiting'
           ? '#ffbe3b'
           : '#8d96ad';
-  ctx.fillStyle = dotColor;
-  ctx.fillRect(Math.round(pillX + 4 * z), Math.round(pillY + 4 * z), Math.ceil(5 * z), Math.ceil(5 * z));
 
-  ctx.fillStyle = '#f4f6fc';
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(tagText, pillX + 11 * z, pillY + pillH / 2 + 0.5);
+  const showNameTag = isHovered || isSelected;
+  const pillY = baseY - 56 * z;
+  let pillX = cx;
 
-  // Overhead Speech Bubble
-  if (emp.speechBubble) {
+  if (showNameTag) {
+    // Overhead Role Tag + Status Dot (shown only on hover or selection)
+    const rawName = emp.name.length > 14 ? `${emp.name.slice(0, 13)}…` : emp.name;
+    const tagText = emp.isCoordinator ? `★ BOSS · ${rawName}` : rawName;
+    ctx.font = `bold ${Math.max(8, Math.round(8 * z))}px "JetBrains Mono", monospace`;
+    const textW = ctx.measureText(tagText).width;
+    const pillW = textW + 16 * z;
+    const pillH = 14 * z;
+    pillX = cx - pillW / 2;
+
+    ctx.fillStyle = 'rgba(12, 15, 25, 0.86)';
+    ctx.fillRect(Math.round(pillX), Math.round(pillY), Math.ceil(pillW), Math.ceil(pillH));
+    ctx.strokeStyle = isHovered ? '#3cd8ff' : emp.isCoordinator ? '#ffd147' : '#4a5780';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(Math.round(pillX), Math.round(pillY), Math.ceil(pillW), Math.ceil(pillH));
+
+    ctx.fillStyle = dotColor;
+    ctx.fillRect(Math.round(pillX + 4 * z), Math.round(pillY + 4 * z), Math.ceil(5 * z), Math.ceil(5 * z));
+
+    ctx.fillStyle = '#f4f6fc';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(tagText, pillX + 11 * z, pillY + pillH / 2 + 0.5);
+  } else {
+    // Compact overhead status dot when not hovered/selected
+    const dotSize = Math.max(4, Math.ceil(5 * z));
+    const dx = Math.round(cx - dotSize / 2);
+    const dy = Math.round(baseY - 47 * z);
+    ctx.fillStyle = '#0d101c';
+    ctx.fillRect(dx - 1, dy - 1, dotSize + 2, dotSize + 2);
+    ctx.fillStyle = dotColor;
+    ctx.fillRect(dx, dy, dotSize, dotSize);
+  }
+
+  // Overhead Speech Bubble (shown on hover/select or for 4.5s after new bubble arrives)
+  const hasVisibleBubble = Boolean(emp.speechBubble && showSpeechBubble);
+  if (hasVisibleBubble && emp.speechBubble) {
     const bubbleText =
       emp.speechBubble.length > 26 ? `${emp.speechBubble.slice(0, 25)}…` : emp.speechBubble;
     ctx.font = `${Math.max(8, Math.round(8 * z))}px "JetBrains Mono", monospace`;
     const bw = ctx.measureText(bubbleText).width + 12 * z;
     const bh = 15 * z;
     const bx = cx - bw / 2;
-    const by = pillY - bh - 6 * z;
+    const anchorY = showNameTag ? pillY : baseY - 50 * z;
+    const by = anchorY - bh - 6 * z;
 
     ctx.fillStyle = '#fffdf2';
     ctx.fillRect(Math.round(bx), Math.round(by), Math.ceil(bw), Math.ceil(bh));
@@ -909,6 +977,21 @@ export function drawEmployeeSprite(
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(bubbleText, cx, by + bh / 2 + 0.5);
+  }
+
+  // Tool-based status icon bubble above working/errored agents
+  const toolKind: ToolBubbleKind | null =
+    emp.toolActivity && emp.toolActivity !== 'idle'
+      ? emp.toolActivity
+      : emp.status === 'error'
+        ? 'error'
+        : null;
+  if (toolKind) {
+    const toolX = hasVisibleBubble ? (showNameTag ? pillX - 10 * z : cx - 12 * z) : cx;
+    const toolY = hasVisibleBubble
+      ? (showNameTag ? pillY + 4 * z : baseY - 46 * z)
+      : (showNameTag ? pillY - 6 * z : baseY - 52 * z);
+    drawToolStatusBubble(ctx, toolKind, toolX, toolY, z, timeSec);
   }
 
   ctx.restore();
@@ -957,7 +1040,7 @@ export function drawEmployeePortrait(
   px(12, 14, 2, 3, '#11131c');
   px(18, 14, 2, 3, '#11131c');
 
-  // Headgear
+  // Headgear & outfit accessories
   if (emp.modelFamily === 'argon' || emp.isCoordinator) {
     px(10, 3, 12, 3, '#ffd147');
     px(10, 1, 2, 2, '#ffd147');
@@ -968,6 +1051,26 @@ export function drawEmployeePortrait(
     px(22, 10, 2, 7, '#3cd8ff');
   } else if (emp.modelFamily === 'flash') {
     px(10, 12, 12, 3, '#ffe64d');
+  } else if (emp.modelFamily === 'carbon') {
+    px(10, 22, 3, 9, '#f2f5ff');
+    px(19, 22, 3, 9, '#f2f5ff');
+    px(11, 13, 4, 2, '#7ef3ff');
+    px(17, 13, 4, 2, '#7ef3ff');
+  } else if (emp.modelFamily === 'pro') {
+    px(15, 22, 2, 9, '#ffd147');
+    px(11, 13, 4, 2, '#e6ecff');
+    px(17, 13, 4, 2, '#e6ecff');
+  } else if (emp.modelFamily === 'claude') {
+    px(12, 22, 8, 2, '#fff1d6');
+    px(9, 4, 14, 3, '#e07a52');
+    px(15, 2, 2, 2, '#fff1d6');
+  } else if (emp.modelFamily === 'gpt') {
+    px(12, 21, 8, 3, '#0d4a46');
+    px(22, 11, 2, 6, '#7efaa8');
+    px(18, 17, 5, 2, '#7efaa8');
+  } else {
+    px(15, 22, 2, 5, '#b7c4ff');
+    px(14, 27, 4, 3, '#ffd147');
   }
 }
 
