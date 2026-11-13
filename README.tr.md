@@ -137,6 +137,7 @@ npx antigravity-swarm-plaza --install-plugin
 
 Kurulum sonrasında Antigravity sohbetinde şu komutla paneli anında açabilirsiniz:
 - `[Swarm Plaza](sidecar://antigravity-swarm-plaza/swarm_plaza/)`
+- Eklenti kurulu ve etkinken paketle gelen `plugin/rules/AGENTS.md` kuralı sayesinde `Open the Swarm UI` butonunun yanında otomatik olarak eşlikçi `[Swarm Plaza](sidecar://antigravity-swarm-plaza/swarm_plaza/)` pill bağlantısı da sunulur (eklenti devre dışı bırakıldığında otomatik olarak kalkar).
 
 ---
 
@@ -150,7 +151,7 @@ cd antigravity-swarm-plaza
 # Bağımlılıkları yükleyin
 npm install
 
-# Testleri çalıştırın (56 test / 23 test paketi)
+# Testleri çalıştırın (58 test / 23 test paketi)
 npm test
 
 # TypeScript tip kontrolü

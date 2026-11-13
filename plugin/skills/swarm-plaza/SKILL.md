@@ -18,6 +18,7 @@ When the user asks to view or open Swarm Plaza, surface the one-click sidecar na
 - Clicking this pill opens the live 2.5D office directly inside the Antigravity IDE Auxiliary Side Pane.
 - The web port (`ANTIGRAVITY_SIDECAR_WEB_PORT`) and process lifecycle are managed automatically by the Antigravity sidecar manager.
 - The sidecar automatically adapts to compact pane widths (`< 760px`) with collapsible elevator drawer and HUD controls.
+- When `[Open the Swarm UI](sidecar://swarm/swarm_board/)` is shown, you can also surface `[Swarm Plaza](sidecar://antigravity-swarm-plaza/swarm_plaza/)` alongside it as a companion 2.5D office view.
 
 ## Secondary Fallback: Standalone Web App
 

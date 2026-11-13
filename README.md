@@ -138,6 +138,7 @@ npx antigravity-swarm-plaza --install-plugin
 
 Once installed, simply click the sidecar pill in Antigravity chat:
 - `[Swarm Plaza](sidecar://antigravity-swarm-plaza/swarm_plaza/)`
+- When the plugin is installed and enabled, its bundled `plugin/rules/AGENTS.md` rule automatically surfaces the companion `[Swarm Plaza](sidecar://antigravity-swarm-plaza/swarm_plaza/)` pill alongside `Open the Swarm UI` (and disappears automatically when the plugin is disabled).
 
 ---
 
@@ -151,7 +152,7 @@ cd antigravity-swarm-plaza
 # Install dependencies
 npm install
 
-# Run automated tests (56 tests / 23 test suites)
+# Run automated tests (58 tests / 23 test suites)
 npm test
 
 # Run TypeScript verification
