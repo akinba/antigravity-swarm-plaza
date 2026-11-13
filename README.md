@@ -135,7 +135,8 @@ flowchart LR
   - *Real-Work Integrity:* Active working agents (`status === 'working'`) are NEVER pulled off their desks during ambient events.
 - **📡 Live Swarm Board, `@mention` Network Graph & 60m Analytics:**
   - Unified message stream ingesting both Native Swarm `board.jsonl` and subagent/task `messages/*.json`, with automatic scroll-to-latest (`MESSAGE FEED`), clickable `● LIVE` follow toggle, and clean `@Swarm Worker (...)` badge normalization.
-  - Directed `@mention` communication network graph modal (`WhiteboardModal`).
+  - Directed `@mention` communication network graph modal (`WhiteboardModal`) + **`TASK FLOW (DAG)`** tab tracking task ownership, handoffs, and keyword-verified proof badges (`PASS`, `DONE`, `EXIT 0`, `VERIFIED`, `✅`).
+  - **Operational AI Agent Control Center:** Passive **Agent Health (0–100 HP)** micro-bars, golden desk proof trophies for verified outputs, `~Estimated` per-agent Token & Cost Monitor (`AnalyticsModal`), and Smart Alert Grouping (`×N` deduplication + severity filters).
   - 60-minute activity telemetry timeline (12x 5-minute buckets), completed task counters, and model distribution (`AnalyticsModal`).
 - **🌐 Automatic Browser Language Detection & Complete i18n:**
   - Automatically starts in Turkish if browser/OS language is Turkish (`tr*`), otherwise defaults to English (`en`). Instant `TR | EN` toggle updates all server speech bubbles, demo company names, and event titles in real time.
@@ -208,7 +209,7 @@ cd antigravity-swarm-plaza
 # Install dependencies
 npm install
 
-# Run automated tests (69 tests / 25 test suites)
+# Run automated tests (70 tests / 25 test suites)
 npm test
 
 # Run TypeScript verification

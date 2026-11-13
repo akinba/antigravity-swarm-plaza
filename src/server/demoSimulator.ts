@@ -11,7 +11,12 @@ import type {
   SwarmRole,
 } from '../shared/types.js';
 import { buildSwarmMentionEdges, extractMentions } from './brainScanner.js';
-import { classifyToolActivity, computeModelBreakdown } from './gamification.js';
+import {
+  buildFloorTaskNodes,
+  classifyToolActivity,
+  computeAgentResources,
+  computeModelBreakdown,
+} from './gamification.js';
 import { getActiveFloorEvent, getFloorLayoutSeed } from './officeEvents.js';
 
 interface DemoEmployeeTemplate {
@@ -632,13 +637,40 @@ export function getDemoFloor(
     }
   }
 
-  for (const emp of employees) {
+  for (let idx = 0; idx < employees.length; idx++) {
+    const emp = employees[idx];
     emp.toolActivity = classifyToolActivity({
       status: emp.status,
       toolName: emp.currentTool,
       targetSummary: emp.currentTarget,
     });
+    const isVerifier = emp.id === 'demo-verifier-qa';
+    const isCoreVerified = emp.id === 'demo-coder-core' && effectiveTick % 2 === 0;
+    const isVerifiedOutput = isVerifier || isCoreVerified;
+    const errorCount = emp.id === 'demo-analyst-grill' ? 1 : 0;
+    const retryCount = errorCount;
+    emp.health = {
+      normalizedState:
+        emp.status === 'working'
+          ? 'active'
+          : isVerifiedOutput
+            ? 'completed'
+            : 'waiting',
+      hpScore: isVerifiedOutput ? 100 : errorCount > 0 ? 94 : 98,
+      successRatePct: errorCount > 0 ? 96 : 100,
+      totalSteps: emp.stepCount,
+      errorCount,
+      retryCount,
+      consecutiveErrors: 0,
+      elapsedSec: 120 + effectiveTick * 16 + idx * 25,
+      isVerifiedOutput,
+      verifiedLabel: isVerifier ? 'PASS' : isCoreVerified ? 'EXIT 0' : undefined,
+    };
   }
+
+  const taskNodes = buildFloorTaskNodes(employees, boardMessages, swarmEdges);
+  const { agentResources, totalEstimatedTokens, totalEstimatedCostUsd } =
+    computeAgentResources(employees);
 
   const activeCount = employees.filter((e) => e.status === 'working').length;
   const waitingCount = employees.filter((e) => e.status === 'waiting').length;
@@ -672,6 +704,9 @@ export function getDemoFloor(
     completedTasks60m,
     peakActive60m,
     modelBreakdown: computeModelBreakdown(employees),
+    agentResources,
+    totalEstimatedTokens,
+    totalEstimatedCostUsd,
   };
 
   return {
@@ -695,6 +730,7 @@ export function getDemoFloor(
     boardMessages,
     swarmEdges,
     swarmTitle: 'Antigravity Plaza Demo Swarm',
+    taskNodes,
     analytics,
     lastModifiedAt: now,
   };

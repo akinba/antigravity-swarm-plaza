@@ -12,9 +12,11 @@ import {
 } from '../../src/server/brainScanner.js';
 import { getDemoFloor, resetDemoTick } from '../../src/server/demoSimulator.js';
 import {
+  buildFloorTaskNodes,
   buildPlazaSnapshot,
   classifyToolActivity,
   computeFloorAnalytics,
+  extractVerificationProof,
 } from '../../src/server/gamification.js';
 import type { OfficeEmployee } from '../../src/shared/types.js';
 
@@ -701,5 +703,53 @@ describe('Renamed project display names & subagent/task messages/*.json board', 
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
+  });
+
+  it('computes passive AgentHealthMetrics, keyword-verified SwarmTaskNode DAGs, and ~estimated AgentResourceUsage', () => {
+    resetDemoTick();
+    const demoFloor = getDemoFloor(true);
+    assert.ok(demoFloor.employees.length >= 5);
+    for (const emp of demoFloor.employees) {
+      assert.ok(emp.health, `Missing health on demo employee ${emp.id}`);
+      assert.ok(emp.health.hpScore >= 0 && emp.health.hpScore <= 100);
+      assert.ok(emp.health.successRatePct >= 0 && emp.health.successRatePct <= 100);
+    }
+    assert.ok(demoFloor.employees.some((e) => e.health?.isVerifiedOutput === true));
+
+    assert.ok(demoFloor.taskNodes && demoFloor.taskNodes.length === 5);
+    assert.ok(demoFloor.taskNodes.some((n) => n.status === 'verified'));
+
+    assert.ok(demoFloor.analytics?.agentResources?.length === 5);
+    for (const res of demoFloor.analytics.agentResources) {
+      assert.equal(res.isEstimated, true);
+      assert.ok(res.estimatedTokens > 0);
+      assert.ok(res.estimatedCostUsd >= 0);
+    }
+    assert.ok((demoFloor.analytics.totalEstimatedTokens ?? 0) > 0);
+    assert.ok((demoFloor.analytics.totalEstimatedCostUsd ?? 0) >= 0);
+
+    // Keyword verification proof + buildFloorTaskNodes
+    const proof = extractVerificationProof(['npm.cmd test PASS (69/69 test) EXIT 0']);
+    assert.equal(proof.isVerifiedOutput, true);
+    assert.equal(proof.verifiedLabel, 'PASS');
+    assert.ok(proof.evidenceBadges.length >= 1);
+
+    const customNodes = buildFloorTaskNodes(
+      demoFloor.employees,
+      [
+        {
+          seq: 1,
+          agent: 'coder-core',
+          text: '@verifier-qa Değişiklikler tamamlandı, EXIT 0 ✅',
+          time: new Date().toISOString(),
+          kind: 'message',
+        },
+      ],
+      [{ from: 'coder-core', to: 'verifier-qa', count: 1, lastSeq: 1, lastTime: new Date().toISOString() }],
+    );
+    const coreNode = customNodes.find((n) => n.ownerName === 'coder-core');
+    assert.ok(coreNode);
+    assert.equal(coreNode.status, 'verified');
+    assert.deepEqual(coreNode.handoffTargetNames, ['verifier-qa']);
   });
 });

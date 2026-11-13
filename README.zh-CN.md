@@ -136,7 +136,8 @@ flowchart LR
   - **8-bit 合成器音效（Chiptune SFX）：** 纯 Web Audio API 零外部音频文件，支持静音持久化。
 - **📡 实时 Swarm 白板、`@mention` 网络图与 60 分钟遥测：**
   - 同时汇聚原生 Swarm `board.jsonl` 与子智能体/后台任务 `messages/*.json`（含 `@Swarm Worker (...)` 标签规范化），支持 `MESSAGE FEED` 打开即自动滚动至最新消息、可点击 `● LIVE` 实时追踪按钮以及悬浮未读跳转提示。
-  - 有向 `@mention` 交互网络图（`WhiteboardModal`）与 60 分钟活动时间轴、模型分布统计（`AnalyticsModal`）。
+  - 有向 `@mention` 交互网络图（`WhiteboardModal`）与 **`TASK FLOW (DAG)` 任务流图标签页**（支持 `PASS`、`DONE`、`EXIT 0`、`VERIFIED`、`✅` 消息关键词自动验证徽章），以及 60 分钟活动时间轴、模型分布统计（`AnalyticsModal`）。
+  - **运营级 AI 智能体控制中心：** 被动式 **Agent Health (0–100 HP)** 微型生命条、桌面金色验证奖杯、带 `~Estimated`（约估算）标识的 AI 资源与成本监控（`AnalyticsModal`）以及智能告警聚合（`×N` 去重 + 严重级别筛选）。
   - 支持楼层 `T1..T5` 评级、Pure-Gemini 生态/配额评分、PNG 高清导出、昼夜模式切换与多语言自动识别（`EN` / `TR`）。
 - **🛡️ 100% 只读安全架构：**
   - 所有数据源严格只读：`node:sqlite` 以 `{ readOnly: true }` 打开，`transcript.jsonl` 与 `brain` 目录采用只读流扫描，服务仅绑定 `127.0.0.1` 回环地址，绝不修改或锁定 `~/.gemini/antigravity` 中的任何用户数据。
@@ -211,7 +212,7 @@ npm run dev
 # 运行 TypeScript 类型检查
 npm run typecheck
 
-# 运行自动化测试（69 个单元测试 / 25 个测试套件）
+# 运行自动化测试（70 个单元测试 / 25 个测试套件）
 npm test
 
 # 构建前端、服务端与 Sidecar 单文件包

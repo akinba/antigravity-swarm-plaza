@@ -15,6 +15,8 @@ import {
 } from './isoMath';
 import { ELEVATOR_SLOT, getFloorLayout, type FloorLayout } from './officeLayouts';
 import {
+  drawAgentHealthBadge,
+  drawDeskVerifiedTrophy,
   drawEnhancedBackWalls,
   drawEnhancedFloorTile,
   drawEnhancedFurniture,
@@ -731,6 +733,36 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
       let wbMaxX = -Infinity;
       let wbMaxY = -Infinity;
 
+      // Map verified off-desk employees (e.g. relaxing in Coffee Lounge) to an unclaimed home desk slot
+      const claimedSlotKeys = new Set<string>();
+      for (const emp of currentFloor.employees) {
+        const actor = actors.get(emp.id);
+        if (
+          actor &&
+          (emp.zone === 'DESK_ARCHITECT' || emp.zone === 'DESK_CODING' || emp.zone === 'DESK_QA')
+        ) {
+          claimedSlotKeys.add(`${actor.targetSlotGx},${actor.targetSlotGy}`);
+        }
+      }
+      const fallbackDeskSlots: Array<{ gx: number; gy: number; emp: OfficeEmployee }> = [];
+      for (const emp of currentFloor.employees) {
+        if (!emp.health?.isVerifiedOutput || emp.activity === 'going_home') continue;
+        if (emp.zone === 'DESK_ARCHITECT' || emp.zone === 'DESK_CODING' || emp.zone === 'DESK_QA') {
+          continue;
+        }
+        const homeZone: OfficeZone = emp.isCoordinator
+          ? 'DESK_ARCHITECT'
+          : emp.swarmRole === 'verifier'
+            ? 'DESK_QA'
+            : 'DESK_CODING';
+        const candidates = currentLayout.zoneSlots[homeZone] || currentLayout.zoneSlots.DESK_CODING;
+        const freeSlot = candidates.find((s) => !claimedSlotKeys.has(`${s.gx},${s.gy}`));
+        if (freeSlot) {
+          claimedSlotKeys.add(`${freeSlot.gx},${freeSlot.gy}`);
+          fallbackDeskSlots.push({ gx: freeSlot.gx, gy: freeSlot.gy, emp });
+        }
+      }
+
       for (const item of currentLayout.furniture) {
         const p = gridToScreen(item.gx, item.gy, cam);
         const isWb = item.kind === 'whiteboard_l' || item.kind === 'whiteboard_r';
@@ -753,17 +785,38 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
             let deskLevel = 1;
             let occupierModelFamily = 'pro';
             let deskHasWorking = false;
-            if (item.kind === 'dev_desk' || item.kind === 'qa_desk' || item.kind === 'exec_desk') {
+            let deskHasVerified = false;
+            if (
+              item.kind === 'dev_desk' ||
+              item.kind === 'qa_desk' ||
+              item.kind === 'exec_desk' ||
+              item.kind === 'desk'
+            ) {
               let bestDist = 1.65;
+              let matchedActive = false;
               for (const emp of currentFloor.employees) {
                 const actor = actors.get(emp.id);
                 if (!actor) continue;
                 const d = Math.hypot(item.gx - actor.targetSlotGx, item.gy - actor.targetSlotGy);
                 if (d < bestDist) {
                   bestDist = d;
+                  matchedActive = true;
                   deskLevel = emp.level;
                   occupierModelFamily = emp.modelFamily;
                   deskHasWorking = emp.status === 'working';
+                  deskHasVerified = Boolean(emp.health?.isVerifiedOutput);
+                }
+              }
+              if (!matchedActive && fallbackDeskSlots.length > 0) {
+                let fbDist = 1.65;
+                for (const fb of fallbackDeskSlots) {
+                  const d = Math.hypot(item.gx - fb.gx, item.gy - fb.gy);
+                  if (d < fbDist) {
+                    fbDist = d;
+                    deskLevel = fb.emp.level;
+                    occupierModelFamily = fb.emp.modelFamily;
+                    deskHasVerified = true;
+                  }
                 }
               }
             }
@@ -804,6 +857,9 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
               tRef.current.office.whiteboardLabel,
               deskLevel,
             );
+            if (deskHasVerified) {
+              drawDeskVerifiedTrophy(ctx, p.x, p.y, cam.zoom, timeSec);
+            }
           },
         });
       }
@@ -911,6 +967,54 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
               showSpeechBubble,
               currentFloor.activeEvent?.kind ?? null,
             );
+            if (emp.health) {
+              const z = cam.zoom;
+              const bob = actor.isWalking
+                ? Math.abs(Math.sin(actor.walkPhase * Math.PI * 2)) * 3 * z
+                : 0;
+              const isPresenting =
+                !actor.isWalking && (emp.activity === 'presenting' || Boolean(emp.isPresenter));
+              const seated =
+                !actor.isWalking &&
+                !isPresenting &&
+                (emp.activity === 'coding' ||
+                  emp.activity === 'reading' ||
+                  emp.activity === 'searching' ||
+                  emp.activity === 'thinking' ||
+                  emp.activity === 'meeting' ||
+                  emp.activity === 'lounging' ||
+                  emp.activity === 'sleeping' ||
+                  emp.activity === 'gaming');
+              const baseY = p.y - bob + (seated ? 4 * z : 0);
+              const hasErrorLoop =
+                emp.health.consecutiveErrors >= 2 ||
+                emp.toolActivity === 'error' ||
+                emp.status === 'error';
+              const hasActiveTool =
+                (Boolean(emp.toolActivity) && emp.toolActivity !== 'idle') ||
+                emp.status === 'error';
+              const showNameTag = isHovered || isSelected;
+              const badgeX = showNameTag
+                ? p.x + (hasActiveTool && !showSpeechBubble ? 18 * z : 0)
+                : p.x + (hasErrorLoop ? 15.5 * z : 12 * z);
+              const badgeY = showNameTag ? baseY - 59 * z : baseY - 47 * z;
+
+              ctx.save();
+              if (alpha < 1) {
+                ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+              }
+              drawAgentHealthBadge(
+                ctx,
+                badgeX,
+                badgeY,
+                z,
+                timeSec,
+                emp.health.hpScore,
+                emp.health.isVerifiedOutput,
+                hasErrorLoop,
+              );
+              ctx.restore();
+            }
           },
         });
       }

@@ -268,5 +268,23 @@ describe('i18n browser locale & server snapshot localization', () => {
     assert.equal(DICTIONARIES.en.events.STAR_WARS_PARTY, '⚔️ STAR WARS COSTUME PARTY!');
     assert.equal(DICTIONARIES.en.events.SUPERHERO_PARTY, '🦸 SUPERHERO COSTUME PARTY!');
     assert.equal(DICTIONARIES.en.events.HALLOWEEN_PARTY, '🎃 HALLOWEEN COSTUME PARTY!');
+
+    // Operational AI Agent Control Center translations
+    assert.equal(DICTIONARIES.tr.whiteboardModal.taskFlowTab, '📋 GÖREV AKIŞI (DAG)');
+    assert.equal(DICTIONARIES.en.whiteboardModal.taskFlowTab, '📋 TASK FLOW (DAG)');
+    assert.equal(DICTIONARIES.tr.rpgModal.healthSectionTitle, 'SAĞLIK & GÜVENİLİRLİK (HP)');
+    assert.equal(DICTIONARIES.en.rpgModal.healthSectionTitle, 'HEALTH & RELIABILITY (HP)');
+    assert.equal(
+      DICTIONARIES.tr.analyticsModal.resourceMonitorTitle,
+      'AI KAYNAK & MALİYET İZLEYİCİ (~TAHMİNİ)',
+    );
+    assert.equal(
+      DICTIONARIES.en.analyticsModal.resourceMonitorTitle,
+      'AI RESOURCE & COST MONITOR (~ESTIMATED)',
+    );
+    assert.equal(DICTIONARIES.tr.alertModal.filterCritical, 'KRİTİK');
+    assert.equal(DICTIONARIES.en.alertModal.filterCritical, 'CRITICAL');
+    assert.ok(DICTIONARIES.tr.alertModal.filterAll.length > 0);
+    assert.ok(DICTIONARIES.en.alertModal.filterAll.length > 0);
   });
 });

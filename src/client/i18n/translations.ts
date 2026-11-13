@@ -97,6 +97,12 @@ export interface Translations {
     logsRefreshing: string;
     noLogs: string;
     coordinatorBadge: string;
+    healthSectionTitle: string;
+    hpLabel: string;
+    successRateLabel: string;
+    stepsErrorsLabel: string;
+    verifiedBadgeLabel: string;
+    unverifiedBadgeLabel: string;
   };
   whiteboardModal: {
     title: string;
@@ -113,6 +119,16 @@ export interface Translations {
     liveActive: string;
     jumpToLive: string;
     newMessagesSuffix: string;
+    taskFlowTab: string;
+    taskStatusPending: string;
+    taskStatusRunning: string;
+    taskStatusBlocked: string;
+    taskStatusVerified: string;
+    taskStatusCompleted: string;
+    taskOwnerLabel: string;
+    taskHandoffLabel: string;
+    taskProofLabel: string;
+    noTasksYet: string;
   };
   analyticsModal: {
     title: string;
@@ -133,6 +149,20 @@ export interface Translations {
     tokensUnit: string;
     noTimeline: string;
     noModels: string;
+    resourceMonitorTitle: string;
+    estimatedDisclaimer: string;
+    estTokensLabel: string;
+    estCostLabel: string;
+    completedTasksCol: string;
+  };
+  alertModal: {
+    title: string;
+    close: string;
+    empty: string;
+    filterAll: string;
+    filterCritical: string;
+    filterWarning: string;
+    filterInfo: string;
   };
   notifications: {
     agentAlertTitle: string;
@@ -285,6 +315,12 @@ const TR: Translations = {
     logsRefreshing: '2 sn yenileme',
     noLogs: 'Henüz kayıtlı adım bulunamadı.',
     coordinatorBadge: 'BOSS',
+    healthSectionTitle: 'SAĞLIK & GÜVENİLİRLİK (HP)',
+    hpLabel: 'HP',
+    successRateLabel: 'Başarı Oranı',
+    stepsErrorsLabel: 'Adım / Hata',
+    verifiedBadgeLabel: 'DOĞRULANDI',
+    unverifiedBadgeLabel: 'DOĞRULANMADI',
   },
   whiteboardModal: {
     title: 'SWARM BEYAZ TAHTA PANOSU',
@@ -301,6 +337,16 @@ const TR: Translations = {
     liveActive: '● CANLI TAKİP',
     jumpToLive: '↓ SON MESAJLAR',
     newMessagesSuffix: 'yeni',
+    taskFlowTab: '📋 GÖREV AKIŞI (DAG)',
+    taskStatusPending: 'BEKLİYOR',
+    taskStatusRunning: 'ÇALIŞIYOR',
+    taskStatusBlocked: 'ENGELLİ',
+    taskStatusVerified: 'DOĞRULANDI',
+    taskStatusCompleted: 'TAMAMLANDI',
+    taskOwnerLabel: 'Sahip',
+    taskHandoffLabel: 'Devir',
+    taskProofLabel: 'Kanıt',
+    noTasksYet: 'Henüz görev akışı kaydı yok.',
   },
   analyticsModal: {
     title: 'KAT ANALİTİĞİ & TELEMETRİ',
@@ -321,6 +367,21 @@ const TR: Translations = {
     tokensUnit: 'token',
     noTimeline: 'Henüz 60 dakikalık zaman serisi verisi yok.',
     noModels: 'Bu katta kayıtlı model verisi yok.',
+    resourceMonitorTitle: 'AI KAYNAK & MALİYET İZLEYİCİ (~TAHMİNİ)',
+    estimatedDisclaimer:
+      'Not: Token ve maliyet değerleri model kademesi ve adım sayısına göre ~tahmini olarak hesaplanmıştır.',
+    estTokensLabel: 'Tahmini Token',
+    estCostLabel: 'Tahmini Maliyet',
+    completedTasksCol: 'Tamamlanan',
+  },
+  alertModal: {
+    title: 'AKILLI UYARI MERKEZİ',
+    close: 'KAPAT',
+    empty: 'Bu filtre için kayıtlı uyarı bulunmuyor.',
+    filterAll: 'TÜMÜ',
+    filterCritical: 'KRİTİK',
+    filterWarning: 'UYARI',
+    filterInfo: 'BİLGİ',
   },
   notifications: {
     agentAlertTitle: 'Swarm Plaza Ajan Uyarısı',
@@ -473,6 +534,12 @@ const EN: Translations = {
     logsRefreshing: '2s refresh',
     noLogs: 'No recorded steps yet.',
     coordinatorBadge: 'BOSS',
+    healthSectionTitle: 'HEALTH & RELIABILITY (HP)',
+    hpLabel: 'HP',
+    successRateLabel: 'Success Rate',
+    stepsErrorsLabel: 'Steps / Errors',
+    verifiedBadgeLabel: 'VERIFIED',
+    unverifiedBadgeLabel: 'UNVERIFIED',
   },
   whiteboardModal: {
     title: 'SWARM WHITEBOARD',
@@ -489,6 +556,16 @@ const EN: Translations = {
     liveActive: '● LIVE',
     jumpToLive: '↓ JUMP TO LIVE',
     newMessagesSuffix: 'new',
+    taskFlowTab: '📋 TASK FLOW (DAG)',
+    taskStatusPending: 'PENDING',
+    taskStatusRunning: 'RUNNING',
+    taskStatusBlocked: 'BLOCKED',
+    taskStatusVerified: 'VERIFIED',
+    taskStatusCompleted: 'COMPLETED',
+    taskOwnerLabel: 'Owner',
+    taskHandoffLabel: 'Handoff',
+    taskProofLabel: 'Proof',
+    noTasksYet: 'No task flow entries yet.',
   },
   analyticsModal: {
     title: 'FLOOR ANALYTICS & TELEMETRY',
@@ -509,6 +586,21 @@ const EN: Translations = {
     tokensUnit: 'tokens',
     noTimeline: 'No 60-min timeline data available yet.',
     noModels: 'No model breakdown recorded on this floor.',
+    resourceMonitorTitle: 'AI RESOURCE & COST MONITOR (~ESTIMATED)',
+    estimatedDisclaimer:
+      'Note: Token and cost values are ~estimated from model tier and step counts.',
+    estTokensLabel: 'Est. Tokens',
+    estCostLabel: 'Est. Cost',
+    completedTasksCol: 'Completed',
+  },
+  alertModal: {
+    title: 'SMART ALERT CENTER',
+    close: 'CLOSE',
+    empty: 'No alerts recorded for this filter.',
+    filterAll: 'ALL',
+    filterCritical: 'CRITICAL',
+    filterWarning: 'WARNING',
+    filterInfo: 'INFO',
   },
   notifications: {
     agentAlertTitle: 'Swarm Plaza Agent Alert',

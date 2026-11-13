@@ -2,16 +2,22 @@ import crypto from 'node:crypto';
 import type {
   ActivityTimelineBucket,
   AgentActivityKind,
+  AgentHealthMetrics,
+  AgentResourceUsage,
   CompanyTier,
   FloorAnalytics,
   FloorRandomEvent,
   ModelBreakdownEntry,
   ModelFamily,
+  NormalizedAgentState,
   OfficeEmployee,
   OfficeZone,
   PlazaFloor,
   PlazaSnapshot,
   SwarmBoardMessage,
+  SwarmMentionEdge,
+  SwarmTaskNode,
+  SwarmTaskStatus,
   ToolActivityStatus,
 } from '../shared/types.js';
 import { getActiveFloorEvent, getFloorLayoutSeed } from './officeEvents.js';
@@ -243,12 +249,190 @@ export function computeFloorAnalytics(params: {
     }
   }
 
+  const { agentResources, totalEstimatedTokens, totalEstimatedCostUsd } =
+    computeAgentResources(params.employees);
+
   return {
     timeline60m: buckets,
     completedTasks60m,
     peakActive60m,
     modelBreakdown: computeModelBreakdown(params.employees),
+    agentResources,
+    totalEstimatedTokens,
+    totalEstimatedCostUsd,
   };
+}
+
+const VERIFIED_OUTPUT_RE =
+  /\b(PASS|DONE|EXIT\s*0|VERIFIED|tamamlandı|başarılı|commit\b|[0-9]+\/[0-9]+\s*(?:test|pass))|✅/i;
+
+const MODEL_USD_PER_1M: Record<ModelFamily, number> = {
+  argon: 2.5,
+  pro: 3.0,
+  claude: 3.0,
+  gpt: 3.0,
+  hydrogen: 1.25,
+  carbon: 1.5,
+  flash: 0.25,
+  other: 1.0,
+};
+
+export function extractVerificationProof(texts: Array<string | undefined>): {
+  isVerifiedOutput: boolean;
+  verifiedLabel?: string;
+  evidenceBadges: string[];
+} {
+  let isVerifiedOutput = false;
+  let verifiedLabel: string | undefined;
+  const badges: string[] = [];
+  const seen = new Set<string>();
+  const addBadge = (b: string) => {
+    const clean = b.trim();
+    if (!clean || seen.has(clean)) return;
+    seen.add(clean);
+    badges.push(clean);
+  };
+
+  for (const raw of texts) {
+    if (!raw) continue;
+    const match = VERIFIED_OUTPUT_RE.exec(raw);
+    if (match && !isVerifiedOutput) {
+      isVerifiedOutput = true;
+      verifiedLabel = match[0].trim().toUpperCase();
+      addBadge(verifiedLabel);
+    }
+    const testCountMatch = /\b\d+\/\d+\s*(?:test|pass)/i.exec(raw);
+    if (testCountMatch) addBadge(testCountMatch[0]);
+    const fileMatch = /[\w.-]+\.(?:tsx?|jsx?|json|md)\b/.exec(raw);
+    if (fileMatch) addBadge(fileMatch[0]);
+  }
+
+  return {
+    isVerifiedOutput,
+    verifiedLabel,
+    evidenceBadges: badges.slice(0, 4),
+  };
+}
+
+export function computeAgentResources(employees: OfficeEmployee[]): {
+  agentResources: AgentResourceUsage[];
+  totalEstimatedTokens: number;
+  totalEstimatedCostUsd: number;
+} {
+  let totalEstimatedTokens = 0;
+  let totalEstimatedCostUsd = 0;
+
+  const agentResources: AgentResourceUsage[] = employees.map((emp) => {
+    const rawTokens =
+      (emp.inputTokens || 0) + (emp.cacheReadTokens || 0) + (emp.outputTokens || 0);
+    const estimatedTokens = rawTokens > 0 ? rawTokens : Math.max(0, emp.stepCount) * 850;
+    const rate = MODEL_USD_PER_1M[emp.modelFamily] ?? 1.0;
+    const estimatedCostUsd = Number(((estimatedTokens / 1_000_000) * rate).toFixed(4));
+    totalEstimatedTokens += estimatedTokens;
+    totalEstimatedCostUsd += estimatedCostUsd;
+
+    return {
+      agentId: emp.id,
+      agentName: emp.name,
+      modelName: emp.modelId,
+      modelFamily: emp.modelFamily,
+      estimatedTokens,
+      estimatedCostUsd,
+      completedTasks: Math.max(emp.health?.isVerifiedOutput ? 1 : 0, Math.floor(emp.stepCount / 3)),
+      isEstimated: true,
+    };
+  });
+
+  return {
+    agentResources,
+    totalEstimatedTokens,
+    totalEstimatedCostUsd: Number(totalEstimatedCostUsd.toFixed(4)),
+  };
+}
+
+export function buildFloorTaskNodes(
+  employees: OfficeEmployee[],
+  boardMessages: SwarmBoardMessage[],
+  swarmEdges: SwarmMentionEdge[],
+): SwarmTaskNode[] {
+  if (employees.length === 0) return [];
+  const coordinator = employees.find((e) => e.isCoordinator) ?? employees[0];
+  const rootTaskId = `task-${coordinator.id}`;
+  const empByLowerName = new Map<string, OfficeEmployee>();
+  for (const emp of employees) {
+    empByLowerName.set(emp.name.toLowerCase(), emp);
+  }
+
+  return employees.map((emp) => {
+    const isRoot = emp.id === coordinator.id;
+    const empMsgs = boardMessages
+      .filter((m) => m.agent.toLowerCase() === emp.name.toLowerCase())
+      .map((m) => m.text);
+    const proof = extractVerificationProof([
+      ...empMsgs.slice(-3).reverse(),
+      emp.speechBubble,
+      emp.currentTarget,
+    ]);
+
+    const handoffTargetNames = [
+      ...new Set(
+        swarmEdges
+          .filter((edge) => edge.from.toLowerCase() === emp.name.toLowerCase())
+          .map((edge) => edge.to),
+      ),
+    ];
+
+    const dependsOnTaskIds: string[] = [];
+    if (!isRoot) {
+      dependsOnTaskIds.push(rootTaskId);
+      for (const edge of swarmEdges) {
+        if (edge.to.toLowerCase() === emp.name.toLowerCase()) {
+          const src = empByLowerName.get(edge.from.toLowerCase());
+          if (src && src.id !== emp.id && src.id !== coordinator.id) {
+            const depId = `task-${src.id}`;
+            if (!dependsOnTaskIds.includes(depId)) dependsOnTaskIds.push(depId);
+          }
+        }
+      }
+    }
+
+    let status: SwarmTaskStatus = 'pending';
+    if (proof.isVerifiedOutput || emp.health?.isVerifiedOutput) {
+      status = 'verified';
+    } else if (emp.status === 'error') {
+      status = 'blocked';
+    } else if (emp.status === 'working') {
+      status = 'running';
+    } else if (emp.health?.normalizedState === 'completed') {
+      status = 'completed';
+    }
+
+    const rawTitle = emp.currentTarget
+      ? `${emp.roleTitle}: ${emp.currentTarget}`
+      : emp.speechBubble || emp.roleTitle;
+    const title = rawTitle.length > 72 ? `${rawTitle.slice(0, 69)}...` : rawTitle;
+
+    const evidenceBadges = [...proof.evidenceBadges];
+    if (emp.currentTool && !evidenceBadges.includes(emp.currentTool)) {
+      evidenceBadges.push(emp.currentTool);
+    }
+
+    return {
+      id: `task-${emp.id}`,
+      title,
+      ownerAgentId: emp.id,
+      ownerName: emp.name,
+      ownerRole: emp.roleTitle,
+      parentTaskId: isRoot ? undefined : rootTaskId,
+      dependsOnTaskIds,
+      handoffTargetNames,
+      status,
+      verifiedKeyword: proof.verifiedLabel ?? emp.health?.verifiedLabel,
+      evidenceBadges: evidenceBadges.slice(0, 4),
+      updatedAt: emp.lastActiveAt,
+      durationSec: emp.health?.elapsedSec,
+    };
+  });
 }
 
 export function aggregatePlazaAnalytics(
@@ -963,6 +1147,67 @@ function buildEmployeeFromRow(
   });
   const swarmRole = classifySwarmRole(swarmMember?.rosterName, swarmMember?.role, isCoordinator);
 
+  const lastActiveAt = toIsoTimestamp(transcript?.lastTimestamp || row.last_modified_time);
+  const recentSteps = transcript?.recentSteps ?? [];
+  const stepErrorCount = recentSteps.filter((s) => s.status.toUpperCase() === 'ERROR').length;
+  const errorCount = status === 'error' ? Math.max(1, stepErrorCount) : stepErrorCount;
+  let consecutiveErrors = 0;
+  for (let i = recentSteps.length - 1; i >= 0; i--) {
+    if (recentSteps[i].status.toUpperCase() === 'ERROR') consecutiveErrors += 1;
+    else break;
+  }
+  if (status === 'error' && consecutiveErrors === 0) consecutiveErrors = 1;
+  const retryCount = Math.max(0, errorCount - consecutiveErrors);
+  const totalSteps = Math.max(stepCount, recentSteps.length);
+  const successRatePct =
+    recentSteps.length > 0
+      ? Math.round(((recentSteps.length - stepErrorCount) / recentSteps.length) * 100)
+      : status === 'error'
+        ? 0
+        : 100;
+
+  const agentBoardTexts = floorBoardMessages
+    .filter((m) => m.agent.toLowerCase() === name.toLowerCase())
+    .slice(-3)
+    .reverse()
+    .map((m) => m.text);
+  const proof = extractVerificationProof([
+    ...agentBoardTexts,
+    speechBubble,
+    transcript?.latestTargetSummary,
+  ]);
+
+  let hpScore = 100 - consecutiveErrors * 18 - Math.min(30, errorCount * 6);
+  if (proof.isVerifiedOutput) hpScore += 5;
+  hpScore = Math.max(0, Math.min(100, hpScore));
+
+  let normalizedState: NormalizedAgentState = 'waiting';
+  if (status === 'error') normalizedState = 'error';
+  else if (status === 'working') normalizedState = 'active';
+  else if (proof.isVerifiedOutput || activity === 'going_home') normalizedState = 'completed';
+
+  let elapsedSec = stepCount * 8;
+  if (recentSteps.length >= 2) {
+    const firstMs = parseTimestampMs(recentSteps[0].timestamp);
+    const lastMs = parseTimestampMs(recentSteps[recentSteps.length - 1].timestamp);
+    if (firstMs > 0 && lastMs >= firstMs) {
+      elapsedSec = Math.round((lastMs - firstMs) / 1000);
+    }
+  }
+
+  const health: AgentHealthMetrics = {
+    normalizedState,
+    hpScore,
+    successRatePct,
+    totalSteps,
+    errorCount,
+    retryCount,
+    consecutiveErrors,
+    elapsedSec,
+    isVerifiedOutput: proof.isVerifiedOutput,
+    verifiedLabel: proof.verifiedLabel,
+  };
+
   return {
     id: convId,
     name,
@@ -985,7 +1230,8 @@ function buildEmployeeFromRow(
     inputTokens: transcript?.inputTokens || 0,
     cacheReadTokens: transcript?.cacheReadTokens || 0,
     outputTokens: transcript?.outputTokens || 0,
-    lastActiveAt: toIsoTimestamp(transcript?.lastTimestamp || row.last_modified_time),
+    lastActiveAt,
+    health,
   };
 }
 
@@ -1166,6 +1412,7 @@ export function buildPlazaSnapshot(
       trimmedBoard,
       employees.map((e) => e.name),
     );
+    const taskNodes = buildFloorTaskNodes(employees, trimmedBoard, swarmEdges);
     const analytics = computeFloorAnalytics({
       employees,
       stepEventsByAgent,
@@ -1190,6 +1437,7 @@ export function buildPlazaSnapshot(
       boardMessages: trimmedBoard,
       swarmEdges,
       swarmTitle,
+      taskNodes,
       analytics,
       lastModifiedAt:
         latestModifiedMs > 0 ? new Date(latestModifiedMs).toISOString() : new Date().toISOString(),

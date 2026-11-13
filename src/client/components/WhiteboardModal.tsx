@@ -1,5 +1,10 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { SwarmBoardMessage, SwarmMentionEdge } from '../../shared/types';
+import type {
+  SwarmBoardMessage,
+  SwarmMentionEdge,
+  SwarmTaskNode,
+  SwarmTaskStatus,
+} from '../../shared/types';
 import { playSelectBlip } from '../audio/retroSynth';
 import { useI18n } from '../i18n/translations';
 
@@ -8,6 +13,7 @@ interface WhiteboardModalProps {
   swarmTitle?: string;
   messages: SwarmBoardMessage[];
   swarmEdges?: SwarmMentionEdge[];
+  taskNodes?: SwarmTaskNode[];
   onClose: () => void;
 }
 
@@ -68,10 +74,11 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
   swarmTitle,
   messages,
   swarmEdges,
+  taskNodes = [],
   onClose,
 }) => {
   const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState<'feed' | 'graph'>('feed');
+  const [activeTab, setActiveTab] = useState<'feed' | 'graph' | 'tasks'>('feed');
   const feedRef = useRef<HTMLDivElement | null>(null);
   const isProgrammaticScrollRef = useRef(false);
   const scrollTimerRef = useRef<number | null>(null);
@@ -294,6 +301,16 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
             }}
           >
             {t.whiteboardModal.tabGraph} ({edges.length})
+          </button>
+          <button
+            type="button"
+            className={`pixel-tab ${activeTab === 'tasks' ? 'active' : ''}`}
+            onClick={() => {
+              playSelectBlip();
+              setActiveTab('tasks');
+            }}
+          >
+            {t.whiteboardModal.taskFlowTab} ({taskNodes.length})
           </button>
           <button
             type="button"
@@ -594,6 +611,191 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                   ))}
                 </div>
               </>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'tasks' && (
+          <div
+            className="pixel-panel-inset"
+            style={{
+              padding: 12,
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+              maxHeight: 460,
+            }}
+          >
+            {taskNodes.length === 0 ? (
+              <div style={{ fontSize: 12, color: 'var(--text-dim)', padding: 12, textAlign: 'center' }}>
+                {t.whiteboardModal.noTasksYet}
+              </div>
+            ) : (
+              taskNodes.map((node) => {
+                const statusMeta: Record<
+                  SwarmTaskStatus,
+                  { icon: string; label: string; color: string; bg: string; border: string }
+                > = {
+                  verified: {
+                    icon: '✅',
+                    label: t.whiteboardModal.taskStatusVerified,
+                    color: '#3be87a',
+                    bg: '#13281d',
+                    border: '#2d7a4f',
+                  },
+                  running: {
+                    icon: '⚡',
+                    label: t.whiteboardModal.taskStatusRunning,
+                    color: '#3cd8ff',
+                    bg: '#132233',
+                    border: '#28648a',
+                  },
+                  pending: {
+                    icon: '⏳',
+                    label: t.whiteboardModal.taskStatusPending,
+                    color: '#ffd147',
+                    bg: '#262113',
+                    border: '#786221',
+                  },
+                  blocked: {
+                    icon: '⚠️',
+                    label: t.whiteboardModal.taskStatusBlocked,
+                    color: '#ff6b6b',
+                    bg: '#2c1518',
+                    border: '#802b32',
+                  },
+                  completed: {
+                    icon: '✔',
+                    label: t.whiteboardModal.taskStatusCompleted,
+                    color: '#9aa7c7',
+                    bg: '#192030',
+                    border: '#3b496b',
+                  },
+                };
+                const st = statusMeta[node.status];
+                return (
+                  <div
+                    key={node.id}
+                    style={{
+                      padding: '10px 12px',
+                      background: '#171c2b',
+                      border: `2px solid ${st.border}`,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 8,
+                    }}
+                  >
+                    {/* Top row: status + title + updatedAt */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 8,
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span
+                          className="pixel-badge"
+                          style={{
+                            color: st.color,
+                            background: st.bg,
+                            borderColor: st.border,
+                          }}
+                        >
+                          {st.icon} {st.label}
+                        </span>
+                        <span style={{ fontWeight: 700, fontSize: 12, color: '#e8efff' }}>
+                          {node.title}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'monospace' }}>
+                        {node.updatedAt}
+                        {node.durationSec !== undefined ? ` • ${node.durationSec}s` : ''}
+                      </span>
+                    </div>
+
+                    {/* Owner & DAG / Handoff flow */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        flexWrap: 'wrap',
+                        fontSize: 11,
+                      }}
+                    >
+                      <span style={{ color: 'var(--text-dim)' }}>{t.whiteboardModal.taskOwnerLabel}:</span>
+                      <span className="mention-chip">@{node.ownerName}</span>
+                      {node.ownerRole && (
+                        <span className="pixel-badge" style={{ color: '#9aa7c7' }}>
+                          {node.ownerRole}
+                        </span>
+                      )}
+
+                      {node.parentTaskId && (
+                        <span className="pixel-badge" style={{ color: '#b07cff' }}>
+                          ↳ {node.parentTaskId}
+                        </span>
+                      )}
+                      {node.dependsOnTaskIds.length > 0 && (
+                        <span className="pixel-badge" style={{ color: '#9aa7c7' }}>
+                          ← {node.dependsOnTaskIds.join(', ')}
+                        </span>
+                      )}
+
+                      {node.handoffTargetNames.length > 0 && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                          <span style={{ color: 'var(--text-dim)' }}>
+                            {t.whiteboardModal.taskHandoffLabel}:
+                          </span>
+                          <span style={{ color: '#3cd8ff' }}>@{node.ownerName}</span>
+                          <span style={{ color: '#ffd147', fontWeight: 700 }}>➔</span>
+                          {node.handoffTargetNames.map((target) => (
+                            <span key={target} className="mention-chip">
+                              @{target}
+                            </span>
+                          ))}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Verification proof & evidence badges */}
+                    {(node.verifiedKeyword || node.evidenceBadges.length > 0) && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          flexWrap: 'wrap',
+                          fontSize: 10,
+                        }}
+                      >
+                        <span style={{ color: 'var(--text-dim)' }}>{t.whiteboardModal.taskProofLabel}:</span>
+                        {node.verifiedKeyword && (
+                          <span
+                            className="pixel-badge"
+                            style={{ color: '#ffd147', background: '#252116', borderColor: '#786221' }}
+                          >
+                            ✅ {node.verifiedKeyword}
+                          </span>
+                        )}
+                        {node.evidenceBadges.map((badge, idx) => (
+                          <span
+                            key={`${badge}-${idx}`}
+                            className="pixel-badge"
+                            style={{ color: '#3be87a', background: '#13281d', borderColor: '#2b6b45' }}
+                          >
+                            {badge}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
             )}
           </div>
         )}

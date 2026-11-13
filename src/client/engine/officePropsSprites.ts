@@ -2105,3 +2105,114 @@ export function drawMentionEnvelope(
 
   ctx.restore();
 }
+
+/**
+ * Draws a gleaming miniature golden verified trophy & emerald seal on the upper-left
+ * corner of a desk when its assigned agent has verified task output (`isVerifiedOutput`).
+ */
+export function drawDeskVerifiedTrophy(
+  ctx: CanvasRenderingContext2D,
+  sx: number,
+  sy: number,
+  zoom: number,
+  timeSec: number,
+): void {
+  const z = zoom;
+  const tx = sx - 13.5 * z;
+  const ty = sy - 10.5 * z;
+  const shimmer = Math.sin(timeSec * 3.6) > 0.25;
+
+  ctx.save();
+
+  // Warm golden reflection pool on desktop surface
+  ctx.fillStyle = 'rgba(255, 214, 74, 0.22)';
+  pxRect(ctx, tx - 3.2 * z, ty - 1.2 * z, 6.4 * z, 2.2 * z);
+
+  // Obsidian & brass micro-pedestal
+  ctx.fillStyle = '#181e2e';
+  pxRect(ctx, tx - 2.4 * z, ty - 1.8 * z, 4.8 * z, 1.6 * z);
+  ctx.fillStyle = '#9c6d14';
+  pxRect(ctx, tx - 1.8 * z, ty - 2.8 * z, 3.6 * z, 1.1 * z);
+
+  // Trophy stem & cup handles
+  ctx.fillStyle = '#d9a121';
+  pxRect(ctx, tx - 0.8 * z, ty - 4.8 * z, 1.6 * z, 2.1 * z);
+  pxRect(ctx, tx - 3.2 * z, ty - 7.4 * z, 1 * z, 1.8 * z);
+  pxRect(ctx, tx + 2.2 * z, ty - 7.4 * z, 1 * z, 1.8 * z);
+
+  // Golden cup bowl + specular highlight + emerald verified core pixel
+  ctx.fillStyle = '#ffd147';
+  pxRect(ctx, tx - 2.2 * z, ty - 8 * z, 4.4 * z, 3.2 * z);
+  ctx.fillStyle = shimmer ? '#fffbe0' : '#ffe885';
+  pxRect(ctx, tx - 1.5 * z, ty - 7.6 * z, 1.8 * z, 1.3 * z);
+  ctx.fillStyle = '#3be87a';
+  pxRect(ctx, tx - 0.7 * z, ty - 6.4 * z, 1.4 * z, 1.3 * z);
+
+  // Subtle periodic glint pixel above cup rim
+  if (shimmer) {
+    ctx.fillStyle = '#fff9c7';
+    pxRect(ctx, tx + 1.8 * z, ty - 9.6 * z, 1.2 * z, 1.2 * z);
+  }
+
+  ctx.restore();
+}
+
+/**
+ * Draws a passive, ultra-clean overhead micro HP bar (`12*z x 2*z`) alongside
+ * subtle verified (gold/emerald) and error-loop (amber/crimson) pixel pips.
+ */
+export function drawAgentHealthBadge(
+  ctx: CanvasRenderingContext2D,
+  sx: number,
+  sy: number,
+  zoom: number,
+  timeSec: number,
+  hpScore: number,
+  isVerified: boolean,
+  hasErrorLoop: boolean,
+): void {
+  const z = zoom;
+  const clampedHp = Math.max(0, Math.min(100, Number.isFinite(hpScore) ? hpScore : 100));
+  const barW = 12 * z;
+  const barH = 2 * z;
+  const bx = sx - barW * 0.5;
+  const by = sy - barH * 0.5;
+
+  ctx.save();
+
+  // Crisp dark backing frame & depleted bar track
+  ctx.fillStyle = 'rgba(12, 16, 28, 0.9)';
+  pxRect(ctx, bx - 1 * z, by - 1 * z, barW + 2 * z, barH + 2 * z);
+  ctx.fillStyle = '#20293d';
+  pxRect(ctx, bx, by, barW, barH);
+
+  // Active HP fill bar
+  if (clampedHp > 0) {
+    const fillW = (clampedHp / 100) * barW;
+    ctx.fillStyle =
+      clampedHp >= 70 ? '#3be87a' : clampedHp >= 40 ? '#ffbe3b' : '#ff5666';
+    pxRect(ctx, bx, by, fillW, barH);
+  }
+
+  // Verified output micro-pip on right (gold rim + emerald check core)
+  if (isVerified) {
+    const vx = bx + barW + 1.6 * z;
+    ctx.fillStyle = 'rgba(12, 16, 28, 0.92)';
+    pxRect(ctx, vx - 0.6 * z, by - 1 * z, 3.6 * z, 4 * z);
+    ctx.fillStyle = '#ffd147';
+    pxRect(ctx, vx, by - 0.4 * z, 2.4 * z, 2.8 * z);
+    ctx.fillStyle = '#3be87a';
+    pxRect(ctx, vx + 0.6 * z, by + 0.2 * z, 1.2 * z, 1.6 * z);
+  }
+
+  // Error-loop warning micro-pip on left (amber/crimson pulse)
+  if (hasErrorLoop) {
+    const wx = bx - 4 * z;
+    ctx.fillStyle = 'rgba(12, 16, 28, 0.92)';
+    pxRect(ctx, wx - 0.6 * z, by - 1 * z, 3.6 * z, 4 * z);
+    ctx.fillStyle = Math.sin(timeSec * 4.5) > 0 ? '#ff5666' : '#ffbe3b';
+    pxRect(ctx, wx, by - 0.4 * z, 2.4 * z, 2.8 * z);
+  }
+
+  ctx.restore();
+}

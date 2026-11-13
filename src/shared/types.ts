@@ -82,11 +82,58 @@ export interface ModelBreakdownEntry {
   totalTokens: number;
 }
 
+export type NormalizedAgentState = 'active' | 'waiting' | 'completed' | 'error';
+
+export interface AgentHealthMetrics {
+  normalizedState: NormalizedAgentState;
+  hpScore: number;            // 0..100
+  successRatePct: number;     // 0..100
+  totalSteps: number;
+  errorCount: number;
+  retryCount: number;
+  consecutiveErrors: number;
+  elapsedSec: number;
+  isVerifiedOutput: boolean;
+  verifiedLabel?: string;     // e.g. 'PASS', 'DONE', 'EXIT 0'
+}
+
+export type SwarmTaskStatus = 'pending' | 'running' | 'blocked' | 'verified' | 'completed';
+
+export interface SwarmTaskNode {
+  id: string;
+  title: string;
+  ownerAgentId?: string;
+  ownerName: string;
+  ownerRole?: string;
+  parentTaskId?: string;
+  dependsOnTaskIds: string[];
+  handoffTargetNames: string[];
+  status: SwarmTaskStatus;
+  verifiedKeyword?: string;
+  evidenceBadges: string[];
+  updatedAt: string;
+  durationSec?: number;
+}
+
+export interface AgentResourceUsage {
+  agentId: string;
+  agentName: string;
+  modelName: string;
+  modelFamily: ModelFamily;
+  estimatedTokens: number;
+  estimatedCostUsd: number;
+  completedTasks: number;
+  isEstimated: true;
+}
+
 export interface FloorAnalytics {
   timeline60m: ActivityTimelineBucket[];
   completedTasks60m: number;
   peakActive60m: number;
   modelBreakdown: ModelBreakdownEntry[];
+  agentResources?: AgentResourceUsage[];
+  totalEstimatedTokens?: number;
+  totalEstimatedCostUsd?: number;
 }
 
 export interface OfficeEmployee {
@@ -118,6 +165,7 @@ export interface OfficeEmployee {
   cacheReadTokens: number;
   outputTokens: number;
   lastActiveAt: string;
+  health?: AgentHealthMetrics;
 }
 
 export interface PlazaFloor {
@@ -139,6 +187,7 @@ export interface PlazaFloor {
   boardMessages: SwarmBoardMessage[];
   swarmEdges?: SwarmMentionEdge[];
   swarmTitle?: string;
+  taskNodes?: SwarmTaskNode[];
   layoutSeed?: number;
   activeEvent?: FloorRandomEvent | null;
   analytics?: FloorAnalytics;

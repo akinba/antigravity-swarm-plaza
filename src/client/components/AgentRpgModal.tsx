@@ -249,6 +249,89 @@ export const AgentRpgModal: React.FC<AgentRpgModalProps> = ({ employee, activeEv
               </div>
             </div>
 
+            {/* Health & Reliability (HP) */}
+            {liveEmp.health && (
+              <div className="pixel-panel-inset" style={{ padding: 12 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 8,
+                    marginBottom: 6,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <span className="pixel-title" style={{ fontSize: 9, color: '#ffd147' }}>
+                    {t.rpgModal.healthSectionTitle}
+                  </span>
+                  <span
+                    className="pixel-badge"
+                    style={{
+                      color: liveEmp.health.isVerifiedOutput ? '#3be87a' : '#9aa7c7',
+                      background: liveEmp.health.isVerifiedOutput ? '#13281d' : '#192030',
+                      borderColor: liveEmp.health.isVerifiedOutput ? '#2d7a4f' : '#3b496b',
+                    }}
+                  >
+                    {liveEmp.health.isVerifiedOutput
+                      ? `✅ ${liveEmp.health.verifiedLabel || t.rpgModal.verifiedBadgeLabel}`
+                      : t.rpgModal.unverifiedBadgeLabel}
+                  </span>
+                </div>
+
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    fontSize: 11,
+                    marginBottom: 6,
+                  }}
+                >
+                  <span>
+                    {t.rpgModal.hpLabel}:{' '}
+                    <strong
+                      style={{
+                        color:
+                          liveEmp.health.hpScore >= 70
+                            ? '#3be87a'
+                            : liveEmp.health.hpScore >= 40
+                              ? '#ffbe3b'
+                              : '#ff5666',
+                      }}
+                    >
+                      {liveEmp.health.hpScore}/100
+                    </strong>
+                  </span>
+                  <span>
+                    {t.rpgModal.successRateLabel}: <strong>%{liveEmp.health.successRatePct}</strong>
+                  </span>
+                </div>
+
+                <div className="pixel-bar-track" style={{ height: 12, marginBottom: 8 }}>
+                  <div
+                    className="pixel-bar-fill"
+                    style={{
+                      width: `${Math.max(0, Math.min(100, liveEmp.health.hpScore))}%`,
+                      background:
+                        liveEmp.health.hpScore >= 70
+                          ? '#3be87a'
+                          : liveEmp.health.hpScore >= 40
+                            ? '#ffbe3b'
+                            : '#ff5666',
+                    }}
+                  />
+                </div>
+
+                <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                  {t.rpgModal.stepsErrorsLabel}:{' '}
+                  <strong style={{ color: '#e4ecff' }}>
+                    {liveEmp.health.totalSteps} / {liveEmp.health.errorCount}
+                  </strong>{' '}
+                  <span>(Retry: {liveEmp.health.retryCount})</span>
+                </div>
+              </div>
+            )}
+
             {/* Token Economy */}
             <div className="pixel-panel-inset" style={{ padding: 12 }}>
               <div

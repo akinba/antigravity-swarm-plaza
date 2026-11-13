@@ -134,7 +134,8 @@ flowchart LR
   - Her ajan için 4 deterministik kostüm varyantı, ortam parçacıkları ve senkronize 96x96 RPG portreleriyle `STAR_WARS_PARTY` (Jedi, Sith, Rebel, Mandalorian), `SUPERHERO_PARTY` ve `HALLOWEEN_PARTY` (Cadı, Balkabağı, Vampir, Hayalet) kostüm partilerinin yanı sıra `PIZZA_PARTY`, `WATERCOOLER_GOSSIP`, `SPRINT_CELEBRATION`, `MASCOT_ZOOMIES` ve `COFFEE_BREW`.
   - *Gerçek İş Bütünlüğü:* Aktif çalışan ajanlar (`working`) asla masalarından veya görevlerinden koparılmaz.
 - **📡 Canlı Swarm Board, `@mention` Grafiği & 60dk Analitik:**
-  - Hem yerel Swarm `board.jsonl` hem de subagent/görev `messages/*.json` verilerinden beslenen birleşik mesaj akışı; en yeni mesaja otomatik kaydırma (`MESAJ AKIŞI`), tıklanabilir `● CANLI TAKİP` düğmesi, `@Swarm Worker (...)` rozet normalizasyonu ve yönlü `@mention` etkileşim grafiği (`WhiteboardModal`).
+  - Hem yerel Swarm `board.jsonl` hem de subagent/görev `messages/*.json` verilerinden beslenen birleşik mesaj akışı; en yeni mesaja otomatik kaydırma (`MESAJ AKIŞI`), tıklanabilir `● CANLI TAKİP` düğmesi, `@Swarm Worker (...)` rozet normalizasyonu, yönlü `@mention` etkileşim grafiği (`WhiteboardModal`) ve **`GÖREV AKIŞI (DAG)`** sekmesi (mesaj anahtar kelime kanıt doğrulaması: `PASS`, `DONE`, `EXIT 0`, `VERIFIED`, `✅`).
+  - **Operasyonel AI Ajan Yönetim Merkezi:** Pasif **Agent Health (0–100 HP)** mikro barları, doğrulanmış masalar için altın kanıt kupası, `~Tahmini` (`~Estimated`) Ajan Token & Maliyet Monitörü (`AnalyticsModal`) ve Akıllı Bildirim Gruplama (`×N` rozeti + önem filtresi).
   - Son 60 dakikalık aktivite zaman çizelgesi (5 dakikalık 12 dilim), tamamlanan görev sayıları ve model dağılımı (`AnalyticsModal`).
 - **🌐 Otomatik Tarayıcı Dili Algılama & Eksiksiz i18n:**
   - Tarayıcı veya sistem dili Türkçe ise otomatik `TR`, aksi halde `EN` olarak başlar. Tek tıkla `TR | EN` anında tüm sunucu konuşma balonlarını, demo şirket adlarını ve olay başlıklarını dinamik yerelleştirir.
@@ -207,7 +208,7 @@ cd antigravity-swarm-plaza
 # Bağımlılıkları yükleyin
 npm install
 
-# Testleri çalıştırın (69 test / 25 test paketi)
+# Testleri çalıştırın (70 test / 25 test paketi)
 npm test
 
 # TypeScript tip kontrolü
