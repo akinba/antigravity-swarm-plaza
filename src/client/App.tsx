@@ -22,7 +22,7 @@ import { WhiteboardModal } from './components/WhiteboardModal';
 import { OfficeCanvas } from './engine/OfficeCanvas';
 import { PlazaTowerCanvas } from './engine/PlazaTowerCanvas';
 import { buildSidecarWsUrl, isPluginScheme, sidecarFetch } from './sidecarBridge';
-import { useI18n } from './i18n/translations';
+import { localizeSnapshot, useI18n } from './i18n/translations';
 
 function pickInitialFloorId(snap: PlazaSnapshot): string | null {
   if (snap.activeProjectFloorId) {
@@ -38,7 +38,7 @@ function pickInitialFloorId(snap: PlazaSnapshot): string | null {
 }
 
 export const App: React.FC = () => {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [snapshot, setSnapshot] = useState<PlazaSnapshot | null>(null);
   const [selectedFloorId, setSelectedFloorId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'plaza' | 'office'>('office');
@@ -246,12 +246,19 @@ export const App: React.FC = () => {
     };
   }, [applySnapshot]);
 
+  const localizedSnapshot = useMemo(
+    () => (snapshot ? localizeSnapshot(snapshot, locale) : null),
+    [snapshot, locale],
+  );
+
   const activeFloor: PlazaFloor | null = useMemo(() => {
-    if (!snapshot || snapshot.floors.length === 0) return null;
+    if (!localizedSnapshot || localizedSnapshot.floors.length === 0) return null;
     return (
-      snapshot.floors.find((f) => f.id === selectedFloorId) || snapshot.floors[0] || null
+      localizedSnapshot.floors.find((f) => f.id === selectedFloorId) ||
+      localizedSnapshot.floors[0] ||
+      null
     );
-  }, [snapshot, selectedFloorId]);
+  }, [localizedSnapshot, selectedFloorId]);
 
   const handleToggleDemo = async () => {
     try {
@@ -359,10 +366,10 @@ export const App: React.FC = () => {
     <div className="plaza-shell">
       <TopHud
         floor={activeFloor}
-        globalEcoScore={snapshot?.globalEcoScore ?? 100}
+        globalEcoScore={localizedSnapshot?.globalEcoScore ?? 100}
         viewMode={viewMode}
         onChangeViewMode={setViewMode}
-        demoMode={snapshot?.demoMode ?? false}
+        demoMode={localizedSnapshot?.demoMode ?? false}
         onToggleDemo={handleToggleDemo}
         isNight={isNight}
         onToggleNight={() => setIsNight((n) => !n)}
@@ -386,7 +393,7 @@ export const App: React.FC = () => {
       <main className="plaza-main">
         {isElevatorOpen && (
           <ElevatorPanel
-            floors={snapshot?.floors ?? []}
+            floors={localizedSnapshot?.floors ?? []}
             selectedFloorId={activeFloor?.id ?? null}
             onSelectFloor={handleSelectFloorFromElevator}
             isOverlay={isCompactPane}
@@ -397,7 +404,7 @@ export const App: React.FC = () => {
         <div className="plaza-viewport">
           {viewMode === 'plaza' ? (
             <PlazaTowerCanvas
-              floors={snapshot?.floors ?? []}
+              floors={localizedSnapshot?.floors ?? []}
               selectedFloorId={activeFloor?.id ?? null}
               isNight={isNight}
               onSelectFloor={handleSelectFloorFromTower}
@@ -432,7 +439,10 @@ export const App: React.FC = () => {
 
       {selectedEmployee && (
         <AgentRpgModal
-          employee={selectedEmployee}
+          employee={
+            activeFloor?.employees.find((e) => e.id === selectedEmployee.id) ??
+            selectedEmployee
+          }
           onClose={() => setSelectedEmployee(null)}
         />
       )}
@@ -450,7 +460,7 @@ export const App: React.FC = () => {
       {analyticsOpen && (
         <AnalyticsModal
           floor={activeFloor}
-          snapshot={snapshot}
+          snapshot={localizedSnapshot}
           onClose={() => setAnalyticsOpen(false)}
         />
       )}

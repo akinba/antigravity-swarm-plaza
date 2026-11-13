@@ -5,6 +5,7 @@ import type {
   FloorEventKind,
   ModelFamily,
   OfficeZone,
+  PlazaSnapshot,
 } from '../../shared/types';
 
 export type Locale = 'tr' | 'en';
@@ -500,6 +501,119 @@ const EN: Translations = {
   },
 };
 
+export const SERVER_TR_TO_EN: Record<string, string> = {
+  // gamification.ts: go-home, status, & presentation
+  '🏠 Mesai bitti, eve gidiyorum!': '🏠 Shift over, heading home!',
+  'Zzz (0 token)': 'Zzz (0 tokens)',
+  'Hata tespit edildi': 'Error detected',
+  '📊 Mimari & ilerleme sunumu': '📊 Architecture & progress demo',
+
+  // gamification.ts: gaming chats
+  '🎮 Pas at, boşum!': "🎮 Pass it, I'm open!",
+  '🎮 Gol be! 2-1!': '🎮 Goal!! 2-1!',
+  '🎮 Street Fighter 1v1!': '🎮 Street Fighter 1v1!',
+  '🎮 Hadouken!! Kaçma!': "🎮 Hadouken!! Don't run!",
+  '🎮 Mario Kart son tur!': '🎮 Mario Kart final lap!',
+  '🎮 Mavi kabuk attım :D': '🎮 Blue shell incoming :D',
+  '🎮 Co-op boss savaşı!': '🎮 Co-op boss fight!',
+  '🎮 Süper kombo! GG!': '🎮 Super combo! GG!',
+
+  // gamification.ts: event & ambient pools
+  '🍕 Sıcak pepperoni kap!': '🍕 Grab hot pepperoni!',
+  '🍕 Dilim efsane!': '🍕 Legendary slice!',
+  '🍕 Tam zamanında geldi!': '🍕 Right on time!',
+  '💧 Su başı dedikodusu!': '💧 Watercooler gossip!',
+  '💧 Flash 0 token yakıyor!': '💧 Flash burns 0 tokens!',
+  '☕ Taze espresso kokusu!': '☕ Fresh espresso aroma!',
+  '☕ Duble shot zamanı!': '☕ Double shot time!',
+  '🐱 Kedi turboya geçti :D': '🐱 Cat went turbo :D',
+  '🤖 Maskot şov yapıyor!': '🤖 Mascot is showing off!',
+  '🎉 Sprint hedefi tamam!': '🎉 Sprint goal complete!',
+  '🚀 Şirket uçuyor!': '🚀 Company is flying!',
+  '🎉 Harika gidiyoruz!': '🎉 Doing awesome!',
+  '🛋️ Koltukta dinleniyor (0 token)': '🛋️ Chilling on sofa (0 tokens)',
+  '😌 Zzz (0 token)': '😌 Zzz (0 tokens)',
+  '🛋️ Kanepede mola keyfi': '🛋️ Sofa break vibes',
+  '☕ Kahve & dinlenme': '☕ Coffee & chill',
+  '💧 Yeni modeli duydun mu?': '💧 Heard about the new model?',
+  '💧 Su molası iyi geldi': '💧 Nice water break',
+  '🍕 Atıştırmalık molası': '🍕 Snack break',
+
+  // demoSimulator.ts: companyName, cycles, war room & board messages
+  'Swarm Simülasyon A.Ş. (Demo)': 'Swarm Simulation Inc. (Demo)',
+  '@coder-core API kontratı hazır!': '@coder-core API contract is ready!',
+  'Mimari plan güncelleniyor...': 'Updating architecture plan...',
+  '@verifier-qa E2E testi başlat': '@verifier-qa Start E2E tests',
+  'SQLite read-only katmanı yazılıyor': 'Writing SQLite read-only layer',
+  'npm.cmd test çalıştırılıyor': 'Running npm.cmd test',
+  '@Chief-Architect WS yayını aktif': '@Chief-Architect WS broadcast active',
+  'Kısa kahve molası': 'Quick coffee break',
+  'İzometrik ofis sahnesi çiziliyor': 'Drawing isometric office scene',
+  'Shared tipler kontrol ediliyor': 'Checking shared types',
+  '@coder-core /ws bağlandı!': '@coder-core /ws connected!',
+  'Edge-case senaryoları taranıyor': 'Scanning edge-case scenarios',
+  '@coder-core cycle guard ekle!': '@coder-core Add cycle guard!',
+  'EcoScore formülü doğrulanıyor': 'Verifying EcoScore formula',
+  'Test kapsamı inceleniyor': 'Reviewing test coverage',
+  '@Chief-Architect Tüm testler yeşil': '@Chief-Architect All tests green',
+  '📊 Sprint mimari sunumu': '📊 Sprint architecture demo',
+  'Sunum dinleniyor': 'Listening to presentation',
+  'Notlar alınıyor...': 'Taking notes...',
+  'İzometrik UI kodlanıyor': 'Coding isometric UI',
+  '@coder-core @coder-ui Phase 2 paralel geliştirme başladı.':
+    '@coder-core @coder-ui Phase 2 parallel development started.',
+  '@coder-core parent_conversation_id cycle guard eklendi mi?':
+    '@coder-core Was parent_conversation_id cycle guard added?',
+  '@analyst-grill Evet, Set + maxDepth 25 ile korundu.':
+    '@analyst-grill Yes, guarded with Set + maxDepth 25.',
+  '@Chief-Architect @all Demo Penthouse simülasyonu stabil.':
+    '@Chief-Architect @all Demo Penthouse simulation is stable.',
+};
+
+export function localizeServerText(text: string | undefined, locale: Locale): string {
+  if (!text) return '';
+  if (locale === 'tr') return text;
+  return SERVER_TR_TO_EN[text] ?? text;
+}
+
+export function localizeSnapshot(snapshot: PlazaSnapshot, locale: Locale): PlazaSnapshot {
+  if (locale === 'tr') return snapshot;
+  return {
+    ...snapshot,
+    floors: snapshot.floors.map((fl) => {
+      const nextFloor: typeof fl = {
+        ...fl,
+        companyName: localizeServerText(fl.companyName, locale),
+        employees: fl.employees.map((emp) => ({
+          ...emp,
+          speechBubble: emp.speechBubble
+            ? localizeServerText(emp.speechBubble, locale)
+            : emp.speechBubble,
+        })),
+        boardMessages: fl.boardMessages.map((msg) => ({
+          ...msg,
+          text: localizeServerText(msg.text, locale),
+        })),
+      };
+      const maybeSwarmBoard = (fl as { swarmBoard?: { messages?: Array<{ text: string }> } }).swarmBoard;
+      if (maybeSwarmBoard && Array.isArray(maybeSwarmBoard.messages)) {
+        (nextFloor as { swarmBoard?: { messages: Array<{ text: string }> } }).swarmBoard = {
+          ...maybeSwarmBoard,
+          messages: maybeSwarmBoard.messages.map((msg) => ({
+            ...msg,
+            text: localizeServerText(msg.text, locale),
+          })),
+        };
+      }
+      return nextFloor;
+    }),
+  };
+}
+
+export function detectDefaultLocale(navLanguage?: string): Locale {
+  return (navLanguage || '').toLowerCase().startsWith('tr') ? 'tr' : 'en';
+}
+
 const DICTIONARIES: Record<Locale, Translations> = { tr: TR, en: EN };
 const LOCALE_STORAGE_KEY = 'swarm_plaza_locale';
 
@@ -510,9 +624,9 @@ interface I18nContextValue {
 }
 
 const I18nContext = createContext<I18nContextValue>({
-  locale: 'tr',
+  locale: 'en',
   setLocale: () => {},
-  t: TR,
+  t: EN,
 });
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
@@ -523,7 +637,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // ignore storage errors
     }
-    return 'tr';
+    return detectDefaultLocale(typeof navigator !== 'undefined' ? navigator.language : 'en');
   });
 
   const setLocale = useCallback((loc: Locale) => {

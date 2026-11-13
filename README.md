@@ -3,27 +3,27 @@
 [![CI](https://github.com/akinba/antigravity-swarm-plaza/actions/workflows/ci.yml/badge.svg)](https://github.com/akinba/antigravity-swarm-plaza/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/akinba/antigravity-swarm-plaza?include_prereleases)](https://github.com/akinba/antigravity-swarm-plaza/releases)
 
-> Google Antigravity projelerindeki otonom ajanları bir plazanın katlarındaki gerçek ofis çalışanları gibi gösteren 2.5B retro izometrik oyunlaştırılmış gösterge paneli ve yerleşik IDE Yan Panel (Auxiliary Pane) eklentisi.
->
-> *A 2.5D retro isometric gamified dashboard and native IDE Auxiliary Pane sidecar extension that visualizes Google Antigravity autonomous agents as living office workers across skyscraper floors.*
+🇬🇧 **English Documentation** | [🇹🇷 **Türkçe Dokümantasyon**](README.tr.md)
+
+> A 2.5D retro isometric gamified dashboard and native IDE Auxiliary Pane sidecar extension that visualizes Google Antigravity autonomous multi-agent systems and swarms as living, breathing office workers across skyscraper floors.
 
 ---
 
-## 📸 Görsel Vitrin / Visual Showcase Gallery
+## 📸 Visual Showcase Gallery
 
-| 🏢 Ana 2.5B İzometrik Ofis (Gündüz) / Main Office | 📱 IDE Yan Panel Kompakt Görünüm / Sidecar Compact | 🌙 Alternatif Kat Planı & Gece Teması / Night Mode |
+| 🏢 Main 2.5D Isometric Office (Daylight) | 📱 IDE Auxiliary Side-Pane Compact Mode | 🌙 Alternate Architecture & Night Mode |
 | :---: | :---: | :---: |
-| ![Main 2.5D Office](docs/screenshots/office-main.png) | ![Sidecar Compact](docs/screenshots/sidecar-compact.png) | ![Night Mode & Pizza Party](docs/screenshots/office-night-blueprint.png) |
-| *Yönetici masası, çalışma öbekleri, asansör girişi ve evcil hayvanlar* | *< 760px Aux Pane kompakt araç çubuğu, asansör çekmecesi ve %100 ofis* | *Merkez Toplantı Adası, Gece modu aydınlatması ve Kat Pizza Partisi* |
+| ![Main 2.5D Office](docs/screenshots/office-main.png) | ![Sidecar Compact Mode](docs/screenshots/sidecar-compact.png) | ![Night Mode & Pizza Party](docs/screenshots/office-night-blueprint.png) |
+| *Executive desk, cluster pods, elevator foyer, and animated pets* | *< 760px Aux Pane compact toolbar, elevator drawer, and full-width office* | *Central Meeting Island, night ambiance, and Floor Pizza Party event* |
 
-| 🏙️ Plaza Kulesi Dış Görünüm / Plaza Tower Exterior | 🕸️ Swarm Panosu & `@mention` Ağı / Swarm Graph | 📊 60 Dakikalık Analitik & Telemetri / Analytics |
+| 🏙️ Plaza Tower Exterior View | 🕸️ Swarm Board & `@mention` Graph | 📊 60-Minute Analytics & Telemetry |
 | :---: | :---: | :---: |
 | ![Plaza Tower](docs/screenshots/plaza-tower.png) | ![Swarm Board Graph](docs/screenshots/swarm-board-graph.png) | ![Analytics Modal](docs/screenshots/analytics-modal.png) |
-| *Şirket katları, aktif pencereler ve animasyonlu cam asansör* | *Canlı mesaj akışı ve yönlü `@mention` etkileşim ağı grafiği* | *60 dakikalık aktivite çubukları, görev tamamlama ve model dağılımı* |
+| *Skyscraper floors, illuminated active windows, and glass elevator* | *Live message feed and directed `@mention` network interaction graph* | *60-minute activity bar chart, task completion, and model distribution* |
 
 ---
 
-## 🏛️ Mimari / Architecture
+## 🏛️ Architecture
 
 ```mermaid
 flowchart LR
@@ -31,10 +31,11 @@ flowchart LR
     DB["conversation_summaries.db\n(?mode=ro)"]
     LOGS["logs/transcript.jsonl\n(Read-Only Stream)"]
     SWARM["swarm/board.jsonl\n(Multi-Agent Board)"]
+    PROJECTS["config/projects/*.json\n(Renamed Projects)"]
   end
 
   subgraph CORE["Swarm Plaza Core Engine"]
-    SCANNER["Read-Only DB & Brain Scanner"]
+    SCANNER["Read-Only DB, Project & Brain Scanner"]
     GAME["Gamification & Zone Logic\n(XP, Model Outfits, Events, Go-Home)"]
     API["Express & WebSocket Server\n(127.0.0.1 Loopback)"]
   end
@@ -47,6 +48,7 @@ flowchart LR
   DB --> SCANNER
   LOGS --> SCANNER
   SWARM --> SCANNER
+  PROJECTS --> SCANNER
   SCANNER --> GAME
   GAME --> API
   API -->|"/preload.js + Token Rewrite"| SIDECAR
@@ -55,169 +57,128 @@ flowchart LR
 
 ---
 
-## 🇹🇷 Türkçe Dokümantasyon
+## 🌟 Key Features & What's New (v1.2.0)
 
-### 🌟 Temel Yetenekler & Yenilikler (v1.2.0)
-
-- **🧩 Yerleşik Antigravity Yan Panel Eklentisi (Sidecar Extension):**
-  - Eklenti olarak kurulduğunda Antigravity IDE içindeki **Auxiliary Side Pane**'de tek tıkla (`sidecar://antigravity-swarm-plaza/swarm_plaza/`) açılır.
-  - Antigravity tarafından atanan dinamik port (`ANTIGRAVITY_SIDECAR_WEB_PORT`) ve loopback güvenlik doğrulaması (`127.0.0.1` + `X-Sidecar-Token`) ile çalışır.
-  - Electron `plugin://` protokolü altında beyaz ekran oluşmasını önleyen otomatik asset token yeniden yazımı (`rewriteHtmlWithSidecarToken`), `/preload.js` köprüsü ve 1500ms akıllı HTTP yoklama (polling) modu içerir.
-  - **Kompakt Yan Panel Arayüzü (`< 760px`):** Genişlik daraldığında kat paneli kayar çekmeceye (`ASANSÖR ▾`) dönüşür, araç çubuğu `⋯` menüsüne toplanır ve ofis sahnesi tam genişlikte net kalır.
-- **🏢 Plaza Kulesi & Sabit Asansör Girişi:**
-  - Her Antigravity projesi gökdelende bağımsız bir şirket katıdır (`K0` Lobi, `K1..KN` Projeler ve Çatı Katı Demo Penthouse).
-  - Tüm mimari planlarda sol duvarda sabit asansör girişi (`gx: 0, gy: 6..7`), yaklaşan ajanlara otomatik açılan fırçalanmış çelik sürgülü kapılar ve yumuşak iniş/çıkış animasyonları.
-- **👔 BOSS & 8 Modele Özel Kıyafet / Renk Paleti:**
-  - Koordinatör ajanlar tüm arayüzde **★ BOSS** olarak gösterilir ve yönetici masasında altın taçla yer alır.
-  - 8 farklı model ailesi kendine özgü kıyafet, aksesuar ve renk paletine sahiptir: `argon` (Mor ceket + taç), `hydrogen` (Turkuaz hoodie + kulaklık), `flash` (Zümrüt/Sarı yarış ceketi + vizör), `carbon` (Kırmızı/Beyaz önlük + siber gözlük), `pro` (Lacivert/Altın takım + kravat), `claude` (Kiremit örgü kazak + bere), `gpt` (Petrol balıkçı yaka + kulaklık), `other` (İndigo polo + yaka kartı).
-- **📐 5 Mimari Ofis Planı, 5 Masa Stili & Ofis Evcil Hayvanları:**
-  - Ahşap ve cam bölme duvarlarla ayrılmış gerçekçi oda yerleşimleri (Yönetici Ofisi, Yazılım & QA Odası, Toplantı Odası, Sunucu Odası ve Dinlenme Salonu).
-  - %100 kameraya dönük (`SE` / `SW`) oturma pozları, alçak masa tablaları (`10px`) ve köşe monitörler sayesinde ajanların yüzleri ve ifadeleri daima görünür kalır.
-  - 5 tema paleti ile toplam 25 benzersiz düzen kombinasyonu (`🎲 DÜZEN`).
-- **☕ Canlı Ajan Yaşam Döngüsü & Mesai Bitişi (`AGY_GO_HOME_MINUTES`):**
-  - **Masada Seated Coding:** Ergonomik tekerlekli sandalyede klavyede yazma, havada süzülen kod glifleri (`</>`, `{}`).
-  - **Toplantı Odası (War Room):** Aktif konuşan ajan elinde lazer çubukla sunum ekranında mimari akışları sunar (`presenting`), dinleyiciler konferans sandalyelerinde oturur (`meeting`).
-  - **Koltukta Dinlenme & 2 Kişilik Konsol Oyunu:** Bekleyen ajanlar kanepede dinlenir (`lounging`), ikili eşleşerek retro TV'de konsol dövüş/yarış oyunu oynar (`gaming`).
-  - **Eve Gidiş:** `8` dakika boyunca pasif kalan ajanlar asansöre yönelir (`going_home`), `9.5` dakika sonra asansöre binerek mesaiyi tamamlar (`offDutyCount`).
-- **⚡ Rastgele Ofis Olayları (`⚡ OLAY` & 65s Otomatik Döngü):**
-  - `PIZZA_PARTY` (masada sıcak pizza kutusu ve dilim kapma), `WATERCOOLER_GOSSIP` (su sebili başı dedikodusu), `SPRINT_CELEBRATION` (renkli piksel konfeti yağmuru), `MASCOT_ZOOMIES` (maskot turbo hızda koşar), `COFFEE_BREW` (taze espresso molası).
-  - *Gerçek İş Bütünlüğü:* Aktif çalışan ajanlar (`working`) asla masalarından veya görevlerinden koparılmaz.
-- **📡 Canlı Swarm Board, `@mention` Grafiği & 60dk Analitik:**
-  - `brain/<id>/.system_generated/swarm/` verisinden canlı mesaj akışı, yönlü `@mention` etkileşim grafiği (`WhiteboardModal`) ve ofis içinde ajanlar arası kavisli piksel sinyal animasyonu.
-  - Son 60 dakikalık aktivite zaman çizelgesi (5 dakikalık 12 dilim), tamamlanan görev sayıları ve model dağılımı (`AnalyticsModal`).
-- **🛡️ %100 Salt-Okunur (Read-Only) Güvenli Mimari:**
-  - `~/.gemini/antigravity` dizinindeki hiçbir dosya veya oturum değiştirilmez, silinmez veya kilitlenmez. SQLite salt-okunur (`?mode=ro`) açılır.
+- **🧩 Embedded Antigravity Auxiliary Pane UI Extension (Sidecar):**
+  - Runs natively inside the Antigravity IDE Auxiliary Side Pane with one-click launch via `[Swarm Plaza](sidecar://antigravity-swarm-plaza/swarm_plaza/)`.
+  - Automatically binds to Antigravity's dynamic port (`ANTIGRAVITY_SIDECAR_WEB_PORT`) with `127.0.0.1` loopback security and `X-Sidecar-Token` authentication.
+  - Transparent HTML asset token rewriting (`rewriteHtmlWithSidecarToken`), `/preload.js` bridge, and a 1500ms HTTP polling fallback to ensure flawless rendering under Electron's `plugin://` scheme without white flashes.
+  - **Responsive Compact Mode (`< 760px`):** Narrow side panes automatically collapse the floor panel into a slide-over drawer (`ASANSÖR ▾`), bundle secondary actions into a `⋯` menu, and preserve 100% full-width isometric canvas rendering.
+- **🏢 Plaza Skyscraper & Fixed Elevator Foyer:**
+  - Every Antigravity project maps to its own dedicated company floor (`K0` Lobby, `K1..KN` Projects, and Penthouse Demo Floor).
+  - Automatically resolves user-renamed Antigravity project display names from `~/.gemini/config/projects/*.json` (e.g. `"Bursa Veriler"`).
+  - Fixed left-wall elevator entrance (`gx: 0, gy: 6..7`) across all blueprints with brushed-steel sliding doors that open when agents arrive or depart.
+- **👔 BOSS & 8 Model-Specific Outfits & Colorways:**
+  - Swarm coordinators are prominently styled as **★ BOSS** seated at an executive mahogany desk with a golden crown.
+  - 8 distinct model families feature unique outfits and accessories: `argon` (Purple blazer + crown), `hydrogen` (Cyan tech hoodie + headphones), `flash` (Emerald/Yellow racing jacket + visor), `carbon` (Crimson lab coat + cyber specs), `pro` (Navy/Gold suit + tie), `claude` (Terracotta knit sweater + beanie), `gpt` (Teal turtleneck + headset), `other` (Indigo polo + badge).
+- **📐 5 Architectural Blueprints, 5 Desk Styles & Office Pets:**
+  - Real partitioned rooms (Executive Suite, Dev/QA Studio, Conference War Room, Server Room, and Lounge).
+  - 100% camera-facing (`SE` / `SW`) seated angles, low tabletop ergonomics (`10px`), and corner monitors ensure characters' faces and expressions are never occluded.
+  - 5 theme palettes across 5 architectural layouts yield 25 distinct combinations (`🎲 LAYOUT`).
+- **☕ Living Agent Lifecycle & Go-Home Timer (`AGY_GO_HOME_MINUTES`):**
+  - **Seated Keyboard Coding:** Ergonomic swivel chairs, mechanical keyboard typing, and floating `</>` code glyphs.
+  - **War Room Presentations:** Active speaker holds a laser pointer stick directing attention to the illuminated Presentation Screen (`presenting`), while teammates sit as attentive listeners (`meeting`).
+  - **Lounge Relaxation & 2-Player Console Gaming:** Idle agents relax on plush sofas (`lounging`) or pair up for retro console fighting/racing games (`gaming`).
+  - **Shift End / Go-Home:** Agents inactive for `8` minutes walk toward the elevator (`going_home`), leaving the office at `9.5` minutes to complete their shift (`offDutyCount`).
+- **⚡ Random Office Events (`⚡ EVENT` & 65s Auto-Loop):**
+  - `PIZZA_PARTY` (warm pizza box & slice snatching), `WATERCOOLER_GOSSIP` (watercooler gossip), `SPRINT_CELEBRATION` (colorful confetti shower), `MASCOT_ZOOMIES` (pet turbo sprint), `COFFEE_BREW` (fresh espresso break).
+  - *Real-Work Integrity:* Active working agents (`status === 'working'`) are NEVER pulled off their desks during ambient events.
+- **📡 Live Swarm Board, `@mention` Network Graph & 60m Analytics:**
+  - Unified message stream ingesting both Native Swarm `board.jsonl` and subagent/task `messages/*.json`.
+  - Directed `@mention` communication network graph modal (`WhiteboardModal`).
+  - 60-minute activity telemetry timeline (12x 5-minute buckets), completed task counters, and model distribution (`AnalyticsModal`).
+- **🌐 Automatic Browser Language Detection & Complete i18n:**
+  - Automatically starts in Turkish if browser/OS language is Turkish (`tr*`), otherwise defaults to English (`en`). Instant `TR | EN` toggle updates all server speech bubbles, demo company names, and event titles in real time.
+- **🛡️ 100% Read-Only Safety:**
+  - Strictly read-only: SQLite uses `?mode=ro`, transcripts and brain directories are scanned via read-only file streams. Never writes, locks, or alters user data in `~/.gemini/antigravity`.
 
 ---
 
-### 📐 Mimari Planlar & Evcil Hayvan Tablosu
+## 📐 Architectural Blueprints & Pets Table
 
-| Plan No | Mimari Plan Adı | Masa Stili | Bölme Duvarlar | Ofis Evcil Hayvanı & Donanımı |
+| Blueprint | Layout Name | Desk Ergonomics | Room Partitioning | Office Pet & Amenity |
 | :--- | :--- | :--- | :--- | :--- |
-| **0** | **Klasik Köşe Stüdyo** | `clover_desk` (4'lü Yonca Pod) | Cam Bölmeler | Akvaryum (Yüzen balıklar & kabarcıklar) |
-| **1** | **Merkez Toplantı Adası** | `single_desk` (Bağımsız Masalar) | Ahşap Bölmeler | Tekir Kedi (`tabby_cat`) & Rahat Minderler |
-| **2** | **Açık L-Plan Lab** | `bench_desk` (Startup Sıra Masa) | Karma Bölmeler | Robot Süpürge (`robo_vac`) & Masa Tenisi |
-| **3** | **Çift Kanat Kurumsal** | `u_pod_desk` (U Takım Adası) | Ofis Cam Bölmeleri | Ofis Köpeği (`office_dog` - Corgi) |
-| **4** | **Yaratıcı Loft** | `twin_desk` (İkili Çalışma Masası) | Tuğla & Ahşap | Smokin Kedi (`tuxedo_cat`), Bonsai & Akvaryum |
+| **0** | **Classic Corner Studio** | `clover_desk` (4-person Clover Pod) | Glass Partitions | Aquarium (Swimming fish & bubbles) |
+| **1** | **Central Meeting Island** | `single_desk` (Spaced Individual Desks) | Wood Partitions | Tabby Cat (`tabby_cat`) & Cozy Poufs |
+| **2** | **Open L-Plan Tech Lab** | `bench_desk` (Startup Bench Row) | Hybrid Partitions | Robo-Vac (`robo_vac`) & Ping-Pong Table |
+| **3** | **Dual-Wing Corporate** | `u_pod_desk` (U-Shaped Team Pod) | Full Glass Walls | Office Dog (`office_dog` - Corgi) |
+| **4** | **Creative Penthouse Loft**| `twin_desk` (Paired Duo Desks) | Brick & Wood | Tuxedo Cat (`tuxedo_cat`), Bonsai & Aquarium |
 
 ---
 
-### ⚡ Tek Komutla Çalıştırma (`npx`)
+## ⚡ Instant Run (`npx`)
 
-Kurulum veya derleme yapmadan doğrudan çalıştırın (Node.js `>= 22.5.0` gerekir):
+Run immediately without installation or build steps (Node.js `>= 22.5.0` required):
 
 ```bash
 npx antigravity-swarm-plaza
 ```
 
-#### Komut Satırı Bayrakları (CLI Flags)
+### CLI Command Flags
 
-| Bayrak | Kısa | Açıklama |
+| Flag | Short | Description |
 | :--- | :--- | :--- |
-| `--demo` | `-d` | Demo modu açık başlatır (örnek 5 model ajanı ve simüle swarm trafiği) |
-| `--port <n>` | `-p <n>` | Özel HTTP/WS portu belirler (varsayılan: `3210` veya `$PORT`) |
-| `--no-open` | | Tarayıcıyı başlangıçta otomatik açmaz |
-| `--workspace <yol>` | `-w <yol>` | Belirli bir çalışma alanı dizinini aktif kat olarak öne çıkarır |
-| `--install-plugin` | | Eklentiyi `~/.gemini/config/plugins/antigravity-swarm-plaza` dizinine kurar |
-| `--help` | `-h` | Komut satırı yardımını gösterir |
-| `--version` | `-v` | Sürüm numarasını yazdırır |
+| `--demo` | `-d` | Starts with interactive demo mode enabled (5 Pure-Gemini model agents) |
+| `--port <n>` | `-p <n>` | Sets a custom HTTP/WebSocket port (default: `3210` or `$PORT`) |
+| `--no-open` | | Disables automatic browser launch on startup |
+| `--workspace <path>` | `-w <path>` | Highlights a specific workspace directory as the active floor |
+| `--install-plugin` | | Installs the extension into `~/.gemini/config/plugins/antigravity-swarm-plaza` |
+| `--help` | `-h` | Displays CLI usage help |
+| `--version` | `-v` | Prints current version number |
 
 ---
 
-### 🧩 Antigravity Eklenti Kurulumu (IDE Sidecar)
+## 🧩 Antigravity Extension Installation (IDE Sidecar)
 
-Dashboard'u doğrudan Google Antigravity içinden bir Auxiliary Pane yan panel eklentisi ve skill olarak kullanmak için:
+To install Swarm Plaza as a native Auxiliary Pane extension and skill directly inside Google Antigravity:
 
 ```bash
 npx antigravity-swarm-plaza --install-plugin
 ```
 
-Kurulum sonrasında Antigravity sohbetinde şu komutla paneli anında açabilirsiniz:
+Once installed, simply click the sidecar pill in Antigravity chat:
 - `[Swarm Plaza](sidecar://antigravity-swarm-plaza/swarm_plaza/)`
 
 ---
 
-### 🚀 Kaynaktan Geliştirme ve Test
+## 🚀 Development & Test Suite
 
 ```bash
-# Depoyu klonlayın
+# Clone repository
 git clone https://github.com/akinba/antigravity-swarm-plaza.git
 cd antigravity-swarm-plaza
 
-# Bağımlılıkları yükleyin
+# Install dependencies
 npm install
 
-# Testleri çalıştırın (47 test / 21 test paketi)
+# Run automated tests (54 tests / 23 test suites)
 npm test
 
-# TypeScript tip kontrolü
+# Run TypeScript verification
 npm run typecheck
 
-# İstemci, sunucu ve sidecar paketini derleyin
+# Build client, server, and sidecar bundle
 npm run build
 
-# Yerel sunucuyu başlatın
+# Start standalone server
 npm start
 ```
 
 ---
 
-### ⚙️ Ortam Değişkenleri (Environment Variables)
+## ⚙️ Environment Variables
 
-| Değişken | Varsayılan | Açıklama |
+| Variable | Default | Description |
 | :--- | :--- | :--- |
-| `PORT` | `3210` | Standalone web sunucusu ve WebSocket portu |
-| `ANTIGRAVITY_SIDECAR_WEB_PORT` | | Antigravity tarafından yan panel için dinamik atanan port (önceliklidir) |
-| `HOST` | `127.0.0.1` | Güvenlik amacıyla yalnızca yerel ağ döngüsüne (loopback) bağlanır |
-| `AGY_DATA_DIR` | `~/.gemini/antigravity` | Antigravity ana veri dizini (Salt-okunur taranır) |
-| `AGY_WORKSPACE` | `process.cwd()` | Etkin proje katını belirlemek için çalışma dizini |
-| `AGY_GO_HOME_MINUTES` | `8` | Ajanların asansörle mesaiyi bitirme eşik süresi (dakika) |
+| `PORT` | `3210` | Web server and WebSocket port |
+| `ANTIGRAVITY_SIDECAR_WEB_PORT` | | Dynamic port assigned by Antigravity for the auxiliary pane (takes priority) |
+| `HOST` | `127.0.0.1` | Local loopback bind host for security |
+| `AGY_DATA_DIR` | `~/.gemini/antigravity` | Antigravity root data directory (read-only inspection) |
+| `AGY_WORKSPACE` | `process.cwd()` | Workspace path used to detect and highlight the active project floor |
+| `AGY_GO_HOME_MINUTES` | `8` | Inactivity threshold before agents head to the elevator (minutes) |
 
 ---
 
-## 🇬🇧 English Documentation
+## 📄 License
 
-### 🌟 Overview & What's New (v1.2.0)
-
-**Antigravity Swarm Plaza** is a standalone, 2.5D retro pixel-art isometric office dashboard and native IDE Auxiliary Pane sidecar extension for visualizing Google Antigravity autonomous multi-agent systems in real time.
-
-- **Embedded Auxiliary Side Pane Extension:** Runs natively inside the Antigravity IDE via `sidecar://antigravity-swarm-plaza/swarm_plaza/` with automatic dynamic port detection (`ANTIGRAVITY_SIDECAR_WEB_PORT`), `127.0.0.1` loopback security, and Electron `plugin://` asset token rewriting with 1500ms polling fallback.
-- **Responsive Compact Mode (`< 760px`):** Auto-adapts to narrow side panels with collapsible elevator drawer (`ASANSÖR ▾`), `⋯` secondary toolbar, and 100% full-width isometric canvas.
-- **5 Architectural Blueprints & Desk Styles:** Real partitioned rooms with Clover Pods, Single Desks, Startup Benches, U-Pods, and Twin Desks. 100% camera-facing (`SE`/`SW`) seated typing and whiteboard presentations.
-- **Live Agent Lifecycle & Go-Home Timer:** Seated keyboard coding with floating `</>` glyphs, War Room presentations with laser pointer stick, sofa lounging, 2-player paired console gaming, office pets, and realistic go-home lifecycles (`AGY_GO_HOME_MINUTES`).
-- **Random Office Events:** Pizza parties, watercooler gossip, sprint confetti celebrations, and mascot zoomies without pulling active coders off their desks.
-- **100% Read-Only Safety:** Inspects `~/.gemini/antigravity` via read-only SQLite (`?mode=ro`) and file streams. Never mutates, locks, or alters user data.
-
----
-
-### ⚡ Quick Start
-
-```bash
-# Run instantly with npx (Node.js >= 22.5 required)
-npx antigravity-swarm-plaza
-
-# Install into Antigravity as a native sidecar extension
-npx antigravity-swarm-plaza --install-plugin
-```
-
-Open **`http://localhost:3210`** in your browser, or click `[Swarm Plaza](sidecar://antigravity-swarm-plaza/swarm_plaza/)` inside Antigravity!
-
-```bash
-# Run development server with hot reload
-npm run dev
-
-# Run full test suite (47 tests / 21 test suites)
-npm test
-
-# Run TypeScript typecheck
-npm run typecheck
-
-# Build client, server and sidecar bundle
-npm run build
-```
-
----
-
-### 📄 License
-
-MIT. Created for the Google Antigravity Multi-Agent Ecosystem.
+MIT License. Designed and crafted for the Google Antigravity Multi-Agent Ecosystem.
