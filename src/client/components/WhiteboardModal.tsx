@@ -165,6 +165,12 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
 }) => {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<'feed' | 'personnel' | 'tasks' | 'gantt'>('feed');
+  const [selectedGanttBlock, setSelectedGanttBlock] = useState<{
+    agentName: string;
+    phase: WorkPhase;
+    time: string;
+    detail: string;
+  } | null>(null);
   const feedRef = useRef<HTMLDivElement | null>(null);
   const isProgrammaticScrollRef = useRef(false);
   const scrollTimerRef = useRef<number | null>(null);
@@ -1209,12 +1215,15 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
           <div
             className="pixel-panel-inset"
             style={{
-              padding: 12,
+              padding: 10,
               overflowY: 'auto',
+              overflowX: 'hidden',
               display: 'flex',
               flexDirection: 'column',
-              gap: 12,
+              gap: 8,
               maxHeight: 490,
+              width: '100%',
+              boxSizing: 'border-box',
             }}
           >
             {(() => {
@@ -1225,77 +1234,75 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                 coord: t.whiteboardModal.ganttLegendCoord,
                 break: t.whiteboardModal.ganttLegendBreak,
               };
+              const shortPhaseLabels: Record<WorkPhase, string> = {
+                coding: '💻 Kod',
+                analysis: '🔍 Analiz',
+                testing: '🧪 Test',
+                coord: '📊 Plan',
+                break: '☕ Mola',
+              };
 
               const orderedMsgs = [...messages].sort((a, b) => a.seq - b.seq);
+              const windowMsgs = orderedMsgs.slice(-14);
+              const totalSlots = Math.max(1, windowMsgs.length);
+
+              interface TimeBlock {
+                agentName: string;
+                phase: WorkPhase;
+                startIdx: number;
+                endIdx: number;
+                time: string;
+                detail: string;
+              }
+
+              let defaultBlock: TimeBlock | null = null;
 
               const swimlanes = employees.map((emp) => {
                 const empKey = emp.name.toLowerCase();
-                const empMsgs = orderedMsgs.filter((m) => {
+                const blocks: TimeBlock[] = [];
+
+                windowMsgs.forEach((m, idx) => {
                   const agentLow = m.agent.toLowerCase();
-                  return (
-                    agentLow === empKey ||
-                    (emp.isCoordinator && agentLow === 'coordinator')
-                  );
-                });
-
-                interface PhaseSeg {
-                  phase: WorkPhase;
-                  timeLabel: string;
-                  detail: string;
-                  weight: number;
-                }
-
-                const segments: PhaseSeg[] = [];
-                for (const m of empMsgs) {
+                  const isMine =
+                    agentLow === empKey || (emp.isCoordinator && agentLow === 'coordinator');
+                  if (!isMine) return;
                   const phase = classifyWorkPhase(m.text, undefined);
-                  const detail = summarizeSnippet(m.text, 80);
-                  const prev = segments[segments.length - 1];
-                  if (prev && prev.phase === phase) {
-                    prev.weight += 1;
-                    prev.timeLabel = m.time;
+                  const detail = summarizeSnippet(m.text, 110);
+                  const prev = blocks[blocks.length - 1];
+                  if (prev && prev.phase === phase && idx <= prev.endIdx + 1) {
+                    prev.endIdx = idx;
+                    prev.time = m.time;
                     prev.detail = detail;
                   } else {
-                    segments.push({ phase, timeLabel: m.time, detail, weight: 1 });
+                    blocks.push({
+                      agentName: emp.name,
+                      phase,
+                      startIdx: idx,
+                      endIdx: idx,
+                      time: m.time,
+                      detail,
+                    });
                   }
-                }
+                });
 
-                if (segments.length === 0) {
-                  const initialPhase: WorkPhase = emp.isCoordinator
-                    ? 'coord'
-                    : /qa|verif|test|grill|analyst/i.test(emp.roleTitle + emp.name)
-                      ? 'analysis'
-                      : 'coding';
-                  segments.push({
-                    phase: initialPhase,
-                    timeLabel: 'T+0%',
-                    detail: emp.roleTitle,
-                    weight: 2,
+                if (blocks.length === 0) {
+                  const curPhase = classifyWorkPhase(emp.speechBubble || emp.roleTitle, emp);
+                  blocks.push({
+                    agentName: emp.name,
+                    phase: curPhase,
+                    startIdx: emp.status === 'working' ? Math.max(0, totalSlots - 2) : 0,
+                    endIdx: totalSlots - 1,
+                    time: 'NOW',
+                    detail: emp.speechBubble || emp.roleTitle,
                   });
-                  const currentPhase = classifyWorkPhase(emp.speechBubble || emp.roleTitle, emp);
-                  if (currentPhase !== initialPhase) {
-                    segments.push({
-                      phase: currentPhase,
-                      timeLabel: 'NOW',
-                      detail: emp.speechBubble || t.activities[emp.activity],
-                      weight: 2,
-                    });
-                  }
-                } else {
-                  const currentPhase = classifyWorkPhase(emp.speechBubble || '', emp);
-                  const last = segments[segments.length - 1];
-                  if (last && last.phase !== currentPhase) {
-                    segments.push({
-                      phase: currentPhase,
-                      timeLabel: 'NOW',
-                      detail: emp.speechBubble || t.activities[emp.activity],
-                      weight: 1,
-                    });
-                  }
                 }
 
-                const totalWeight = segments.reduce((sum, s) => sum + s.weight, 0) || 1;
-                return { emp, segments, totalWeight };
+                const lastB = blocks[blocks.length - 1];
+                if (lastB) defaultBlock = lastB;
+                return { emp, blocks };
               });
+
+              const activeDetail = selectedGanttBlock ?? defaultBlock;
 
               const handoffSteps: Array<{
                 id: string;
@@ -1306,19 +1313,15 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                 fromText: string;
                 toNames: string[];
                 toPhase: WorkPhase;
-                toText: string;
               }> = [];
 
-              for (let i = 0; i < orderedMsgs.length - 1; i++) {
-                const cur = orderedMsgs[i];
-                const nxt = orderedMsgs[i + 1];
+              for (let i = 0; i < windowMsgs.length - 1; i++) {
+                const cur = windowMsgs[i];
+                const nxt = windowMsgs[i + 1];
                 const curTargets = (cur.mentions ?? []).filter((m) =>
                   validSceneAgents ? validSceneAgents.has(m.toLowerCase()) : true,
                 );
-                if (
-                  cur.agent.toLowerCase() !== nxt.agent.toLowerCase() &&
-                  (curTargets.length > 0 || i >= Math.max(0, orderedMsgs.length - 8))
-                ) {
+                if (cur.agent.toLowerCase() !== nxt.agent.toLowerCase()) {
                   const fromEmp = employees.find(
                     (e) =>
                       e.name.toLowerCase() === cur.agent.toLowerCase() ||
@@ -1332,18 +1335,17 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                   handoffSteps.push({
                     id: `${cur.seq}-${nxt.seq}`,
                     seq: cur.seq,
-                    time: `${cur.time} ➔ ${nxt.time}`,
+                    time: cur.time.slice(11, 16) || cur.time,
                     fromName: cur.agent,
                     fromPhase: classifyWorkPhase(cur.text, fromEmp),
-                    fromText: summarizeSnippet(cur.text, 68),
-                    toNames: curTargets.length > 0 ? curTargets.slice(0, 3) : [nxt.agent],
+                    fromText: summarizeSnippet(cur.text, 56),
+                    toNames: curTargets.length > 0 ? curTargets.slice(0, 2) : [nxt.agent],
                     toPhase: classifyWorkPhase(nxt.text, toEmp),
-                    toText: summarizeSnippet(nxt.text, 68),
                   });
                 }
               }
 
-              const recentHandoffs = handoffSteps.slice(-8).reverse();
+              const compactHandoffs = handoffSteps.slice(-5).reverse();
 
               return (
                 <>
@@ -1353,9 +1355,9 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      gap: 8,
+                      gap: 6,
                       flexWrap: 'wrap',
-                      padding: '8px 10px',
+                      padding: '6px 8px',
                       background: '#131929',
                       border: '2px solid #2b3554',
                     }}
@@ -1363,7 +1365,7 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                     <span className="pixel-title" style={{ fontSize: 10, color: '#ffd147' }}>
                       {t.whiteboardModal.ganttTitle}
                     </span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
                       {(Object.keys(PHASE_STYLES) as WorkPhase[]).map((phase) => {
                         const st = PHASE_STYLES[phase];
                         return (
@@ -1384,21 +1386,21 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Gantt Time Axis */}
+                  {/* Time Axis */}
                   <div
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: '170px 1fr',
-                      gap: 10,
-                      padding: '0 8px',
+                      gridTemplateColumns: '148px 1fr',
+                      gap: 8,
+                      padding: '0 6px',
                       fontSize: 9,
                       color: 'var(--text-dim)',
                       fontFamily: 'monospace',
                     }}
                   >
-                    <span>AGENT / SWIMLANE</span>
+                    <span>AGENT</span>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span>T+0%</span>
+                      <span>0%</span>
                       <span>25%</span>
                       <span>50%</span>
                       <span>75%</span>
@@ -1406,9 +1408,9 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Swimlanes */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {swimlanes.map(({ emp, segments, totalWeight }) => {
+                  {/* Waterfall Swimlanes (100% width, zero horizontal scroll) */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
+                    {swimlanes.map(({ emp, blocks }) => {
                       const statusColor =
                         emp.status === 'working'
                           ? '#3be87a'
@@ -1420,19 +1422,21 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                           key={`gantt-${emp.id}`}
                           style={{
                             display: 'grid',
-                            gridTemplateColumns: '170px 1fr',
-                            gap: 10,
-                            padding: '7px 8px',
+                            gridTemplateColumns: '148px 1fr',
+                            gap: 8,
+                            padding: '4px 6px',
                             background: '#171c2b',
                             border: '1px solid #2d3654',
                             alignItems: 'center',
+                            width: '100%',
+                            boxSizing: 'border-box',
                           }}
                         >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
                             <EmployeePortraitCanvas
                               employee={emp}
                               activeEventKind={activeEventKind}
-                              size={36}
+                              size={28}
                             />
                             <div style={{ minWidth: 0 }}>
                               <div
@@ -1447,78 +1451,78 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                               >
                                 {emp.name}
                               </div>
-                              <div style={{ fontSize: 9, color: statusColor }}>
+                              <div style={{ fontSize: 8, color: statusColor }}>
                                 ● {t.statuses[emp.status]}
                               </div>
                             </div>
                           </div>
 
+                          {/* Time-aligned track */}
                           <div
                             style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 4,
+                              position: 'relative',
+                              height: 28,
                               width: '100%',
-                              background: '#0f1421',
-                              padding: 4,
+                              background: 'rgba(120, 144, 156, 0.08)',
                               border: '1px solid #232b44',
+                              overflow: 'hidden',
                             }}
                           >
-                            {segments.map((seg, idx) => {
-                              const st = PHASE_STYLES[seg.phase];
-                              const pct = Math.max(14, Math.round((seg.weight / totalWeight) * 100));
+                            {[25, 50, 75].map((pct) => (
+                              <div
+                                key={pct}
+                                style={{
+                                  position: 'absolute',
+                                  left: `${pct}%`,
+                                  top: 0,
+                                  bottom: 0,
+                                  width: 1,
+                                  background: 'rgba(255,255,255,0.06)',
+                                  pointerEvents: 'none',
+                                }}
+                              />
+                            ))}
+
+                            {blocks.map((blk, idx) => {
+                              const st = PHASE_STYLES[blk.phase];
+                              const leftPct = (blk.startIdx / totalSlots) * 100;
+                              const rawWidthPct =
+                                ((blk.endIdx - blk.startIdx + 1) / totalSlots) * 100;
+                              const widthPct = Math.min(100 - leftPct, Math.max(7, rawWidthPct));
                               return (
-                                <React.Fragment key={`${emp.id}-seg-${idx}`}>
-                                  {idx > 0 && (
-                                    <span
-                                      style={{
-                                        color: '#ffd147',
-                                        fontSize: 10,
-                                        fontWeight: 700,
-                                        flexShrink: 0,
-                                      }}
-                                    >
-                                      ➔
-                                    </span>
-                                  )}
-                                  <div
-                                    title={`${phaseLabels[seg.phase]} (${seg.timeLabel}): ${seg.detail}`}
-                                    style={{
-                                      flex: `${pct} 1 0%`,
-                                      minWidth: 0,
-                                      padding: '4px 6px',
-                                      background: st.bg,
-                                      border: `1px solid ${st.border}`,
-                                      display: 'flex',
-                                      flexDirection: 'column',
-                                      gap: 1,
-                                    }}
-                                  >
-                                    <div
-                                      style={{
-                                        fontSize: 9,
-                                        fontWeight: 700,
-                                        color: st.color,
-                                        whiteSpace: 'nowrap',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                      }}
-                                    >
-                                      {phaseLabels[seg.phase]}
-                                    </div>
-                                    <div
-                                      style={{
-                                        fontSize: 9,
-                                        color: '#9aa7c7',
-                                        whiteSpace: 'nowrap',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                      }}
-                                    >
-                                      {seg.timeLabel} · {seg.detail}
-                                    </div>
-                                  </div>
-                                </React.Fragment>
+                                <button
+                                  key={`${emp.id}-blk-${idx}`}
+                                  type="button"
+                                  onMouseEnter={() => setSelectedGanttBlock(blk)}
+                                  onClick={() => {
+                                    playSelectBlip();
+                                    setSelectedGanttBlock(blk);
+                                  }}
+                                  title={`${blk.agentName} • ${phaseLabels[blk.phase]} (${blk.time}): ${blk.detail}`}
+                                  style={{
+                                    position: 'absolute',
+                                    left: `${leftPct}%`,
+                                    width: `${widthPct}%`,
+                                    top: 3,
+                                    bottom: 3,
+                                    background: st.bg,
+                                    border: `1px solid ${st.border}`,
+                                    color: st.color,
+                                    fontSize: 9,
+                                    fontWeight: 700,
+                                    fontFamily: 'inherit',
+                                    padding: '0 4px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  {shortPhaseLabels[blk.phase]}
+                                </button>
                               );
                             })}
                           </div>
@@ -1527,137 +1531,113 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                     })}
                   </div>
 
-                  {/* Sequential Workflow Chain */}
+                  {/* Single-Line Selected Phase Detail Strip */}
+                  {activeDetail && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: '6px 10px',
+                        background: '#111625',
+                        border: `1px solid ${PHASE_STYLES[activeDetail.phase].border}`,
+                        fontSize: 11,
+                        overflow: 'hidden',
+                        whiteSpace: 'nowrap',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      <span style={{ color: '#9aa7c7', fontFamily: 'monospace', fontSize: 10 }}>
+                        [{activeDetail.time}]
+                      </span>
+                      <span className="mention-chip">@{activeDetail.agentName}</span>
+                      <span
+                        className="pixel-badge"
+                        style={{
+                          color: PHASE_STYLES[activeDetail.phase].color,
+                          background: PHASE_STYLES[activeDetail.phase].bg,
+                          borderColor: PHASE_STYLES[activeDetail.phase].border,
+                          fontSize: 9,
+                        }}
+                      >
+                        {phaseLabels[activeDetail.phase]}
+                      </span>
+                      <span
+                        style={{
+                          color: '#dce6ff',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {activeDetail.detail}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Compact Sequential Workflow Chain */}
                   <div
                     style={{
-                      marginTop: 4,
-                      padding: '8px 10px',
+                      padding: '6px 8px',
                       background: '#131929',
                       border: '2px solid #2b3554',
                     }}
                   >
                     <div
                       className="pixel-title"
-                      style={{ fontSize: 10, color: '#3cd8ff', marginBottom: 8 }}
+                      style={{ fontSize: 9, color: '#3cd8ff', marginBottom: 6 }}
                     >
                       {t.whiteboardModal.ganttSequenceTitle}
                     </div>
-                    {recentHandoffs.length === 0 ? (
-                      <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                    {compactHandoffs.length === 0 ? (
+                      <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>
                         {t.whiteboardModal.noTasksYet}
                       </div>
                     ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {recentHandoffs.map((step) => {
-                          const fromSt = PHASE_STYLES[step.fromPhase];
-                          const toSt = PHASE_STYLES[step.toPhase];
-                          return (
-                            <div
-                              key={step.id}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {compactHandoffs.map((step) => (
+                          <div
+                            key={step.id}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              padding: '4px 8px',
+                              background: '#171c2b',
+                              border: '1px solid #2d3654',
+                              fontSize: 10,
+                              overflow: 'hidden',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            <span style={{ color: 'var(--text-dim)', fontFamily: 'monospace', fontSize: 9 }}>
+                              #{step.seq} [{step.time}]
+                            </span>
+                            <span className="mention-chip">@{step.fromName}</span>
+                            <span style={{ color: PHASE_STYLES[step.fromPhase].color, fontSize: 9 }}>
+                              ({shortPhaseLabels[step.fromPhase]})
+                            </span>
+                            <span style={{ color: '#ffd147', fontWeight: 700 }}>➔</span>
+                            {step.toNames.map((n) => (
+                              <span key={n} className="mention-chip">
+                                @{n}
+                              </span>
+                            ))}
+                            <span style={{ color: PHASE_STYLES[step.toPhase].color, fontSize: 9 }}>
+                              ({shortPhaseLabels[step.toPhase]})
+                            </span>
+                            <span
                               style={{
-                                display: 'grid',
-                                gridTemplateColumns: '1fr auto 1fr',
-                                gap: 8,
-                                alignItems: 'center',
-                                padding: '7px 10px',
-                                background: '#171c2b',
-                                border: '1px solid #2d3654',
-                                fontSize: 11,
+                                color: '#9aa7c7',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
                               }}
                             >
-                              {/* Left: Finished Task */}
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                                  <span className="mention-chip">@{step.fromName}</span>
-                                  <span
-                                    className="pixel-badge"
-                                    style={{
-                                      color: fromSt.color,
-                                      background: fromSt.bg,
-                                      borderColor: fromSt.border,
-                                      fontSize: 9,
-                                    }}
-                                  >
-                                    {phaseLabels[step.fromPhase]}
-                                  </span>
-                                  <span style={{ fontSize: 9, color: 'var(--text-dim)', fontFamily: 'monospace' }}>
-                                    #{step.seq}
-                                  </span>
-                                </div>
-                                <div
-                                  style={{
-                                    fontSize: 10,
-                                    color: '#b8c5e3',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                  }}
-                                >
-                                  {step.fromText}
-                                </div>
-                              </div>
-
-                              {/* Center: Transition */}
-                              <div
-                                style={{
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  alignItems: 'center',
-                                  gap: 2,
-                                  padding: '0 4px',
-                                }}
-                              >
-                                <span
-                                  className="pixel-badge"
-                                  style={{
-                                    color: '#ffd147',
-                                    background: '#262113',
-                                    borderColor: '#786221',
-                                    fontSize: 9,
-                                  }}
-                                >
-                                  {t.whiteboardModal.ganttFinishedThenStarted}
-                                </span>
-                                <span style={{ fontSize: 9, color: 'var(--text-dim)', fontFamily: 'monospace' }}>
-                                  {step.time}
-                                </span>
-                              </div>
-
-                              {/* Right: Started Next Task */}
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                                  {step.toNames.map((n) => (
-                                    <span key={n} className="mention-chip">
-                                      @{n}
-                                    </span>
-                                  ))}
-                                  <span
-                                    className="pixel-badge"
-                                    style={{
-                                      color: toSt.color,
-                                      background: toSt.bg,
-                                      borderColor: toSt.border,
-                                      fontSize: 9,
-                                    }}
-                                  >
-                                    {phaseLabels[step.toPhase]}
-                                  </span>
-                                </div>
-                                <div
-                                  style={{
-                                    fontSize: 10,
-                                    color: '#dce6ff',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                  }}
-                                >
-                                  {step.toText}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
+                              {step.fromText}
+                            </span>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
