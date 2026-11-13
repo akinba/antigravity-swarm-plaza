@@ -218,37 +218,94 @@ export function drawExtraFurnitureProp(
   }
 
   if (kind === 'elevator_doors') {
-    // Brushed-steel elevator frame & animated sliding doors
-    const fw = 36 * z;
-    const fh = 48 * z;
-    const fx = cx - fw / 2;
-    const fy = cy - fh;
-    ctx.fillStyle = '#4b556b';
-    ctx.fillRect(Math.round(fx), Math.round(fy), Math.ceil(fw), Math.ceil(fh));
+    // 2.5D isometric brushed-steel elevator portal flush against the left back wall (gx = 0, slope -2:1)
+    // Wall base line for tile (0, 6) passes through top vertex (cx, cy - 16*z) and left vertex (cx - 32*z, cy).
+    const w1x = cx + 4 * z;
+    const w1y = cy - 18 * z;
+    const w2x = cx - 36 * z;
+    const w2y = cy + 2 * z;
+    // Slight 3D frame protrusion into the room (+X iso direction: +2:+1)
+    const dx = 4 * z;
+    const dy = 2 * z;
+    const p1x = w1x + dx;
+    const p1y = w1y + dy;
+    const p2x = w2x + dx;
+    const p2y = w2y + dy;
+    const fh = 52 * z;
+
+    const fillIsoQuad = (u1: number, u2: number, hBot: number, hTop: number, fill: string, stroke?: string) => {
+      const xA = p1x + (p2x - p1x) * u1;
+      const yA = p1y + (p2y - p1y) * u1;
+      const xB = p1x + (p2x - p1x) * u2;
+      const yB = p1y + (p2y - p1y) * u2;
+      ctx.beginPath();
+      ctx.moveTo(xA, yA - hBot);
+      ctx.lineTo(xB, yB - hBot);
+      ctx.lineTo(xB, yB - hTop);
+      ctx.lineTo(xA, yA - hTop);
+      ctx.closePath();
+      ctx.fillStyle = fill;
+      ctx.fill();
+      if (stroke) {
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = Math.max(1, 1.4 * z);
+        ctx.stroke();
+      }
+    };
+
+    // 1. 3D top & right-side depth bevels connecting frame back to the wall face
+    ctx.beginPath();
+    ctx.moveTo(w1x, w1y - fh);
+    ctx.lineTo(w2x, w2y - fh);
+    ctx.lineTo(p2x, p2y - fh);
+    ctx.lineTo(p1x, p1y - fh);
+    ctx.closePath();
+    ctx.fillStyle = '#6c7a96';
+    ctx.fill();
     ctx.strokeStyle = '#121622';
-    ctx.lineWidth = Math.max(1.5, 2 * z);
-    ctx.strokeRect(Math.round(fx), Math.round(fy), Math.ceil(fw), Math.ceil(fh));
+    ctx.lineWidth = Math.max(1, 1.4 * z);
+    ctx.stroke();
 
-    // Interior shaft when open
-    ctx.fillStyle = '#182133';
-    ctx.fillRect(Math.round(fx + 4 * z), Math.round(fy + 6 * z), Math.ceil(fw - 8 * z), Math.ceil(fh - 6 * z));
+    ctx.beginPath();
+    ctx.moveTo(w1x, w1y);
+    ctx.lineTo(p1x, p1y);
+    ctx.lineTo(p1x, p1y - fh);
+    ctx.lineTo(w1x, w1y - fh);
+    ctx.closePath();
+    ctx.fillStyle = '#384154';
+    ctx.fill();
+    ctx.stroke();
 
-    const openPx = isOccupied ? 11 * z : 0;
-    const doorW = (fw - 8 * z) / 2 - openPx;
-    if (doorW > 1) {
-      ctx.fillStyle = '#9aa6bd';
-      ctx.fillRect(Math.round(fx + 4 * z), Math.round(fy + 6 * z), Math.ceil(doorW), Math.ceil(fh - 6 * z));
-      ctx.fillRect(
-        Math.round(fx + fw - 4 * z - doorW),
-        Math.round(fy + 6 * z),
-        Math.ceil(doorW),
-        Math.ceil(fh - 6 * z),
-      );
+    // 2. Main brushed-steel outer portal frame
+    fillIsoQuad(0, 1, 0, fh, '#4b556b', '#121622');
+
+    // 3. Recessed dark elevator shaft interior (u: 0.10..0.90, h: 2*z..41*z)
+    fillIsoQuad(0.1, 0.9, 2 * z, 41 * z, '#141c2e', '#0d121f');
+    // Warm ceiling glow & guide rail inside shaft when doors open
+    if (isOccupied) {
+      fillIsoQuad(0.14, 0.86, 37 * z, 40.5 * z, 'rgba(255, 230, 140, 0.45)');
+      fillIsoQuad(0.48, 0.52, 3 * z, 37 * z, '#25324d');
     }
 
-    // Indicator LED above doors
-    ctx.fillStyle = isOccupied ? '#3be87a' : '#ffbe3b';
-    ctx.fillRect(Math.round(cx - 3 * z), Math.round(fy + 2 * z), Math.ceil(6 * z), Math.ceil(3 * z));
+    // 4. Animated sliding steel doors along the 2:1 isometric wall axis
+    const openU = isOccupied ? 0.28 : 0;
+    const panelSpan = 0.4 - openU;
+    if (panelSpan > 0.03) {
+      // Upper-right sliding door leaf
+      fillIsoQuad(0.1, 0.1 + panelSpan, 2 * z, 41 * z, '#9aa6bd', '#1b2233');
+      fillIsoQuad(0.13, 0.1 + panelSpan * 0.55, 5 * z, 38 * z, '#b4c0d9');
+      // Lower-left sliding door leaf
+      fillIsoQuad(0.9 - panelSpan, 0.9, 2 * z, 41 * z, '#8c98b0', '#1b2233');
+      fillIsoQuad(0.9 - panelSpan * 0.65, 0.87, 5 * z, 38 * z, '#a6b3cc');
+    }
+
+    // 5. Transom header panel & isometric LED status indicator above doors
+    fillIsoQuad(0.12, 0.88, 43 * z, 49 * z, '#1e2536', '#121622');
+    const ledColor = isOccupied ? '#3be87a' : '#ffbe3b';
+    fillIsoQuad(0.38, 0.62, 44.5 * z, 47.5 * z, ledColor);
+
+    // 6. Stainless steel threshold sill
+    fillIsoQuad(0, 1, 0, 2.2 * z, '#7c8aa6', '#121622');
     return true;
   }
 

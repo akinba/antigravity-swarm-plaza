@@ -585,8 +585,12 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
         currentFloor.activeEvent?.kind === 'PIZZA_PARTY' ||
         currentFloor.employees.some((e) => e.activity === 'pizza');
       let isElevatorBusy = false;
-      for (const actor of actors.values()) {
-        if (Math.hypot(actor.gx - ELEVATOR_SLOT.gx, actor.gy - ELEVATOR_SLOT.gy) <= 2.1) {
+      const empById = new Map(currentFloor.employees.map((e) => [e.id, e]));
+      for (const [id, actor] of actors.entries()) {
+        const d = Math.hypot(actor.gx - ELEVATOR_SLOT.gx, actor.gy - ELEVATOR_SLOT.gy);
+        const emp = empById.get(id);
+        const alreadyLeft = emp?.activity === 'going_home' && d <= 0.12 && !actor.isWalking;
+        if (!alreadyLeft && d <= 2.1) {
           isElevatorBusy = true;
           break;
         }
@@ -696,7 +700,8 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
         // Fade out employees stepping into the elevator to go home
         const distElev = Math.hypot(actor.gx - ELEVATOR_SLOT.gx, actor.gy - ELEVATOR_SLOT.gy);
         const alpha =
-          emp.activity === 'going_home' ? Math.max(0.12, Math.min(1, distElev / 1.5)) : 1;
+          emp.activity === 'going_home' ? Math.max(0, Math.min(1, distElev / 1.4)) : 1;
+        if (alpha <= 0.02) continue;
 
         let isBubbleFresh = false;
         if (emp.speechBubble) {

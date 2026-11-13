@@ -272,9 +272,9 @@ export function drawBackWalls(
     ctx.stroke();
   };
 
-  drawWindow(topVertexX, topVertexY, leftEndX, leftEndY, 0.12, 0.34);
-  drawWindow(topVertexX, topVertexY, leftEndX, leftEndY, 0.44, 0.66);
-  drawWindow(topVertexX, topVertexY, leftEndX, leftEndY, 0.76, 0.92);
+  drawWindow(topVertexX, topVertexY, leftEndX, leftEndY, 0.1, 0.32);
+  drawWindow(topVertexX, topVertexY, leftEndX, leftEndY, 0.55, 0.73);
+  drawWindow(topVertexX, topVertexY, leftEndX, leftEndY, 0.78, 0.94);
 
   drawWindow(topVertexX, topVertexY, rightEndX, rightEndY, 0.12, 0.32);
   drawWindow(topVertexX, topVertexY, rightEndX, rightEndY, 0.64, 0.88);
@@ -441,50 +441,56 @@ export function drawFurniture(
     ctx.fillStyle = '#ff7eb9';
     ctx.fillRect(Math.round(cx + 2 * z), Math.round(cy - 12 * z), Math.ceil(5 * z), Math.ceil(4 * z));
   } else if (kind === 'whiteboard_l' || kind === 'whiteboard_r') {
-    // Illuminated Presentation Screen
-    drawIsoBox(ctx, cx, cy, 22, 6, 4, '#454e66', '#2c3345', '#1e2330', z);
-    const bx = cx - 21 * z;
-    const by = cy - 45 * z;
-    const bw = 42 * z;
-    const bh = 32 * z;
+    // 2:1 X-axis isometric Illuminated Presentation Screen (whiteboard_l at gx, whiteboard_r at gx+1 join seamlessly)
+    drawIsoBox(ctx, cx, cy, 16, 6, 4, '#454e66', '#2c3345', '#1e2330', z);
+    ctx.save();
+    ctx.translate(cx, cy);
+    // Shear Y by +0.5 along X so horizontal rect coordinates project onto the NW->SE 2:1 isometric axis
+    ctx.transform(1, 0.5, 0, 1, 0, 0);
+
+    const bx = -16.5 * z;
+    const by = -42 * z;
+    const bw = 33 * z;
+    const bh = 30 * z;
 
     if (isHovered || isOccupied) {
       ctx.fillStyle = isHovered ? '#ffe64d' : 'rgba(60, 216, 255, 0.55)';
-      ctx.fillRect(Math.round(bx - 2 * z), Math.round(by - 2 * z), Math.ceil(bw + 4 * z), Math.ceil(bh + 4 * z));
+      ctx.fillRect(Math.round(bx - 1.5 * z), Math.round(by - 2 * z), Math.ceil(bw + 3 * z), Math.ceil(bh + 4 * z));
     }
     ctx.fillStyle = '#1a2030';
     ctx.fillRect(Math.round(bx), Math.round(by), Math.ceil(bw), Math.ceil(bh));
     ctx.fillStyle = isOccupied ? '#f7fbff' : '#e6eefc';
-    ctx.fillRect(Math.round(bx + 2 * z), Math.round(by + 2 * z), Math.ceil(bw - 4 * z), Math.ceil(bh - 4 * z));
+    ctx.fillRect(Math.round(bx + 1.5 * z), Math.round(by + 2 * z), Math.ceil(bw - 3 * z), Math.ceil(bh - 4 * z));
 
     if (kind === 'whiteboard_l') {
       // Bar charts on left screen
       ctx.fillStyle = '#3cd8ff';
-      ctx.fillRect(Math.round(bx + 6 * z), Math.round(by + 16 * z), Math.ceil(5 * z), Math.ceil(11 * z));
+      ctx.fillRect(Math.round(bx + 4 * z), Math.round(by + 15 * z), Math.ceil(4 * z), Math.ceil(10 * z));
       ctx.fillStyle = '#3be87a';
-      ctx.fillRect(Math.round(bx + 13 * z), Math.round(by + 11 * z), Math.ceil(5 * z), Math.ceil(16 * z));
+      ctx.fillRect(Math.round(bx + 10 * z), Math.round(by + 10 * z), Math.ceil(4 * z), Math.ceil(15 * z));
       ctx.fillStyle = '#ffbe3b';
-      ctx.fillRect(Math.round(bx + 20 * z), Math.round(by + 14 * z), Math.ceil(5 * z), Math.ceil(13 * z));
+      ctx.fillRect(Math.round(bx + 16 * z), Math.round(by + 13 * z), Math.ceil(4 * z), Math.ceil(12 * z));
       ctx.fillStyle = '#ff5666';
-      ctx.fillRect(Math.round(bx + 27 * z), Math.round(by + 8 * z), Math.ceil(5 * z), Math.ceil(19 * z));
+      ctx.fillRect(Math.round(bx + 22 * z), Math.round(by + 7 * z), Math.ceil(4 * z), Math.ceil(18 * z));
       ctx.fillStyle = '#252b3b';
-      ctx.fillRect(Math.round(bx + 5 * z), Math.round(by + 5 * z), Math.ceil(22 * z), Math.ceil(2 * z));
+      ctx.fillRect(Math.round(bx + 4 * z), Math.round(by + 4 * z), Math.ceil(18 * z), Math.ceil(2 * z));
 
       ctx.font = `bold ${Math.max(8, Math.round(8 * z))}px "Silkscreen", monospace`;
       ctx.fillStyle = isHovered ? '#ffe64d' : '#9ee8ff';
       ctx.textAlign = 'center';
-      ctx.fillText(whiteboardLabel, cx + 14 * z, by - 5 * z);
+      ctx.fillText(whiteboardLabel, 16 * z, by - 5 * z);
     } else {
       // Architecture nodes + slide bullets on right screen
       ctx.fillStyle = '#b07cff';
-      ctx.fillRect(Math.round(bx + 6 * z), Math.round(by + 6 * z), Math.ceil(9 * z), Math.ceil(6 * z));
+      ctx.fillRect(Math.round(bx + 4 * z), Math.round(by + 6 * z), Math.ceil(8 * z), Math.ceil(6 * z));
       ctx.fillStyle = '#3cd8ff';
-      ctx.fillRect(Math.round(bx + 23 * z), Math.round(by + 6 * z), Math.ceil(9 * z), Math.ceil(6 * z));
+      ctx.fillRect(Math.round(bx + 19 * z), Math.round(by + 6 * z), Math.ceil(8 * z), Math.ceil(6 * z));
       ctx.fillStyle = '#394666';
-      ctx.fillRect(Math.round(bx + 15 * z), Math.round(by + 8 * z), Math.ceil(8 * z), Math.ceil(2 * z));
-      ctx.fillRect(Math.round(bx + 6 * z), Math.round(by + 17 * z), Math.ceil(26 * z), Math.ceil(2 * z));
-      ctx.fillRect(Math.round(bx + 6 * z), Math.round(by + 22 * z), Math.ceil(20 * z), Math.ceil(2 * z));
+      ctx.fillRect(Math.round(bx + 12 * z), Math.round(by + 8 * z), Math.ceil(7 * z), Math.ceil(2 * z));
+      ctx.fillRect(Math.round(bx + 4 * z), Math.round(by + 16 * z), Math.ceil(22 * z), Math.ceil(2 * z));
+      ctx.fillRect(Math.round(bx + 4 * z), Math.round(by + 21 * z), Math.ceil(17 * z), Math.ceil(2 * z));
     }
+    ctx.restore();
   } else if (kind === 'server_rack') {
     drawIsoBox(ctx, cx, cy, 16, 10, 38, '#364159', '#1e2536', '#141824', z);
     // Blinking LEDs
