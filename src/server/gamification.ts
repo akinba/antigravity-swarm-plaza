@@ -24,6 +24,7 @@ import { getActiveFloorEvent, getFloorLayoutSeed } from './officeEvents.js';
 import {
   buildSwarmMentionEdges,
   classifySwarmRole,
+  normalizeSwarmRoleLabel,
   scanBrainData,
   type BrainScanResult,
   type SubagentMeta,
@@ -359,9 +360,13 @@ export function buildFloorTaskNodes(
   const coordinator = employees.find((e) => e.isCoordinator) ?? employees[0];
   const rootTaskId = `task-${coordinator.id}`;
   const empByLowerName = new Map<string, OfficeEmployee>();
+  const validTargets = new Map<string, string>();
   for (const emp of employees) {
     empByLowerName.set(emp.name.toLowerCase(), emp);
+    validTargets.set(emp.name.toLowerCase(), emp.name);
   }
+  if (!validTargets.has('coordinator')) validTargets.set('coordinator', 'coordinator');
+  validTargets.set('all', 'all');
 
   return employees.map((emp) => {
     const isRoot = emp.id === coordinator.id;
@@ -378,7 +383,8 @@ export function buildFloorTaskNodes(
       ...new Set(
         swarmEdges
           .filter((edge) => edge.from.toLowerCase() === emp.name.toLowerCase())
-          .map((edge) => edge.to),
+          .map((edge) => validTargets.get(edge.to.toLowerCase()))
+          .filter((name): name is string => Boolean(name) && name!.toLowerCase() !== emp.name.toLowerCase()),
       ),
     ];
 
@@ -1418,11 +1424,71 @@ export function buildPlazaSnapshot(
       }
     }
 
-    const swarmEdges = buildSwarmMentionEdges(
-      trimmedBoard,
-      employees.map((e) => e.name),
+    const validSceneAgents = new Map<string, string>();
+    for (const emp of employees) {
+      validSceneAgents.set(emp.name.toLowerCase(), emp.name);
+    }
+    const addSceneAlias = (rawName?: string) => {
+      if (!rawName) return;
+      const normalized = normalizeSwarmRoleLabel(rawName);
+      if (!normalized) return;
+      const key = normalized.toLowerCase();
+      if (!validSceneAgents.has(key)) {
+        validSceneAgents.set(key, normalized);
+      }
+    };
+
+    for (const r of group.rows) {
+      const member = scan.swarmMemberByConvId.get(r.conversation_id);
+      const isKilledRow = r.killed === 1 || member?.killed === true;
+      if (isKilledRow && r.status !== 'CASCADE_RUN_STATUS_RUNNING') continue;
+
+      if (member?.rosterName) addSceneAlias(member.rosterName);
+      const subMeta = scan.subagentMetaByConvId.get(r.conversation_id);
+      if (subMeta?.typeName) addSceneAlias(subMeta.typeName);
+      if (subMeta?.role) addSceneAlias(subMeta.role);
+      if (r.agent_name) addSceneAlias(r.agent_name);
+    }
+    if (!validSceneAgents.has('coordinator')) {
+      validSceneAgents.set('coordinator', 'coordinator');
+    }
+    validSceneAgents.set('all', 'all');
+
+    const filteredBoard: SwarmBoardMessage[] = trimmedBoard.map((msg) => {
+      const seen = new Set<string>();
+      const cleanMentions: string[] = [];
+      for (const m of msg.mentions ?? []) {
+        const canonical = validSceneAgents.get(m.toLowerCase());
+        if (canonical && !seen.has(canonical.toLowerCase())) {
+          seen.add(canonical.toLowerCase());
+          cleanMentions.push(canonical);
+        }
+      }
+      return {
+        ...msg,
+        mentions: cleanMentions,
+      };
+    });
+
+    const rawSwarmEdges = buildSwarmMentionEdges(
+      filteredBoard,
+      Array.from(validSceneAgents.values()),
     );
-    const taskNodes = buildFloorTaskNodes(employees, trimmedBoard, swarmEdges);
+    const swarmEdges = rawSwarmEdges
+      .map((edge) => {
+        const fromCanonical = validSceneAgents.get(edge.from.toLowerCase());
+        const toCanonical = validSceneAgents.get(edge.to.toLowerCase());
+        if (!fromCanonical || !toCanonical) return null;
+        if (fromCanonical.toLowerCase() === toCanonical.toLowerCase()) return null;
+        return {
+          ...edge,
+          from: fromCanonical,
+          to: toCanonical,
+        };
+      })
+      .filter((edge): edge is SwarmMentionEdge => edge !== null);
+
+    const taskNodes = buildFloorTaskNodes(employees, filteredBoard, swarmEdges);
     const analytics = computeFloorAnalytics({
       employees,
       stepEventsByAgent,
@@ -1444,7 +1510,7 @@ export function buildPlazaSnapshot(
       totalConversations: group.rows.length,
       unlockedProps,
       employees,
-      boardMessages: trimmedBoard,
+      boardMessages: filteredBoard,
       swarmEdges,
       swarmTitle,
       taskNodes,

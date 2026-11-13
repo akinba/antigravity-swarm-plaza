@@ -455,6 +455,7 @@ export const App: React.FC = () => {
           messages={activeFloor.boardMessages}
           swarmEdges={activeFloor.swarmEdges}
           taskNodes={activeFloor.taskNodes}
+          employees={activeFloor.employees}
           onClose={() => setWhiteboardOpen(false)}
         />
       )}

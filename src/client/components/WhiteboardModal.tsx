@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type {
+  OfficeEmployee,
   SwarmBoardMessage,
   SwarmMentionEdge,
   SwarmTaskNode,
@@ -14,6 +15,7 @@ interface WhiteboardModalProps {
   messages: SwarmBoardMessage[];
   swarmEdges?: SwarmMentionEdge[];
   taskNodes?: SwarmTaskNode[];
+  employees?: OfficeEmployee[];
   onClose: () => void;
 }
 
@@ -75,6 +77,7 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
   messages,
   swarmEdges,
   taskNodes = [],
+  employees,
   onClose,
 }) => {
   const { t } = useI18n();
@@ -185,12 +188,43 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
     return count;
   }, [isLiveFollow, messages]);
 
-  const edges = useMemo(() => {
-    if (swarmEdges && swarmEdges.length > 0) {
-      return [...swarmEdges].sort((a, b) => b.count - a.count || b.lastSeq - a.lastSeq);
+  const validSceneAgents = useMemo(() => {
+    if (!employees || employees.length === 0) return null;
+    const set = new Set<string>(['coordinator', 'all']);
+    for (const emp of employees) {
+      if (emp.name) set.add(emp.name.toLowerCase());
+      if (emp.isCoordinator) set.add('coordinator');
     }
-    return deriveEdgesFromMessages(messages);
-  }, [swarmEdges, messages]);
+    return set;
+  }, [employees]);
+
+  const edges = useMemo(() => {
+    const raw =
+      swarmEdges && swarmEdges.length > 0
+        ? [...swarmEdges]
+        : deriveEdgesFromMessages(messages);
+    const filtered = validSceneAgents
+      ? raw.filter(
+          (e) =>
+            e.from.toLowerCase() !== e.to.toLowerCase() &&
+            validSceneAgents.has(e.from.toLowerCase()) &&
+            validSceneAgents.has(e.to.toLowerCase()),
+        )
+      : raw.filter((e) => e.from.toLowerCase() !== e.to.toLowerCase());
+    return filtered.sort((a, b) => b.count - a.count || b.lastSeq - a.lastSeq);
+  }, [swarmEdges, messages, validSceneAgents]);
+
+  const filteredTaskNodes = useMemo(() => {
+    if (!validSceneAgents) return taskNodes;
+    return taskNodes.map((node) => ({
+      ...node,
+      handoffTargetNames: node.handoffTargetNames.filter(
+        (target) =>
+          target.toLowerCase() !== node.ownerName.toLowerCase() &&
+          validSceneAgents.has(target.toLowerCase()),
+      ),
+    }));
+  }, [taskNodes, validSceneAgents]);
 
   const graphNodes = useMemo(() => {
     const names = new Set<string>();
@@ -199,16 +233,17 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
       names.add(e.to);
     }
     const list = Array.from(names);
-    const cx = 260;
-    const cy = 115;
-    const rx = 185;
-    const ry = 82;
+    const cx = 320;
+    const cy = 140;
+    const rx = list.length > 7 ? 245 : 225;
+    const ry = list.length > 7 ? 105 : 96;
     return list.map((name, idx) => {
       const angle = (idx / Math.max(1, list.length)) * Math.PI * 2 - Math.PI / 2;
+      const radialScale = list.length >= 8 && idx % 2 === 1 ? 0.86 : 1;
       return {
         name,
-        x: list.length === 1 ? cx : Math.round(cx + Math.cos(angle) * rx),
-        y: list.length === 1 ? cy : Math.round(cy + Math.sin(angle) * ry),
+        x: list.length === 1 ? cx : Math.round(cx + Math.cos(angle) * rx * radialScale),
+        y: list.length === 1 ? cy : Math.round(cy + Math.sin(angle) * ry * radialScale),
       };
     });
   }, [edges]);
@@ -469,8 +504,8 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                   }}
                 >
                   <svg
-                    viewBox="0 0 520 230"
-                    style={{ width: '100%', maxWidth: 560, height: 220 }}
+                    viewBox="0 0 640 280"
+                    style={{ width: '100%', maxWidth: 640, height: 260 }}
                     shapeRendering="crispEdges"
                   >
                     <defs>
@@ -493,13 +528,15 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                       const dx = toPos.x - fromPos.x;
                       const dy = toPos.y - fromPos.y;
                       const dist = Math.hypot(dx, dy) || 1;
-                      const pad = 26;
+                      const pad = 34;
                       const x1 = fromPos.x + (dx / dist) * pad;
                       const y1 = fromPos.y + (dy / dist) * pad;
                       const x2 = toPos.x - (dx / dist) * pad;
                       const y2 = toPos.y - (dy / dist) * pad;
-                      const mx = (x1 + x2) / 2;
-                      const my = (y1 + y2) / 2;
+                      const nx = -dy / dist;
+                      const ny = dx / dist;
+                      const mx = (x1 + x2) / 2 + nx * 10;
+                      const my = (y1 + y2) / 2 + ny * 10;
                       return (
                         <g key={`${edge.from}->${edge.to}`}>
                           <line
@@ -627,12 +664,12 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
               maxHeight: 460,
             }}
           >
-            {taskNodes.length === 0 ? (
+            {filteredTaskNodes.length === 0 ? (
               <div style={{ fontSize: 12, color: 'var(--text-dim)', padding: 12, textAlign: 'center' }}>
                 {t.whiteboardModal.noTasksYet}
               </div>
             ) : (
-              taskNodes.map((node) => {
+              filteredTaskNodes.map((node) => {
                 const statusMeta: Record<
                   SwarmTaskStatus,
                   { icon: string; label: string; color: string; bg: string; border: string }

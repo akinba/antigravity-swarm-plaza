@@ -799,4 +799,123 @@ describe('Renamed project display names & subagent/task messages/*.json board', 
     assert.equal(coreNode.status, 'verified');
     assert.deepEqual(coreNode.handoffTargetNames, ['verifier-qa']);
   });
+
+  it('filters @mention graph edges, board mentions, and DAG handoffs to active scene agents only', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'plaza-mention-filter-'));
+    try {
+      const db = new DatabaseSync(path.join(tmpDir, 'conversation_summaries.db'));
+      db.exec(`
+        CREATE TABLE conversation_summaries (
+          conversation_id TEXT PRIMARY KEY,
+          title TEXT,
+          step_count INTEGER,
+          last_modified_time TEXT,
+          workspace_uris TEXT,
+          status TEXT,
+          project_id TEXT,
+          agent_name TEXT,
+          parent_conversation_id TEXT,
+          not_fully_idle INTEGER,
+          killed INTEGER
+        );
+      `);
+      const coordId = 'coord-filter-1';
+      const workerId = 'worker-filter-1';
+      const nowIso = new Date().toISOString();
+      const stmt = db.prepare(
+        `INSERT INTO conversation_summaries (conversation_id, title, step_count, last_modified_time, workspace_uris, status, project_id, agent_name, parent_conversation_id, not_fully_idle, killed)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      );
+      stmt.run(
+        coordId,
+        'Coordinator',
+        5,
+        nowIso,
+        '["file:///d%3A/filter-proj"]',
+        'CASCADE_RUN_STATUS_RUNNING',
+        'proj-filter',
+        'coordinator',
+        null,
+        1,
+        0,
+      );
+      stmt.run(
+        workerId,
+        'coder-core',
+        4,
+        nowIso,
+        '[]',
+        'CASCADE_RUN_STATUS_RUNNING',
+        'proj-filter',
+        'coder-core',
+        coordId,
+        1,
+        0,
+      );
+      db.close();
+
+      const swarmDir = path.join(tmpDir, 'brain', coordId, '.system_generated', 'swarm');
+      fs.mkdirSync(swarmDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(swarmDir, 'members.json'),
+        JSON.stringify({
+          members: [
+            { conversationId: coordId, rosterName: 'coordinator', role: 'coordinator' },
+            { conversationId: workerId, rosterName: 'coder-core', role: 'worker' },
+          ],
+        }),
+        'utf8',
+      );
+      fs.writeFileSync(
+        path.join(swarmDir, 'board.jsonl'),
+        [
+          JSON.stringify({
+            seq: 1,
+            agent: 'coordinator',
+            text: '@coder-core @all ignore @task-1073 @ownerName @fake-node @coordinator',
+            time: nowIso,
+          }),
+          JSON.stringify({
+            seq: 2,
+            agent: 'coder-core',
+            text: '@coordinator Done, ignoring @from and @to',
+            time: nowIso,
+          }),
+        ].join('\n'),
+        'utf8',
+      );
+
+      const snap = buildPlazaSnapshot(tmpDir, '', false);
+      const floor = snap.floors.find((f) => f.workspacePath.includes('filter-proj'));
+      assert.ok(floor, 'Expected filter-proj floor');
+
+      const targets = (floor.swarmEdges ?? []).map((e) => e.to);
+      assert.ok(targets.includes('coder-core'));
+      assert.ok(targets.includes('all'));
+      assert.ok(targets.includes('coordinator'));
+      assert.equal(targets.includes('task-1073'), false);
+      assert.equal(targets.includes('ownerName'), false);
+      assert.equal(targets.includes('fake-node'), false);
+      assert.equal(targets.includes('from'), false);
+      assert.equal(targets.includes('to'), false);
+
+      // No self-edges
+      assert.equal(
+        (floor.swarmEdges ?? []).some((e) => e.from.toLowerCase() === e.to.toLowerCase()),
+        false,
+      );
+
+      // Board mentions and DAG handoffs also exclude non-scene tags
+      for (const msg of floor.boardMessages) {
+        assert.equal(msg.mentions?.includes('task-1073'), false);
+        assert.equal(msg.mentions?.includes('ownerName'), false);
+      }
+      for (const node of floor.taskNodes ?? []) {
+        assert.equal(node.handoffTargetNames.includes('task-1073'), false);
+        assert.equal(node.handoffTargetNames.includes('ownerName'), false);
+      }
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });
