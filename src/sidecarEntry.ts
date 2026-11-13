@@ -23,6 +23,15 @@ instance.server.listen(port, BIND_HOST, () => {
   console.log(`[antigravity-swarm-plaza-sidecar] listening on http://${BIND_HOST}:${port}`);
 });
 
+if (process.argv[1]) {
+  const entryFile = path.resolve(process.argv[1]);
+  fs.watchFile(entryFile, { interval: 2000, persistent: false }, (curr, prev) => {
+    if (curr.mtimeMs !== prev.mtimeMs) {
+      process.exit(0);
+    }
+  });
+}
+
 const shutdown = () => {
   void instance.close().then(() => process.exit(0));
 };

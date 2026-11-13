@@ -36,6 +36,30 @@ export interface PlazaAppInstance {
   close: () => Promise<void>;
 }
 
+export function rewriteHtmlWithSidecarToken(
+  html: string,
+  token: string,
+  conversationId = '',
+): string {
+  if (!token) return html;
+  const q =
+    'token=' +
+    encodeURIComponent(token) +
+    (conversationId ? '&conversationId=' + encodeURIComponent(conversationId) : '');
+
+  return html.replace(
+    /\b(href|src)=(["'])(\/[^"'\s>]*)\2/g,
+    (fullMatch, attr: string, quote: string, url: string) => {
+      if (url.startsWith('//')) return fullMatch;
+      const hashIdx = url.indexOf('#');
+      const base = hashIdx >= 0 ? url.slice(0, hashIdx) : url;
+      const hashSuffix = hashIdx >= 0 ? url.slice(hashIdx) : '';
+      const sep = base.includes('?') ? '&' : '?';
+      return `${attr}=${quote}${base}${sep}${q}${hashSuffix}${quote}`;
+    },
+  );
+}
+
 export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance {
   const agyDataDir = options.agyDataDir ?? AGY_DATA_DIR;
   const currentWorkspace = options.currentWorkspace ?? CURRENT_WORKSPACE;
@@ -220,13 +244,30 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
   const clientIndexHtml = path.join(clientDistDir, 'index.html');
 
   if (fs.existsSync(clientIndexHtml)) {
-    app.use(express.static(clientDistDir));
+    app.use(express.static(clientDistDir, { index: false }));
     app.get('*', (req, res, next) => {
-      if (req.path.startsWith('/api/') || req.path.startsWith('/ws')) {
+      if (
+        req.path.startsWith('/api/') ||
+        req.path.startsWith('/ws') ||
+        req.path === '/preload.js'
+      ) {
         next();
         return;
       }
-      res.sendFile(clientIndexHtml);
+      const rawHtml = fs.readFileSync(clientIndexHtml, 'utf8');
+      const reqToken =
+        (typeof req.query.token === 'string' && req.query.token) ||
+        (typeof req.headers['x-sidecar-token'] === 'string' &&
+          req.headers['x-sidecar-token']) ||
+        activeToken;
+      const reqConvId =
+        typeof req.query.conversationId === 'string' ? req.query.conversationId : '';
+      const rewritten = rewriteHtmlWithSidecarToken(rawHtml, reqToken, reqConvId);
+      res
+        .status(200)
+        .set('Content-Type', 'text/html; charset=utf-8')
+        .set('Cache-Control', 'no-store')
+        .send(rewritten);
     });
   }
 

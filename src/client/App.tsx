@@ -21,7 +21,7 @@ import { TopHud } from './components/TopHud';
 import { WhiteboardModal } from './components/WhiteboardModal';
 import { OfficeCanvas } from './engine/OfficeCanvas';
 import { PlazaTowerCanvas } from './engine/PlazaTowerCanvas';
-import { buildSidecarWsUrl, sidecarFetch } from './sidecarBridge';
+import { buildSidecarWsUrl, isPluginScheme, sidecarFetch } from './sidecarBridge';
 import { useI18n } from './i18n/translations';
 
 function pickInitialFloorId(snap: PlazaSnapshot): string | null {
@@ -167,20 +167,29 @@ export const App: React.FC = () => {
     [t.notifications.agentAlertTitle, t.notifications.agentStallOrError],
   );
 
-  // Initial /api/plaza fetch + WebSocket with auto-reconnect
+  // Initial /api/plaza fetch + WebSocket (or 1500ms HTTP polling under plugin:// scheme)
   useEffect(() => {
     let closed = false;
     let ws: WebSocket | null = null;
     let reconnectTimer: number | null = null;
+    let pollTimer: number | null = null;
+    let inFlight = false;
 
     const fetchInitial = async () => {
+      if (inFlight) return;
+      inFlight = true;
       try {
         const res = await sidecarFetch('/api/plaza');
         if (!res.ok) return;
         const data = (await res.json()) as PlazaSnapshot;
-        if (!closed) applySnapshot(data);
+        if (!closed) {
+          applySnapshot(data);
+          if (isPluginScheme()) setWsConnected(true);
+        }
       } catch {
-        // WS will retry
+        if (!closed && isPluginScheme()) setWsConnected(false);
+      } finally {
+        inFlight = false;
       }
     };
 
@@ -223,11 +232,16 @@ export const App: React.FC = () => {
     };
 
     fetchInitial();
-    connectWs();
+    if (isPluginScheme()) {
+      pollTimer = window.setInterval(fetchInitial, 1500);
+    } else {
+      connectWs();
+    }
 
     return () => {
       closed = true;
       if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
+      if (pollTimer !== null) window.clearInterval(pollTimer);
       ws?.close();
     };
   }, [applySnapshot]);

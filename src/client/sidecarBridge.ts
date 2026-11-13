@@ -1,3 +1,11 @@
+export function isPluginScheme(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    window.location.protocol !== 'http:' &&
+    window.location.protocol !== 'https:'
+  );
+}
+
 export function getSidecarToken(): string {
   if (typeof window === 'undefined') return '';
   const paramToken = new URLSearchParams(window.location.search).get('token');
@@ -11,11 +19,16 @@ export async function sidecarFetch(url: string, init: RequestInit = {}): Promise
   if (!token) {
     return fetch(url, init);
   }
+  let targetUrl = url;
+  if (url.startsWith('/') && !/[?&]token=/.test(url)) {
+    const sep = url.includes('?') ? '&' : '?';
+    targetUrl = `${url}${sep}token=${encodeURIComponent(token)}`;
+  }
   const headers = new Headers(init.headers);
   if (!headers.has('X-Sidecar-Token')) {
     headers.set('X-Sidecar-Token', token);
   }
-  return fetch(url, { ...init, headers });
+  return fetch(targetUrl, { ...init, headers });
 }
 
 export function buildSidecarWsUrl(): string {
