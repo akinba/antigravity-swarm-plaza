@@ -164,13 +164,31 @@ const BLUEPRINT_0: BlueprintBase = {
     { gx: 11, gy: 12, kind: 'armchair' },
     { gx: 14, gy: 12, kind: 'armchair' },
     { gx: 9, gy: 11, kind: 'lounge_table' },
-    { gx: 1, gy: 11, kind: 'office_plant' },
+    // SW Acoustic Phone Pod & Mini Reading Library (gx:0..4, gy:10..13)
+    { gx: 0, gy: 10, kind: 'wood_partition_x' },
+    { gx: 1, gy: 10, kind: 'wood_partition_x' },
+    { gx: 4, gy: 11, kind: 'glass_partition' },
+    { gx: 4, gy: 12, kind: 'glass_partition' },
+    { gx: 0, gy: 11, kind: 'phone_booth' },
+    { gx: 0, gy: 12, kind: 'office_plant' },
+    { gx: 0, gy: 13, kind: 'bookshelf' },
+    { gx: 1, gy: 12, kind: 'armchair' },
+    { gx: 2, gy: 12, kind: 'library_table' },
+    { gx: 3, gy: 12, kind: 'armchair' },
+    { gx: 3, gy: 13, kind: 'bonsai' },
+    // East Retro Arcade, Snack & Maker 3D-Print Nook (gx:13..15, gy:5..8)
+    { gx: 15, gy: 5, kind: 'bonsai' },
+    { gx: 13, gy: 7, kind: 'glass_partition' },
+    { gx: 15, gy: 6, kind: '3d_printer' },
+    { gx: 15, gy: 7, kind: 'arcade_cabinet' },
+    { gx: 15, gy: 8, kind: 'snack_vending' },
   ],
   getTileZone: (gx, gy) => {
     if (gx <= 1 && gy >= 5 && gy <= 7) return 'ELEVATOR';
     if (gx <= 4 && gy <= 4) return 'DESK_ARCHITECT';
     if (gx >= 5 && gx <= 9 && gy <= 4) return 'WAR_ROOM';
     if (gx >= 10 && gy <= 4) return 'SERVER_RACK';
+    if (gx <= 4 && gy >= 10) return 'COFFEE_LOUNGE';
     if (gx >= 7 && gy >= 9) return 'COFFEE_LOUNGE';
     if (gx <= 7 && gy >= 5) return 'DESK_CODING';
     if (gx >= 8 && gx <= 12 && gy >= 5 && gy <= 8) return 'DESK_QA';
@@ -245,8 +263,8 @@ const BLUEPRINT_0: BlueprintBase = {
   propPositions: [
     { key: 'plants', kind: 'prop_plant', gx: 0.4, gy: 4.2 },
     { key: 'trophy', kind: 'prop_trophy', gx: 4.1, gy: 1.2 },
-    { key: 'arcade', kind: 'prop_arcade', gx: 14.2, gy: 8.2 },
-    { key: 'hologram', kind: 'prop_hologram', gx: 6.5, gy: 11.2 },
+    { key: 'arcade', kind: 'prop_arcade', gx: 12.4, gy: 9.2 },
+    { key: 'hologram', kind: 'prop_hologram', gx: 6.2, gy: 11.2 },
   ],
 };
 
@@ -310,6 +328,28 @@ const BLUEPRINT_1: BlueprintBase = {
     { gx: 10, gy: 12, kind: 'armchair' },
     { gx: 7, gy: 11, kind: 'lounge_table' },
     { gx: 14, gy: 5, kind: 'office_plant' },
+    // NW Mini Library & Acoustic Call Nook (gx:0..3, gy:0..3)
+    { gx: 0, gy: 0, kind: 'bookshelf' },
+    { gx: 1, gy: 0, kind: 'phone_booth' },
+    { gx: 3, gy: 0, kind: 'bonsai' },
+    { gx: 0, gy: 2, kind: 'armchair' },
+    { gx: 1, gy: 2, kind: 'library_table' },
+    { gx: 2, gy: 2, kind: 'armchair' },
+    { gx: 0, gy: 3, kind: 'wood_partition_x' },
+    // East Corridor Retro Arcade, Snack & Quiet Pod Nook (gx:13..15, gy:5..9)
+    { gx: 13, gy: 5, kind: 'glass_partition_x' },
+    { gx: 13, gy: 6, kind: 'glass_partition' },
+    { gx: 15, gy: 6, kind: 'arcade_cabinet' },
+    { gx: 15, gy: 7, kind: 'snack_vending' },
+    { gx: 14, gy: 8, kind: 'armchair' },
+    { gx: 15, gy: 8, kind: 'phone_booth' },
+    { gx: 15, gy: 9, kind: 'bonsai' },
+    // SW Maker 3D-Print Micro-Lab (gx:0..3, gy:12..13)
+    { gx: 0, gy: 12, kind: 'wood_partition_x' },
+    { gx: 0, gy: 13, kind: 'office_plant' },
+    { gx: 1, gy: 13, kind: '3d_printer' },
+    { gx: 2, gy: 13, kind: 'armchair' },
+    { gx: 3, gy: 13, kind: 'bonsai' },
   ],
   getTileZone: (gx, gy) => {
     if (gx <= 1 && gy >= 5 && gy <= 7) return 'ELEVATOR';
@@ -317,6 +357,9 @@ const BLUEPRINT_1: BlueprintBase = {
     if (gx >= 6 && gx <= 10 && gy >= 4 && gy <= 8) return 'WAR_ROOM';
     if (gx >= 4 && gx <= 7 && gy <= 3) return 'SERVER_RACK';
     if (gx >= 8 && gy <= 3) return 'DESK_QA';
+    if (gx <= 3 && gy <= 2) return 'COFFEE_LOUNGE';
+    if (gx >= 13 && gy >= 5 && gy <= 9) return 'COFFEE_LOUNGE';
+    if (gx <= 2 && gy >= 12) return 'SERVER_RACK';
     if (gx >= 5 && gy >= 10) return 'COFFEE_LOUNGE';
     return 'DESK_CODING';
   },
@@ -460,14 +503,32 @@ const BLUEPRINT_2: BlueprintBase = {
     { gx: 12, gy: 8, kind: 'glass_partition_x' },
     { gx: 13, gy: 8, kind: 'glass_partition_x' },
     { gx: 14, gy: 2, kind: 'office_plant' },
+    // East Corridor Acoustic Phone Pod & Retro Arcade/Snack Nook (gx:13..15, gy:5..8)
+    { gx: 13, gy: 6, kind: 'glass_partition' },
+    { gx: 15, gy: 5, kind: 'phone_booth' },
+    { gx: 14, gy: 6, kind: 'armchair' },
+    { gx: 15, gy: 6, kind: 'snack_vending' },
+    { gx: 15, gy: 7, kind: 'arcade_cabinet' },
+    { gx: 15, gy: 8, kind: 'bonsai' },
+    // Mid-South Reading Library & Maker 3D-Print Studio (gx:5..8, gy:11..13)
+    { gx: 5, gy: 11, kind: 'glass_partition_x' },
+    { gx: 8, gy: 11, kind: 'glass_partition_x' },
+    { gx: 5, gy: 12, kind: 'armchair' },
+    { gx: 6, gy: 12, kind: 'library_table' },
+    { gx: 7, gy: 12, kind: 'armchair' },
+    { gx: 8, gy: 12, kind: 'office_plant' },
+    { gx: 5, gy: 13, kind: 'bookshelf' },
+    { gx: 8, gy: 13, kind: '3d_printer' },
   ],
   getTileZone: (gx, gy) => {
     if (gx <= 1 && gy >= 5 && gy <= 7) return 'ELEVATOR';
     if (gx <= 6 && gy <= 4) return 'COFFEE_LOUNGE';
     if (gx <= 4 && gy >= 9) return 'DESK_ARCHITECT';
     if (gx >= 11 && gy <= 3) return 'SERVER_RACK';
+    if (gx >= 14 && gy >= 4 && gy <= 7) return 'COFFEE_LOUNGE';
     if (gx >= 11 && gy >= 4 && gy <= 7) return 'DESK_QA';
     if (gx >= 9 && gy >= 8) return 'WAR_ROOM';
+    if (gx >= 5 && gx <= 8 && gy >= 11) return 'COFFEE_LOUNGE';
     return 'DESK_CODING';
   },
   zoneSlots: {
@@ -534,7 +595,7 @@ const BLUEPRINT_2: BlueprintBase = {
     { key: 'plants', kind: 'prop_plant', gx: 5.5, gy: 2.5 },
     { key: 'trophy', kind: 'prop_trophy', gx: 3.5, gy: 10.2 },
     { key: 'arcade', kind: 'prop_arcade', gx: 0.5, gy: 9.2 },
-    { key: 'hologram', kind: 'prop_hologram', gx: 7.5, gy: 11.2 },
+    { key: 'hologram', kind: 'prop_hologram', gx: 7.5, gy: 9.5 },
   ],
 };
 
@@ -597,11 +658,37 @@ const BLUEPRINT_3: BlueprintBase = {
     { gx: 7, gy: 11, kind: 'lounge_table' },
     { gx: 0, gy: 12, kind: 'office_plant' },
     { gx: 14, gy: 1, kind: 'office_plant' },
+    // NE Acoustic Dual Phone Pod Suite (gx:12..15, gy:0..2)
+    { gx: 12, gy: 0, kind: 'wood_partition' },
+    { gx: 12, gy: 1, kind: 'wood_partition' },
+    { gx: 13, gy: 0, kind: 'phone_booth' },
+    { gx: 15, gy: 0, kind: 'phone_booth' },
+    { gx: 14, gy: 2, kind: 'bonsai' },
+    { gx: 15, gy: 2, kind: 'armchair' },
+    // SW Mini Library & Reading Nook (gx:0..3, gy:11..13)
+    { gx: 0, gy: 11, kind: 'wood_partition_x' },
+    { gx: 1, gy: 12, kind: 'armchair' },
+    { gx: 2, gy: 12, kind: 'library_table' },
+    { gx: 3, gy: 12, kind: 'armchair' },
+    { gx: 0, gy: 13, kind: 'bookshelf' },
+    { gx: 3, gy: 13, kind: 'wood_partition' },
+    // SE Retro Arcade, Snack & Maker 3D-Print Corner (gx:11..15, gy:11..13)
+    { gx: 11, gy: 11, kind: 'glass_partition' },
+    { gx: 11, gy: 12, kind: 'glass_partition' },
+    { gx: 13, gy: 11, kind: 'glass_partition_x' },
+    { gx: 14, gy: 11, kind: 'glass_partition_x' },
+    { gx: 12, gy: 12, kind: 'armchair' },
+    { gx: 15, gy: 12, kind: 'arcade_cabinet' },
+    { gx: 13, gy: 13, kind: '3d_printer' },
+    { gx: 14, gy: 13, kind: 'snack_vending' },
+    { gx: 15, gy: 13, kind: 'bonsai' },
   ],
   getTileZone: (gx, gy) => {
     if (gx <= 1 && gy >= 5 && gy <= 7) return 'ELEVATOR';
     if (gx <= 5 && gy <= 4) return 'DESK_ARCHITECT';
+    if (gx >= 12 && gy <= 2) return 'DESK_ARCHITECT';
     if (gx >= 6 && gy <= 4) return 'WAR_ROOM';
+    if (gx <= 3 && gy >= 11) return 'COFFEE_LOUNGE';
     if (gx <= 5 && gy >= 5) return 'DESK_CODING';
     if (gx >= 11 && gy >= 5 && gy <= 6) return 'SERVER_RACK';
     if (gx >= 10 && gy >= 7 && gy <= 9) return 'DESK_QA';
@@ -670,7 +757,7 @@ const BLUEPRINT_3: BlueprintBase = {
   propPositions: [
     { key: 'plants', kind: 'prop_plant', gx: 5.2, gy: 1.5 },
     { key: 'trophy', kind: 'prop_trophy', gx: 4.5, gy: 1.2 },
-    { key: 'arcade', kind: 'prop_arcade', gx: 13.5, gy: 11.2 },
+    { key: 'arcade', kind: 'prop_arcade', gx: 10.4, gy: 10.2 },
     { key: 'hologram', kind: 'prop_hologram', gx: 7.5, gy: 6.2 },
   ],
 };
@@ -736,6 +823,21 @@ const BLUEPRINT_4: BlueprintBase = {
     { gx: 3, gy: 11, kind: 'lounge_table' },
     { gx: 6, gy: 9, kind: 'aquarium' },
     { gx: 14, gy: 12, kind: 'office_plant' },
+    // Mid-South Reading Library & Retro Arcade/Snack Nook (gx:5..9, gy:12..13)
+    { gx: 6, gy: 12, kind: 'library_table' },
+    { gx: 5, gy: 13, kind: 'bookshelf' },
+    { gx: 8, gy: 12, kind: 'armchair' },
+    { gx: 9, gy: 12, kind: 'glass_partition' },
+    { gx: 8, gy: 13, kind: 'arcade_cabinet' },
+    { gx: 9, gy: 13, kind: 'snack_vending' },
+    // SE Maker 3D-Print Lab & Acoustic Phone Pod Suite (gx:11..15, gy:11..13)
+    { gx: 11, gy: 11, kind: 'glass_partition_x' },
+    { gx: 12, gy: 11, kind: 'glass_partition_x' },
+    { gx: 15, gy: 11, kind: 'wood_partition_x' },
+    { gx: 12, gy: 12, kind: 'armchair' },
+    { gx: 11, gy: 13, kind: 'phone_booth' },
+    { gx: 13, gy: 13, kind: '3d_printer' },
+    { gx: 15, gy: 13, kind: 'bookshelf' },
   ],
   getTileZone: (gx, gy) => {
     if (gx <= 1 && gy >= 5 && gy <= 7) return 'ELEVATOR';

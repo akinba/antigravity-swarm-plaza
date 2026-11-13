@@ -23,6 +23,9 @@ export type SwarmRole = 'coordinator' | 'worker' | 'monitor' | 'narrator' | 'ver
 export type EmployeeGender = 'female' | 'male';
 
 export type FloorEventKind =
+  | 'STAR_WARS_PARTY'
+  | 'SUPERHERO_PARTY'
+  | 'HALLOWEEN_PARTY'
   | 'PIZZA_PARTY'
   | 'WATERCOOLER_GOSSIP'
   | 'SPRINT_CELEBRATION'
@@ -107,6 +110,7 @@ export interface OfficeEmployee {
   partnerName?: string;
   playerSlot?: 1 | 2;
   isPresenter?: boolean;
+  teleported?: boolean;
   xp: number;
   level: number;
   stepCount: number;

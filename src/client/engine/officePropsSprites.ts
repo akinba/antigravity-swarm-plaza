@@ -49,6 +49,36 @@ function drawBox(
   ctx.stroke();
 }
 
+function pxRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+): void {
+  ctx.fillRect(
+    Math.round(x),
+    Math.round(y),
+    Math.max(1, Math.ceil(w)),
+    Math.max(1, Math.ceil(h)),
+  );
+}
+
+function pxStrokeRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+): void {
+  ctx.strokeRect(
+    Math.round(x),
+    Math.round(y),
+    Math.max(1, Math.ceil(w)),
+    Math.max(1, Math.ceil(h)),
+  );
+}
+
 export function drawExtraFurnitureProp(
   ctx: CanvasRenderingContext2D,
   kind: string,
@@ -306,6 +336,266 @@ export function drawExtraFurnitureProp(
 
     // 6. Stainless steel threshold sill
     fillIsoQuad(0, 1, 0, 2.2 * z, '#7c8aa6', '#121622');
+    return true;
+  }
+
+  if (kind === 'phone_booth') {
+    // Acoustic oak floor plinth & outer wood call-pod shell
+    drawBox(ctx, cx, cy, 17, 10, 3, '#7a4e2d', '#59371e', '#3d2412', z);
+    drawBox(ctx, cx - 1 * z, cy - 3 * z, 15, 9, 34, '#a86f40', '#82532d', '#5c391d', z);
+
+    // Recessed acoustic felt interior + warm amber ceiling wash
+    const rx = cx - 8 * z;
+    const ry = cy - 33 * z;
+    const rw = 16 * z;
+    const rh = 28 * z;
+    ctx.fillStyle = '#362822';
+    pxRect(ctx, rx, ry, rw, rh);
+
+    const glowAlpha = (0.32 + 0.06 * Math.sin(timeSec * 2.2)).toFixed(3);
+    ctx.fillStyle = `rgba(255, 198, 92, ${glowAlpha})`;
+    pxRect(ctx, rx + 1 * z, ry + 1 * z, rw - 2 * z, rh - 2 * z);
+
+    // Vertical acoustic felt ribs along interior back wall
+    ctx.fillStyle = '#6e4b33';
+    for (let i = 0; i < 3; i++) {
+      pxRect(ctx, cx - (5 - i * 4) * z, cy - 29 * z, 2 * z, 15 * z);
+    }
+
+    // Floating warm wood call shelf & ceiling LED light bar
+    ctx.fillStyle = '#cf8e55';
+    pxRect(ctx, cx - 6 * z, cy - 15 * z, 12 * z, 2.5 * z);
+    ctx.fillStyle = '#8f5c30';
+    pxRect(ctx, cx - 6 * z, cy - 12.5 * z, 12 * z, 1.5 * z);
+    ctx.fillStyle = '#fff0a8';
+    pxRect(ctx, cx - 5 * z, cy - 32 * z, 10 * z, 2 * z);
+
+    // Crisp translucent glass door pane + specular reflections + aluminum frame
+    ctx.fillStyle = 'rgba(140, 226, 255, 0.28)';
+    pxRect(ctx, rx, ry, rw, rh);
+
+    ctx.strokeStyle = 'rgba(225, 248, 255, 0.7)';
+    ctx.lineWidth = Math.max(1, 1.1 * z);
+    ctx.beginPath();
+    ctx.moveTo(cx - 5 * z, cy - 10 * z);
+    ctx.lineTo(cx + 2 * z, cy - 28 * z);
+    ctx.moveTo(cx, cy - 9 * z);
+    ctx.lineTo(cx + 5 * z, cy - 21 * z);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#1a2030';
+    ctx.lineWidth = Math.max(1, 1.6 * z);
+    pxStrokeRect(ctx, rx, ry, rw, rh);
+
+    // Brushed steel door handle
+    ctx.fillStyle = '#d8e3f5';
+    pxRect(ctx, cx + 4.2 * z, cy - 21 * z, 1.8 * z, 7 * z);
+
+    // Roof ventilation cap & occupancy LED
+    drawBox(ctx, cx - 1 * z, cy - 37 * z, 16, 9.5, 3, '#3c465e', '#262d3d', '#181d29', z);
+    ctx.fillStyle = isOccupied ? '#ff5666' : '#3be87a';
+    pxRect(ctx, cx - 2 * z, cy - 38 * z, 4 * z, 1.8 * z);
+    return true;
+  }
+
+  if (kind === 'snack_vending') {
+    // Retro-modern illuminated vending cabinet
+    drawBox(ctx, cx, cy, 16, 10, 36, '#394666', '#263047', '#181f30', z);
+
+    // Glowing marquee header
+    ctx.fillStyle = '#121726';
+    pxRect(ctx, cx - 11 * z, cy - 34 * z, 22 * z, 5 * z);
+    ctx.fillStyle = '#ff6b4a';
+    pxRect(ctx, cx - 10 * z, cy - 33 * z, 20 * z, 3 * z);
+    ctx.fillStyle = '#ffd147';
+    pxRect(ctx, cx - 8 * z, cy - 32.5 * z, 5 * z, 2 * z);
+    ctx.fillStyle = '#fff5d6';
+    pxRect(ctx, cx - 1 * z, cy - 32.5 * z, 7 * z, 2 * z);
+
+    // Illuminated glass display window with 3 rows of colorful pixel cans/snacks
+    const wx = cx - 11 * z;
+    const wy = cy - 28 * z;
+    const ww = 15 * z;
+    const wh = 18 * z;
+    ctx.fillStyle = '#162942';
+    pxRect(ctx, wx, wy, ww, wh);
+    ctx.fillStyle = '#223d61';
+    pxRect(ctx, wx + 1 * z, wy + 1 * z, ww - 2 * z, wh - 2 * z);
+
+    const snackColors = ['#ff5666', '#3cd8ff', '#ffd147', '#3be87a', '#b07cff', '#ff8a3d'];
+    for (let row = 0; row < 3; row++) {
+      const sy = cy - (26.5 - row * 5.3) * z;
+      for (let col = 0; col < 4; col++) {
+        ctx.fillStyle = snackColors[(row * 2 + col) % snackColors.length];
+        pxRect(ctx, cx - (9.5 - col * 3.1) * z, sy, 2.2 * z, 3.4 * z);
+      }
+      ctx.fillStyle = '#7c8dab';
+      pxRect(ctx, cx - 10 * z, sy + 3.4 * z, 13 * z, 1.2 * z);
+    }
+
+    ctx.strokeStyle = '#7cd7ff';
+    ctx.lineWidth = Math.max(1, 1.2 * z);
+    pxStrokeRect(ctx, wx, wy, ww, wh);
+
+    // Right-side card reader & keypad column
+    ctx.fillStyle = '#111624';
+    pxRect(ctx, cx + 5 * z, cy - 28 * z, 6 * z, 18 * z);
+    ctx.fillStyle = '#3cd8ff';
+    pxRect(ctx, cx + 6.5 * z, cy - 26 * z, 3 * z, 3 * z);
+    ctx.fillStyle = '#ffd147';
+    pxRect(ctx, cx + 6.5 * z, cy - 21.5 * z, 3 * z, 1.5 * z);
+    ctx.fillStyle = '#3be87a';
+    pxRect(ctx, cx + 6.5 * z, cy - 19 * z, 3 * z, 1.5 * z);
+    ctx.fillStyle = '#ff7b3b';
+    pxRect(ctx, cx + 6.5 * z, cy - 15.5 * z, 3 * z, 2 * z);
+
+    // Recessed bottom dispenser tray
+    ctx.fillStyle = '#0d111c';
+    pxRect(ctx, cx - 10 * z, cy - 8.5 * z, 16 * z, 5 * z);
+    ctx.fillStyle = '#6f7f9e';
+    pxRect(ctx, cx - 9 * z, cy - 8 * z, 14 * z, 1.5 * z);
+    return true;
+  }
+
+  if (kind === 'arcade_cabinet') {
+    // Lower arcade cabinet body + coin door
+    drawBox(ctx, cx, cy, 15, 10, 17, '#3d2970', '#291b4d', '#1b1133', z);
+    ctx.fillStyle = '#ff4d94';
+    pxRect(ctx, cx - 11.5 * z, cy - 13 * z, 2 * z, 9 * z);
+    ctx.fillStyle = '#121624';
+    pxRect(ctx, cx - 4 * z, cy - 11 * z, 8 * z, 7 * z);
+    ctx.fillStyle = '#ff7b3b';
+    pxRect(ctx, cx - 2.5 * z, cy - 9 * z, 1.8 * z, 2.5 * z);
+    pxRect(ctx, cx + 0.8 * z, cy - 9 * z, 1.8 * z, 2.5 * z);
+
+    // Upper CRT monitor housing & glowing retro marquee banner
+    drawBox(ctx, cx - 1 * z, cy - 17 * z, 14, 9, 17, '#4e358c', '#352363', '#221642', z);
+    ctx.fillStyle = '#ff3d7f';
+    pxRect(ctx, cx - 10 * z, cy - 35 * z, 18 * z, 4 * z);
+    ctx.fillStyle = '#ffe14d';
+    pxRect(ctx, cx - 7 * z, cy - 34 * z, 12 * z, 2 * z);
+
+    // CRT bezel + animated phosphor screen glow
+    const pulse = 0.5 + 0.5 * Math.sin(timeSec * 5.5);
+    ctx.fillStyle = `rgba(60, 216, 255, ${(0.15 + pulse * 0.14).toFixed(3)})`;
+    pxRect(ctx, cx - 10 * z, cy - 31 * z, 18 * z, 13 * z);
+    ctx.fillStyle = '#0e1220';
+    pxRect(ctx, cx - 9 * z, cy - 30 * z, 16 * z, 11 * z);
+    ctx.fillStyle = pulse > 0.5 ? '#193a69' : '#132c52';
+    pxRect(ctx, cx - 7.5 * z, cy - 28.5 * z, 13 * z, 8 * z);
+
+    // Animated retro pixel starfighter & laser bolt
+    const shipX = cx + (-5.5 + (Math.sin(timeSec * 3.8) * 0.5 + 0.5) * 7.5) * z;
+    const laserY = cy - (23.5 + ((timeSec * 9) % 4)) * z;
+    ctx.fillStyle = '#ff5666';
+    pxRect(ctx, cx - 2.5 * z, cy - 27.2 * z, 3 * z, 2 * z);
+    ctx.fillStyle = '#ffd147';
+    pxRect(ctx, shipX + 1 * z, laserY, 1.5 * z, 2 * z);
+    ctx.fillStyle = '#3be87a';
+    pxRect(ctx, shipX, cy - 22.5 * z, 3.5 * z, 2 * z);
+
+    // Angled control deck with joystick & colored arcade buttons
+    drawBox(ctx, cx + 1.5 * z, cy - 16 * z, 13, 8, 3, '#253359', '#192340', '#10172b', z);
+    ctx.fillStyle = '#dce5f7';
+    pxRect(ctx, cx - 5 * z, cy - 20.5 * z, 1.5 * z, 2.5 * z);
+    ctx.fillStyle = '#ff3b5c';
+    pxRect(ctx, cx - 5.8 * z, cy - 22.2 * z, 3 * z, 2.2 * z);
+    ctx.fillStyle = '#3cd8ff';
+    pxRect(ctx, cx + 0.5 * z, cy - 20 * z, 2 * z, 1.5 * z);
+    ctx.fillStyle = '#ffd147';
+    pxRect(ctx, cx + 3.2 * z, cy - 20.5 * z, 2 * z, 1.5 * z);
+    ctx.fillStyle = '#3be87a';
+    pxRect(ctx, cx + 5.8 * z, cy - 19.5 * z, 2 * z, 1.5 * z);
+    return true;
+  }
+
+  if (kind === 'library_table') {
+    // Cozy walnut reading table base & wide tabletop
+    drawBox(ctx, cx, cy, 14, 8, 6, '#5e3b22', '#452a17', '#2e1b0e', z);
+    drawBox(ctx, cx, cy - 6 * z, 21, 11, 4, '#a66d3f', '#7d502c', '#59371d', z);
+
+    // Stacked colorful pixel books on left
+    ctx.fillStyle = '#3cd8ff';
+    pxRect(ctx, cx - 12 * z, cy - 13 * z, 8 * z, 2.2 * z);
+    ctx.fillStyle = '#f7f2e4';
+    pxRect(ctx, cx - 11 * z, cy - 12.5 * z, 6 * z, 1.2 * z);
+    ctx.fillStyle = '#ff5666';
+    pxRect(ctx, cx - 11.5 * z, cy - 15.2 * z, 7.5 * z, 2.2 * z);
+    ctx.fillStyle = '#ffd147';
+    pxRect(ctx, cx - 11 * z, cy - 17.2 * z, 6.5 * z, 2 * z);
+
+    // Open reading book in center
+    ctx.fillStyle = '#6b3fa0';
+    pxRect(ctx, cx - 3 * z, cy - 12 * z, 8 * z, 3.5 * z);
+    ctx.fillStyle = '#fffdf2';
+    pxRect(ctx, cx - 2.3 * z, cy - 11.5 * z, 3 * z, 2.5 * z);
+    pxRect(ctx, cx + 1.2 * z, cy - 11.5 * z, 3 * z, 2.5 * z);
+
+    // Ceramic coffee mug + gentle pixel steam
+    ctx.fillStyle = '#f4f6fc';
+    pxRect(ctx, cx + 7 * z, cy - 13.5 * z, 3.8 * z, 3.8 * z);
+    ctx.fillStyle = '#6e381d';
+    pxRect(ctx, cx + 7.8 * z, cy - 13.5 * z, 2.2 * z, 1.2 * z);
+    const steamY = cy - (15.5 + ((timeSec * 3.2) % 3.5)) * z;
+    ctx.fillStyle = 'rgba(230, 244, 255, 0.65)';
+    pxRect(ctx, cx + 8.2 * z, steamY, 1.6 * z, 1.8 * z);
+
+    // Classic brass & emerald-green shaded banker lamp + warm reading glow
+    ctx.fillStyle = 'rgba(255, 230, 138, 0.34)';
+    pxRect(ctx, cx + 1 * z, cy - 15 * z, 9 * z, 4 * z);
+    ctx.fillStyle = '#d4a638';
+    pxRect(ctx, cx + 3.5 * z, cy - 13 * z, 4.5 * z, 1.8 * z);
+    ctx.fillStyle = '#9c761c';
+    pxRect(ctx, cx + 5 * z, cy - 20.5 * z, 1.8 * z, 7.5 * z);
+    ctx.fillStyle = '#fff2a6';
+    pxRect(ctx, cx + 2.5 * z, cy - 21 * z, 6.8 * z, 1.5 * z);
+    ctx.fillStyle = '#1b9e56';
+    pxRect(ctx, cx + 2 * z, cy - 24.2 * z, 7.8 * z, 3.5 * z);
+    ctx.fillStyle = '#4be08a';
+    pxRect(ctx, cx + 3 * z, cy - 23.6 * z, 5.5 * z, 1.5 * z);
+    return true;
+  }
+
+  if (kind === '3d_printer') {
+    // Maker-lab workbench pedestal + status LEDs
+    drawBox(ctx, cx, cy, 16, 10, 12, '#364057', '#242b3b', '#171c28', z);
+    ctx.fillStyle = '#192030';
+    pxRect(ctx, cx - 8 * z, cy - 8 * z, 7 * z, 4 * z);
+    ctx.fillStyle = '#3be87a';
+    pxRect(ctx, cx - 7 * z, cy - 6.5 * z, 2 * z, 1.5 * z);
+    ctx.fillStyle = '#3cd8ff';
+    pxRect(ctx, cx - 4 * z, cy - 6.5 * z, 2 * z, 1.5 * z);
+
+    // Heated build bed & translucent holo-chamber
+    drawBox(ctx, cx, cy - 12 * z, 13, 8, 3, '#53627d', '#3a4559', '#272f3d', z);
+    ctx.fillStyle = '#3cd8ff';
+    pxRect(ctx, cx - 6.5 * z, cy - 16.5 * z, 13 * z, 1.8 * z);
+    ctx.fillStyle = 'rgba(84, 214, 255, 0.16)';
+    pxRect(ctx, cx - 9 * z, cy - 31 * z, 18 * z, 15 * z);
+
+    // Mini geometric holo-cube print inside chamber
+    drawBox(ctx, cx, cy - 16 * z, 4.5, 3, 5.5, '#7ef3ff', '#3cd8ff', '#1e8eb8', z);
+
+    // Metallic gantry pillars, top bridge & filament spool
+    ctx.fillStyle = '#8b9bb8';
+    pxRect(ctx, cx - 9.5 * z, cy - 32 * z, 2.2 * z, 16.5 * z);
+    pxRect(ctx, cx + 7.3 * z, cy - 32 * z, 2.2 * z, 16.5 * z);
+    ctx.fillStyle = '#6c7b96';
+    pxRect(ctx, cx - 10 * z, cy - 33.5 * z, 20 * z, 2.5 * z);
+    ctx.fillStyle = '#ff853d';
+    pxRect(ctx, cx - 3 * z, cy - 38 * z, 6 * z, 4.5 * z);
+    ctx.fillStyle = '#1a2030';
+    pxRect(ctx, cx - 1.5 * z, cy - 36.8 * z, 3 * z, 2 * z);
+
+    // Animated X-axis crossbar, extruder carriage & print glow
+    const travelX = Math.sin(timeSec * 4.2) * 4.5 * z;
+    const barY = cy - (24 + Math.sin(timeSec * 1.8) * 1.5) * z;
+    ctx.fillStyle = '#4c5973';
+    pxRect(ctx, cx - 8 * z, barY, 16 * z, 1.8 * z);
+    ctx.fillStyle = '#1e2536';
+    pxRect(ctx, cx + travelX - 2 * z, barY - 1 * z, 4 * z, 3.8 * z);
+    ctx.fillStyle = Math.sin(timeSec * 12) > 0 ? '#ffd147' : '#5cf0ff';
+    pxRect(ctx, cx + travelX - 1 * z, barY + 2.5 * z, 2 * z, 2 * z);
     return true;
   }
 

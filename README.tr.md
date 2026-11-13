@@ -72,16 +72,16 @@ flowchart LR
   - Koordinatör ajanlar tüm arayüzde **★ BOSS** olarak gösterilir ve yönetici masasında altın taçla yer alır.
   - 8 farklı model ailesi kendine özgü kıyafet, aksesuar ve renk paletine sahiptir: `argon` (Mor ceket + taç), `hydrogen` (Turkuaz hoodie + kulaklık), `flash` (Zümrüt/Sarı yarış ceketi + vizör), `carbon` (Kırmızı/Beyaz önlük + siber gözlük), `pro` (Lacivert/Altın takım + kravat), `claude` (Kiremit örgü kazak + bere), `gpt` (Petrol balıkçı yaka + kulaklık), `other` (İndigo polo + yaka kartı).
 - **📐 5 Mimari Ofis Planı, 5 Masa Stili & Ofis Evcil Hayvanları:**
-  - Ahşap ve cam bölme duvarlarla ayrılmış gerçekçi oda yerleşimleri (Yönetici Ofisi, Yazılım & QA Odası, Toplantı Odası, Sunucu Odası ve Dinlenme Salonu).
+  - Ahşap ve cam bölme duvarlarla ayrılmış gerçekçi oda yerleşimleri (Yönetici Ofisi, Yazılım & QA Odası, Toplantı Odası, Sunucu Odası ve Dinlenme Salonu) ile ölü alanlarda mini odalar ve köşe dekorları.
   - %100 kameraya dönük (`SE` / `SW`) oturma pozları, alçak masa tablaları (`10px`) ve köşe monitörler sayesinde ajanların yüzleri ve ifadeleri daima görünür kalır.
   - 5 tema paleti ile toplam 25 benzersiz düzen kombinasyonu (`🎲 DÜZEN`).
 - **☕ Canlı Ajan Yaşam Döngüsü & Mesai Bitişi (`AGY_GO_HOME_MINUTES`):**
   - **Masada Seated Coding:** Ergonomik tekerlekli sandalyede klavyede yazma, havada süzülen kod glifleri (`</>`, `{}`).
-  - **Toplantı Odası (War Room):** Aktif konuşan ajan elinde lazer çubukla sunum ekranında mimari akışları sunar (`presenting`), dinleyiciler konferans sandalyelerinde oturur (`meeting`).
+  - **Toplantı Odası (War Room) & Işınlanma:** Aktif konuşan ajan elinde lazer çubukla sunum ekranında mimari akışları sunar (`presenting`), davet edilen takım arkadaşları 2.5B piksel ışınlanma sütunu ve izometrik halkalarla (`playTeleportZap()`) doğrudan masaya ışınlanır veya dinleyici olarak oturur (`meeting`).
   - **Koltukta Dinlenme & 2 Kişilik Konsol Oyunu:** Bekleyen ajanlar kanepede dinlenir (`lounging`), ikili eşleşerek retro TV'de konsol dövüş/yarış oyunu oynar (`gaming`).
   - **Eve Gidiş:** `8` dakika boyunca pasif kalan ajanlar asansöre yönelir (`going_home`), `9.5` dakika sonra asansöre binerek mesaiyi tamamlar (`offDutyCount`).
-- **⚡ Rastgele Ofis Olayları (`⚡ OLAY` & 65s Otomatik Döngü):**
-  - `PIZZA_PARTY` (masada sıcak pizza kutusu ve dilim kapma), `WATERCOOLER_GOSSIP` (su sebili başı dedikodusu), `SPRINT_CELEBRATION` (renkli piksel konfeti yağmuru), `MASCOT_ZOOMIES` (maskot turbo hızda koşar), `COFFEE_BREW` (taze espresso molası).
+- **⚡ Rastgele Ofis Olayları & Kostüm Partileri (`⚡ OLAY` & 65s Otomatik Döngü):**
+  - Her ajan için 4 deterministik kostüm varyantı, ortam parçacıkları ve senkronize 96x96 RPG portreleriyle `STAR_WARS_PARTY` (Jedi, Sith, Rebel, Mandalorian), `SUPERHERO_PARTY` ve `HALLOWEEN_PARTY` (Cadı, Balkabağı, Vampir, Hayalet) kostüm partilerinin yanı sıra `PIZZA_PARTY`, `WATERCOOLER_GOSSIP`, `SPRINT_CELEBRATION`, `MASCOT_ZOOMIES` ve `COFFEE_BREW`.
   - *Gerçek İş Bütünlüğü:* Aktif çalışan ajanlar (`working`) asla masalarından veya görevlerinden koparılmaz.
 - **📡 Canlı Swarm Board, `@mention` Grafiği & 60dk Analitik:**
   - Hem yerel Swarm `board.jsonl` hem de subagent/görev `messages/*.json` verilerinden beslenen birleşik mesaj akışı ve yönlü `@mention` etkileşim grafiği (`WhiteboardModal`).
@@ -151,7 +151,7 @@ cd antigravity-swarm-plaza
 # Bağımlılıkları yükleyin
 npm install
 
-# Testleri çalıştırın (62 test / 25 test paketi)
+# Testleri çalıştırın (66 test / 25 test paketi)
 npm test
 
 # TypeScript tip kontrolü

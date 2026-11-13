@@ -684,13 +684,38 @@ describe('Hex-Weather floor recovery, idle lock guard, and WAR_ROOM presentation
     assert.equal(presenters.length, 1);
     assert.equal(presenters[0].name, 'Chief-Architect');
     assert.equal(presenters[0].isPresenter, true);
+    assert.equal(presenters[0].teleported, false);
     assert.equal(attendees.length, 2);
     assert.ok(attendees.every((a) => a.isPresenter === false));
+
+    // Verify deterministic teleported flag across attendees/seqs
+    const teleportedFlags = new Set<boolean>();
+    for (let seq = 1; seq <= 8; seq++) {
+      const clone = emps.map((e) => ({ ...e, speechBubble: undefined, teleported: undefined }));
+      applyWarRoomPresentation(
+        clone,
+        [
+          {
+            seq,
+            agent: 'Chief-Architect',
+            text: '@coder-core @verifier-qa Sprint review starting',
+            time: new Date(nowMs - 5000).toISOString(),
+            kind: 'message',
+          },
+        ],
+        nowMs,
+      );
+      for (const a of clone.filter((e) => !e.isPresenter)) {
+        teleportedFlags.add(Boolean(a.teleported));
+      }
+    }
+    assert.ok(teleportedFlags.has(true), 'Expected some WAR_ROOM invitees to be teleported');
+    assert.ok(teleportedFlags.has(false), 'Expected some WAR_ROOM invitees to walk normally');
   });
 });
 
 describe('Per-floor layout reroll, random events, and real-work integrity', () => {
-  it('increments layoutSeed and cycles through all 5 floor event kinds', () => {
+  it('increments layoutSeed and cycles through all 8 floor event kinds', () => {
     resetOfficeEventsState();
     const floorId = 'test-floor-1';
 
@@ -700,12 +725,15 @@ describe('Per-floor layout reroll, random events, and real-work integrity', () =
     assert.equal(getFloorLayoutSeed(floorId), 2);
 
     const seenKinds = new Set<string>();
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 8; i++) {
       const ev = triggerFloorEvent(floorId, undefined, 1000 + i);
       seenKinds.add(ev.kind);
       assert.ok(getActiveFloorEvent(floorId, 1000 + i));
     }
-    assert.equal(seenKinds.size, 5);
+    assert.equal(seenKinds.size, 8);
+    assert.ok(seenKinds.has('STAR_WARS_PARTY'));
+    assert.ok(seenKinds.has('SUPERHERO_PARTY'));
+    assert.ok(seenKinds.has('HALLOWEEN_PARTY'));
     assert.equal(getActiveFloorEvent(floorId, 20_000), null);
   });
 

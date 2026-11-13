@@ -443,6 +443,7 @@ export const App: React.FC = () => {
             activeFloor?.employees.find((e) => e.id === selectedEmployee.id) ??
             selectedEmployee
           }
+          activeEventKind={activeFloor?.activeEvent?.kind ?? null}
           onClose={() => setSelectedEmployee(null)}
         />
       )}

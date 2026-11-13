@@ -1,4 +1,4 @@
-import type { ModelFamily, OfficeEmployee, OfficeZone } from '../../shared/types';
+import type { FloorEventKind, ModelFamily, OfficeEmployee, OfficeZone } from '../../shared/types';
 import { TILE_H, TILE_W } from './isoMath';
 import type { MascotKind, ThemePalette } from './officeLayouts';
 import {
@@ -644,6 +644,232 @@ export function drawFurniture(
   ctx.restore();
 }
 
+function isCostumeEvent(kind?: FloorEventKind | null): kind is 'STAR_WARS_PARTY' | 'SUPERHERO_PARTY' | 'HALLOWEEN_PARTY' {
+  return kind === 'STAR_WARS_PARTY' || kind === 'SUPERHERO_PARTY' || kind === 'HALLOWEEN_PARTY';
+}
+
+function drawSpriteCostumeOverlay(
+  rect: (x: number, y: number, w: number, h: number, color: string) => void,
+  cx: number,
+  baseY: number,
+  z: number,
+  dirFlip: number,
+  variant: number,
+  hairColor: string,
+  eventKind: 'STAR_WARS_PARTY' | 'SUPERHERO_PARTY' | 'HALLOWEEN_PARTY',
+  timeSec: number,
+): void {
+  const saberSide = dirFlip > 0 ? 1 : -1;
+  if (eventKind === 'STAR_WARS_PARTY') {
+    if (variant === 0) {
+      // Jedi hooded brown robe + glowing blue/green lightsaber
+      rect(cx - 8 * z, baseY - 21 * z, 16 * z, 14 * z, '#6b4226');
+      rect(cx - 5 * z, baseY - 20 * z, 10 * z, 11 * z, '#e7d7b8');
+      rect(cx - 6 * z, baseY - 14 * z, 12 * z, 2 * z, '#452814');
+      rect(cx - 8 * z, baseY - 38 * z, 16 * z, 7 * z, '#6b4226');
+      rect(cx - 7 * z, baseY - 36 * z, 14 * z, 3 * z, '#452814');
+      const hiltX = cx + saberSide * 9 * z;
+      rect(hiltX, baseY - 16 * z, 2 * z, 4 * z, '#b4bed4');
+      const bladeColor = Math.sin(timeSec * 8) > 0 ? '#3cd8ff' : '#3be87a';
+      rect(hiltX, baseY - 30 * z, 2 * z, 14 * z, bladeColor);
+      rect(hiltX + 0.5 * z, baseY - 29 * z, 1 * z, 12 * z, '#ffffff');
+    } else if (variant === 1) {
+      // Sith black Vader helmet + cape + crimson lightsaber
+      rect(cx - 9 * z, baseY - 21 * z, 18 * z, 15 * z, '#11131c');
+      rect(cx - 5 * z, baseY - 19 * z, 10 * z, 8 * z, '#1d2232');
+      rect(cx - 3 * z, baseY - 17 * z, 6 * z, 4 * z, '#4a556e');
+      rect(cx - 8 * z, baseY - 37 * z, 16 * z, 16 * z, '#161922');
+      rect(cx - 7 * z, baseY - 35 * z, 14 * z, 4 * z, '#2a3040');
+      rect(cx - 5 * z, baseY - 29 * z, 4 * z, 2 * z, '#ff384c');
+      rect(cx + 1 * z, baseY - 29 * z, 4 * z, 2 * z, '#ff384c');
+      rect(cx - 3 * z, baseY - 25 * z, 6 * z, 3 * z, '#11131c');
+      const hiltX = cx + saberSide * 9 * z;
+      rect(hiltX, baseY - 16 * z, 2 * z, 4 * z, '#9aa7c7');
+      rect(hiltX, baseY - 31 * z, 2 * z, 15 * z, '#ff384c');
+      rect(hiltX + 0.5 * z, baseY - 30 * z, 1 * z, 13 * z, '#ffb3bc');
+    } else if (variant === 2) {
+      // Rebel white tunic + twin side buns / visor
+      rect(cx - 7 * z, baseY - 21 * z, 14 * z, 13 * z, '#f4f6fc');
+      rect(cx - 7 * z, baseY - 13 * z, 14 * z, 2 * z, '#c9d2e8');
+      rect(cx - 10 * z, baseY - 33 * z, 3 * z, 7 * z, hairColor);
+      rect(cx + 7 * z, baseY - 33 * z, 3 * z, 7 * z, hairColor);
+      rect(cx - 5 * z, baseY - 30 * z, 10 * z, 2 * z, '#ff9c3b');
+    } else {
+      // Mandalorian silver T-visor helmet + beskar chestplate
+      rect(cx - 7 * z, baseY - 21 * z, 14 * z, 12 * z, '#8f9bb8');
+      rect(cx - 5 * z, baseY - 19 * z, 10 * z, 6 * z, '#b4bed4');
+      rect(cx - 7 * z, baseY - 37 * z, 14 * z, 16 * z, '#b4bed4');
+      rect(cx - 6 * z, baseY - 35 * z, 12 * z, 3 * z, '#7a87a3');
+      rect(cx - 5 * z, baseY - 30 * z, 10 * z, 3 * z, '#11131c');
+      rect(cx - 1.5 * z, baseY - 28 * z, 3 * z, 6 * z, '#11131c');
+      rect(cx + 6 * z, baseY - 40 * z, 2 * z, 8 * z, '#ff9c3b');
+    }
+  } else if (eventKind === 'SUPERHERO_PARTY') {
+    if (variant === 0) {
+      // Dark Knight eared cowl + dark cape + yellow utility belt
+      rect(cx - 9 * z, baseY - 21 * z, 18 * z, 14 * z, '#161a26');
+      rect(cx - 6 * z, baseY - 20 * z, 12 * z, 10 * z, '#2c344a');
+      rect(cx - 7 * z, baseY - 11 * z, 14 * z, 2 * z, '#ffd147');
+      rect(cx - 7 * z, baseY - 37 * z, 14 * z, 10 * z, '#1b2030');
+      rect(cx - 7 * z, baseY - 41 * z, 3 * z, 4 * z, '#1b2030');
+      rect(cx + 4 * z, baseY - 41 * z, 3 * z, 4 * z, '#1b2030');
+      rect(cx - 4 * z, baseY - 28 * z, 3 * z, 2 * z, '#ffffff');
+      rect(cx + 1 * z, baseY - 28 * z, 3 * z, 2 * z, '#ffffff');
+    } else if (variant === 1) {
+      // Crimson flying cape + blue suit + gold chest emblem
+      rect(cx - 9 * z, baseY - 21 * z, 18 * z, 15 * z, '#d93838');
+      rect(cx - 6 * z, baseY - 20 * z, 12 * z, 12 * z, '#2b62d9');
+      rect(cx - 3 * z, baseY - 19 * z, 6 * z, 4 * z, '#ffd147');
+      rect(cx - 1 * z, baseY - 18 * z, 2 * z, 2 * z, '#d93838');
+    } else if (variant === 2) {
+      // Red-gold armored helmet + glowing cyan chest reactor
+      rect(cx - 7 * z, baseY - 21 * z, 14 * z, 13 * z, '#c42838');
+      rect(cx - 5 * z, baseY - 19 * z, 10 * z, 8 * z, '#ffd147');
+      rect(cx - 2 * z, baseY - 18 * z, 4 * z, 4 * z, '#7ef3ff');
+      rect(cx - 1 * z, baseY - 17 * z, 2 * z, 2 * z, '#ffffff');
+      rect(cx - 7 * z, baseY - 37 * z, 14 * z, 15 * z, '#c42838');
+      rect(cx - 5 * z, baseY - 33 * z, 10 * z, 10 * z, '#ffd147');
+      rect(cx - 4 * z, baseY - 29 * z, 3 * z, 2 * z, '#7ef3ff');
+      rect(cx + 1 * z, baseY - 29 * z, 3 * z, 2 * z, '#7ef3ff');
+    } else {
+      // Gold tiara + domino eye mask + crimson-gold armor
+      rect(cx - 7 * z, baseY - 21 * z, 14 * z, 13 * z, '#b82e43');
+      rect(cx - 5 * z, baseY - 20 * z, 10 * z, 4 * z, '#ffd147');
+      rect(cx - 6 * z, baseY - 12 * z, 12 * z, 2 * z, '#ffd147');
+      rect(cx - 6 * z, baseY - 38 * z, 12 * z, 3 * z, '#ffd147');
+      rect(cx - 1 * z, baseY - 40 * z, 2 * z, 2 * z, '#ff5666');
+      rect(cx - 6 * z, baseY - 30 * z, 12 * z, 3 * z, '#1b2030');
+    }
+  } else {
+    // HALLOWEEN_PARTY
+    if (variant === 0) {
+      // Pointed witch/wizard hat with purple ribbon + dark cloak
+      rect(cx - 8 * z, baseY - 21 * z, 16 * z, 14 * z, '#1a1529');
+      rect(cx - 10 * z, baseY - 37 * z, 20 * z, 3 * z, '#241c38');
+      rect(cx - 6 * z, baseY - 41 * z, 12 * z, 4 * z, '#241c38');
+      rect(cx - 4 * z, baseY - 45 * z, 8 * z, 4 * z, '#241c38');
+      rect(cx - 2 * z, baseY - 48 * z, 4 * z, 3 * z, '#241c38');
+      rect(cx - 6 * z, baseY - 39 * z, 12 * z, 2 * z, '#b07cff');
+    } else if (variant === 1) {
+      // Glowing Jack-o'-Lantern pumpkin head + yellow eyes/grin + green stem
+      rect(cx - 7 * z, baseY - 21 * z, 14 * z, 13 * z, '#241c38');
+      rect(cx - 8 * z, baseY - 36 * z, 16 * z, 15 * z, '#ff7b1c');
+      rect(cx - 6 * z, baseY - 35 * z, 12 * z, 13 * z, '#ff9838');
+      rect(cx - 2 * z, baseY - 39 * z, 4 * z, 3 * z, '#3be87a');
+      rect(cx - 4 * z, baseY - 30 * z, 3 * z, 3 * z, '#ffe64d');
+      rect(cx + 1 * z, baseY - 30 * z, 3 * z, 3 * z, '#ffe64d');
+      rect(cx - 4 * z, baseY - 25 * z, 8 * z, 2 * z, '#ffe64d');
+    } else if (variant === 2) {
+      // High-collared black-crimson Vampire cape + tiny white fangs
+      rect(cx - 9 * z, baseY - 24 * z, 18 * z, 17 * z, '#161822');
+      rect(cx - 8 * z, baseY - 25 * z, 3 * z, 6 * z, '#b82e43');
+      rect(cx + 5 * z, baseY - 25 * z, 3 * z, 6 * z, '#b82e43');
+      rect(cx - 4 * z, baseY - 20 * z, 8 * z, 10 * z, '#d93838');
+      rect(cx - 2 * z, baseY - 24 * z, 1.5 * z, 2 * z, '#ffffff');
+      rect(cx + 0.5 * z, baseY - 24 * z, 1.5 * z, 2 * z, '#ffffff');
+    } else {
+      // Cute white ghost / skeleton hooded costume
+      rect(cx - 8 * z, baseY - 21 * z, 16 * z, 14 * z, '#eef2fc');
+      rect(cx - 4 * z, baseY - 19 * z, 8 * z, 2 * z, '#cfd6e6');
+      rect(cx - 4 * z, baseY - 15 * z, 8 * z, 2 * z, '#cfd6e6');
+      rect(cx - 8 * z, baseY - 37 * z, 16 * z, 15 * z, '#eef2fc');
+      rect(cx - 4 * z, baseY - 29 * z, 3 * z, 3 * z, '#1b2030');
+      rect(cx + 1 * z, baseY - 29 * z, 3 * z, 3 * z, '#1b2030');
+    }
+  }
+}
+
+function drawPortraitCostumeOverlay(
+  px: (x: number, y: number, w: number, h: number, color: string) => void,
+  variant: number,
+  hairColor: string,
+  eventKind: 'STAR_WARS_PARTY' | 'SUPERHERO_PARTY' | 'HALLOWEEN_PARTY',
+): void {
+  if (eventKind === 'STAR_WARS_PARTY') {
+    if (variant === 0) {
+      px(6, 21, 20, 11, '#6b4226');
+      px(11, 22, 10, 10, '#e7d7b8');
+      px(8, 5, 16, 5, '#6b4226');
+      px(26, 8, 2, 18, '#3cd8ff');
+      px(26, 26, 2, 5, '#b4bed4');
+    } else if (variant === 1) {
+      px(5, 21, 22, 11, '#11131c');
+      px(11, 22, 10, 10, '#2a3040');
+      px(8, 5, 16, 17, '#161922');
+      px(9, 7, 14, 4, '#2a3040');
+      px(11, 13, 4, 2, '#ff384c');
+      px(17, 13, 4, 2, '#ff384c');
+      px(26, 7, 2, 19, '#ff384c');
+    } else if (variant === 2) {
+      px(8, 22, 16, 10, '#f4f6fc');
+      px(6, 11, 3, 7, hairColor);
+      px(23, 11, 3, 7, hairColor);
+      px(10, 12, 12, 2, '#ff9c3b');
+    } else {
+      px(8, 22, 16, 10, '#8f9bb8');
+      px(9, 6, 14, 16, '#b4bed4');
+      px(11, 12, 10, 3, '#11131c');
+      px(15, 15, 2, 6, '#11131c');
+      px(23, 4, 2, 8, '#ff9c3b');
+    }
+  } else if (eventKind === 'SUPERHERO_PARTY') {
+    if (variant === 0) {
+      px(6, 21, 20, 11, '#161a26');
+      px(9, 22, 14, 10, '#2c344a');
+      px(9, 6, 14, 9, '#1b2030');
+      px(9, 2, 3, 4, '#1b2030');
+      px(20, 2, 3, 4, '#1b2030');
+      px(12, 14, 3, 2, '#ffffff');
+      px(17, 14, 3, 2, '#ffffff');
+    } else if (variant === 1) {
+      px(5, 21, 22, 11, '#d93838');
+      px(8, 22, 16, 10, '#2b62d9');
+      px(13, 24, 6, 4, '#ffd147');
+    } else if (variant === 2) {
+      px(8, 22, 16, 10, '#c42838');
+      px(14, 24, 4, 4, '#7ef3ff');
+      px(9, 6, 14, 15, '#c42838');
+      px(11, 10, 10, 10, '#ffd147');
+      px(12, 13, 3, 2, '#7ef3ff');
+      px(17, 13, 3, 2, '#7ef3ff');
+    } else {
+      px(8, 22, 16, 10, '#b82e43');
+      px(10, 22, 12, 3, '#ffd147');
+      px(10, 5, 12, 3, '#ffd147');
+      px(10, 13, 12, 3, '#1b2030');
+    }
+  } else {
+    // HALLOWEEN_PARTY
+    if (variant === 0) {
+      px(6, 21, 20, 11, '#1a1529');
+      px(6, 6, 20, 3, '#241c38');
+      px(10, 2, 12, 4, '#241c38');
+      px(13, 0, 6, 2, '#241c38');
+      px(10, 4, 12, 2, '#b07cff');
+    } else if (variant === 1) {
+      px(8, 22, 16, 10, '#241c38');
+      px(8, 7, 16, 15, '#ff7b1c');
+      px(14, 4, 4, 3, '#3be87a');
+      px(11, 12, 3, 3, '#ffe64d');
+      px(18, 12, 3, 3, '#ffe64d');
+      px(12, 17, 8, 2, '#ffe64d');
+    } else if (variant === 2) {
+      px(5, 18, 22, 14, '#161822');
+      px(6, 16, 4, 7, '#b82e43');
+      px(22, 16, 4, 7, '#b82e43');
+      px(11, 22, 10, 10, '#d93838');
+      px(14, 18, 1, 2, '#ffffff');
+      px(17, 18, 1, 2, '#ffffff');
+    } else {
+      px(7, 21, 18, 11, '#eef2fc');
+      px(11, 24, 10, 2, '#cfd6e6');
+      px(8, 7, 16, 15, '#eef2fc');
+      px(12, 13, 3, 3, '#1b2030');
+      px(17, 13, 3, 3, '#1b2030');
+    }
+  }
+}
+
 export function drawEmployeeSprite(
   ctx: CanvasRenderingContext2D,
   emp: OfficeEmployee,
@@ -658,6 +884,7 @@ export function drawEmployeeSprite(
   isSelected: boolean,
   alpha = 1,
   showSpeechBubble = true,
+  activeEventKind?: FloorEventKind | null,
 ): void {
   const z = zoom;
   const empGender = (emp as OfficeEmployee & { gender?: 'female' | 'male' }).gender;
@@ -989,8 +1216,21 @@ export function drawEmployeeSprite(
     rect(cx - 5 * z, baseY - 36 * z, 6 * z, 2 * z, palette.hairHighlight);
   }
 
-  // Model-specific headgear & accessories
-  if (emp.modelFamily === 'argon' || emp.isCoordinator) {
+  // Model-specific headgear & accessories (suppressed during costume parties so costumes shine)
+  if (isCostumeEvent(activeEventKind)) {
+    const costumeVariant = (hashString(emp.id) >>> 12) & 3;
+    drawSpriteCostumeOverlay(
+      rect,
+      cx,
+      baseY,
+      z,
+      dirFlip,
+      costumeVariant,
+      palette.hair,
+      activeEventKind,
+      timeSec,
+    );
+  } else if (emp.modelFamily === 'argon' || emp.isCoordinator) {
     // Gold crown
     ctx.fillStyle = '#ffd147';
     ctx.fillRect(Math.round(cx - 5 * z), Math.round(baseY - 41 * z), Math.ceil(10 * z), Math.ceil(4 * z));
@@ -1174,6 +1414,7 @@ export function drawEmployeePortrait(
   ctx: CanvasRenderingContext2D,
   emp: OfficeEmployee,
   size: number,
+  activeEventKind?: FloorEventKind | null,
 ): void {
   ctx.imageSmoothingEnabled = false;
   ctx.clearRect(0, 0, size, size);
@@ -1290,8 +1531,11 @@ export function drawEmployeePortrait(
     px(11, 7, 6, 2, palette.hairHighlight);
   }
 
-  // Headgear & outfit accessories
-  if (emp.modelFamily === 'argon' || emp.isCoordinator) {
+  // Headgear & outfit accessories (or Costume Party overlay)
+  if (isCostumeEvent(activeEventKind)) {
+    const costumeVariant = (hashString(emp.id) >>> 12) & 3;
+    drawPortraitCostumeOverlay(px, costumeVariant, palette.hair, activeEventKind);
+  } else if (emp.modelFamily === 'argon' || emp.isCoordinator) {
     px(10, 3, 12, 3, '#ffd147');
     px(10, 1, 2, 2, '#ffd147');
     px(15, 1, 2, 2, '#ffd147');

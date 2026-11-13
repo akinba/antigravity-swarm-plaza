@@ -4,11 +4,12 @@ import {
   drawEmployeePortrait,
   drawEmployeeSprite,
   getEmployeePalette,
+  hashString,
   type FemaleHairStyle,
   type FemaleOutfitStyle,
   type MaleHairStyle,
 } from '../../src/client/engine/pixelSprites';
-import type { ModelFamily, OfficeEmployee } from '../../src/shared/types';
+import type { FloorEventKind, ModelFamily, OfficeEmployee } from '../../src/shared/types';
 
 interface RecordedRect {
   x: number;
@@ -198,6 +199,51 @@ describe('pixelSprites gender, hair, outfit palettes & rendering', () => {
           assert.ok(
             Number.isFinite(r.x) && Number.isFinite(r.y) && r.w > 0 && r.h > 0,
             `Invalid portrait fillRect for family=${family}: ${JSON.stringify(r)}`,
+          );
+        }
+      }
+    }
+  });
+
+  it('renders STAR_WARS_PARTY, SUPERHERO_PARTY, and HALLOWEEN_PARTY across all 4 variants with positive fillRects', () => {
+    const costumeEvents: FloorEventKind[] = [
+      'STAR_WARS_PARTY',
+      'SUPERHERO_PARTY',
+      'HALLOWEEN_PARTY',
+    ];
+    const zooms = [0.75, 1.0, 2.0];
+
+    // Pick 4 IDs covering costume variants 0, 1, 2, 3
+    const variantIds = new Map<number, string>();
+    for (let i = 0; i < 200 && variantIds.size < 4; i++) {
+      const id = `costume-agent-${i}`;
+      const variant = (hashString(id) >>> 12) & 3;
+      if (!variantIds.has(variant)) variantIds.set(variant, id);
+    }
+    assert.equal(variantIds.size, 4);
+
+    for (const eventKind of costumeEvents) {
+      for (const [, id] of variantIds) {
+        const emp = makeEmployee(id, 'flash', 'coding');
+        for (const zoom of zooms) {
+          const { ctx, rects } = createMockCanvasContext();
+          drawEmployeeSprite(ctx, emp, 180, 180, zoom, 'SE', false, 0, 1.2, false, false, 1, false, eventKind);
+          assert.ok(rects.length > 0);
+          for (const r of rects) {
+            assert.ok(
+              Number.isFinite(r.x) && Number.isFinite(r.y) && r.w > 0 && r.h > 0,
+              `Invalid costume sprite fillRect (${eventKind}, zoom=${zoom}): ${JSON.stringify(r)}`,
+            );
+          }
+        }
+
+        const { ctx: pCtx, rects: pRects } = createMockCanvasContext();
+        drawEmployeePortrait(pCtx, emp, 96, eventKind);
+        assert.ok(pRects.length > 0);
+        for (const r of pRects) {
+          assert.ok(
+            Number.isFinite(r.x) && Number.isFinite(r.y) && r.w > 0 && r.h > 0,
+            `Invalid costume portrait fillRect (${eventKind}): ${JSON.stringify(r)}`,
           );
         }
       }

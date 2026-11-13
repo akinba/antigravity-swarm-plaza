@@ -7,8 +7,17 @@ import {
   THEME_PALETTES,
   type FloorLayout,
 } from '../../src/client/engine/officeLayouts.js';
+import { drawExtraFurnitureProp } from '../../src/client/engine/officePropsSprites.js';
 import { buildWalkableGridForFurniture, findPath, type ZoneSlot } from '../../src/client/engine/pathfinding.js';
 import type { OfficeZone } from '../../src/shared/types.js';
+
+const MINI_ROOM_FIXTURE_KINDS = [
+  'phone_booth',
+  'snack_vending',
+  'arcade_cabinet',
+  'library_table',
+  '3d_printer',
+] as const;
 
 const ALL_ZONES: OfficeZone[] = [
   'DESK_ARCHITECT',
@@ -143,6 +152,137 @@ describe('officeLayouts all 5 floor blueprints', () => {
               `blueprint ${layout.blueprintIndex} ${label} (${slot.gx},${slot.gy}) unreachable from (${entrance.gx},${entrance.gy})`,
             );
             assert.deepEqual(path[0], entrance);
+          }
+        }
+      }
+    }
+  });
+
+  it('populates dead-space mini-rooms with all 5 custom fixtures on all 5 blueprints and keeps surrounding walkways reachable', () => {
+    const deadSpaceZonesByBlueprint: Record<
+      number,
+      Array<{ label: string; x0: number; x1: number; y0: number; y1: number }>
+    > = {
+      0: [
+        { label: 'SW nook (0..3,11..13)', x0: 0, x1: 3, y0: 11, y1: 13 },
+        { label: 'East mid nook (13..15,6..8)', x0: 13, x1: 15, y0: 6, y1: 8 },
+      ],
+      1: [
+        { label: 'NW nook (0..3,0..2)', x0: 0, x1: 3, y0: 0, y1: 2 },
+        { label: 'East corridor (13..15,5..9)', x0: 13, x1: 15, y0: 5, y1: 9 },
+        { label: 'SW maker nook (0..3,12..13)', x0: 0, x1: 3, y0: 12, y1: 13 },
+      ],
+      2: [
+        { label: 'East corridor (13..15,5..8)', x0: 13, x1: 15, y0: 5, y1: 8 },
+        { label: 'Mid-south nook (5..8,11..13)', x0: 5, x1: 8, y0: 11, y1: 13 },
+      ],
+      3: [
+        { label: 'SE corner (11..15,11..13)', x0: 11, x1: 15, y0: 11, y1: 13 },
+        { label: 'SW corner (0..3,11..13)', x0: 0, x1: 3, y0: 11, y1: 13 },
+        { label: 'NE corner (12..15,0..2)', x0: 12, x1: 15, y0: 0, y1: 2 },
+      ],
+      4: [
+        { label: 'SE corner (11..15,11..13)', x0: 11, x1: 15, y0: 11, y1: 13 },
+        { label: 'Mid-south nook (5..9,11..13)', x0: 5, x1: 9, y0: 11, y1: 13 },
+      ],
+    };
+
+    const dirs = [
+      { dx: 1, dy: 0 },
+      { dx: -1, dy: 0 },
+      { dx: 0, dy: 1 },
+      { dx: 0, dy: -1 },
+    ];
+
+    for (const layout of getAllFiveLayouts()) {
+      const kindsOnFloor = new Set(layout.furniture.map((f) => f.kind));
+      for (const fixture of MINI_ROOM_FIXTURE_KINDS) {
+        assert.equal(
+          kindsOnFloor.has(fixture),
+          true,
+          `blueprint ${layout.blueprintIndex} (${layout.deskStyle}) missing custom fixture '${fixture}'`,
+        );
+      }
+
+      for (const zone of deadSpaceZonesByBlueprint[layout.blueprintIndex]) {
+        const count = layout.furniture.filter(
+          (f) => f.gx >= zone.x0 && f.gx <= zone.x1 && f.gy >= zone.y0 && f.gy <= zone.y1,
+        ).length;
+        assert.ok(
+          count >= 3,
+          `blueprint ${layout.blueprintIndex} ${zone.label} still sparse (${count} items)`,
+        );
+      }
+
+      // Every custom mini-room fixture must border >=1 walkable tile reachable from elevator (0,6)
+      const grid = buildWalkableGridForFurniture(layout.furniture);
+      for (const item of layout.furniture) {
+        if (!(MINI_ROOM_FIXTURE_KINDS as readonly string[]).includes(item.kind)) continue;
+        const walkableNeighbors = dirs
+          .map(({ dx, dy }) => ({ gx: item.gx + dx, gy: item.gy + dy }))
+          .filter(
+            (p) => p.gx >= 0 && p.gx < GRID_W && p.gy >= 0 && p.gy < GRID_H && grid[p.gy][p.gx],
+          );
+        assert.ok(
+          walkableNeighbors.length >= 1,
+          `blueprint ${layout.blueprintIndex} ${item.kind} at (${item.gx},${item.gy}) has no adjacent open walkway`,
+        );
+        const reachableNeighbor = walkableNeighbors.some((n) => {
+          const path = findPath(grid, { gx: 0, gy: 6 }, n);
+          return (
+            path[0].gx === 0 &&
+            path[0].gy === 6 &&
+            path[path.length - 1].gx === n.gx &&
+            path[path.length - 1].gy === n.gy &&
+            (n.gx === 0 && n.gy === 6 ? path.length === 1 : path.length > 1)
+          );
+        });
+        assert.equal(
+          reachableNeighbor,
+          true,
+          `blueprint ${layout.blueprintIndex} ${item.kind} at (${item.gx},${item.gy}) walkway unreachable from elevator`,
+        );
+      }
+    }
+  });
+
+  it('renders all 5 custom 2.5D mini-room furniture props with strictly positive geometry across zoom 0.75..2.0', () => {
+    const zooms = [0.75, 1.0, 1.35, 2.0];
+    const times = [0, 1.25, 3.7];
+
+    for (const kind of MINI_ROOM_FIXTURE_KINDS) {
+      for (const zoom of zooms) {
+        for (const timeSec of times) {
+          for (const occupied of [false, true]) {
+            const rects: Array<{ x: number; y: number; w: number; h: number }> = [];
+            const noop = () => {};
+            const ctx = {
+              fillStyle: '#000',
+              strokeStyle: '#000',
+              lineWidth: 1,
+              beginPath: noop,
+              closePath: noop,
+              moveTo: noop,
+              lineTo: noop,
+              fill: noop,
+              stroke: noop,
+              fillRect: (x: number, y: number, w: number, h: number) => {
+                rects.push({ x, y, w, h });
+              },
+              strokeRect: (x: number, y: number, w: number, h: number) => {
+                rects.push({ x, y, w, h });
+              },
+            } as unknown as CanvasRenderingContext2D;
+
+            const handled = drawExtraFurnitureProp(ctx, kind, 240, 180, zoom, timeSec, occupied);
+            assert.equal(handled, true, `drawExtraFurnitureProp did not handle '${kind}'`);
+            assert.ok(rects.length > 0, `drawExtraFurnitureProp '${kind}' drew no rects`);
+            for (const r of rects) {
+              assert.ok(
+                Number.isFinite(r.x) && Number.isFinite(r.y) && r.w >= 1 && r.h >= 1,
+                `Invalid rect for '${kind}' at zoom=${zoom}: ${JSON.stringify(r)}`,
+              );
+            }
           }
         }
       }

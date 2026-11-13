@@ -231,6 +231,14 @@ describe('i18n browser locale & server snapshot localization', () => {
       '@coder-core parent_conversation_id cycle guard eklendi mi?',
       '@analyst-grill Evet, Set + maxDepth 25 ile korundu.',
       '@Chief-Architect @all Demo Penthouse simülasyonu stabil.',
+      '⚡ Beyaz tahtaya ışınlandım!',
+      '⚡ Ekibi beyaz tahtaya ışınladım!',
+      '⚔️ Güç seninle olsun!',
+      '⚔️ Işın kılıcı hazır!',
+      '🦸 Pelerinler havaya!',
+      '🦸 Bugünü biz kurtaracağız!',
+      '🎃 Şeker mi şaka mı?',
+      '🎃 Balkabağı kostümüm nasıl?',
     ];
 
     for (const key of expectedServerStrings) {
@@ -250,5 +258,15 @@ describe('i18n browser locale & server snapshot localization', () => {
     assert.equal(DICTIONARIES.en.whiteboardModal.liveActive, '● LIVE');
     assert.equal(DICTIONARIES.en.whiteboardModal.jumpToLive, '↓ JUMP TO LIVE');
     assert.equal(DICTIONARIES.en.whiteboardModal.newMessagesSuffix, 'new');
+  });
+
+  it('includes costume party event translations in tr and en', () => {
+    assert.equal(DICTIONARIES.tr.events.STAR_WARS_PARTY, '⚔️ STAR WARS KOSTÜM PARTİSİ!');
+    assert.equal(DICTIONARIES.tr.events.SUPERHERO_PARTY, '🦸 SÜPER KAHRAMAN KOSTÜM PARTİSİ!');
+    assert.equal(DICTIONARIES.tr.events.HALLOWEEN_PARTY, '🎃 CADILAR BAYRAMI KOSTÜM PARTİSİ!');
+
+    assert.equal(DICTIONARIES.en.events.STAR_WARS_PARTY, '⚔️ STAR WARS COSTUME PARTY!');
+    assert.equal(DICTIONARIES.en.events.SUPERHERO_PARTY, '🦸 SUPERHERO COSTUME PARTY!');
+    assert.equal(DICTIONARIES.en.events.HALLOWEEN_PARTY, '🎃 HALLOWEEN COSTUME PARTY!');
   });
 });

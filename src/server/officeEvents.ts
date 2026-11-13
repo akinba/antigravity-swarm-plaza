@@ -1,6 +1,9 @@
 import type { FloorEventKind, FloorRandomEvent } from '../shared/types.js';
 
 const EVENT_KINDS: FloorEventKind[] = [
+  'STAR_WARS_PARTY',
+  'SUPERHERO_PARTY',
+  'HALLOWEEN_PARTY',
   'PIZZA_PARTY',
   'WATERCOOLER_GOSSIP',
   'SPRINT_CELEBRATION',

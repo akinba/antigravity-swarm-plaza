@@ -72,16 +72,16 @@ flowchart LR
   - Swarm coordinators are prominently styled as **★ BOSS** seated at an executive mahogany desk with a golden crown.
   - 8 distinct model families feature unique outfits and accessories: `argon` (Purple blazer + crown), `hydrogen` (Cyan tech hoodie + headphones), `flash` (Emerald/Yellow racing jacket + visor), `carbon` (Crimson lab coat + cyber specs), `pro` (Navy/Gold suit + tie), `claude` (Terracotta knit sweater + beanie), `gpt` (Teal turtleneck + headset), `other` (Indigo polo + badge).
 - **📐 5 Architectural Blueprints, 5 Desk Styles & Office Pets:**
-  - Real partitioned rooms (Executive Suite, Dev/QA Studio, Conference War Room, Server Room, and Lounge).
+  - Real partitioned rooms (Executive Suite, Dev/QA Studio, Conference War Room, Server Room, and Lounge) plus dead-zone mini rooms and corner nooks.
   - 100% camera-facing (`SE` / `SW`) seated angles, low tabletop ergonomics (`10px`), and corner monitors ensure characters' faces and expressions are never occluded.
   - 5 theme palettes across 5 architectural layouts yield 25 distinct combinations (`🎲 LAYOUT`).
 - **☕ Living Agent Lifecycle & Go-Home Timer (`AGY_GO_HOME_MINUTES`):**
   - **Seated Keyboard Coding:** Ergonomic swivel chairs, mechanical keyboard typing, and floating `</>` code glyphs.
-  - **War Room Presentations:** Active speaker holds a laser pointer stick directing attention to the illuminated Presentation Screen (`presenting`), while teammates sit as attentive listeners (`meeting`).
+  - **War Room Presentations & Teleportation:** Active speaker holds a laser pointer stick directing attention to the illuminated Presentation Screen (`presenting`), while invited teammates teleport in via 2.5D pixel beam & isometric rings (`playTeleportZap()`) or sit as attentive listeners (`meeting`).
   - **Lounge Relaxation & 2-Player Console Gaming:** Idle agents relax on plush sofas (`lounging`) or pair up for retro console fighting/racing games (`gaming`).
   - **Shift End / Go-Home:** Agents inactive for `8` minutes walk toward the elevator (`going_home`), leaving the office at `9.5` minutes to complete their shift (`offDutyCount`).
-- **⚡ Random Office Events (`⚡ EVENT` & 65s Auto-Loop):**
-  - `PIZZA_PARTY` (warm pizza box & slice snatching), `WATERCOOLER_GOSSIP` (watercooler gossip), `SPRINT_CELEBRATION` (colorful confetti shower), `MASCOT_ZOOMIES` (pet turbo sprint), `COFFEE_BREW` (fresh espresso break).
+- **⚡ Random Office Events & Costume Parties (`⚡ EVENT` & 65s Auto-Loop):**
+  - `STAR_WARS_PARTY` (Jedi, Sith, Rebel, Mandalorian), `SUPERHERO_PARTY`, and `HALLOWEEN_PARTY` (Witch, Pumpkin, Vampire, Ghost) with 4 deterministic costume variants per agent, ambient canvas particles, and synchronized 96x96 RPG portraits, alongside `PIZZA_PARTY`, `WATERCOOLER_GOSSIP`, `SPRINT_CELEBRATION`, `MASCOT_ZOOMIES`, and `COFFEE_BREW`.
   - *Real-Work Integrity:* Active working agents (`status === 'working'`) are NEVER pulled off their desks during ambient events.
 - **📡 Live Swarm Board, `@mention` Network Graph & 60m Analytics:**
   - Unified message stream ingesting both Native Swarm `board.jsonl` and subagent/task `messages/*.json`.
@@ -152,7 +152,7 @@ cd antigravity-swarm-plaza
 # Install dependencies
 npm install
 
-# Run automated tests (62 tests / 25 test suites)
+# Run automated tests (66 tests / 25 test suites)
 npm test
 
 # Run TypeScript verification

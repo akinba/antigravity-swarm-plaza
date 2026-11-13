@@ -156,6 +156,13 @@ export function playAlertJingle(): void {
   playTone(329.63, 0.22, 'square', 0.075, 0.27);
 }
 
+/** Sci-fi 8-bit teleportation beam arpeggio + zap */
+export function playTeleportZap(): void {
+  playTone(330, 0.06, 'sawtooth', 0.055, 0, 880);
+  playTone(660, 0.08, 'triangle', 0.07, 0.045, 1320);
+  playTone(1046.5, 0.14, 'square', 0.05, 0.09, 523.25);
+}
+
 export function isNotificationsEnabled(): boolean {
   return notificationsEnabledState;
 }

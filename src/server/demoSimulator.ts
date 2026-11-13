@@ -395,14 +395,25 @@ export function getDemoFloor(advance = true): PlazaFloor {
 
     // Ensure any WAR_ROOM employees have exactly 1 presenter
     const warRoomEmps = employees.filter((e) => e.zone === 'WAR_ROOM');
+    const warRoomTeleportActive = Math.floor(demoTick / 3) % 2 === 1;
     if (warRoomEmps.length > 0) {
       warRoomEmps.forEach((emp, i) => {
         if (i === 0) {
           emp.isPresenter = true;
           emp.activity = 'presenting';
+          emp.teleported = false;
+          if (warRoomTeleportActive) {
+            emp.speechBubble = '⚡ Ekibi beyaz tahtaya ışınladım!';
+          }
         } else {
           emp.isPresenter = false;
           emp.activity = 'meeting';
+          if (warRoomTeleportActive) {
+            emp.teleported = true;
+            emp.speechBubble = '⚡ Beyaz tahtaya ışınlandım!';
+          } else {
+            emp.teleported = false;
+          }
         }
       });
     }
@@ -485,6 +496,24 @@ export function getDemoFloor(advance = true): PlazaFloor {
       loungeEmps.forEach((emp, i) => {
         if (emp.activity !== 'gaming') {
           emp.speechBubble = ['🎉 Sprint hedefi tamam!', '🚀 Şirket uçuyor!'][i % 2];
+        }
+      });
+    } else if (activeEvent.kind === 'STAR_WARS_PARTY') {
+      loungeEmps.forEach((emp, i) => {
+        if (emp.activity !== 'gaming') {
+          emp.speechBubble = ['⚔️ Güç seninle olsun!', '⚔️ Işın kılıcı hazır!'][i % 2];
+        }
+      });
+    } else if (activeEvent.kind === 'SUPERHERO_PARTY') {
+      loungeEmps.forEach((emp, i) => {
+        if (emp.activity !== 'gaming') {
+          emp.speechBubble = ['🦸 Pelerinler havaya!', '🦸 Bugünü biz kurtaracağız!'][i % 2];
+        }
+      });
+    } else if (activeEvent.kind === 'HALLOWEEN_PARTY') {
+      loungeEmps.forEach((emp, i) => {
+        if (emp.activity !== 'gaming') {
+          emp.speechBubble = ['🎃 Şeker mi şaka mı?', '🎃 Balkabağı kostümüm nasıl?'][i % 2];
         }
       });
     }

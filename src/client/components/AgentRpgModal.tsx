@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { AgentDetailResponse, AgentLogEntry, OfficeEmployee } from '../../shared/types';
+import type { AgentDetailResponse, AgentLogEntry, FloorEventKind, OfficeEmployee } from '../../shared/types';
 import { playSelectBlip } from '../audio/retroSynth';
 import { drawEmployeePortrait, UNIFORM_COLORS } from '../engine/pixelSprites';
 import { useI18n } from '../i18n/translations';
@@ -7,6 +7,7 @@ import { sidecarFetch } from '../sidecarBridge';
 
 interface AgentRpgModalProps {
   employee: OfficeEmployee;
+  activeEventKind?: FloorEventKind | null;
   onClose: () => void;
 }
 
@@ -16,7 +17,7 @@ function formatNumber(n: number): string {
   return String(n);
 }
 
-export const AgentRpgModal: React.FC<AgentRpgModalProps> = ({ employee, onClose }) => {
+export const AgentRpgModal: React.FC<AgentRpgModalProps> = ({ employee, activeEventKind, onClose }) => {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<'profile' | 'logs'>('profile');
   const [liveEmp, setLiveEmp] = useState<OfficeEmployee>(employee);
@@ -33,8 +34,8 @@ export const AgentRpgModal: React.FC<AgentRpgModalProps> = ({ employee, onClose 
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    drawEmployeePortrait(ctx, liveEmp, 96);
-  }, [liveEmp]);
+    drawEmployeePortrait(ctx, liveEmp, 96, activeEventKind ?? null);
+  }, [liveEmp, activeEventKind]);
 
   // Poll /api/agents/:id/logs every 2s while modal is open
   useEffect(() => {

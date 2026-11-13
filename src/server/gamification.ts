@@ -646,6 +646,18 @@ const CELEBRATION_BUBBLES = [
   '🎉 Sprint hedefi tamam!',
   '🚀 Şirket uçuyor!',
 ];
+const STAR_WARS_BUBBLES = [
+  '⚔️ Güç seninle olsun!',
+  '⚔️ Işın kılıcı hazır!',
+];
+const SUPERHERO_BUBBLES = [
+  '🦸 Pelerinler havaya!',
+  '🦸 Bugünü biz kurtaracağız!',
+];
+const HALLOWEEN_BUBBLES = [
+  '🎃 Şeker mi şaka mı?',
+  '🎃 Balkabağı kostümüm nasıl?',
+];
 
 /**
  * Post-process COFFEE_LOUNGE (idle/waiting) employees on a floor to assign paired 2-player
@@ -774,8 +786,23 @@ export function applyLoungeActivities(
       emp.speechBubble = ZOOMIES_BUBBLES[empIdx % ZOOMIES_BUBBLES.length];
     } else if (activeEvent?.kind === 'SPRINT_CELEBRATION') {
       emp.speechBubble = CELEBRATION_BUBBLES[empIdx % CELEBRATION_BUBBLES.length];
+    } else if (activeEvent?.kind === 'STAR_WARS_PARTY') {
+      emp.speechBubble = STAR_WARS_BUBBLES[empIdx % STAR_WARS_BUBBLES.length];
+    } else if (activeEvent?.kind === 'SUPERHERO_PARTY') {
+      emp.speechBubble = SUPERHERO_BUBBLES[empIdx % SUPERHERO_BUBBLES.length];
+    } else if (activeEvent?.kind === 'HALLOWEEN_PARTY') {
+      emp.speechBubble = HALLOWEEN_BUBBLES[empIdx % HALLOWEEN_BUBBLES.length];
     }
   }
+}
+
+function hashSeed(input: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
 }
 
 /**
@@ -828,12 +855,28 @@ export function applyWarRoomPresentation(
     if (emp === presenter) {
       emp.isPresenter = true;
       emp.activity = 'presenting';
+      emp.teleported = false;
       if (!emp.speechBubble) {
-        emp.speechBubble = truncateBubble(latestMsg?.text || '📊 Mimari & ilerleme sunumu');
+        const presenterSeed = hashSeed(String(latestMsg?.seq ?? Math.floor(nowMs / 15000)));
+        emp.speechBubble = truncateBubble(
+          latestMsg?.text ||
+            (presenterSeed % 2 === 0
+              ? '⚡ Ekibi beyaz tahtaya ışınladım!'
+              : '📊 Mimari & ilerleme sunumu'),
+        );
       }
     } else {
       emp.isPresenter = false;
       emp.activity = 'meeting';
+      const inviteeSeed = hashSeed(`${emp.id}:${latestMsg?.seq ?? Math.floor(nowMs / 15000)}`);
+      if (inviteeSeed % 2 === 0) {
+        emp.teleported = true;
+        if (!emp.speechBubble) {
+          emp.speechBubble = '⚡ Beyaz tahtaya ışınlandım!';
+        }
+      } else {
+        emp.teleported = false;
+      }
     }
   }
 }

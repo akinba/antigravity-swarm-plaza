@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import type { OfficeEmployee, OfficeZone, PlazaFloor } from '../../shared/types';
-import { playGamepadBlip, playSelectBlip } from '../audio/retroSynth';
+import { playGamepadBlip, playSelectBlip, playTeleportZap } from '../audio/retroSynth';
 import { useI18n } from '../i18n/translations';
 import {
   clampZoom,
@@ -27,6 +27,7 @@ import {
   drawFloorTile,
   drawFurniture,
   drawMascotSprite,
+  hashString,
 } from './pixelSprites';
 
 interface OfficeCanvasProps {
@@ -51,6 +52,17 @@ interface ActorState {
   targetFacing: Facing;
   walkPhase: number;
   isWalking: boolean;
+}
+
+interface TeleportEffect {
+  fromGx: number;
+  fromGy: number;
+  toGx: number;
+  toGy: number;
+  inviterGx: number;
+  inviterGy: number;
+  startMs: number;
+  durationMs: number;
 }
 
 const WALK_SPEED_TILES_PER_SEC = 3.2;
@@ -101,6 +113,8 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
   }>({ gx: 7, gy: 7, path: [], facing: 'SE', pauseUntil: 0 });
   const prevLayoutSigRef = useRef<string>(`${floor.id}:${floor.layoutSeed ?? 0}`);
   const prevGamingSigRef = useRef<string>('');
+  const teleportEffectsRef = useRef<TeleportEffect[]>([]);
+  const lastTeleportSfxMsRef = useRef<number>(0);
   const floorRef = useRef<PlazaFloor>(floor);
   floorRef.current = floor;
 
@@ -262,6 +276,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
     if (layoutChanged) {
       actors.clear();
       hasLoadedFloorActorsRef.current = false;
+      teleportEffectsRef.current = [];
       // Snap mascot onto a guaranteed walkable tile
       let mx = 7;
       let my = 7;
@@ -378,16 +393,61 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
         existing.targetSlotGx !== slot.gx ||
         existing.targetSlotGy !== slot.gy
       ) {
-        const path = findPath(
-          walkableGrid,
-          { gx: Math.round(existing.gx), gy: Math.round(existing.gy) },
-          { gx: slot.gx, gy: slot.gy },
-        );
-        existing.path = path;
-        existing.targetZone = emp.zone;
-        existing.targetSlotGx = slot.gx;
-        existing.targetSlotGy = slot.gy;
-        existing.targetFacing = slot.facing;
+        const startGx = Math.round(existing.gx);
+        const startGy = Math.round(existing.gy);
+        const manhattan = Math.abs(startGx - slot.gx) + Math.abs(startGy - slot.gy);
+        const enteringWarRoom = existing.targetZone !== 'WAR_ROOM' && emp.zone === 'WAR_ROOM';
+        const nowSec = Math.floor(Date.now() / 1000);
+        const empHash = hashString(emp.id);
+        const ruleTeleport =
+          enteringWarRoom &&
+          (Boolean(emp.teleported) || (manhattan >= 6 && (empHash + Math.floor(nowSec / 8)) % 5 < 2));
+
+        const path = ruleTeleport
+          ? []
+          : findPath(walkableGrid, { gx: startGx, gy: startGy }, { gx: slot.gx, gy: slot.gy });
+
+        const pathBlockedForWarRoom =
+          enteringWarRoom &&
+          !ruleTeleport &&
+          path.length === 0 &&
+          (startGx !== slot.gx || startGy !== slot.gy);
+
+        if (ruleTeleport || pathBlockedForWarRoom) {
+          const fromGx = existing.gx;
+          const fromGy = existing.gy;
+          existing.gx = slot.gx;
+          existing.gy = slot.gy;
+          existing.path = [];
+          existing.isWalking = false;
+          existing.facing = slot.facing;
+          existing.targetFacing = slot.facing;
+          existing.targetZone = emp.zone;
+          existing.targetSlotGx = slot.gx;
+          existing.targetSlotGy = slot.gy;
+
+          const nowMs = performance.now();
+          teleportEffectsRef.current.push({
+            fromGx,
+            fromGy,
+            toGx: slot.gx,
+            toGy: slot.gy,
+            inviterGx: layout.presenterSlot.gx,
+            inviterGy: layout.presenterSlot.gy,
+            startMs: nowMs,
+            durationMs: 850,
+          });
+          if (nowMs - lastTeleportSfxMsRef.current >= 500) {
+            lastTeleportSfxMsRef.current = nowMs;
+            playTeleportZap();
+          }
+        } else {
+          existing.path = path;
+          existing.targetZone = emp.zone;
+          existing.targetSlotGx = slot.gx;
+          existing.targetSlotGy = slot.gy;
+          existing.targetFacing = slot.facing;
+        }
       }
     });
 
@@ -743,6 +803,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
               isSelected,
               alpha,
               showSpeechBubble,
+              currentFloor.activeEvent?.kind ?? null,
             );
           },
         });
@@ -773,14 +834,96 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
         }
       }
 
-      // Falling pixel confetti during SPRINT_CELEBRATION
-      if (currentFloor.activeEvent?.kind === 'SPRINT_CELEBRATION') {
+      // 2.5D Pixel Teleportation Beams & Isometric Rings (War Room arrivals)
+      if (teleportEffectsRef.current.length > 0) {
+        const nowMs = performance.now();
+        teleportEffectsRef.current = teleportEffectsRef.current.filter(
+          (fx) => nowMs - fx.startMs <= fx.durationMs,
+        );
+        for (const fx of teleportEffectsRef.current) {
+          const p = Math.max(0, Math.min(1, (nowMs - fx.startMs) / fx.durationMs));
+          const fade = 1 - p;
+          const nodes: Array<{ gx: number; gy: number; color: string; beam: boolean }> = [
+            { gx: fx.fromGx, gy: fx.fromGy, color: '#3cd8ff', beam: true },
+            { gx: fx.inviterGx, gy: fx.inviterGy, color: '#ffd147', beam: false },
+            { gx: fx.toGx, gy: fx.toGy, color: '#b07cff', beam: true },
+          ];
+          for (const node of nodes) {
+            const pt = gridToScreen(node.gx, node.gy, cam);
+            const ringScale = (0.35 + p * 0.9) * cam.zoom;
+            const hw = (TILE_W * 0.42) * ringScale;
+            const hh = (TILE_H * 0.42) * ringScale;
+            ctx.save();
+            ctx.globalAlpha = Math.max(0.1, fade * 0.85);
+            ctx.strokeStyle = node.color;
+            ctx.lineWidth = Math.max(1.5, 2 * cam.zoom);
+            ctx.beginPath();
+            ctx.moveTo(pt.x, pt.y - hh);
+            ctx.lineTo(pt.x + hw, pt.y);
+            ctx.lineTo(pt.x, pt.y + hh);
+            ctx.lineTo(pt.x - hw, pt.y);
+            ctx.closePath();
+            ctx.stroke();
+
+            if (node.beam) {
+              const colW = Math.max(4, Math.round(12 * cam.zoom * (1 - p * 0.55)));
+              const colH = Math.max(20, Math.round(68 * cam.zoom));
+              ctx.globalAlpha = Math.max(0.08, fade * 0.42);
+              ctx.fillStyle = node.color;
+              ctx.fillRect(Math.round(pt.x - colW / 2), Math.round(pt.y - colH), colW, colH);
+              ctx.globalAlpha = Math.max(0.15, fade * 0.85);
+              for (let s = 0; s < 5; s++) {
+                const ang = p * Math.PI * 3 + s * 1.25;
+                const sx = pt.x + Math.cos(ang) * 10 * cam.zoom;
+                const sy = pt.y - (s * 12 + p * 26) * cam.zoom;
+                ctx.fillStyle = s % 2 === 0 ? '#ffffff' : node.color;
+                ctx.fillRect(Math.round(sx), Math.round(sy), Math.max(2, Math.round(3 * cam.zoom)), Math.max(2, Math.round(3 * cam.zoom)));
+              }
+            }
+            ctx.restore();
+          }
+        }
+      }
+
+      // Event ambient particles (Confetti, Star Wars hyperspace, Superhero aura, Halloween bats/embers)
+      const eventKind = currentFloor.activeEvent?.kind;
+      if (eventKind === 'SPRINT_CELEBRATION') {
         const confettiColors = ['#ffd147', '#3cd8ff', '#3be87a', '#ff5666', '#b07cff'];
         for (let i = 0; i < 42; i++) {
           const cx = ((i * 97 + Math.sin(timeSec * 2 + i) * 30) % Math.max(1, viewW));
           const cy = ((i * 53 + timeSec * (75 + (i % 4) * 20)) % Math.max(1, viewH));
           ctx.fillStyle = confettiColors[i % confettiColors.length];
           ctx.fillRect(Math.round(cx), Math.round(cy), 5, 5);
+        }
+      } else if (eventKind === 'STAR_WARS_PARTY') {
+        for (let i = 0; i < 32; i++) {
+          const sx = ((i * 113 + timeSec * (110 + (i % 3) * 40)) % Math.max(1, viewW));
+          const sy = ((i * 67 + Math.sin(timeSec + i) * 14) % Math.max(1, viewH));
+          ctx.fillStyle = i % 3 === 0 ? '#3cd8ff' : i % 3 === 1 ? '#ffd147' : '#ffffff';
+          ctx.fillRect(Math.round(sx), Math.round(sy), i % 2 === 0 ? 7 : 3, 2);
+        }
+      } else if (eventKind === 'SUPERHERO_PARTY') {
+        for (let i = 0; i < 28; i++) {
+          const ax = ((i * 101 + Math.sin(timeSec * 1.8 + i) * 22) % Math.max(1, viewW));
+          const ay = Math.max(1, viewH) - ((i * 49 + timeSec * (65 + (i % 3) * 18)) % Math.max(1, viewH));
+          ctx.fillStyle = i % 2 === 0 ? '#ffd147' : '#7ef3ff';
+          ctx.fillRect(Math.round(ax), Math.round(ay), 4, 4);
+        }
+      } else if (eventKind === 'HALLOWEEN_PARTY') {
+        for (let i = 0; i < 18; i++) {
+          const bx = ((i * 127 + timeSec * (45 + (i % 4) * 15)) % Math.max(1, viewW));
+          const by = ((i * 71 + Math.sin(timeSec * 4 + i) * 18) % Math.max(1, viewH));
+          if (i % 2 === 0) {
+            // Pixel bat silhouette
+            const wing = Math.sin(timeSec * 12 + i) > 0 ? -2 : 1;
+            ctx.fillStyle = '#1b1628';
+            ctx.fillRect(Math.round(bx - 4), Math.round(by + wing), 3, 2);
+            ctx.fillRect(Math.round(bx - 1), Math.round(by), 2, 2);
+            ctx.fillRect(Math.round(bx + 1), Math.round(by + wing), 3, 2);
+          } else {
+            ctx.fillStyle = i % 3 === 0 ? '#b07cff' : '#ff7b1c';
+            ctx.fillRect(Math.round(bx), Math.round(by), 4, 4);
+          }
         }
       }
 

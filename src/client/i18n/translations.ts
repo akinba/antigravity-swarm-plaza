@@ -227,6 +227,9 @@ const TR: Translations = {
     'Yaratıcı Çatı Loftu',
   ],
   events: {
+    STAR_WARS_PARTY: '⚔️ STAR WARS KOSTÜM PARTİSİ!',
+    SUPERHERO_PARTY: '🦸 SÜPER KAHRAMAN KOSTÜM PARTİSİ!',
+    HALLOWEEN_PARTY: '🎃 CADILAR BAYRAMI KOSTÜM PARTİSİ!',
     PIZZA_PARTY: '🍕 KAT PİZZA PARTİSİ!',
     WATERCOOLER_GOSSIP: '💧 SEBİL BAŞINDA DEDİKODU!',
     SPRINT_CELEBRATION: '🎉 SPRİNT KUTLAMASI!',
@@ -412,6 +415,9 @@ const EN: Translations = {
     'Creative Rooftop Loft',
   ],
   events: {
+    STAR_WARS_PARTY: '⚔️ STAR WARS COSTUME PARTY!',
+    SUPERHERO_PARTY: '🦸 SUPERHERO COSTUME PARTY!',
+    HALLOWEEN_PARTY: '🎃 HALLOWEEN COSTUME PARTY!',
     PIZZA_PARTY: '🍕 FLOOR PIZZA PARTY!',
     WATERCOOLER_GOSSIP: '💧 WATERCOOLER GOSSIP!',
     SPRINT_CELEBRATION: '🎉 SPRINT CELEBRATION!',
@@ -577,6 +583,14 @@ export const SERVER_TR_TO_EN: Record<string, string> = {
     '@analyst-grill Yes, guarded with Set + maxDepth 25.',
   '@Chief-Architect @all Demo Penthouse simülasyonu stabil.':
     '@Chief-Architect @all Demo Penthouse simulation is stable.',
+  '⚡ Beyaz tahtaya ışınlandım!': '⚡ Teleported to the whiteboard!',
+  '⚡ Ekibi beyaz tahtaya ışınladım!': '⚡ Teleported the team to the whiteboard!',
+  '⚔️ Güç seninle olsun!': '⚔️ May the Force be with you!',
+  '⚔️ Işın kılıcı hazır!': '⚔️ Lightsaber ready!',
+  '🦸 Pelerinler havaya!': '🦸 Capes up!',
+  '🦸 Bugünü biz kurtaracağız!': '🦸 We will save the day!',
+  '🎃 Şeker mi şaka mı?': '🎃 Trick or treat?',
+  '🎃 Balkabağı kostümüm nasıl?': '🎃 How is my pumpkin costume?',
 };
 
 export function localizeServerText(text: string | undefined, locale: Locale): string {
