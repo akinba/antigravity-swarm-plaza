@@ -1021,17 +1021,29 @@ export function buildPlazaSnapshot(
       activeProjectFloorId = group.id;
     }
 
-    // Aggregate swarm board messages & title from any root/member conversation on this floor
+    // Aggregate swarm board messages & title across ALL conversations on this floor
     let swarmTitle: string | undefined;
     const boardMessages: SwarmBoardMessage[] = [];
+    const seenBoardKeys = new Set<string>();
     for (const row of group.rows) {
       const boardInfo = scan.swarmBoardsByRootConvId.get(row.conversation_id);
       if (boardInfo) {
         if (boardInfo.title && !swarmTitle) swarmTitle = boardInfo.title;
-        boardMessages.push(...boardInfo.messages);
+        for (const msg of boardInfo.messages) {
+          const dedupKey = `${msg.agent}|${msg.time}|${msg.text}`;
+          if (!seenBoardKeys.has(dedupKey)) {
+            seenBoardKeys.add(dedupKey);
+            boardMessages.push(msg);
+          }
+        }
       }
     }
-    boardMessages.sort((a, b) => a.seq - b.seq);
+    boardMessages.sort((a, b) => {
+      const ta = parseTimestampMs(a.time);
+      const tb = parseTimestampMs(b.time);
+      if (ta && tb && ta !== tb) return ta - tb;
+      return a.seq - b.seq;
+    });
     const trimmedBoard = boardMessages.slice(-40);
 
     // Build candidate employees
@@ -1107,7 +1119,10 @@ export function buildPlazaSnapshot(
       }
     }
 
-    const swarmEdges = buildSwarmMentionEdges(trimmedBoard);
+    const swarmEdges = buildSwarmMentionEdges(
+      trimmedBoard,
+      employees.map((e) => e.name),
+    );
     const analytics = computeFloorAnalytics({
       employees,
       stepEventsByAgent,

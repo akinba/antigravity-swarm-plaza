@@ -350,3 +350,231 @@ describe('Floor 60m activity timeline & analytics buckets', () => {
     }
   });
 });
+
+describe('Renamed project display names & subagent/task messages/*.json board', () => {
+  it('resolves renamed Antigravity project names from ../config/projects/*.json by project_id and folderUri fallback', () => {
+    const rootTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'plaza-proj-rename-'));
+    const agyDir = path.join(rootTmp, 'antigravity');
+    const projectsConfigDir = path.join(rootTmp, 'config', 'projects');
+    fs.mkdirSync(agyDir, { recursive: true });
+    fs.mkdirSync(projectsConfigDir, { recursive: true });
+
+    try {
+      fs.writeFileSync(
+        path.join(projectsConfigDir, 'proj-1.json'),
+        JSON.stringify({
+          id: 'proj-1',
+          name: 'Bursa Veriler',
+          projectResources: {
+            resources: [{ folderUri: 'file:///c%3A/Users/demo/Downloads/msgs%C3%BC' }],
+          },
+        }),
+        'utf8',
+      );
+      fs.writeFileSync(
+        path.join(projectsConfigDir, 'proj-2.json'),
+        JSON.stringify({
+          id: 'proj-2',
+          name: 'Izmir Analiz',
+          projectResources: {
+            resources: [{ folderUri: 'file:///c%3A/Users/demo/Work/izmir-raw' }],
+          },
+        }),
+        'utf8',
+      );
+
+      const db = new DatabaseSync(path.join(agyDir, 'conversation_summaries.db'));
+      db.exec(`
+        CREATE TABLE conversation_summaries (
+          conversation_id TEXT PRIMARY KEY,
+          title TEXT,
+          step_count INTEGER,
+          last_modified_time TEXT,
+          workspace_uris TEXT,
+          status TEXT,
+          project_id TEXT,
+          not_fully_idle INTEGER,
+          killed INTEGER
+        );
+      `);
+      const nowIso = new Date().toISOString();
+      const stmt = db.prepare(
+        `INSERT INTO conversation_summaries (conversation_id, title, step_count, last_modified_time, workspace_uris, status, project_id, not_fully_idle, killed)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      );
+      // Match by project_id
+      stmt.run(
+        'conv-bursa',
+        'Session 1',
+        12,
+        nowIso,
+        '["file:///c%3A/Users/demo/Downloads/msgs%C3%BC"]',
+        'CASCADE_RUN_STATUS_RUNNING',
+        'proj-1',
+        1,
+        0,
+      );
+      // Fallback match by folderUri when project_id doesn't match
+      stmt.run(
+        'conv-izmir',
+        'Session 2',
+        8,
+        nowIso,
+        '["file:///c%3A/Users/demo/Work/izmir-raw"]',
+        'CASCADE_RUN_STATUS_RUNNING',
+        'unknown-proj-id',
+        1,
+        0,
+      );
+      db.close();
+
+      const snap = buildPlazaSnapshot(agyDir, '', false);
+      const bursaFloor = snap.floors.find((f) =>
+        f.workspacePath.toLowerCase().includes('msgsü'),
+      );
+      const izmirFloor = snap.floors.find((f) =>
+        f.workspacePath.toLowerCase().includes('izmir-raw'),
+      );
+
+      assert.ok(bursaFloor);
+      assert.equal(bursaFloor.companyName, 'Bursa Veriler');
+      assert.ok(izmirFloor);
+      assert.equal(izmirFloor.companyName, 'Izmir Analiz');
+    } finally {
+      fs.rmSync(rootTmp, { recursive: true, force: true });
+    }
+  });
+
+  it('populates boardMessages and multi-word swarmEdges from subagents/*.json and messages/*.json', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'plaza-subagent-board-'));
+    try {
+      const db = new DatabaseSync(path.join(tmpDir, 'conversation_summaries.db'));
+      db.exec(`
+        CREATE TABLE conversation_summaries (
+          conversation_id TEXT PRIMARY KEY,
+          title TEXT,
+          step_count INTEGER,
+          last_modified_time TEXT,
+          workspace_uris TEXT,
+          status TEXT,
+          project_id TEXT,
+          agent_name TEXT,
+          parent_conversation_id TEXT,
+          not_fully_idle INTEGER,
+          killed INTEGER
+        );
+      `);
+      const nowIso = new Date().toISOString();
+      const stmt = db.prepare(
+        `INSERT INTO conversation_summaries (conversation_id, title, step_count, last_modified_time, workspace_uris, status, project_id, agent_name, parent_conversation_id, not_fully_idle, killed)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      );
+      stmt.run(
+        'root-conv-1',
+        'Main Coordinator',
+        20,
+        nowIso,
+        '["file:///d%3A/Projects/Bursa"]',
+        'CASCADE_RUN_STATUS_RUNNING',
+        'proj-bursa',
+        'coordinator',
+        null,
+        1,
+        0,
+      );
+      stmt.run(
+        'sub-conv-1',
+        'Swarm Skill Reader',
+        10,
+        nowIso,
+        '[]',
+        'CASCADE_RUN_STATUS_RUNNING',
+        'proj-bursa',
+        'Swarm Skill Reader',
+        'root-conv-1',
+        1,
+        0,
+      );
+      db.close();
+
+      // Create .system_generated/subagents and messages (NO swarm/ folder)
+      const subDir = path.join(tmpDir, 'brain', 'root-conv-1', '.system_generated', 'subagents');
+      const rootMsgDir = path.join(tmpDir, 'brain', 'root-conv-1', '.system_generated', 'messages');
+      const subMsgDir = path.join(tmpDir, 'brain', 'sub-conv-1', '.system_generated', 'messages');
+      fs.mkdirSync(subDir, { recursive: true });
+      fs.mkdirSync(rootMsgDir, { recursive: true });
+      fs.mkdirSync(subMsgDir, { recursive: true });
+
+      fs.writeFileSync(
+        path.join(subDir, 'sub-conv-1.json'),
+        JSON.stringify({
+          conversationId: 'sub-conv-1',
+          subagentDescriptor: { typeName: 'skill-reader', role: 'Swarm Skill Reader' },
+          state: 'RUNNING',
+          prompt: 'Read all swarm skill specs',
+          createdAt: new Date(Date.now() - 10_000).toISOString(),
+        }),
+        'utf8',
+      );
+      fs.writeFileSync(
+        path.join(rootMsgDir, 'msg-1.json'),
+        JSON.stringify({
+          id: 'm1',
+          sender: 'root-conv-1',
+          recipient: 'sub-conv-1',
+          timestamp: new Date(Date.now() - 5_000).toISOString(),
+          renderDetails: { messageTitle: 'Analyze Skills' },
+          content: 'Please inspect SKILL.md and report back.',
+        }),
+        'utf8',
+      );
+      fs.writeFileSync(
+        path.join(subMsgDir, 'msg-2.json'),
+        JSON.stringify({
+          id: 'm2',
+          sender: 'sub-conv-1',
+          recipient: 'root-conv-1',
+          timestamp: nowIso,
+          renderDetails: { messageTitle: 'Skill Report' },
+          content: 'Found 3 skills ready for review.',
+        }),
+        'utf8',
+      );
+      // Should be skipped (system & read.json)
+      fs.writeFileSync(path.join(rootMsgDir, 'read.json'), JSON.stringify({ lastRead: 1 }), 'utf8');
+      fs.writeFileSync(
+        path.join(rootMsgDir, 'sys.json'),
+        JSON.stringify({ sender: 'system', content: '[swarm] new board message #5' }),
+        'utf8',
+      );
+
+      const snap = buildPlazaSnapshot(tmpDir, '', false);
+      const floor = snap.floors.find((f) => f.companyName === 'Bursa');
+      assert.ok(floor);
+      assert.ok(floor.boardMessages.length >= 2);
+      assert.ok(
+        floor.boardMessages.some(
+          (m) => m.agent === 'coordinator' && m.text.includes('@Swarm Skill Reader'),
+        ),
+      );
+      assert.ok(
+        floor.boardMessages.some(
+          (m) => m.agent === 'Swarm Skill Reader' && m.text.includes('@coordinator'),
+        ),
+      );
+      assert.ok(floor.swarmEdges && floor.swarmEdges.length >= 2);
+      assert.ok(
+        floor.swarmEdges.some(
+          (e) => e.from === 'coordinator' && e.to === 'Swarm Skill Reader',
+        ),
+      );
+      assert.ok(
+        floor.swarmEdges.some(
+          (e) => e.from === 'Swarm Skill Reader' && e.to === 'coordinator',
+        ),
+      );
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+});

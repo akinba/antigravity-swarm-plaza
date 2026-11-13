@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync, type DatabaseSyncOptions } from 'node:sqlite';
-import { normalizeWorkspacePath } from './config.js';
+import { normalizeWorkspaceKey, normalizeWorkspacePath } from './config.js';
 
 export interface ConversationSummaryRow {
   conversation_id: string;
@@ -95,6 +95,64 @@ export function getCompanyNameFromPath(workspacePath: string): string {
   return base || workspacePath;
 }
 
+export interface ProjectNamesMap {
+  byId: Map<string, string>;
+  byWorkspaceKey: Map<string, string>;
+}
+
+/**
+ * Scan `<parent_of_agyDataDir>/config/projects/*.json` read-only to map
+ * user-renamed Antigravity project display names by project ID and workspace URI.
+ */
+export function loadProjectNames(agyDataDir: string): ProjectNamesMap {
+  const byId = new Map<string, string>();
+  const byWorkspaceKey = new Map<string, string>();
+  const projectsDir = path.resolve(agyDataDir, '..', 'config', 'projects');
+
+  if (!fs.existsSync(projectsDir)) {
+    return { byId, byWorkspaceKey };
+  }
+
+  let files: string[];
+  try {
+    files = fs.readdirSync(projectsDir);
+  } catch {
+    return { byId, byWorkspaceKey };
+  }
+
+  for (const file of files) {
+    if (!file.endsWith('.json')) continue;
+    try {
+      const raw = fs.readFileSync(path.join(projectsDir, file), 'utf8');
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      const name = typeof parsed.name === 'string' ? parsed.name.trim() : '';
+      if (!name) continue;
+
+      if (typeof parsed.id === 'string' && parsed.id.trim()) {
+        byId.set(parsed.id.trim(), name);
+      }
+
+      const projectResources = parsed.projectResources as
+        | { resources?: Array<{ folderUri?: unknown }> }
+        | undefined;
+      if (Array.isArray(projectResources?.resources)) {
+        for (const res of projectResources.resources) {
+          if (typeof res?.folderUri === 'string' && res.folderUri.trim()) {
+            const decoded = parseWorkspaceUri(res.folderUri);
+            if (decoded) {
+              byWorkspaceKey.set(normalizeWorkspaceKey(decoded), name);
+            }
+          }
+        }
+      }
+    } catch {
+      // Skip malformed project JSON
+    }
+  }
+
+  return { byId, byWorkspaceKey };
+}
+
 /**
  * Open conversation_summaries.db strictly read-only and return all rows.
  * Returns [] if the DB file does not exist or cannot be read.
@@ -110,23 +168,33 @@ export function readConversationSummaries(agyDataDir: string): ConversationSumma
   try {
     const opts = { uri: true, readOnly: true } as unknown as DatabaseSyncOptions;
     db = new DatabaseSync(uri, opts);
+
+    const tableInfo = db
+      .prepare('PRAGMA table_info(conversation_summaries)')
+      .all() as Array<{ name: string }>;
+    const cols = new Set(tableInfo.map((c) => c.name));
+    if (cols.size === 0 || !cols.has('conversation_id')) {
+      return [];
+    }
+
+    const optCol = (name: string) => (cols.has(name) ? name : `NULL AS ${name}`);
     const stmt = db.prepare(`
       SELECT
         conversation_id,
-        title,
-        preview,
-        step_count,
-        last_modified_time,
-        workspace_uris,
-        status,
-        source,
-        project_id,
-        agent_name,
-        parent_conversation_id,
-        nesting_depth,
-        not_fully_idle,
-        killed,
-        last_user_input_time
+        ${optCol('title')},
+        ${optCol('preview')},
+        ${cols.has('step_count') ? 'step_count' : '0 AS step_count'},
+        ${optCol('last_modified_time')},
+        ${optCol('workspace_uris')},
+        ${optCol('status')},
+        ${optCol('source')},
+        ${optCol('project_id')},
+        ${optCol('agent_name')},
+        ${optCol('parent_conversation_id')},
+        ${optCol('nesting_depth')},
+        ${optCol('not_fully_idle')},
+        ${optCol('killed')},
+        ${optCol('last_user_input_time')}
       FROM conversation_summaries
     `);
     const rows = stmt.all() as unknown as ConversationSummaryRow[];
@@ -271,6 +339,24 @@ export function resolveConversationWorkspaces(
     }
   }
 
+  const projectNames = options?.agyDataDir
+    ? loadProjectNames(options.agyDataDir)
+    : { byId: new Map<string, string>(), byWorkspaceKey: new Map<string, string>() };
+
+  const resolveDisplayCompanyName = (
+    rootRow: ConversationSummaryRow,
+    workspacePath: string,
+    fallbackName: string,
+  ): string => {
+    const byId = rootRow.project_id ? projectNames.byId.get(rootRow.project_id) : undefined;
+    if (byId) return byId;
+    const byWs = workspacePath
+      ? projectNames.byWorkspaceKey.get(normalizeWorkspaceKey(workspacePath))
+      : undefined;
+    if (byWs) return byWs;
+    return fallbackName;
+  };
+
   const resolved = new Map<string, ResolvedWorkspaceInfo>();
 
   for (const row of rows) {
@@ -317,7 +403,11 @@ export function resolveConversationWorkspaces(
       const workspacePath = rootUris[0];
       resolved.set(convId, {
         workspacePath,
-        companyName: getCompanyNameFromPath(workspacePath),
+        companyName: resolveDisplayCompanyName(
+          rootRow,
+          workspacePath,
+          getCompanyNameFromPath(workspacePath),
+        ),
         isLobby: false,
         rootConversationId: rootId,
       });
@@ -333,11 +423,11 @@ export function resolveConversationWorkspaces(
     if (inferredPath) {
       const baseName = getCompanyNameFromPath(inferredPath);
       const rootTitle = rootRow.title?.trim();
-      const companyName =
+      const fallback =
         rootTitle && rootTitle.toLowerCase() === baseName.toLowerCase() ? rootTitle : baseName;
       resolved.set(convId, {
         workspacePath: inferredPath,
-        companyName,
+        companyName: resolveDisplayCompanyName(rootRow, inferredPath, fallback),
         isLobby: false,
         rootConversationId: rootId,
       });
@@ -353,7 +443,7 @@ export function resolveConversationWorkspaces(
     if (rootTitle && isSubstantialRoot) {
       resolved.set(convId, {
         workspacePath: `conversation://${rootId}`,
-        companyName: rootTitle,
+        companyName: resolveDisplayCompanyName(rootRow, '', rootTitle),
         isLobby: false,
         rootConversationId: rootId,
       });

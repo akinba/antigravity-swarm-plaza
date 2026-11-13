@@ -14,6 +14,8 @@ export interface SubagentMeta {
   role?: string;
   state?: string;
   workspaceUris?: string[];
+  prompt?: string;
+  createdAt?: string;
 }
 
 export interface SwarmMemberMeta {
@@ -337,27 +339,53 @@ export function readAgentLogs(agyDataDir: string, convId: string, limit = 25): A
   return entries.slice(entries.length - limit);
 }
 
-export function extractMentions(text: string): string[] {
-  const matches = text.matchAll(/@([a-zA-Z0-9_-]+)/g);
+export function extractMentions(text: string, knownNames?: string[]): string[] {
   const seen = new Set<string>();
   const result: string[] = [];
+  const add = (name: string) => {
+    const trimmed = name.trim();
+    if (trimmed && !seen.has(trimmed.toLowerCase())) {
+      seen.add(trimmed.toLowerCase());
+      result.push(trimmed);
+    }
+  };
+
+  if (knownNames && knownNames.length > 0) {
+    const lowerText = text.toLowerCase();
+    for (const candidate of knownNames) {
+      if (!candidate) continue;
+      if (lowerText.includes(`@${candidate.toLowerCase()}`)) {
+        add(candidate);
+      }
+    }
+  }
+
+  const matches = text.matchAll(/@([a-zA-Z0-9_-]+)/g);
   for (const match of matches) {
-    const name = match[1];
-    if (name && !seen.has(name)) {
-      seen.add(name);
-      result.push(name);
+    const token = match[1];
+    if (!token) continue;
+    // Skip partial first word if a multi-word known name starting with token was already matched
+    const alreadyCovered = result.some((r) =>
+      r.toLowerCase().startsWith(token.toLowerCase() + ' '),
+    );
+    if (!alreadyCovered) {
+      add(token);
     }
   }
   return result;
 }
 
-export function buildSwarmMentionEdges(messages: SwarmBoardMessage[]): SwarmMentionEdge[] {
+export function buildSwarmMentionEdges(
+  messages: SwarmBoardMessage[],
+  knownNames?: string[],
+): SwarmMentionEdge[] {
   const edgeMap = new Map<string, SwarmMentionEdge>();
 
   for (const msg of messages) {
-    const mentions = msg.mentions ?? extractMentions(msg.text);
+    const extracted = extractMentions(msg.text, knownNames);
+    const mentions = Array.from(new Set([...(msg.mentions ?? []), ...extracted]));
     for (const target of mentions) {
-      if (!target || target === msg.agent) continue;
+      if (!target || target.toLowerCase() === msg.agent.toLowerCase()) continue;
       const key = `${msg.agent}->${target}`;
       const existing = edgeMap.get(key);
       if (existing) {
@@ -479,6 +507,18 @@ export function scanBrainData(agyDataDir: string, conversationIds: string[]): Br
               workspaceUris: Array.isArray(parsed.workspaceUris)
                 ? parsed.workspaceUris.filter((u): u is string => typeof u === 'string')
                 : undefined,
+              prompt:
+                typeof parsed.prompt === 'string'
+                  ? parsed.prompt
+                  : typeof desc.prompt === 'string'
+                    ? desc.prompt
+                    : undefined,
+              createdAt:
+                typeof parsed.createdAt === 'string'
+                  ? parsed.createdAt
+                  : typeof parsed.timestamp === 'string'
+                    ? parsed.timestamp
+                    : undefined,
             };
             subagentMetaByConvId.set(subConvId, meta);
             if (!extraParentLinks.has(subConvId)) {
@@ -577,6 +617,160 @@ export function scanBrainData(agyDataDir: string, conversationIds: string[]): Br
 
     // Transcript tail
     transcriptByConvId.set(convId, scanTranscriptSummary(agyDataDir, convId));
+  }
+
+  // 3. Scan .system_generated/messages/*.json & subagent delegations across roots + subagents
+  const resolveRootId = (convId: string): string => {
+    const visited = new Set<string>();
+    let cur = convId;
+    while (extraParentLinks.has(cur) && !visited.has(cur) && visited.size < 25) {
+      visited.add(cur);
+      const p = extraParentLinks.get(cur)!;
+      if (visited.has(p)) break;
+      cur = p;
+    }
+    return cur;
+  };
+
+  const resolveAgentLabel = (rawId: string): string => {
+    if (!rawId) return 'unknown';
+    const taskMatch = rawId.match(/\/(task-[^/]+)$/i);
+    if (taskMatch) return taskMatch[1];
+    const subMeta = subagentMetaByConvId.get(rawId);
+    if (subMeta) return subMeta.role || subMeta.typeName || rawId.slice(0, 8);
+    const swarmMeta = swarmMemberByConvId.get(rawId);
+    if (swarmMeta) return swarmMeta.rosterName;
+    if (!extraParentLinks.has(rawId)) return 'coordinator';
+    return rawId.slice(0, 8);
+  };
+
+  const syntheticByRoot = new Map<string, SwarmBoardMessage[]>();
+  const allScanConvIds = Array.from(
+    new Set([...conversationIds, ...Array.from(subagentMetaByConvId.keys())]),
+  );
+
+  for (const convId of allScanConvIds) {
+    const messagesDir = path.join(brainDir, convId, '.system_generated', 'messages');
+    if (!fs.existsSync(messagesDir)) continue;
+
+    let files: string[];
+    try {
+      files = fs.readdirSync(messagesDir);
+    } catch {
+      continue;
+    }
+
+    const rootId = resolveRootId(convId);
+    for (const file of files) {
+      if (!file.endsWith('.json') || file === 'read.json') continue;
+      try {
+        const raw = fs.readFileSync(path.join(messagesDir, file), 'utf8');
+        const parsed = JSON.parse(raw) as Record<string, unknown>;
+        const senderRaw = typeof parsed.sender === 'string' ? parsed.sender.trim() : '';
+        if (!senderRaw || senderRaw.toLowerCase() === 'system') continue;
+
+        const contentRaw = typeof parsed.content === 'string' ? parsed.content.trim() : '';
+        if (/^\[swarm\]\s+new board message #\d+/i.test(contentRaw)) continue;
+
+        const recipientRaw =
+          typeof parsed.recipient === 'string' ? parsed.recipient.trim() : '';
+        const senderLabel = resolveAgentLabel(senderRaw);
+        const recipientLabel = recipientRaw ? resolveAgentLabel(recipientRaw) : '';
+
+        const renderDetails = parsed.renderDetails as
+          | { messageTitle?: unknown }
+          | undefined;
+        const title =
+          typeof renderDetails?.messageTitle === 'string'
+            ? renderDetails.messageTitle.trim()
+            : '';
+        const excerpt = contentRaw ? truncateText(contentRaw, 110) : '';
+        let combined = title && excerpt ? `${title}: ${excerpt}` : title || excerpt || 'Message';
+
+        const mentions: string[] = [];
+        if (
+          recipientLabel &&
+          recipientLabel !== 'unknown' &&
+          recipientLabel.toLowerCase() !== senderLabel.toLowerCase()
+        ) {
+          mentions.push(recipientLabel);
+          if (!combined.toLowerCase().includes(`@${recipientLabel.toLowerCase()}`)) {
+            combined = `@${recipientLabel} ${combined}`;
+          }
+        }
+        for (const m of extractMentions(combined)) {
+          if (!mentions.some((x) => x.toLowerCase() === m.toLowerCase())) {
+            mentions.push(m);
+          }
+        }
+
+        const time =
+          typeof parsed.timestamp === 'string'
+            ? parsed.timestamp
+            : typeof parsed.createdAt === 'string'
+              ? parsed.createdAt
+              : '';
+
+        const list = syntheticByRoot.get(rootId) ?? [];
+        list.push({
+          seq: 0,
+          agent: senderLabel,
+          text: truncateText(combined, 160),
+          time,
+          kind: 'subagent_message',
+          mentions,
+        });
+        syntheticByRoot.set(rootId, list);
+      } catch {
+        // Skip malformed message JSON
+      }
+    }
+  }
+
+  // Synthesize delegation messages for subagents without an explicit delegation message
+  for (const subMeta of subagentMetaByConvId.values()) {
+    const rootId = resolveRootId(subMeta.conversationId);
+    const subLabel = subMeta.role || subMeta.typeName || subMeta.conversationId.slice(0, 8);
+    const list = syntheticByRoot.get(rootId) ?? [];
+    const alreadyRepresented = list.some(
+      (m) =>
+        m.agent.toLowerCase() === 'coordinator' &&
+        (m.mentions ?? []).some((t) => t.toLowerCase() === subLabel.toLowerCase()),
+    );
+    if (!alreadyRepresented) {
+      const summary = truncateText(
+        subMeta.prompt || subMeta.role || subMeta.typeName || 'Subagent delegated',
+        110,
+      );
+      list.push({
+        seq: 0,
+        agent: 'coordinator',
+        text: `@${subLabel} ${summary}`,
+        time: subMeta.createdAt || '',
+        kind: 'delegation',
+        mentions: [subLabel],
+      });
+      syntheticByRoot.set(rootId, list);
+    }
+  }
+
+  for (const [rootId, synthMessages] of syntheticByRoot.entries()) {
+    if (synthMessages.length === 0) continue;
+    const existing = swarmBoardsByRootConvId.get(rootId);
+    const merged = [...(existing?.messages ?? []), ...synthMessages];
+    merged.sort((a, b) => {
+      const ta = a.time ? Date.parse(a.time) : 0;
+      const tb = b.time ? Date.parse(b.time) : 0;
+      if (ta && tb && ta !== tb) return ta - tb;
+      return a.seq - b.seq;
+    });
+    merged.forEach((m, idx) => {
+      if (!m.seq) m.seq = idx + 1;
+    });
+    swarmBoardsByRootConvId.set(rootId, {
+      title: existing?.title,
+      messages: merged.slice(-40),
+    });
   }
 
   return {
