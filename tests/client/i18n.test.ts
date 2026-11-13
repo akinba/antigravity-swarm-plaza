@@ -286,5 +286,24 @@ describe('i18n browser locale & server snapshot localization', () => {
     assert.equal(DICTIONARIES.en.alertModal.filterCritical, 'CRITICAL');
     assert.ok(DICTIONARIES.tr.alertModal.filterAll.length > 0);
     assert.ok(DICTIONARIES.en.alertModal.filterAll.length > 0);
+
+    // Gantt Work Plan tab translations
+    assert.equal(DICTIONARIES.tr.whiteboardModal.ganttTab, '📅 İŞ PLANI (GANTT)');
+    assert.equal(DICTIONARIES.en.whiteboardModal.ganttTab, '📅 WORK PLAN (GANTT)');
+    const ganttKeys = [
+      'ganttTab',
+      'ganttTitle',
+      'ganttLegendCoding',
+      'ganttLegendAnalysis',
+      'ganttLegendTesting',
+      'ganttLegendCoord',
+      'ganttLegendBreak',
+      'ganttSequenceTitle',
+      'ganttFinishedThenStarted',
+    ] as const;
+    for (const key of ganttKeys) {
+      assert.ok(DICTIONARIES.tr.whiteboardModal[key].length > 0, `tr.whiteboardModal.${key}`);
+      assert.ok(DICTIONARIES.en.whiteboardModal[key].length > 0, `en.whiteboardModal.${key}`);
+    }
   });
 });

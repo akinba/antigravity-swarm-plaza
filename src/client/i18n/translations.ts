@@ -135,6 +135,15 @@ export interface Translations {
     creditUsageLabel: string;
     stepsAndHealth: string;
     inspectProfile: string;
+    ganttTab: string;
+    ganttTitle: string;
+    ganttLegendCoding: string;
+    ganttLegendAnalysis: string;
+    ganttLegendTesting: string;
+    ganttLegendCoord: string;
+    ganttLegendBreak: string;
+    ganttSequenceTitle: string;
+    ganttFinishedThenStarted: string;
   };
   analyticsModal: {
     title: string;
@@ -359,6 +368,15 @@ const TR: Translations = {
     creditUsageLabel: 'KREDİ & TOKEN (~TAHMİNİ)',
     stepsAndHealth: 'ADIM & SAĞLIK (HP)',
     inspectProfile: 'RPG Kartını Aç',
+    ganttTab: '📅 İŞ PLANI (GANTT)',
+    ganttTitle: 'OTURUM İŞ PLANI & ZAMAN ÇİZELGESİ (GANTT)',
+    ganttLegendCoding: '💻 Kodladı',
+    ganttLegendAnalysis: '🔍 Analiz Etti',
+    ganttLegendTesting: '🧪 Test & Doğrulama',
+    ganttLegendCoord: '📊 Planladı / Sundu',
+    ganttLegendBreak: '☕ Moladaydı / Beklemede',
+    ganttSequenceTitle: '🔄 SIRALI İŞ AKIŞI (BU İŞ BİTİNCE ŞUNA BAŞLANDI)',
+    ganttFinishedThenStarted: 'tamamlandı ➔ sıradaki iş başladı:',
   },
   analyticsModal: {
     title: 'KAT ANALİTİĞİ & TELEMETRİ',
@@ -584,6 +602,15 @@ const EN: Translations = {
     creditUsageLabel: 'CREDIT & TOKENS (~EST.)',
     stepsAndHealth: 'STEPS & HEALTH (HP)',
     inspectProfile: 'Open RPG Card',
+    ganttTab: '📅 WORK PLAN (GANTT)',
+    ganttTitle: 'SESSION WORK PLAN & TIMELINE (GANTT)',
+    ganttLegendCoding: '💻 Coded',
+    ganttLegendAnalysis: '🔍 Analyzed',
+    ganttLegendTesting: '🧪 Tested & Verified',
+    ganttLegendCoord: '📊 Planned / Presented',
+    ganttLegendBreak: '☕ On Break / Waiting',
+    ganttSequenceTitle: '🔄 SEQUENTIAL WORKFLOW (FINISHED ➔ STARTED NEXT)',
+    ganttFinishedThenStarted: 'finished ➔ next task started:',
   },
   analyticsModal: {
     title: 'FLOOR ANALYTICS & TELEMETRY',

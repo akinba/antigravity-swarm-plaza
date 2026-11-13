@@ -34,7 +34,8 @@ function formatCompactTokens(val: number): string {
 const EmployeePortraitCanvas: React.FC<{
   employee: OfficeEmployee;
   activeEventKind?: FloorEventKind | null;
-}> = ({ employee, activeEventKind }) => {
+  size?: number;
+}> = ({ employee, activeEventKind, size = 64 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -42,24 +43,61 @@ const EmployeePortraitCanvas: React.FC<{
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    drawEmployeePortrait(ctx, employee, 64, activeEventKind ?? null);
-  }, [employee, activeEventKind]);
+    drawEmployeePortrait(ctx, employee, size, activeEventKind ?? null);
+  }, [employee, activeEventKind, size]);
 
   return (
     <canvas
       ref={canvasRef}
-      width={64}
-      height={64}
+      width={size}
+      height={size}
       style={{
-        width: 64,
-        height: 64,
+        width: size,
+        height: size,
         imageRendering: 'pixelated',
         background: '#111625',
         border: '2px solid #2b3554',
+        flexShrink: 0,
       }}
     />
   );
 };
+
+type WorkPhase = 'coding' | 'analysis' | 'testing' | 'coord' | 'break';
+
+const PHASE_STYLES: Record<WorkPhase, { color: string; bg: string; border: string; icon: string }> = {
+  coding: { color: '#00e5ff', bg: 'rgba(0, 229, 255, 0.16)', border: '#0097a7', icon: '💻' },
+  analysis: { color: '#b388ff', bg: 'rgba(179, 136, 255, 0.16)', border: '#6c49b8', icon: '🔍' },
+  testing: { color: '#00e676', bg: 'rgba(0, 230, 118, 0.16)', border: '#1b8a4b', icon: '🧪' },
+  coord: { color: '#ffd54f', bg: 'rgba(255, 213, 79, 0.16)', border: '#9c7818', icon: '📊' },
+  break: { color: '#78909c', bg: 'rgba(120, 144, 156, 0.16)', border: '#4b5d66', icon: '☕' },
+};
+
+function classifyWorkPhase(text: string, emp?: OfficeEmployee): WorkPhase {
+  const lower = text.toLowerCase();
+  if (emp && (emp.activity === 'coffee' || emp.activity === 'gaming' || emp.activity === 'lounging' || emp.activity === 'sleeping' || emp.activity === 'watercooler')) {
+    return 'break';
+  }
+  if (/(test|pass|exit 0|typecheck|verify|doğrula|screenshot|preview|grill|audit)/i.test(lower)) {
+    return 'testing';
+  }
+  if (/(analiz|analy|inspect|investigat|keşif|read|audit|review|check|incele)/i.test(lower)) {
+    return 'analysis';
+  }
+  if (/(plan|wave|assign|görev|brief|present|sunum|coordinator|boss|stage|commit|push)/i.test(lower) || emp?.isCoordinator) {
+    return 'coord';
+  }
+  if (/(edit|implement|build|fix|add|ekle|kod|refactor|modal|sprite|canvas|ts|tsx|css)/i.test(lower) || emp?.status === 'working') {
+    return 'coding';
+  }
+  return emp?.status === 'waiting' || emp?.status === 'idle' ? 'break' : 'coding';
+}
+
+function summarizeSnippet(text: string, maxLen = 72): string {
+  const cleaned = text.replace(/@[a-zA-Z0-9_-]+/g, '').replace(/\s+/g, ' ').trim();
+  if (!cleaned) return '...';
+  return cleaned.length > maxLen ? `${cleaned.slice(0, maxLen - 1)}…` : cleaned;
+}
 
 function renderMessageText(text: string): React.ReactNode {
   const parts = text.split(/(@[a-zA-Z0-9_-]+)/g);
@@ -126,7 +164,7 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
   onClose,
 }) => {
   const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState<'feed' | 'personnel' | 'tasks'>('feed');
+  const [activeTab, setActiveTab] = useState<'feed' | 'personnel' | 'tasks' | 'gantt'>('feed');
   const feedRef = useRef<HTMLDivElement | null>(null);
   const isProgrammaticScrollRef = useRef(false);
   const scrollTimerRef = useRef<number | null>(null);
@@ -391,6 +429,16 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
             }}
           >
             {t.whiteboardModal.taskFlowTab} ({filteredTaskNodes.length})
+          </button>
+          <button
+            type="button"
+            className={`pixel-tab ${activeTab === 'gantt' ? 'active' : ''}`}
+            onClick={() => {
+              playSelectBlip();
+              setActiveTab('gantt');
+            }}
+          >
+            {t.whiteboardModal.ganttTab}
           </button>
           <button
             type="button"
@@ -1154,6 +1202,468 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                 );
               })
             )}
+          </div>
+        )}
+
+        {activeTab === 'gantt' && (
+          <div
+            className="pixel-panel-inset"
+            style={{
+              padding: 12,
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+              maxHeight: 490,
+            }}
+          >
+            {(() => {
+              const phaseLabels: Record<WorkPhase, string> = {
+                coding: t.whiteboardModal.ganttLegendCoding,
+                analysis: t.whiteboardModal.ganttLegendAnalysis,
+                testing: t.whiteboardModal.ganttLegendTesting,
+                coord: t.whiteboardModal.ganttLegendCoord,
+                break: t.whiteboardModal.ganttLegendBreak,
+              };
+
+              const orderedMsgs = [...messages].sort((a, b) => a.seq - b.seq);
+
+              const swimlanes = employees.map((emp) => {
+                const empKey = emp.name.toLowerCase();
+                const empMsgs = orderedMsgs.filter((m) => {
+                  const agentLow = m.agent.toLowerCase();
+                  return (
+                    agentLow === empKey ||
+                    (emp.isCoordinator && agentLow === 'coordinator')
+                  );
+                });
+
+                interface PhaseSeg {
+                  phase: WorkPhase;
+                  timeLabel: string;
+                  detail: string;
+                  weight: number;
+                }
+
+                const segments: PhaseSeg[] = [];
+                for (const m of empMsgs) {
+                  const phase = classifyWorkPhase(m.text, undefined);
+                  const detail = summarizeSnippet(m.text, 80);
+                  const prev = segments[segments.length - 1];
+                  if (prev && prev.phase === phase) {
+                    prev.weight += 1;
+                    prev.timeLabel = m.time;
+                    prev.detail = detail;
+                  } else {
+                    segments.push({ phase, timeLabel: m.time, detail, weight: 1 });
+                  }
+                }
+
+                if (segments.length === 0) {
+                  const initialPhase: WorkPhase = emp.isCoordinator
+                    ? 'coord'
+                    : /qa|verif|test|grill|analyst/i.test(emp.roleTitle + emp.name)
+                      ? 'analysis'
+                      : 'coding';
+                  segments.push({
+                    phase: initialPhase,
+                    timeLabel: 'T+0%',
+                    detail: emp.roleTitle,
+                    weight: 2,
+                  });
+                  const currentPhase = classifyWorkPhase(emp.speechBubble || emp.roleTitle, emp);
+                  if (currentPhase !== initialPhase) {
+                    segments.push({
+                      phase: currentPhase,
+                      timeLabel: 'NOW',
+                      detail: emp.speechBubble || t.activities[emp.activity],
+                      weight: 2,
+                    });
+                  }
+                } else {
+                  const currentPhase = classifyWorkPhase(emp.speechBubble || '', emp);
+                  const last = segments[segments.length - 1];
+                  if (last && last.phase !== currentPhase) {
+                    segments.push({
+                      phase: currentPhase,
+                      timeLabel: 'NOW',
+                      detail: emp.speechBubble || t.activities[emp.activity],
+                      weight: 1,
+                    });
+                  }
+                }
+
+                const totalWeight = segments.reduce((sum, s) => sum + s.weight, 0) || 1;
+                return { emp, segments, totalWeight };
+              });
+
+              const handoffSteps: Array<{
+                id: string;
+                seq: number;
+                time: string;
+                fromName: string;
+                fromPhase: WorkPhase;
+                fromText: string;
+                toNames: string[];
+                toPhase: WorkPhase;
+                toText: string;
+              }> = [];
+
+              for (let i = 0; i < orderedMsgs.length - 1; i++) {
+                const cur = orderedMsgs[i];
+                const nxt = orderedMsgs[i + 1];
+                const curTargets = (cur.mentions ?? []).filter((m) =>
+                  validSceneAgents ? validSceneAgents.has(m.toLowerCase()) : true,
+                );
+                if (
+                  cur.agent.toLowerCase() !== nxt.agent.toLowerCase() &&
+                  (curTargets.length > 0 || i >= Math.max(0, orderedMsgs.length - 8))
+                ) {
+                  const fromEmp = employees.find(
+                    (e) =>
+                      e.name.toLowerCase() === cur.agent.toLowerCase() ||
+                      (e.isCoordinator && cur.agent.toLowerCase() === 'coordinator'),
+                  );
+                  const toEmp = employees.find(
+                    (e) =>
+                      e.name.toLowerCase() === nxt.agent.toLowerCase() ||
+                      (e.isCoordinator && nxt.agent.toLowerCase() === 'coordinator'),
+                  );
+                  handoffSteps.push({
+                    id: `${cur.seq}-${nxt.seq}`,
+                    seq: cur.seq,
+                    time: `${cur.time} ➔ ${nxt.time}`,
+                    fromName: cur.agent,
+                    fromPhase: classifyWorkPhase(cur.text, fromEmp),
+                    fromText: summarizeSnippet(cur.text, 68),
+                    toNames: curTargets.length > 0 ? curTargets.slice(0, 3) : [nxt.agent],
+                    toPhase: classifyWorkPhase(nxt.text, toEmp),
+                    toText: summarizeSnippet(nxt.text, 68),
+                  });
+                }
+              }
+
+              const recentHandoffs = handoffSteps.slice(-8).reverse();
+
+              return (
+                <>
+                  {/* Header & Legend */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 8,
+                      flexWrap: 'wrap',
+                      padding: '8px 10px',
+                      background: '#131929',
+                      border: '2px solid #2b3554',
+                    }}
+                  >
+                    <span className="pixel-title" style={{ fontSize: 10, color: '#ffd147' }}>
+                      {t.whiteboardModal.ganttTitle}
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      {(Object.keys(PHASE_STYLES) as WorkPhase[]).map((phase) => {
+                        const st = PHASE_STYLES[phase];
+                        return (
+                          <span
+                            key={phase}
+                            className="pixel-badge"
+                            style={{
+                              color: st.color,
+                              background: st.bg,
+                              borderColor: st.border,
+                              fontSize: 9,
+                            }}
+                          >
+                            {phaseLabels[phase]}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Gantt Time Axis */}
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '170px 1fr',
+                      gap: 10,
+                      padding: '0 8px',
+                      fontSize: 9,
+                      color: 'var(--text-dim)',
+                      fontFamily: 'monospace',
+                    }}
+                  >
+                    <span>AGENT / SWIMLANE</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>T+0%</span>
+                      <span>25%</span>
+                      <span>50%</span>
+                      <span>75%</span>
+                      <span style={{ color: '#3be87a', fontWeight: 700 }}>NOW ●</span>
+                    </div>
+                  </div>
+
+                  {/* Swimlanes */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {swimlanes.map(({ emp, segments, totalWeight }) => {
+                      const statusColor =
+                        emp.status === 'working'
+                          ? '#3be87a'
+                          : emp.status === 'error'
+                            ? '#ff5666'
+                            : '#ffbe3b';
+                      return (
+                        <div
+                          key={`gantt-${emp.id}`}
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: '170px 1fr',
+                            gap: 10,
+                            padding: '7px 8px',
+                            background: '#171c2b',
+                            border: '1px solid #2d3654',
+                            alignItems: 'center',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                            <EmployeePortraitCanvas
+                              employee={emp}
+                              activeEventKind={activeEventKind}
+                              size={36}
+                            />
+                            <div style={{ minWidth: 0 }}>
+                              <div
+                                className="pixel-title"
+                                style={{
+                                  fontSize: 9,
+                                  color: '#f4f6fc',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {emp.name}
+                              </div>
+                              <div style={{ fontSize: 9, color: statusColor }}>
+                                ● {t.statuses[emp.status]}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              width: '100%',
+                              background: '#0f1421',
+                              padding: 4,
+                              border: '1px solid #232b44',
+                            }}
+                          >
+                            {segments.map((seg, idx) => {
+                              const st = PHASE_STYLES[seg.phase];
+                              const pct = Math.max(14, Math.round((seg.weight / totalWeight) * 100));
+                              return (
+                                <React.Fragment key={`${emp.id}-seg-${idx}`}>
+                                  {idx > 0 && (
+                                    <span
+                                      style={{
+                                        color: '#ffd147',
+                                        fontSize: 10,
+                                        fontWeight: 700,
+                                        flexShrink: 0,
+                                      }}
+                                    >
+                                      ➔
+                                    </span>
+                                  )}
+                                  <div
+                                    title={`${phaseLabels[seg.phase]} (${seg.timeLabel}): ${seg.detail}`}
+                                    style={{
+                                      flex: `${pct} 1 0%`,
+                                      minWidth: 0,
+                                      padding: '4px 6px',
+                                      background: st.bg,
+                                      border: `1px solid ${st.border}`,
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      gap: 1,
+                                    }}
+                                  >
+                                    <div
+                                      style={{
+                                        fontSize: 9,
+                                        fontWeight: 700,
+                                        color: st.color,
+                                        whiteSpace: 'nowrap',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                      }}
+                                    >
+                                      {phaseLabels[seg.phase]}
+                                    </div>
+                                    <div
+                                      style={{
+                                        fontSize: 9,
+                                        color: '#9aa7c7',
+                                        whiteSpace: 'nowrap',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                      }}
+                                    >
+                                      {seg.timeLabel} · {seg.detail}
+                                    </div>
+                                  </div>
+                                </React.Fragment>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Sequential Workflow Chain */}
+                  <div
+                    style={{
+                      marginTop: 4,
+                      padding: '8px 10px',
+                      background: '#131929',
+                      border: '2px solid #2b3554',
+                    }}
+                  >
+                    <div
+                      className="pixel-title"
+                      style={{ fontSize: 10, color: '#3cd8ff', marginBottom: 8 }}
+                    >
+                      {t.whiteboardModal.ganttSequenceTitle}
+                    </div>
+                    {recentHandoffs.length === 0 ? (
+                      <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                        {t.whiteboardModal.noTasksYet}
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {recentHandoffs.map((step) => {
+                          const fromSt = PHASE_STYLES[step.fromPhase];
+                          const toSt = PHASE_STYLES[step.toPhase];
+                          return (
+                            <div
+                              key={step.id}
+                              style={{
+                                display: 'grid',
+                                gridTemplateColumns: '1fr auto 1fr',
+                                gap: 8,
+                                alignItems: 'center',
+                                padding: '7px 10px',
+                                background: '#171c2b',
+                                border: '1px solid #2d3654',
+                                fontSize: 11,
+                              }}
+                            >
+                              {/* Left: Finished Task */}
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                  <span className="mention-chip">@{step.fromName}</span>
+                                  <span
+                                    className="pixel-badge"
+                                    style={{
+                                      color: fromSt.color,
+                                      background: fromSt.bg,
+                                      borderColor: fromSt.border,
+                                      fontSize: 9,
+                                    }}
+                                  >
+                                    {phaseLabels[step.fromPhase]}
+                                  </span>
+                                  <span style={{ fontSize: 9, color: 'var(--text-dim)', fontFamily: 'monospace' }}>
+                                    #{step.seq}
+                                  </span>
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: 10,
+                                    color: '#b8c5e3',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {step.fromText}
+                                </div>
+                              </div>
+
+                              {/* Center: Transition */}
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  alignItems: 'center',
+                                  gap: 2,
+                                  padding: '0 4px',
+                                }}
+                              >
+                                <span
+                                  className="pixel-badge"
+                                  style={{
+                                    color: '#ffd147',
+                                    background: '#262113',
+                                    borderColor: '#786221',
+                                    fontSize: 9,
+                                  }}
+                                >
+                                  {t.whiteboardModal.ganttFinishedThenStarted}
+                                </span>
+                                <span style={{ fontSize: 9, color: 'var(--text-dim)', fontFamily: 'monospace' }}>
+                                  {step.time}
+                                </span>
+                              </div>
+
+                              {/* Right: Started Next Task */}
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                  {step.toNames.map((n) => (
+                                    <span key={n} className="mention-chip">
+                                      @{n}
+                                    </span>
+                                  ))}
+                                  <span
+                                    className="pixel-badge"
+                                    style={{
+                                      color: toSt.color,
+                                      background: toSt.bg,
+                                      borderColor: toSt.border,
+                                      fontSize: 9,
+                                    }}
+                                  >
+                                    {phaseLabels[step.toPhase]}
+                                  </span>
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: 10,
+                                    color: '#dce6ff',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {step.toText}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
           </div>
         )}
       </div>
