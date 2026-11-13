@@ -133,32 +133,45 @@ describe('pixelSprites gender, hair, outfit palettes & rendering', () => {
     assert.deepEqual([...femaleOutfits].sort(), ['skirt_blazer', 'tailored_suit']);
   });
 
-  it('renders drawEmployeeSprite and drawEmployeePortrait with positive fillRect dimensions', () => {
-    const zooms = [0.75, 1.0, 2.0];
-    const families: ModelFamily[] = ['argon', 'hydrogen', 'flash', 'carbon', 'pro'];
+  it('renders drawEmployeeSprite and drawEmployeePortrait with positive fillRect dimensions and graceful female proportions', () => {
+    const zooms = [0.75, 1.0, 1.5, 2.0];
+    const families: ModelFamily[] = [
+      'argon',
+      'hydrogen',
+      'flash',
+      'carbon',
+      'pro',
+      'claude',
+      'gpt',
+      'other',
+    ];
     const poses: Array<{ activity: OfficeEmployee['activity']; isWalking: boolean }> = [
       { activity: 'coding', isWalking: false },
       { activity: 'coffee', isWalking: true },
       { activity: 'presenting', isWalking: false },
+      { activity: 'sleeping', isWalking: false },
     ];
 
-    // Find representative IDs covering all female/male styles & outfits
+    // Cover all 8 (4 female hairstyles x 2 outfits) + all 4 male hairstyles
     const sampleIds: string[] = [];
-    const seenFemaleHair = new Set<string>();
+    const seenFemaleCombo = new Set<string>();
     const seenMaleHair = new Set<string>();
-    const seenOutfit = new Set<string>();
-    for (let i = 0; i < 200; i++) {
+    for (let i = 0; i < 400; i++) {
       const uuid = `a1b2c3d4-0000-4000-8000-${i.toString(16).padStart(12, '0')}`;
       const p = getEmployeePalette(uuid);
-      if (p.gender === 'female' && (!seenFemaleHair.has(p.femaleHairStyle) || !seenOutfit.has(p.femaleOutfit))) {
-        seenFemaleHair.add(p.femaleHairStyle);
-        seenOutfit.add(p.femaleOutfit);
-        sampleIds.push(uuid);
-      } else if (p.gender === 'male' && !seenMaleHair.has(p.maleHairStyle)) {
+      if (p.gender === 'female') {
+        const key = `${p.femaleHairStyle}:${p.femaleOutfit}`;
+        if (!seenFemaleCombo.has(key)) {
+          seenFemaleCombo.add(key);
+          sampleIds.push(uuid);
+        }
+      } else if (!seenMaleHair.has(p.maleHairStyle)) {
         seenMaleHair.add(p.maleHairStyle);
         sampleIds.push(uuid);
       }
     }
+    assert.equal(seenFemaleCombo.size, 8);
+    assert.equal(seenMaleHair.size, 4);
 
     for (const id of sampleIds) {
       for (const family of families) {
@@ -172,7 +185,7 @@ describe('pixelSprites gender, hair, outfit palettes & rendering', () => {
               200,
               200,
               zoom,
-              'SE',
+              pose.isWalking ? 'SW' : 'SE',
               pose.isWalking,
               0.35,
               1.5,
@@ -203,6 +216,67 @@ describe('pixelSprites gender, hair, outfit palettes & rendering', () => {
         }
       }
     }
+
+    // Verify female shoulder/torso span is strictly slimmer than male in both 2.5D sprite & 32x32 portrait
+    const bobId = sampleIds.find((id) => {
+      const p = getEmployeePalette(id);
+      return p.gender === 'female' && p.femaleHairStyle === 'bob_cut';
+    })!;
+    const { ctx: fSprCtx, rects: fSprRects } = createMockCanvasContext();
+    const { ctx: mSprCtx, rects: mSprRects } = createMockCanvasContext();
+    drawEmployeeSprite(
+      fSprCtx,
+      makeEmployee(bobId, 'pro', 'presenting', 'female'),
+      200,
+      200,
+      1,
+      'SE',
+      false,
+      0,
+      0,
+      false,
+      false,
+      1,
+      false,
+    );
+    drawEmployeeSprite(
+      mSprCtx,
+      makeEmployee(bobId, 'pro', 'presenting', 'male'),
+      200,
+      200,
+      1,
+      'SE',
+      false,
+      0,
+      0,
+      false,
+      false,
+      1,
+      false,
+    );
+    // Torso/arm band around y in [180..190] (baseY=200 -> baseY-20..baseY-10)
+    const bandSpan = (rs: RecordedRect[]) => {
+      const torsoBand = rs.filter((r) => r.y >= 180 && r.y <= 188 && r.w <= 20);
+      const minX = Math.min(...torsoBand.map((r) => r.x));
+      const maxX = Math.max(...torsoBand.map((r) => r.x + r.w));
+      return maxX - minX;
+    };
+    assert.ok(
+      bandSpan(fSprRects) < bandSpan(mSprRects),
+      `Expected female torso/arm span (${bandSpan(fSprRects)}) < male (${bandSpan(mSprRects)})`,
+    );
+
+    const { ctx: fPortCtx, rects: fPortRects } = createMockCanvasContext();
+    const { ctx: mPortCtx, rects: mPortRects } = createMockCanvasContext();
+    drawEmployeePortrait(fPortCtx, makeEmployee(bobId, 'pro', 'coding', 'female'), 32);
+    drawEmployeePortrait(mPortCtx, makeEmployee(bobId, 'pro', 'coding', 'male'), 32);
+    // Exclude full-bleed 32px portrait background rects
+    const shoulderWidth = (rs: RecordedRect[]) =>
+      Math.max(...rs.filter((r) => r.w < 32 && r.y >= 21).map((r) => r.w));
+    assert.ok(
+      shoulderWidth(fPortRects) < shoulderWidth(mPortRects),
+      `Expected female portrait shoulder width (${shoulderWidth(fPortRects)}) < male (${shoulderWidth(mPortRects)})`,
+    );
   });
 
   it('renders STAR_WARS_PARTY, SUPERHERO_PARTY, and HALLOWEEN_PARTY across all 4 variants with positive fillRects', () => {
@@ -212,6 +286,7 @@ describe('pixelSprites gender, hair, outfit palettes & rendering', () => {
       'HALLOWEEN_PARTY',
     ];
     const zooms = [0.75, 1.0, 2.0];
+    const genders: Array<'female' | 'male'> = ['female', 'male'];
 
     // Pick 4 IDs covering costume variants 0, 1, 2, 3
     const variantIds = new Map<number, string>();
@@ -224,27 +299,29 @@ describe('pixelSprites gender, hair, outfit palettes & rendering', () => {
 
     for (const eventKind of costumeEvents) {
       for (const [, id] of variantIds) {
-        const emp = makeEmployee(id, 'flash', 'coding');
-        for (const zoom of zooms) {
-          const { ctx, rects } = createMockCanvasContext();
-          drawEmployeeSprite(ctx, emp, 180, 180, zoom, 'SE', false, 0, 1.2, false, false, 1, false, eventKind);
-          assert.ok(rects.length > 0);
-          for (const r of rects) {
+        for (const gender of genders) {
+          const emp = makeEmployee(id, 'flash', 'coding', gender);
+          for (const zoom of zooms) {
+            const { ctx, rects } = createMockCanvasContext();
+            drawEmployeeSprite(ctx, emp, 180, 180, zoom, 'SE', false, 0, 1.2, false, false, 1, false, eventKind);
+            assert.ok(rects.length > 0);
+            for (const r of rects) {
+              assert.ok(
+                Number.isFinite(r.x) && Number.isFinite(r.y) && r.w > 0 && r.h > 0,
+                `Invalid costume sprite fillRect (${eventKind}, ${gender}, zoom=${zoom}): ${JSON.stringify(r)}`,
+              );
+            }
+          }
+
+          const { ctx: pCtx, rects: pRects } = createMockCanvasContext();
+          drawEmployeePortrait(pCtx, emp, 96, eventKind);
+          assert.ok(pRects.length > 0);
+          for (const r of pRects) {
             assert.ok(
               Number.isFinite(r.x) && Number.isFinite(r.y) && r.w > 0 && r.h > 0,
-              `Invalid costume sprite fillRect (${eventKind}, zoom=${zoom}): ${JSON.stringify(r)}`,
+              `Invalid costume portrait fillRect (${eventKind}, ${gender}): ${JSON.stringify(r)}`,
             );
           }
-        }
-
-        const { ctx: pCtx, rects: pRects } = createMockCanvasContext();
-        drawEmployeePortrait(pCtx, emp, 96, eventKind);
-        assert.ok(pRects.length > 0);
-        for (const r of pRects) {
-          assert.ok(
-            Number.isFinite(r.x) && Number.isFinite(r.y) && r.w > 0 && r.h > 0,
-            `Invalid costume portrait fillRect (${eventKind}): ${JSON.stringify(r)}`,
-          );
         }
       }
     }
