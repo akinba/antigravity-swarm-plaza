@@ -279,6 +279,7 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
     time: string;
     detail: string;
   } | null>(null);
+  const [ganttTopToBottom, setGanttTopToBottom] = useState(false);
   const feedRef = useRef<HTMLDivElement | null>(null);
   const isProgrammaticScrollRef = useRef(false);
   const scrollTimerRef = useRef<number | null>(null);
@@ -1337,7 +1338,7 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
               overflowX: 'hidden',
               display: 'flex',
               flexDirection: 'column',
-              gap: 10,
+              gap: 8,
               maxHeight: 490,
               width: '100%',
               boxSizing: 'border-box',
@@ -1368,116 +1369,74 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                       break: '☕ Break',
                     };
 
-              interface GanttRow {
+              const sceneAgents = employees.length > 0 ? employees : [];
+              const gridCols = `78px repeat(${Math.max(1, sceneAgents.length)}, minmax(0, 1fr))`;
+
+              interface VerticalSlot {
                 id: string;
+                seq: number;
                 dateKey: string;
+                timeLabel: string;
+                agentIdx: number;
                 agentName: string;
-                emp?: OfficeEmployee;
                 phase: WorkPhase;
-                startMs: number;
-                endMs: number;
-                startLabel: string;
-                endLabel: string;
                 detail: string;
               }
 
               const orderedMsgs = [...messages].sort((a, b) => a.seq - b.seq);
-              const rows: GanttRow[] = [];
+              const recentMsgs = orderedMsgs.slice(-18);
+              const slots: VerticalSlot[] = [];
 
-              orderedMsgs.forEach((m, idx) => {
+              recentMsgs.forEach((m, idx) => {
                 const ts = parseBoardTimestamp(m.time, idx);
-                const emp = employees.find(
+                const mLow = m.agent.toLowerCase();
+                const agentIdx = sceneAgents.findIndex(
                   (e) =>
-                    e.name.toLowerCase() === m.agent.toLowerCase() ||
-                    (e.isCoordinator && m.agent.toLowerCase() === 'coordinator'),
+                    e.name.toLowerCase() === mLow ||
+                    (e.isCoordinator && mLow === 'coordinator'),
                 );
+                if (agentIdx < 0) return;
+                const emp = sceneAgents[agentIdx];
                 const phase = classifyWorkPhase(m.text, undefined, m.agent);
-                const detail = summarizeSnippet(m.text, 100);
-                const prev = rows[rows.length - 1];
-                if (
-                  prev &&
-                  prev.dateKey === ts.dateKey &&
-                  prev.agentName.toLowerCase() === m.agent.toLowerCase() &&
-                  prev.phase === phase
-                ) {
-                  prev.endMs = Math.max(prev.endMs, ts.epochMs);
-                  prev.endLabel = ts.timeLabel;
-                  prev.detail = detail;
-                } else {
-                  rows.push({
-                    id: `row-${m.seq}-${idx}`,
-                    dateKey: ts.dateKey,
-                    agentName: emp?.name ?? m.agent,
-                    emp,
-                    phase,
-                    startMs: ts.epochMs,
-                    endMs: ts.epochMs,
-                    startLabel: ts.timeLabel,
-                    endLabel: ts.timeLabel,
-                    detail,
-                  });
-                }
+                const detail = summarizeSnippet(m.text, 110);
+                slots.push({
+                  id: `vslot-${m.seq}-${idx}`,
+                  seq: m.seq,
+                  dateKey: ts.dateKey,
+                  timeLabel: ts.timeLabel,
+                  agentIdx,
+                  agentName: emp.name,
+                  phase,
+                  detail,
+                });
               });
 
-              // Also append current waiting/break state at NOW for scene employees currently on break
-              const nowDate = new Date();
-              const nowKey = formatDateKeyLocal(nowDate);
-              const nowLabel = formatTimeHHMM(nowDate);
-              const nowMs = nowDate.getTime();
-              for (const emp of employees) {
-                if (emp.status === 'waiting' || emp.status === 'idle') {
-                  const hasRecent = rows.some(
-                    (r) =>
-                      r.dateKey === nowKey &&
-                      r.agentName.toLowerCase() === emp.name.toLowerCase() &&
-                      r.phase === 'break',
-                  );
-                  if (!hasRecent) {
-                    rows.push({
-                      id: `now-break-${emp.id}`,
-                      dateKey: nowKey,
-                      agentName: emp.name,
-                      emp,
-                      phase: 'break',
-                      startMs: nowMs,
-                      endMs: nowMs,
-                      startLabel: nowLabel,
-                      endLabel: nowLabel,
-                      detail: emp.speechBubble || t.statuses[emp.status],
-                    });
-                  }
-                }
-              }
-
-              // Group by real dateKey (newest date block first)
-              const dateMap = new Map<string, GanttRow[]>();
-              for (const r of rows) {
-                const list = dateMap.get(r.dateKey) ?? [];
-                list.push(r);
-                dateMap.set(r.dateKey, list);
+              // Group slots by real dateKey (newest date block first)
+              const dateMap = new Map<string, VerticalSlot[]>();
+              for (const s of slots) {
+                const list = dateMap.get(s.dateKey) ?? [];
+                list.push(s);
+                dateMap.set(s.dateKey, list);
               }
               const dateBlocks = Array.from(dateMap.entries()).sort((a, b) =>
                 b[0].localeCompare(a[0]),
               );
 
-              const latestRow = rows[rows.length - 1];
+              const latestSlot = slots[slots.length - 1];
               const activeDetail =
                 selectedGanttBlock ??
-                (latestRow
+                (latestSlot
                   ? {
-                      agentName: latestRow.agentName,
-                      phase: latestRow.phase,
-                      time:
-                        latestRow.startLabel === latestRow.endLabel
-                          ? latestRow.startLabel
-                          : `${latestRow.startLabel}–${latestRow.endLabel}`,
-                      detail: latestRow.detail,
+                      agentName: latestSlot.agentName,
+                      phase: latestSlot.phase,
+                      time: latestSlot.timeLabel,
+                      detail: latestSlot.detail,
                     }
                   : null);
 
               return (
                 <>
-                  {/* Header & Legend */}
+                  {/* Header, Legend & Direction Toggle */}
                   <div
                     style={{
                       display: 'flex',
@@ -1511,235 +1470,335 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                           </span>
                         );
                       })}
+                      <button
+                        type="button"
+                        className="pixel-btn"
+                        style={{ fontSize: 9, padding: '2px 7px' }}
+                        onClick={() => {
+                          playSelectBlip();
+                          setGanttTopToBottom((v) => !v);
+                        }}
+                      >
+                        {ganttTopToBottom
+                          ? locale === 'tr'
+                            ? '⬇️ Yukarıdan Aşağı'
+                            : '⬇️ Top ➔ Bottom'
+                          : locale === 'tr'
+                            ? '⬆️ Aşağıdan Yukarı'
+                            : '⬆️ Bottom ➔ Top'}
+                      </button>
                     </div>
                   </div>
 
-                  {dateBlocks.length === 0 ? (
+                  {sceneAgents.length === 0 || dateBlocks.length === 0 ? (
                     <div style={{ fontSize: 12, color: 'var(--text-dim)', padding: 16, textAlign: 'center' }}>
                       {t.whiteboardModal.noTasksYet}
                     </div>
                   ) : (
-                    dateBlocks.map(([dateKey, blockRows]) => {
-                      const minMs = Math.min(...blockRows.map((r) => r.startMs));
-                      const rawMaxMs = Math.max(...blockRows.map((r) => r.endMs));
-                      const maxMs = rawMaxMs > minMs ? rawMaxMs : minMs + 60_000;
-                      const spanMs = maxMs - minMs;
-
-                      const ticks = [0, 0.25, 0.5, 0.75, 1].map((ratio) =>
-                        formatTimeHHMM(new Date(minMs + spanMs * ratio)),
-                      );
-
-                      // Bottom-to-top flow: newest at top, oldest at bottom
-                      const bottomUpRows = [...blockRows].reverse().slice(0, 18);
-
-                      return (
+                    <div
+                      style={{
+                        border: '2px solid #2b3554',
+                        background: '#111625',
+                        width: '100%',
+                        boxSizing: 'border-box',
+                      }}
+                    >
+                      {/* Sticky Horizontal Agent Column Headers */}
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: gridCols,
+                          background: '#131929',
+                          borderBottom: '2px solid #2b3554',
+                          position: 'sticky',
+                          top: 0,
+                          zIndex: 3,
+                        }}
+                      >
                         <div
-                          key={dateKey}
                           style={{
+                            padding: '6px 4px',
                             display: 'flex',
                             flexDirection: 'column',
-                            gap: 4,
-                            padding: 8,
-                            background: '#111625',
-                            border: '2px solid #2b3554',
-                            width: '100%',
-                            boxSizing: 'border-box',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderRight: '1px solid #232b44',
+                            fontSize: 9,
+                            color: '#3cd8ff',
+                            fontFamily: 'monospace',
+                            fontWeight: 700,
+                            textAlign: 'center',
                           }}
                         >
-                          {/* Date Block Header + HH:MM Ruler */}
-                          <div
-                            style={{
-                              display: 'grid',
-                              gridTemplateColumns: '172px 1fr',
-                              gap: 8,
-                              alignItems: 'center',
-                              paddingBottom: 4,
-                              borderBottom: '1px solid #232b44',
-                            }}
-                          >
-                            <span
-                              className="pixel-badge"
-                              style={{ color: '#3cd8ff', background: '#132233', borderColor: '#28648a' }}
-                            >
-                              📅 {dateKey} (▲)
-                            </span>
+                          <span>{ganttTopToBottom ? '⬇️' : '⬆️'}</span>
+                          <span>HH:MM</span>
+                        </div>
+
+                        {sceneAgents.map((emp) => {
+                          const statusColor =
+                            emp.status === 'working'
+                              ? '#3be87a'
+                              : emp.status === 'error'
+                                ? '#ff5666'
+                                : '#ffbe3b';
+                          return (
                             <div
+                              key={`vhdr-${emp.id}`}
                               style={{
+                                padding: '6px 4px',
                                 display: 'flex',
-                                justifyContent: 'space-between',
-                                fontSize: 9,
-                                color: 'var(--text-dim)',
-                                fontFamily: 'monospace',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                gap: 3,
+                                borderRight: '1px solid #232b44',
+                                minWidth: 0,
                               }}
                             >
-                              <span>{ticks[0]}</span>
-                              <span>{ticks[1]}</span>
-                              <span>{ticks[2]}</span>
-                              <span>{ticks[3]}</span>
-                              <span style={{ color: '#3be87a', fontWeight: 700 }}>
-                                {ticks[4]} ●
+                              <EmployeePortraitCanvas
+                                employee={emp}
+                                activeEventKind={activeEventKind}
+                                size={32}
+                              />
+                              <span
+                                className="pixel-title"
+                                style={{
+                                  fontSize: 8,
+                                  color: '#f4f6fc',
+                                  maxWidth: '100%',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                                title={emp.name}
+                              >
+                                {emp.name}
+                              </span>
+                              <span style={{ fontSize: 8, color: statusColor }}>
+                                ● {t.statuses[emp.status]}
                               </span>
                             </div>
-                          </div>
+                          );
+                        })}
+                      </div>
 
-                          {/* Bottom-to-Top HH:MM Gantt Rows */}
-                          {bottomUpRows.map((row) => {
-                            const st = PHASE_STYLES[row.phase];
-                            const leftPct = ((row.startMs - minMs) / spanMs) * 100;
-                            const rawWidthPct = ((row.endMs - row.startMs) / spanMs) * 100;
-                            const widthPct = Math.min(
-                              100 - leftPct,
-                              Math.max(16, rawWidthPct),
-                            );
-                            const clampedLeftPct = Math.min(leftPct, 100 - widthPct);
-                            const timeRange =
-                              row.startLabel === row.endLabel
-                                ? row.startLabel
-                                : `${row.startLabel}–${row.endLabel}`;
+                      {/* Date Blocks + Vertical Time Rows */}
+                      {dateBlocks.map(([dateKey, blockSlots]) => {
+                        const orderedRows = ganttTopToBottom
+                          ? blockSlots
+                          : [...blockSlots].reverse();
 
-                            return (
-                              <div
-                                key={row.id}
-                                style={{
-                                  display: 'grid',
-                                  gridTemplateColumns: '172px 1fr',
-                                  gap: 8,
-                                  padding: '3px 4px',
-                                  background: '#171c2b',
-                                  border: '1px solid #242c44',
-                                  alignItems: 'center',
-                                  width: '100%',
-                                  boxSizing: 'border-box',
-                                }}
-                              >
+                        return (
+                          <div key={dateKey}>
+                            {/* Full-width Date Separator */}
+                            <div
+                              style={{
+                                padding: '4px 8px',
+                                background: '#162033',
+                                borderBottom: '1px solid #28648a',
+                                borderTop: '1px solid #232b44',
+                                fontSize: 10,
+                                color: '#3cd8ff',
+                                fontFamily: 'monospace',
+                                fontWeight: 700,
+                              }}
+                            >
+                              📅 {dateKey}
+                            </div>
+
+                            {orderedRows.map((slot, rIdx) => {
+                              const prevSlot = orderedRows[rIdx - 1];
+                              const nextSlot = orderedRows[rIdx + 1];
+                              const isLatestRow = ganttTopToBottom
+                                ? rIdx === orderedRows.length - 1
+                                : rIdx === 0;
+
+                              return (
                                 <div
+                                  key={slot.id}
                                   style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 6,
-                                    minWidth: 0,
+                                    display: 'grid',
+                                    gridTemplateColumns: gridCols,
+                                    borderBottom: '1px solid rgba(35, 43, 68, 0.65)',
+                                    minHeight: 30,
+                                    alignItems: 'stretch',
                                   }}
                                 >
-                                  <span
+                                  {/* Left Y-axis HH:MM cell */}
+                                  <div
                                     style={{
-                                      fontSize: 9,
-                                      color: '#ffd147',
-                                      fontFamily: 'monospace',
-                                      flexShrink: 0,
-                                    }}
-                                  >
-                                    ▲ {row.startLabel}
-                                  </span>
-                                  {row.emp && (
-                                    <EmployeePortraitCanvas
-                                      employee={row.emp}
-                                      activeEventKind={activeEventKind}
-                                      size={24}
-                                    />
-                                  )}
-                                  <span
-                                    className="pixel-title"
-                                    style={{
-                                      fontSize: 9,
-                                      color: '#f4f6fc',
-                                      overflow: 'hidden',
-                                      textOverflow: 'ellipsis',
-                                      whiteSpace: 'nowrap',
-                                    }}
-                                  >
-                                    {row.agentName}
-                                  </span>
-                                </div>
-
-                                {/* HH:MM Track */}
-                                <div
-                                  style={{
-                                    position: 'relative',
-                                    height: 26,
-                                    width: '100%',
-                                    background: 'rgba(120, 144, 156, 0.08)',
-                                    border: '1px solid #232b44',
-                                    overflow: 'hidden',
-                                  }}
-                                >
-                                  {[25, 50, 75].map((pct) => (
-                                    <div
-                                      key={pct}
-                                      style={{
-                                        position: 'absolute',
-                                        left: `${pct}%`,
-                                        top: 0,
-                                        bottom: 0,
-                                        width: 1,
-                                        background: 'rgba(255,255,255,0.06)',
-                                        pointerEvents: 'none',
-                                      }}
-                                    />
-                                  ))}
-
-                                  <button
-                                    type="button"
-                                    onMouseEnter={() =>
-                                      setSelectedGanttBlock({
-                                        agentName: row.agentName,
-                                        phase: row.phase,
-                                        time: timeRange,
-                                        detail: row.detail,
-                                      })
-                                    }
-                                    onClick={() => {
-                                      playSelectBlip();
-                                      setSelectedGanttBlock({
-                                        agentName: row.agentName,
-                                        phase: row.phase,
-                                        time: timeRange,
-                                        detail: row.detail,
-                                      });
-                                    }}
-                                    title={`${row.agentName} • ${phaseLabels[row.phase]} (${timeRange}): ${row.detail}`}
-                                    style={{
-                                      position: 'absolute',
-                                      left: `${clampedLeftPct}%`,
-                                      width: `${widthPct}%`,
-                                      top: 2,
-                                      bottom: 2,
-                                      background: st.bg,
-                                      border: `1px solid ${st.border}`,
-                                      color: st.color,
-                                      fontSize: 9,
-                                      fontWeight: 700,
-                                      fontFamily: 'inherit',
-                                      padding: '0 6px',
+                                      padding: '4px 6px',
                                       display: 'flex',
                                       alignItems: 'center',
-                                      gap: 5,
-                                      overflow: 'hidden',
-                                      whiteSpace: 'nowrap',
-                                      cursor: 'pointer',
+                                      justifyContent: 'center',
+                                      gap: 3,
+                                      borderRight: '1px solid #232b44',
+                                      fontSize: 10,
+                                      fontFamily: 'monospace',
+                                      color: isLatestRow ? '#3be87a' : '#ffd147',
+                                      fontWeight: isLatestRow ? 700 : 400,
+                                      background: '#131826',
                                     }}
                                   >
-                                    <span style={{ flexShrink: 0 }}>
-                                      {shortPhaseLabels[row.phase]}
-                                    </span>
-                                    <span
-                                      style={{
-                                        color: '#dce6ff',
-                                        fontWeight: 400,
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap',
-                                      }}
-                                    >
-                                      {timeRange} · {row.detail}
-                                    </span>
-                                  </button>
+                                    <span>{slot.timeLabel}</span>
+                                    {isLatestRow && <span>●</span>}
+                                  </div>
+
+                                  {/* Agent Vertical Columns */}
+                                  {sceneAgents.map((emp, aIdx) => {
+                                    const isActiveHere = slot.agentIdx === aIdx;
+                                    const isWaitingNow =
+                                      isLatestRow &&
+                                      !isActiveHere &&
+                                      (emp.status === 'waiting' || emp.status === 'idle');
+
+                                    if (isActiveHere) {
+                                      const st = PHASE_STYLES[slot.phase];
+                                      const connectTop =
+                                        prevSlot &&
+                                        prevSlot.agentIdx === aIdx &&
+                                        prevSlot.phase === slot.phase;
+                                      const connectBottom =
+                                        nextSlot &&
+                                        nextSlot.agentIdx === aIdx &&
+                                        nextSlot.phase === slot.phase;
+
+                                      return (
+                                        <div
+                                          key={`${slot.id}-col-${emp.id}`}
+                                          style={{
+                                            padding: `${connectTop ? 0 : 2}px 4px ${connectBottom ? 0 : 2}px 4px`,
+                                            borderRight: '1px solid #232b44',
+                                            display: 'flex',
+                                            alignItems: 'stretch',
+                                            minWidth: 0,
+                                          }}
+                                        >
+                                          <button
+                                            type="button"
+                                            onMouseEnter={() =>
+                                              setSelectedGanttBlock({
+                                                agentName: slot.agentName,
+                                                phase: slot.phase,
+                                                time: slot.timeLabel,
+                                                detail: slot.detail,
+                                              })
+                                            }
+                                            onClick={() => {
+                                              playSelectBlip();
+                                              setSelectedGanttBlock({
+                                                agentName: slot.agentName,
+                                                phase: slot.phase,
+                                                time: slot.timeLabel,
+                                                detail: slot.detail,
+                                              });
+                                            }}
+                                            title={`${slot.agentName} • ${phaseLabels[slot.phase]} (${slot.timeLabel}): ${slot.detail}`}
+                                            style={{
+                                              width: '100%',
+                                              background: st.bg,
+                                              borderLeft: `3px solid ${st.color}`,
+                                              borderRight: `1px solid ${st.border}`,
+                                              borderTop: connectTop ? 'none' : `1px solid ${st.border}`,
+                                              borderBottom: connectBottom ? 'none' : `1px solid ${st.border}`,
+                                              color: st.color,
+                                              fontSize: 9,
+                                              fontWeight: 700,
+                                              fontFamily: 'inherit',
+                                              padding: '2px 4px',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'space-between',
+                                              gap: 3,
+                                              overflow: 'hidden',
+                                              whiteSpace: 'nowrap',
+                                              cursor: 'pointer',
+                                            }}
+                                          >
+                                            <span
+                                              style={{
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap',
+                                              }}
+                                            >
+                                              {shortPhaseLabels[slot.phase]}
+                                            </span>
+                                            <span
+                                              style={{
+                                                fontSize: 8,
+                                                color: '#dce6ff',
+                                                fontFamily: 'monospace',
+                                                flexShrink: 0,
+                                              }}
+                                            >
+                                              #{slot.seq}
+                                            </span>
+                                          </button>
+                                        </div>
+                                      );
+                                    }
+
+                                    if (isWaitingNow) {
+                                      const brk = PHASE_STYLES.break;
+                                      return (
+                                        <div
+                                          key={`${slot.id}-col-${emp.id}`}
+                                          style={{
+                                            padding: '2px 4px',
+                                            borderRight: '1px solid #232b44',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            minWidth: 0,
+                                          }}
+                                        >
+                                          <span
+                                            style={{
+                                              width: '100%',
+                                              textAlign: 'center',
+                                              fontSize: 8,
+                                              color: brk.color,
+                                              background: brk.bg,
+                                              border: `1px dashed ${brk.border}`,
+                                              padding: '2px 3px',
+                                              overflow: 'hidden',
+                                              textOverflow: 'ellipsis',
+                                              whiteSpace: 'nowrap',
+                                            }}
+                                          >
+                                            {shortPhaseLabels.break}
+                                          </span>
+                                        </div>
+                                      );
+                                    }
+
+                                    return (
+                                      <div
+                                        key={`${slot.id}-col-${emp.id}`}
+                                        style={{
+                                          borderRight: '1px solid #232b44',
+                                          position: 'relative',
+                                          display: 'flex',
+                                          justifyContent: 'center',
+                                        }}
+                                      >
+                                        <div
+                                          style={{
+                                            width: 1,
+                                            height: '100%',
+                                            background: 'rgba(255, 255, 255, 0.06)',
+                                          }}
+                                        />
+                                      </div>
+                                    );
+                                  })}
                                 </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    })
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
                   )}
 
                   {/* Single-Line Selected Phase Detail Strip */}
