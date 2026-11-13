@@ -182,5 +182,36 @@ describe('Antigravity plugin bundle', () => {
     for (const file of readmeFiles) {
       assert.ok(releaseYml.includes(file), `.github/workflows/release.yml missing ${file}`);
     }
+
+    const demoGifPath = path.join(ROOT_DIR, 'docs', 'screenshots', 'demo.gif');
+    assert.equal(fs.existsSync(demoGifPath), true, 'Missing docs/screenshots/demo.gif');
+    const demoGifBuf = fs.readFileSync(demoGifPath);
+    assert.ok(demoGifBuf.length > 0, 'docs/screenshots/demo.gif must not be empty');
+    assert.equal(
+      demoGifBuf.subarray(0, 6).toString('ascii'),
+      'GIF89a',
+      'docs/screenshots/demo.gif must have GIF89a header',
+    );
+
+    const socialPreviewPath = path.join(ROOT_DIR, 'docs', 'screenshots', 'social-preview.png');
+    assert.equal(
+      fs.existsSync(socialPreviewPath),
+      true,
+      'Missing docs/screenshots/social-preview.png',
+    );
+    const socialPreviewBuf = fs.readFileSync(socialPreviewPath);
+    assert.ok(socialPreviewBuf.length > 0, 'docs/screenshots/social-preview.png must not be empty');
+    assert.equal(
+      socialPreviewBuf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
+      true,
+      'docs/screenshots/social-preview.png must have valid PNG signature',
+    );
+
+    for (const file of readmeFiles) {
+      assert.ok(
+        (contents.get(file) ?? '').includes('docs/screenshots/demo.gif'),
+        `${file} must embed docs/screenshots/demo.gif`,
+      );
+    }
   });
 });

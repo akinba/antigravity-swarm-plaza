@@ -12,6 +12,13 @@
 ## 📸 Görsel Vitrin / Showcase Gallery
 
 <p align="center">
+  <img src="docs/screenshots/demo.gif" alt="Antigravity Swarm Plaza Canlı Demo" width="100%" />
+</p>
+<p align="center">
+  <em>🎬 <strong>Canlı Demo Turu</strong> — 2.5B Gündüz Ofisi → Gece Modu &amp; Star Wars Kostüm Partisi → Plaza Kulesi Dış Görünümü.</em>
+</p>
+
+<p align="center">
   <img src="docs/screenshots/office-main.png" alt="Ana 2.5B İzometrik Ofis (Gündüz)" width="100%" />
 </p>
 <p align="center">
@@ -150,10 +157,16 @@ flowchart LR
 
 ### ⚡ Tek Komutla Çalıştırma (`npx`)
 
-Kurulum veya derleme yapmadan doğrudan çalıştırın (Node.js `>= 22.5.0` gerekir):
+#### Tek Komutla Dene (Klonlamadan)
+
+Depoyu klonlamadan veya manuel derleme yapmadan doğrudan çalıştırın (Node.js `>= 22.5.0` gerekir):
 
 ```bash
-npx antigravity-swarm-plaza
+# Doğrudan GitHub üzerinden etkileşimli demo modunda çalıştırın
+npx github:akinba/antigravity-swarm-plaza --demo
+
+# Veya npm paketi olarak çalıştırın
+npx antigravity-swarm-plaza --demo
 ```
 
 #### Komut Satırı Bayrakları (CLI Flags)

@@ -20,6 +20,13 @@
 ## 📸 界面展示画廊 (Visual Showcase Gallery)
 
 <p align="center">
+  <img src="docs/screenshots/demo.gif" alt="Antigravity Swarm Plaza 实时演示" width="100%" />
+</p>
+<p align="center">
+  <em>🎬 <strong>实时演示动图</strong> — 2.5D 日间办公室 → 夜间模式与星球大战换装派对 → 广场大楼外观。</em>
+</p>
+
+<p align="center">
   <img src="docs/screenshots/office-main.png" alt="主界面 2.5D 等距办公室（日间）" width="100%" />
 </p>
 <p align="center">
@@ -150,10 +157,16 @@ flowchart LR
 
 ## ⚡ 快速开始与命令行参数 (Quick Start & CLI Options)
 
-无需手动构建即可直接运行（需要 Node.js `>= 22.5.0`）：
+### 一行命令快速体验（无需克隆）
+
+无需克隆仓库或手动构建，直接运行（需要 Node.js `>= 22.5.0`）：
 
 ```bash
-npx antigravity-swarm-plaza
+# 直接从 GitHub 启动交互式演示模式
+npx github:akinba/antigravity-swarm-plaza --demo
+
+# 或通过 npm 包运行
+npx antigravity-swarm-plaza --demo
 ```
 
 | 参数 | 简写 | 说明 |

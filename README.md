@@ -12,6 +12,13 @@
 ## 📸 Visual Showcase Gallery
 
 <p align="center">
+  <img src="docs/screenshots/demo.gif" alt="Antigravity Swarm Plaza Live Demo" width="100%" />
+</p>
+<p align="center">
+  <em>🎬 <strong>Live Demo Walkthrough</strong> — 2.5D Day Office → Night Mode &amp; Star Wars Costume Party → Plaza Tower Exterior.</em>
+</p>
+
+<p align="center">
   <img src="docs/screenshots/office-main.png" alt="Main 2.5D Isometric Office (Daylight)" width="100%" />
 </p>
 <p align="center">
@@ -151,10 +158,16 @@ flowchart LR
 
 ## ⚡ Instant Run (`npx`)
 
-Run immediately without installation or build steps (Node.js `>= 22.5.0` required):
+### Try in 1 Command (Zero Clone)
+
+Run immediately from GitHub or npm without cloning or manual build steps (Node.js `>= 22.5.0` required):
 
 ```bash
-npx antigravity-swarm-plaza
+# Run directly from GitHub in interactive demo mode
+npx github:akinba/antigravity-swarm-plaza --demo
+
+# Or via npm package
+npx antigravity-swarm-plaza --demo
 ```
 
 ### CLI Command Flags

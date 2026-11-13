@@ -1,6 +1,26 @@
 {
   "name": "antigravity-swarm-plaza",
   "version": "1.2.0",
+  "description": "2.5D Isometric Pixel-Art Multi-Agent Skyscraper Dashboard & Antigravity IDE Sidecar Extension",
+  "keywords": [
+    "antigravity",
+    "google-antigravity",
+    "ai-agents",
+    "multi-agent",
+    "pixel-art",
+    "isometric",
+    "dashboard",
+    "gamification",
+    "gemini"
+  ],
+  "homepage": "https://github.com/akinba/antigravity-swarm-plaza#readme",
+  "bugs": {
+    "url": "https://github.com/akinba/antigravity-swarm-plaza/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/akinba/antigravity-swarm-plaza.git"
+  },
   "license": "MIT",
   "engines": {
     "node": ">=22.5.0"
@@ -21,6 +41,8 @@
     "dev:server": "tsx watch src/server/index.ts",
     "dev:client": "vite",
     "build": "vite build && tsc -p tsconfig.server.json && node scripts/bundle-sidecar.mjs",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build",
     "start": "node dist/cli.js --no-open",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/server/*.test.ts tests/client/*.test.ts"
