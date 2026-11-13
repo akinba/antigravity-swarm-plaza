@@ -73,21 +73,53 @@ const PHASE_STYLES: Record<WorkPhase, { color: string; bg: string; border: strin
   break: { color: '#78909c', bg: 'rgba(120, 144, 156, 0.16)', border: '#4b5d66', icon: '☕' },
 };
 
-function classifyWorkPhase(text: string, emp?: OfficeEmployee): WorkPhase {
+function classifyWorkPhase(text: string, emp?: OfficeEmployee, agentName?: string): WorkPhase {
   const lower = text.toLowerCase();
-  if (emp && (emp.activity === 'coffee' || emp.activity === 'gaming' || emp.activity === 'lounging' || emp.activity === 'sleeping' || emp.activity === 'watercooler')) {
+  const actor = (agentName || emp?.name || '').toLowerCase();
+
+  if (
+    emp &&
+    (emp.activity === 'coffee' ||
+      emp.activity === 'gaming' ||
+      emp.activity === 'lounging' ||
+      emp.activity === 'sleeping' ||
+      emp.activity === 'watercooler')
+  ) {
     return 'break';
   }
-  if (/(test|pass|exit 0|typecheck|verify|doğrula|screenshot|preview|grill|audit)/i.test(lower)) {
-    return 'testing';
-  }
-  if (/(analiz|analy|inspect|investigat|keşif|read|audit|review|check|incele)/i.test(lower)) {
-    return 'analysis';
-  }
-  if (/(plan|wave|assign|görev|brief|present|sunum|coordinator|boss|stage|commit|push)/i.test(lower) || emp?.isCoordinator) {
+
+  // 1. Agent role / identity priority
+  if (actor === 'coordinator' || actor === 'boss' || actor === 'chief-architect' || emp?.isCoordinator) {
     return 'coord';
   }
-  if (/(edit|implement|build|fix|add|ekle|kod|refactor|modal|sprite|canvas|ts|tsx|css)/i.test(lower) || emp?.status === 'working') {
+  if (
+    actor === 'analyst-grill' ||
+    actor === 'expert-architect' ||
+    /(keşif raporu|discovery report|grill|audit)/i.test(lower)
+  ) {
+    return 'analysis';
+  }
+  if (actor === 'verifier-qa') {
+    return 'testing';
+  }
+  if (actor === 'coder-core' || actor === 'coder-ui' || actor === 'character-designer') {
+    return 'coding';
+  }
+
+  // 2. Fallback keyword classification for generic agents
+  if (/(test|pass|exit 0|typecheck|verify|doğrula|screenshot|preview)/i.test(lower)) {
+    return 'testing';
+  }
+  if (/(analiz|analy|inspect|investigat|keşif|read|review|check|incele)/i.test(lower)) {
+    return 'analysis';
+  }
+  if (/(plan|wave|assign|görev|brief|present|sunum|stage|commit|push)/i.test(lower)) {
+    return 'coord';
+  }
+  if (
+    /(edit|implement|build|fix|add|ekle|kod|refactor|modal|sprite|canvas|ts|tsx|css)/i.test(lower) ||
+    emp?.status === 'working'
+  ) {
     return 'coding';
   }
   return emp?.status === 'waiting' || emp?.status === 'idle' ? 'break' : 'coding';
@@ -163,7 +195,7 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
   onSelectEmployee,
   onClose,
 }) => {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [activeTab, setActiveTab] = useState<'feed' | 'personnel' | 'tasks' | 'gantt'>('feed');
   const [selectedGanttBlock, setSelectedGanttBlock] = useState<{
     agentName: string;
@@ -1234,13 +1266,22 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                 coord: t.whiteboardModal.ganttLegendCoord,
                 break: t.whiteboardModal.ganttLegendBreak,
               };
-              const shortPhaseLabels: Record<WorkPhase, string> = {
-                coding: '💻 Kod',
-                analysis: '🔍 Analiz',
-                testing: '🧪 Test',
-                coord: '📊 Plan',
-                break: '☕ Mola',
-              };
+              const shortPhaseLabels: Record<WorkPhase, string> =
+                locale === 'tr'
+                  ? {
+                      coding: '💻 Kod',
+                      analysis: '🔍 Analiz',
+                      testing: '🧪 Test',
+                      coord: '📊 Plan',
+                      break: '☕ Mola',
+                    }
+                  : {
+                      coding: '💻 Code',
+                      analysis: '🔍 Analyze',
+                      testing: '🧪 Test',
+                      coord: '📊 Plan',
+                      break: '☕ Break',
+                    };
 
               const orderedMsgs = [...messages].sort((a, b) => a.seq - b.seq);
               const windowMsgs = orderedMsgs.slice(-14);
@@ -1266,7 +1307,7 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                   const isMine =
                     agentLow === empKey || (emp.isCoordinator && agentLow === 'coordinator');
                   if (!isMine) return;
-                  const phase = classifyWorkPhase(m.text, undefined);
+                  const phase = classifyWorkPhase(m.text, undefined, m.agent);
                   const detail = summarizeSnippet(m.text, 110);
                   const prev = blocks[blocks.length - 1];
                   if (prev && prev.phase === phase && idx <= prev.endIdx + 1) {
@@ -1286,7 +1327,7 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                 });
 
                 if (blocks.length === 0) {
-                  const curPhase = classifyWorkPhase(emp.speechBubble || emp.roleTitle, emp);
+                  const curPhase = classifyWorkPhase(emp.speechBubble || emp.roleTitle, emp, emp.name);
                   blocks.push({
                     agentName: emp.name,
                     phase: curPhase,
@@ -1295,6 +1336,24 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                     time: 'NOW',
                     detail: emp.speechBubble || emp.roleTitle,
                   });
+                } else if (emp.status === 'waiting' || emp.status === 'idle') {
+                  const lastIdx = totalSlots - 1;
+                  const lastB = blocks[blocks.length - 1];
+                  if (lastB && lastB.phase !== 'break') {
+                    if (lastB.endIdx >= lastIdx && lastB.startIdx < lastIdx) {
+                      lastB.endIdx = lastIdx - 1;
+                    }
+                    if (lastB.endIdx < lastIdx || totalSlots === 1) {
+                      blocks.push({
+                        agentName: emp.name,
+                        phase: 'break',
+                        startIdx: lastIdx,
+                        endIdx: lastIdx,
+                        time: 'NOW',
+                        detail: emp.speechBubble || t.statuses[emp.status],
+                      });
+                    }
+                  }
                 }
 
                 const lastB = blocks[blocks.length - 1];
@@ -1337,10 +1396,10 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                     seq: cur.seq,
                     time: cur.time.slice(11, 16) || cur.time,
                     fromName: cur.agent,
-                    fromPhase: classifyWorkPhase(cur.text, fromEmp),
+                    fromPhase: classifyWorkPhase(cur.text, fromEmp, cur.agent),
                     fromText: summarizeSnippet(cur.text, 56),
                     toNames: curTargets.length > 0 ? curTargets.slice(0, 2) : [nxt.agent],
-                    toPhase: classifyWorkPhase(nxt.text, toEmp),
+                    toPhase: classifyWorkPhase(nxt.text, toEmp, nxt.agent),
                   });
                 }
               }
