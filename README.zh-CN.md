@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/akinba/antigravity-swarm-plaza/actions/workflows/ci.yml/badge.svg)](https://github.com/akinba/antigravity-swarm-plaza/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/akinba/antigravity-swarm-plaza?include_prereleases)](https://github.com/akinba/antigravity-swarm-plaza/releases)
-![Version](https://img.shields.io/badge/version-v1.2.0-ffd147)
+![Version](https://img.shields.io/badge/version-v1.3.0-ffd147)
 ![Node](https://img.shields.io/badge/node-%3E%3D22.5.0-3be87a)
 ![License](https://img.shields.io/badge/license-MIT-3cd8ff)
 ![Sidecar](https://img.shields.io/badge/Sidecar-Ready-b07cff)
@@ -113,7 +113,18 @@ flowchart LR
 
 ---
 
-## 🌟 核心特性 (Core Features & v1.2.0)
+## 🌟 核心特性与新功能 (Core Features & v1.3.0)
+
+- **👥 图文人员名录 (`👥 PERSONNEL ROSTER`) 与 `⬅ BACK TO LIST` RPG 返回导航：**
+  - 为楼层中每位活跃智能体实时渲染 `64×64` 2.5D 像素肖像，展示当前任务/活动摘要、模型徽章、`~Estimated` 积分与 Token 消耗、`HP` 健康条，并支持一键打开 RPG 角色卡及左上角 **`⬅ BACK TO LIST`** 快速返回名录。
+- **📅 纵向甘特工作计划 (`📅 WORK PLAN (GANTT)`)：**
+  - 横轴并列展示各智能体泳道列，纵轴按真实日期分组 (`📅 YYYY-MM-DD`) 与 `HH:MM` 时分时间线排列，配备彩色阶段块（`📊 Plan`、`🔍 Analyze`、`💻 Code`、`🧪 Test`、`☕ Break`）及 **`⬆️/⬇️` 流向切换开关**。
+- **📋 任务流 (`📋 TASK FLOW (DAG)`) 与桌面黄金验证奖杯：**
+  - 仅包含当前场景活跃智能体的 `@mention` 交接关系图、任务卡片，以及在检测到 `PASS / DONE / EXIT 0 / ✅` 验证凭证时自动出现在 2.5D 办公桌上的黄金像素奖杯（`drawDeskVerifiedTrophy`）。
+- **🛡️ 智能体健康度 (`0–100 HP`)、`~Estimated` 成本监控与 `×N` 智能告警分组：**
+  - 角色卡与桌面微缩 `HP` 健康条、`AnalyticsModal` 中的 `~Estimated` 资源与成本分布，以及按严重级别过滤并使用 `×N` 合并重复提醒的通知中心。
+- **⚡ Eco-Canvas GPU 性能优化与智能休息事件规则：**
+  - 离屏静态建筑缓存 + 自适应帧率限制器（页面隐藏 `0 FPS`、弹窗打开 `4 FPS`、活跃场景 `14–24 FPS`），降低约 85% GPU 占用；自动社交/变装派对事件需满足楼层至少 2 名智能体处于休息/等待状态（`MIN_BREAK_AGENTS_FOR_SOCIAL_EVENT = 2`）且事件间隔冷却至少 `150s`。
 
 - **🧩 嵌入式 Antigravity 侧边栏插件 (Sidecar Extension):**
   - 安装后可在 Antigravity IDE 的 **Auxiliary Side Pane** 中通过 `[Swarm Plaza](sidecar://antigravity-swarm-plaza/swarm_plaza/)` 一键打开。
@@ -212,7 +223,7 @@ npm run dev
 # 运行 TypeScript 类型检查
 npm run typecheck
 
-# 运行自动化测试（71 个单元测试 / 25 个测试套件）
+# 运行自动化测试（73 个单元测试 / 25 个测试套件）
 npm test
 
 # 构建前端、服务端与 Sidecar 单文件包

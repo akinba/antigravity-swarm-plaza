@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/akinba/antigravity-swarm-plaza/actions/workflows/ci.yml/badge.svg)](https://github.com/akinba/antigravity-swarm-plaza/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/akinba/antigravity-swarm-plaza?include_prereleases)](https://github.com/akinba/antigravity-swarm-plaza/releases)
+![Version](https://img.shields.io/badge/version-v1.3.0-ffd147)
 
 [🇬🇧 **English**](README.md) | 🇹🇷 **Türkçe** | [🇨🇳 **简体中文**](README.zh-CN.md)
 
@@ -105,7 +106,18 @@ flowchart LR
 
 ---
 
-## 🌟 Temel Yetenekler & Yenilikler (v1.2.0)
+## 🌟 Temel Yetenekler & Yenilikler (v1.3.0)
+
+- **👥 Resimli Personel Listesi (`👥 PERSONEL LİSTESİ`) & `⬅ LİSTEYE DÖN` RPG Geçişi:**
+  - Kattaki her aktif ajan için canlı `64×64` 2.5B piksel portreler, güncel görev/aktivite özeti, model rozeti, `~Tahmini` kredi ve token kullanımı, `HP` sağlık çubuğu ve tek tıkla açılan RPG Kartı içinde doğrudan listeye dönmeyi sağlayan sol üst **`⬅ LİSTEYE DÖN`** butonu.
+- **📅 Dikey Gantt İş Planı (`📅 İŞ PLANI (GANTT)`):**
+  - Yatay eksende yan yana ajan sütunları, dikey eksende gerçek tarih bloğu (`📅 YYYY-MM-DD`) ve `HH:MM` saat:dakika zaman çizelgesi, renkli faz blokları (`📊 Plan`, `🔍 Analiz`, `💻 Kod`, `🧪 Test`, `☕ Mola`) ile **`⬆️/⬇️` akış yönü değiştirici**.
+- **📋 Görev Akışı (`📋 GÖREV AKIŞI (DAG)`) & Masa Üstü Altın Doğrulama Kupaları:**
+  - Yalnızca sahnedeki aktif ajanları içeren `@mention` devir grafiği, görev kartları ve `PASS / DONE / EXIT 0 / ✅` kanıt anahtar kelimeleri eşleştiğinde 2.5B masaların üzerinde beliren altın piksel doğrulama kupası (`drawDeskVerifiedTrophy`).
+- **🛡️ Ajan Sağlık & Güvenilirlik (`0–100 HP`), `~Tahmini` Maliyet Monitörü & `×N` Akıllı Uyarı Gruplama:**
+  - Ajan kartlarında ve masalarda pasif mikro-HP barları, `AnalyticsModal` içinde `~Tahmini` kaynak ve maliyet dağılımı, tekrarlayan uyarıları `×N` rozetiyle gruplayan filtreli bildirim merkezi.
+- **⚡ Eco-Canvas GPU Optimizasyonu & Akıllı Mola Etkinlikleri:**
+  - Offscreen statik mimari önbelleği + Adaptive FPS Limiter (`0 FPS` gizli sekme, `4 FPS` modal açıkken, `14–24 FPS` aktif sahne) ile ~%85 daha düşük GPU tüketimi; otomatik sosyal/kostüm etkinlikleri için katta en az 2 molada ajan (`MIN_BREAK_AGENTS_FOR_SOCIAL_EVENT = 2`) ve `150 sn` etkinlikler arası bekleme süresi kuralı.
 
 - **🧩 Yerleşik Antigravity Yan Panel Eklentisi (Sidecar Extension):**
   - Eklenti olarak kurulduğunda Antigravity IDE içindeki **Auxiliary Side Pane**'de tek tıkla (`sidecar://antigravity-swarm-plaza/swarm_plaza/`) açılır.
@@ -208,7 +220,7 @@ cd antigravity-swarm-plaza
 # Bağımlılıkları yükleyin
 npm install
 
-# Testleri çalıştırın (71 test / 25 test paketi)
+# Testleri çalıştırın (73 test / 25 test paketi)
 npm test
 
 # TypeScript tip kontrolü

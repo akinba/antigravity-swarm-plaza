@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/akinba/antigravity-swarm-plaza/actions/workflows/ci.yml/badge.svg)](https://github.com/akinba/antigravity-swarm-plaza/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/akinba/antigravity-swarm-plaza?include_prereleases)](https://github.com/akinba/antigravity-swarm-plaza/releases)
+![Version](https://img.shields.io/badge/version-v1.3.0-ffd147)
 
 🇬🇧 **English** | [🇹🇷 **Türkçe**](README.tr.md) | [🇨🇳 **简体中文**](README.zh-CN.md)
 
@@ -105,7 +106,18 @@ flowchart LR
 
 ---
 
-## 🌟 Key Features & What's New (v1.2.0)
+## 🌟 Key Features & What's New (v1.3.0)
+
+- **👥 Illustrated Personnel Roster (`👥 PERSONNEL ROSTER`) & Back-to-List RPG Navigation:**
+  - Live `64×64` 2.5D pixel-art portraits for every active agent on the floor, paired with current activity/task summary, model badge, `~Estimated` credit & token usage, `HP` health bar, and one-click RPG Card inspection with a top-left **`⬅ BACK TO LIST`** button to jump straight back to the roster.
+- **📅 Vertical Gantt Work Plan (`📅 WORK PLAN (GANTT)`):**
+  - Side-by-side agent columns on the horizontal axis and real date blocks (`📅 YYYY-MM-DD`) with an `HH:MM` clock timeline on the vertical axis, color-coded phase blocks (`📊 Plan`, `🔍 Analyze`, `💻 Code`, `🧪 Test`, `☕ Break`), and a **`⬆️/⬇️` flow direction toggle**.
+- **📋 Task Flow (`📋 TASK FLOW (DAG)`) & Golden Desk Verification Trophies:**
+  - Active-scene-only `@mention` handoff graph, task cards, and golden pixel verification trophies (`drawDeskVerifiedTrophy`) that appear on 2.5D desks when agents report `PASS / DONE / EXIT 0 / ✅` proof.
+- **🛡️ Agent Health (`0–100 HP`), `~Estimated` Cost Monitor & `×N` Smart Alert Grouping:**
+  - Passive micro-HP bars on agent cards and desks, `~Estimated` token & cost breakdown in `AnalyticsModal`, and filterable alert notifications that deduplicate repeated alerts with `×N` badges.
+- **⚡ Eco-Canvas GPU Optimizer & Smart Break Events:**
+  - Offscreen static architecture cache + Adaptive FPS Limiter (`0 FPS` when hidden, `4 FPS` behind open modals, `14–24 FPS` active scene) cutting GPU usage by ~85%, plus a minimum 2-agent-on-break rule (`MIN_BREAK_AGENTS_FOR_SOCIAL_EVENT = 2`) and `150s` inter-event cooldown for automatic social/costume events.
 
 - **🧩 Embedded Antigravity Auxiliary Pane UI Extension (Sidecar):**
   - Runs natively inside the Antigravity IDE Auxiliary Side Pane with one-click launch via `[Swarm Plaza](sidecar://antigravity-swarm-plaza/swarm_plaza/)`.
@@ -209,7 +221,7 @@ cd antigravity-swarm-plaza
 # Install dependencies
 npm install
 
-# Run automated tests (71 tests / 25 test suites)
+# Run automated tests (73 tests / 25 test suites)
 npm test
 
 # Run TypeScript verification
