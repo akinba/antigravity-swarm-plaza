@@ -21,6 +21,8 @@ export type FurnitureKind =
   | 'qa_desk'
   | 'chair'
   | 'desk_chair'
+  | 'swivel_chair'
+  | 'exec_chair'
   | 'meeting_chair'
   | 'gaming_seat'
   | 'sofa'
@@ -1320,6 +1322,487 @@ export function drawExtraFurnitureProp(
   return drawCustomOrPartitionProp(ctx, kind, cx, cy, zoom, timeSec, isOccupied, false);
 }
 
+export type ChairFacing = Facing | 'nw' | 'ne' | 'sw' | 'se';
+export type ChairVariant = 'task' | 'meeting' | 'exec' | 'gaming';
+
+/**
+ * Renders a realistic, wafer-slim ergonomic 2.5D isometric swivel office chair:
+ * 1. 5-star die-cast caster wheel base + gleaming pneumatic chrome cylinder + tilt housing
+ * 2. Slim contoured waterfall seat cushion (~0.12 tile thickness, never a chunky block)
+ * 3. Ultra-thin (~0.09 tile thickness) lumbar-supported mesh/leather backrest + tapered
+ *    headrest + rear metallic J-spine bar (strictly non-cubic!)
+ * 4. Left & right L/T-shaped padded armrests sorted in true isometric painter's depth order
+ *    across all 4 facings (`nw`, `ne`, `sw`, `se`).
+ */
+export function drawErgonomicOfficeChair(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  zoom: number,
+  variant: ChairVariant = 'task',
+  facing: ChairFacing = 'SE',
+  accentColor = '#5cf0ff',
+): void {
+  const z = zoom;
+  const dir = (facing || 'SE').toLowerCase() as 'nw' | 'ne' | 'sw' | 'se';
+
+  // Forward unit step (direction the seated person faces) & orthogonal lateral step
+  // Note: lat.y is always +0.5 so l < 0 is ALWAYS the far/background flank and l > 0 is ALWAYS the near/foreground flank.
+  const fwd =
+    dir === 'se'
+      ? { x: 1.0, y: 0.5 }
+      : dir === 'sw'
+        ? { x: -1.0, y: 0.5 }
+        : dir === 'ne'
+          ? { x: 1.0, y: -0.5 }
+          : { x: -1.0, y: -0.5 };
+
+  const lat =
+    dir === 'se' || dir === 'nw'
+      ? { x: -1.0, y: 0.5 } // NE (-l) -> SW (+l)
+      : { x: 1.0, y: 0.5 }; // NW (-l) -> SE (+l)
+
+  const isFacingFront = fwd.y > 0; // 'se' or 'sw'
+
+  const pt = (f: number, l: number, h: number) => ({
+    x: cx + (f * fwd.x + l * lat.x) * z,
+    y: cy + (f * fwd.y + l * lat.y - h) * z,
+  });
+
+  const drawQuad = (
+    p0: { x: number; y: number },
+    p1: { x: number; y: number },
+    p2: { x: number; y: number },
+    p3: { x: number; y: number },
+    fill: string,
+    stroke?: string,
+    lineW = 0.85,
+  ) => {
+    ctx.beginPath();
+    ctx.moveTo(p0.x, p0.y);
+    ctx.lineTo(p1.x, p1.y);
+    ctx.lineTo(p2.x, p2.y);
+    ctx.lineTo(p3.x, p3.y);
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+    if (stroke) {
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = Math.max(0.8, lineW * z);
+      ctx.stroke();
+    }
+  };
+
+  // Draws an oriented isometric 3D slab [f0..f1] x [l0..l1] x [h0..h1] with true thin-edge perspective
+  const drawOrientedSlab = (
+    f0: number,
+    f1: number,
+    l0: number,
+    l1: number,
+    h0: number,
+    h1: number,
+    topCol: string,
+    fFaceCol: string,
+    lFaceCol: string,
+    outline = '#0f131f',
+  ) => {
+    const fVis = isFacingFront ? f1 : f0;
+    // 1. Visible front/rear face (f = fVis)
+    drawQuad(
+      pt(fVis, l0, h0),
+      pt(fVis, l1, h0),
+      pt(fVis, l1, h1),
+      pt(fVis, l0, h1),
+      fFaceCol,
+      outline,
+      0.8,
+    );
+    // 2. Visible near lateral edge face (l = l1, since lat.y > 0)
+    drawQuad(
+      pt(f0, l1, h0),
+      pt(f1, l1, h0),
+      pt(f1, l1, h1),
+      pt(f0, l1, h1),
+      lFaceCol,
+      outline,
+      0.8,
+    );
+    // 3. Top face (h = h1)
+    drawQuad(
+      pt(f0, l0, h1),
+      pt(f1, l0, h1),
+      pt(f1, l1, h1),
+      pt(f0, l1, h1),
+      topCol,
+      outline,
+      0.8,
+    );
+  };
+
+  // Palette per chair variant
+  const pal =
+    variant === 'exec'
+      ? {
+          seatTop: '#262b3d',
+          seatFront: '#1b2030',
+          seatSide: '#131724',
+          frameOuter: '#171c2b',
+          frameEdge: '#2e3852',
+          meshInner: '#283044',
+          meshRib: '#3c4866',
+          headrestTop: '#323b54',
+          trim: '#ffd147',
+          armPad: '#2c344a',
+          armStem: '#6d7f9e',
+        }
+      : variant === 'meeting'
+        ? {
+            seatTop: '#283c66',
+            seatFront: '#1d2d4f',
+            seatSide: '#142038',
+            frameOuter: '#162036',
+            frameEdge: '#324873',
+            meshInner: '#2b4373',
+            meshRib: '#41619e',
+            headrestTop: '#8fa6cc',
+            trim: '#9eb6de',
+            armPad: '#212c45',
+            armStem: '#7c90b3',
+          }
+        : variant === 'gaming'
+          ? {
+              seatTop: '#222b42',
+              seatFront: '#181f33',
+              seatSide: '#111626',
+              frameOuter: '#151c2e',
+              frameEdge: '#2c78c9',
+              meshInner: '#1e2942',
+              meshRib: '#3cd8ff',
+              headrestTop: '#293859',
+              trim: accentColor || '#3cd8ff',
+              armPad: '#1e263b',
+              armStem: '#3b4866',
+            }
+          : {
+              // Standard ergonomic mesh office desk/task chair
+              seatTop: '#273045',
+              seatFront: '#1b2233',
+              seatSide: '#121724',
+              frameOuter: '#151b29',
+              frameEdge: '#2c3752',
+              meshInner: '#242f47',
+              meshRib: '#3a4b6e',
+              headrestTop: '#364361',
+              trim: '#697d9e',
+              armPad: '#232b3f',
+              armStem: '#42506b',
+            };
+
+  // 1. Floor contact shadow
+  drawFloorShadow(ctx, cx, cy + 0.5 * z, 9.2, 4.8, z, 0.25);
+
+  // 2. 5-Star Swivel Caster Base & Dual-Wheel Rubber Casters
+  const hubY = cy - 1.8 * z;
+  const starAngles = [-2.55, -0.6, 0.48, 1.57, 2.66];
+  for (const ang of starAngles) {
+    const wx = cx + Math.cos(ang) * 7.2 * z;
+    const wy = cy + Math.sin(ang) * 3.4 * z + 0.4 * z;
+
+    // Dark wheel assembly touching floor
+    ctx.fillStyle = '#0c0f17';
+    pxRect(ctx, wx - 1.1 * z, wy - 0.3 * z, 2.2 * z, 1.7 * z);
+    ctx.fillStyle = '#485673';
+    pxRect(ctx, wx - 0.9 * z, wy - 0.9 * z, 1.8 * z, 0.9 * z);
+
+    // Arched aluminum/nylon spoke leg from center hub down to caster hood
+    ctx.strokeStyle = '#252e42';
+    ctx.lineWidth = Math.max(1.2, 1.8 * z);
+    ctx.beginPath();
+    ctx.moveTo(cx, hubY);
+    ctx.lineTo((cx + wx) * 0.5, (hubY + wy) * 0.5 - 0.6 * z);
+    ctx.lineTo(wx, wy - 0.5 * z);
+    ctx.stroke();
+
+    // Brushed metallic top bevel along each star spoke
+    ctx.strokeStyle = '#7e91b0';
+    ctx.lineWidth = Math.max(0.8, 0.95 * z);
+    ctx.beginPath();
+    ctx.moveTo(cx, hubY - 0.4 * z);
+    ctx.lineTo(wx * 0.88 + cx * 0.12, (wy - 0.8 * z) * 0.88 + hubY * 0.12);
+    ctx.stroke();
+  }
+
+  // 3. Telescopic Pneumatic Chrome Gas-Lift Cylinder & Under-Seat Tilt Mechanism
+  // Outer dark telescopic collar
+  ctx.fillStyle = '#181e2d';
+  pxRect(ctx, cx - 1.5 * z, cy - 3.8 * z, 3.0 * z, 2.3 * z);
+  // Gleaming chrome inner hydraulic shaft + bright specular highlight
+  ctx.fillStyle = '#7f93b3';
+  pxRect(ctx, cx - 1.1 * z, cy - 6.4 * z, 2.2 * z, 2.8 * z);
+  ctx.fillStyle = '#dce8ff';
+  pxRect(ctx, cx - 0.4 * z, cy - 6.3 * z, 0.9 * z, 2.6 * z);
+
+  // Compact dark under-seat tilt mechanism plate + height-adjust paddle lever
+  drawOrientedSlab(-1.9, 1.6, -2.0, 2.0, 5.8, 6.9, '#1c2233', '#141926', '#0e121c');
+  const leverTip = pt(0.2, 3.3, 6.1);
+  const leverRoot = pt(0.2, 1.8, 6.3);
+  ctx.strokeStyle = '#6c7e9c';
+  ctx.lineWidth = Math.max(0.9, 1.0 * z);
+  ctx.beginPath();
+  ctx.moveTo(leverRoot.x, leverRoot.y);
+  ctx.lineTo(leverTip.x, leverTip.y);
+  ctx.stroke();
+
+  // Helper: Slim L/T-shaped Armrest for side = -1 (far/background) or +1 (near/foreground)
+  const drawArmrest = (side: -1 | 1) => {
+    const lInner = side === -1 ? -5.6 : 4.5;
+    const lOuter = side === -1 ? -4.5 : 5.6;
+    const padInner = side === -1 ? -5.9 : 4.2;
+    const padOuter = side === -1 ? -4.2 : 5.9;
+
+    // Vertical L-support bracket rising from under seat side
+    drawOrientedSlab(
+      -1.2,
+      0.1,
+      lInner,
+      lOuter,
+      7.1,
+      11.7,
+      pal.armStem,
+      '#1e2536',
+      '#141926',
+    );
+
+    // Horizontal contoured polyurethane armrest top pad (T/L top bar)
+    drawOrientedSlab(
+      -2.4,
+      2.5,
+      padInner,
+      padOuter,
+      11.7,
+      12.7,
+      pal.armPad,
+      '#192030',
+      '#121724',
+    );
+
+    // Crisp soft-touch highlight along top of armrest pad
+    const a0 = pt(-2.0, (padInner + padOuter) * 0.5, 12.75);
+    const a1 = pt(2.1, (padInner + padOuter) * 0.5, 12.75);
+    ctx.strokeStyle = 'rgba(190, 212, 248, 0.38)';
+    ctx.lineWidth = Math.max(0.8, 0.9 * z);
+    ctx.beginPath();
+    ctx.moveTo(a0.x, a0.y);
+    ctx.lineTo(a1.x, a1.y);
+    ctx.stroke();
+  };
+
+  // Helper: Slim Contoured Waterfall Seat Cushion (~1.7*z thin — never boxy!)
+  const drawSeatCushion = () => {
+    drawOrientedSlab(
+      -4.3,
+      4.7,
+      -4.7,
+      4.7,
+      6.9,
+      8.6,
+      pal.seatTop,
+      pal.seatFront,
+      pal.seatSide,
+    );
+
+    // Subtle contoured thigh-bolster stitch seam & waterfall front bevel highlight
+    const frontA = pt(4.25, -4.0, 8.65);
+    const frontB = pt(4.25, 4.0, 8.65);
+    ctx.strokeStyle = 'rgba(205, 224, 255, 0.26)';
+    ctx.lineWidth = Math.max(0.8, 0.9 * z);
+    ctx.beginPath();
+    ctx.moveTo(frontA.x, frontA.y);
+    ctx.lineTo(frontB.x, frontB.y);
+    ctx.stroke();
+
+    if (variant === 'gaming' || variant === 'exec') {
+      // Subtle side bolster accent piping on seat cushion
+      const pipeL0 = pt(-3.5, -4.1, 8.68);
+      const pipeL1 = pt(3.8, -4.1, 8.68);
+      const pipeR0 = pt(-3.5, 4.1, 8.68);
+      const pipeR1 = pt(3.8, 4.1, 8.68);
+      ctx.strokeStyle = pal.trim;
+      ctx.lineWidth = Math.max(0.8, 0.95 * z);
+      ctx.beginPath();
+      ctx.moveTo(pipeL0.x, pipeL0.y);
+      ctx.lineTo(pipeL1.x, pipeL1.y);
+      ctx.moveTo(pipeR0.x, pipeR0.y);
+      ctx.lineTo(pipeR1.x, pipeR1.y);
+      ctx.stroke();
+    }
+  };
+
+  // Helper: Wafer-Thin (~1.0*z thick!) Ergonomic Lumbar Backrest + Headrest + Metallic Spine Bar
+  const drawSlimBackrest = () => {
+    const drawSpineAndLumbarBridge = () => {
+      // J-curved gunmetal/chrome spine arm connecting under-seat mechanism up the rear of backrest
+      const sBase = pt(-2.2, 0, 6.4);
+      const sElbow = pt(-5.45, 0, 8.2);
+      const sMid = pt(-5.5, 0, 14.4);
+      ctx.strokeStyle = '#263047';
+      ctx.lineWidth = Math.max(1.3, 2.0 * z);
+      ctx.beginPath();
+      ctx.moveTo(sBase.x, sBase.y);
+      ctx.lineTo(sElbow.x, sElbow.y);
+      ctx.lineTo(sMid.x, sMid.y);
+      ctx.stroke();
+
+      ctx.strokeStyle = '#7b8fad';
+      ctx.lineWidth = Math.max(0.8, 0.95 * z);
+      ctx.beginPath();
+      ctx.moveTo(sElbow.x, sElbow.y);
+      ctx.lineTo(sMid.x, sMid.y);
+      ctx.stroke();
+
+      // Horizontal ergonomic Y-lumbar support bridge across rear frame
+      const lumL = pt(-5.4, -3.8, 12.0);
+      const lumR = pt(-5.4, 3.8, 12.0);
+      ctx.strokeStyle = '#4a5c7d';
+      ctx.lineWidth = Math.max(0.95, 1.25 * z);
+      ctx.beginPath();
+      ctx.moveTo(lumL.x, lumL.y);
+      ctx.lineTo(lumR.x, lumR.y);
+      ctx.stroke();
+    };
+
+    // When facing front (SE/SW), the spine is behind the backrest; draw it first
+    if (isFacingFront) {
+      drawSpineAndLumbarBridge();
+    }
+
+    // Main wafer-thin backrest frame: thickness f = [-5.2 .. -4.2] (ONLY 1.0 unit thin — never a cube!)
+    const topMainH = variant === 'meeting' ? 16.6 : 17.4;
+    drawOrientedSlab(
+      -5.2,
+      -4.2,
+      -4.3,
+      4.3,
+      8.4,
+      topMainH,
+      pal.frameEdge,
+      pal.frameOuter,
+      '#101522',
+    );
+
+    // Breathable mesh / stitched leather inset panel on whichever face of backrest faces camera
+    const meshF = isFacingFront ? -4.16 : -5.24;
+    const mBot = 9.3;
+    const mTop = topMainH - 0.8;
+    drawQuad(
+      pt(meshF, -3.4, mBot),
+      pt(meshF, 3.4, mBot),
+      pt(meshF, 3.4, mTop),
+      pt(meshF, -3.4, mTop),
+      pal.meshInner,
+    );
+
+    if (isFacingFront) {
+      // Sculpted ergonomic lumbar support band + breathable horizontal mesh weave on front face
+      drawQuad(
+        pt(meshF + 0.03, -3.4, 10.8),
+        pt(meshF + 0.03, 3.4, 10.8),
+        pt(meshF + 0.03, 3.4, 12.4),
+        pt(meshF + 0.03, -3.4, 12.4),
+        'rgba(120, 152, 204, 0.18)',
+      );
+
+      ctx.strokeStyle = pal.meshRib;
+      ctx.lineWidth = Math.max(0.8, 0.9 * z);
+      const ribHeights =
+        variant === 'meeting' ? [11.0, 13.0, 14.8] : [10.8, 12.5, 14.2, 15.8];
+      for (const rh of ribHeights) {
+        if (rh >= mTop) continue;
+        const r0 = pt(meshF, -3.1, rh);
+        const r1 = pt(meshF, 3.1, rh);
+        ctx.beginPath();
+        ctx.moveTo(r0.x, r0.y);
+        ctx.lineTo(r1.x, r1.y);
+        ctx.stroke();
+      }
+    }
+
+    // Tapered upper shoulder / ergonomic headrest crown (slightly reclined to f = [-5.5 .. -4.4])
+    if (variant === 'exec' || variant === 'gaming') {
+      // Sculpted executive / racing headrest pillow with chrome neck pins
+      const pinL0 = pt(-4.8, -1.8, topMainH);
+      const pinL1 = pt(-5.0, -1.8, topMainH + 1.0);
+      const pinR0 = pt(-4.8, 1.8, topMainH);
+      const pinR1 = pt(-5.0, 1.8, topMainH + 1.0);
+      ctx.strokeStyle = '#9fb3d4';
+      ctx.lineWidth = Math.max(0.9, 1.1 * z);
+      ctx.beginPath();
+      ctx.moveTo(pinL0.x, pinL0.y);
+      ctx.lineTo(pinL1.x, pinL1.y);
+      ctx.moveTo(pinR0.x, pinR0.y);
+      ctx.lineTo(pinR1.x, pinR1.y);
+      ctx.stroke();
+
+      drawOrientedSlab(
+        -5.5,
+        -4.4,
+        -2.9,
+        2.9,
+        topMainH + 0.8,
+        topMainH + 3.4,
+        pal.headrestTop,
+        pal.frameOuter,
+        '#121724',
+      );
+    } else {
+      // Sleek tapered upper arch / brushed top grip rail on task & meeting chairs
+      drawOrientedSlab(
+        -5.4,
+        -4.3,
+        -3.2,
+        3.2,
+        topMainH,
+        topMainH + 1.8,
+        pal.headrestTop,
+        pal.frameOuter,
+        '#121724',
+      );
+    }
+
+    // Crisp top specular highlight along headrest/top rail
+    const topRimH =
+      variant === 'exec' || variant === 'gaming' ? topMainH + 3.45 : topMainH + 1.85;
+    const h0 = pt(-4.9, -2.5, topRimH);
+    const h1 = pt(-4.9, 2.5, topRimH);
+    ctx.strokeStyle = pal.trim;
+    ctx.lineWidth = Math.max(0.85, 1.0 * z);
+    ctx.beginPath();
+    ctx.moveTo(h0.x, h0.y);
+    ctx.lineTo(h1.x, h1.y);
+    ctx.stroke();
+
+    // When facing away from camera (NE/NW), the spine bar is on the camera-facing rear of the backrest!
+    if (!isFacingFront) {
+      drawSpineAndLumbarBridge();
+    }
+  };
+
+  // 4. True Isometric Painter's Order Assembly
+  if (isFacingFront) {
+    // Facing SE or SW: Backrest (furthest) -> Far Armrest -> Seat Cushion -> Near Armrest (closest)
+    drawSlimBackrest();
+    drawArmrest(-1);
+    drawSeatCushion();
+    drawArmrest(1);
+  } else {
+    // Facing NE or NW: Far Armrest -> Seat Cushion -> Near Armrest -> Slim Reclined Backrest + Rear Spine
+    drawArmrest(-1);
+    drawSeatCushion();
+    drawArmrest(1);
+    drawSlimBackrest();
+  }
+}
+
 /**
  * Renders high-craft 2.5D office furniture, tech racks, smartboards, partitions,
  * hospitality stations, and all 5 custom mini-room fixtures.
@@ -1337,6 +1820,7 @@ export function drawEnhancedFurniture(
   isHovered = false,
   whiteboardLabel = 'SWARM BOARD',
   deskLevel = 1,
+  facing: ChairFacing = 'SE',
 ): void {
   const z = zoom;
   const cx = sx;
@@ -1470,57 +1954,18 @@ export function drawEnhancedFurniture(
       isOccupied,
       deskLevel,
     );
-  } else if (kind === 'chair' || kind === 'desk_chair' || kind === 'meeting_chair') {
-    // 5-star caster wheel base + pneumatic piston + ergonomic lumbar backrest & cushion
-    const isMeeting = kind === 'meeting_chair';
-    drawFloorShadow(ctx, cx, cy, 10, 5.5, z, 0.26);
-
-    // 5-star base arms & tiny caster wheels
-    ctx.strokeStyle = '#6c7a96';
-    ctx.lineWidth = Math.max(1, 1.3 * z);
-    const spokes = [
-      [-6.5, 1.2],
-      [6.5, 1.2],
-      [-4.2, 3.2],
-      [4.2, 3.2],
-      [0, -2.5],
-    ];
-    for (const [dx, dy] of spokes) {
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - 1 * z);
-      ctx.lineTo(cx + dx * z, cy + dy * z);
-      ctx.stroke();
-      ctx.fillStyle = '#121520';
-      pxRect(ctx, cx + dx * z - 0.8 * z, cy + dy * z, 1.8 * z, 1.5 * z);
-    }
-
-    // Pneumatic gas-lift cylinder piston
-    ctx.fillStyle = '#9aa8c4';
-    pxRect(ctx, cx - 1.2 * z, cy - 4.5 * z, 2.4 * z, 3.8 * z);
-
-    // Contoured seat cushion & armrests
-    if (isMeeting) {
-      drawBox(ctx, cx, cy - 3.5 * z, 9.5, 5.2, 3.2, '#4164ad', '#2b4478', '#1c2d52', z);
-      drawBox(ctx, cx - 2 * z, cy - 6.8 * z, 7.5, 3.2, 8.5, '#5278c7', '#345191', '#213666', z);
-      ctx.fillStyle = '#b8c7e6';
-      pxRect(ctx, cx - 4 * z, cy - 15.8 * z, 4 * z, 1.2 * z);
-    } else {
-      drawBox(ctx, cx, cy - 3.5 * z, 9.5, 5.2, 3.2, '#323c54', '#202738', '#141824', z);
-      // Ergonomic side armrests
-      ctx.fillStyle = '#1b2130';
-      pxRect(ctx, cx - 7.5 * z, cy - 9.5 * z, 1.8 * z, 3.5 * z);
-      pxRect(ctx, cx + 5.5 * z, cy - 9.5 * z, 1.8 * z, 3.5 * z);
-      // Lumbar-supported backrest
-      drawBox(ctx, cx - 2 * z, cy - 6.8 * z, 7.5, 3.2, 9, '#414f6e', '#29334a', '#192030', z);
-      ctx.fillStyle = '#5c6f96';
-      pxRect(ctx, cx - 5 * z, cy - 12 * z, 5.5 * z, 1.6 * z);
-    }
+  } else if (
+    kind === 'chair' ||
+    kind === 'desk_chair' ||
+    kind === 'swivel_chair' ||
+    kind === 'exec_chair' ||
+    kind === 'meeting_chair'
+  ) {
+    const chairVariant: ChairVariant =
+      kind === 'exec_chair' ? 'exec' : kind === 'meeting_chair' ? 'meeting' : 'task';
+    drawErgonomicOfficeChair(ctx, cx, cy, z, chairVariant, facing, modelAccent);
   } else if (kind === 'gaming_seat') {
-    drawFloorShadow(ctx, cx, cy, 14, 8.5, z, 0.26);
-    drawBox(ctx, cx, cy, 13, 8, 7, '#3f6ad8', '#2a499e', '#1c326e', z);
-    drawBox(ctx, cx - 1 * z, cy - 6.5 * z, 9.5, 5.2, 4, '#5c88f5', '#3f6ad8', '#2a499e', z);
-    ctx.fillStyle = '#8cb0ff';
-    pxRect(ctx, cx - 4 * z, cy - 9.5 * z, 6 * z, 1.4 * z);
+    drawErgonomicOfficeChair(ctx, cx, cy, z, 'gaming', facing, modelAccent);
   } else if (kind === 'sofa' || kind === 'sofa_l' || kind === 'sofa_r' || kind === 'armchair') {
     const isArm = kind === 'armchair';
     const w = isArm ? 15.5 : 20.5;
