@@ -449,7 +449,6 @@ export const AnalyticsModal: React.FC<AnalyticsModalProps> = ({
                 ? floor?.employees
                 : snapshot.floors.flatMap((f) => f.employees)
             }
-            usedTokens={totalEstimatedTokens}
           />
 
           {/* KPI Strip */}

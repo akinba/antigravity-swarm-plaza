@@ -198,8 +198,6 @@ export interface Translations {
     ctxTitle: string;
     ctxLeft: string;
     compactWarn: string;
-    budgetTitle: string;
-    budgetLeft: string;
     noContext: string;
     hudQuota: string;
     hudCtx: string;
@@ -546,7 +544,7 @@ const TR: Translations = {
     completedTasksCol: 'Tamamlanan',
   },
   quota: {
-    title: '🔋 Kalan Kota, Context & Token Bütçesi',
+    title: '🔋 Kalan Kota & Context',
     poolGemini: 'Gemini Havuzu',
     poolClaudeGpt: 'Claude / GPT Havuzu',
     remainingLabel: 'kalan',
@@ -556,8 +554,6 @@ const TR: Translations = {
     ctxTitle: 'Ajan Kalan Context Penceresi',
     ctxLeft: 'kalan',
     compactWarn: '/compact önerilir',
-    budgetTitle: 'Oturum Token Bütçesi',
-    budgetLeft: 'Kalan',
     noContext: 'Henüz context verisi yok.',
     hudQuota: 'KOTA',
     hudCtx: 'CTX',
@@ -903,7 +899,7 @@ const EN: Translations = {
     completedTasksCol: 'Completed',
   },
   quota: {
-    title: '🔋 Remaining Quota, Context & Token Budget',
+    title: '🔋 Remaining Quota & Context',
     poolGemini: 'Gemini Pool',
     poolClaudeGpt: 'Claude / GPT Pool',
     remainingLabel: 'left',
@@ -913,8 +909,6 @@ const EN: Translations = {
     ctxTitle: 'Agent Remaining Context Window',
     ctxLeft: 'left',
     compactWarn: '/compact recommended',
-    budgetTitle: 'Session Token Budget',
-    budgetLeft: 'Left',
     noContext: 'No context data yet.',
     hudQuota: 'QUOTA',
     hudCtx: 'CTX',

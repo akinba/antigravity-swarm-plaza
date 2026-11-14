@@ -1,10 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import type { OfficeEmployee, QuotaPoolStatus } from '../../shared/types';
-import { playSelectBlip } from '../audio/retroSynth';
 import { useI18n } from '../i18n/translations';
-
-const BUDGET_KEY = 'swarm_plaza_token_budget';
-const BUDGET_OPTIONS = [1_000_000, 5_000_000, 10_000_000, 25_000_000, 50_000_000];
 
 export function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1)}M`;
@@ -69,20 +65,10 @@ function Bar({ pct, color }: { pct: number; color: string }) {
 interface QuotaPanelProps {
   quotaPools?: QuotaPoolStatus[];
   employees?: OfficeEmployee[];
-  usedTokens: number;
 }
 
-export const QuotaPanel: React.FC<QuotaPanelProps> = ({ quotaPools, employees, usedTokens }) => {
+export const QuotaPanel: React.FC<QuotaPanelProps> = ({ quotaPools, employees }) => {
   const { t } = useI18n();
-  const [budget, setBudget] = useState<number>(() => {
-    try {
-      const raw = typeof window !== 'undefined' ? window.localStorage.getItem(BUDGET_KEY) : null;
-      const n = raw ? Number(raw) : NaN;
-      return BUDGET_OPTIONS.includes(n) ? n : 5_000_000;
-    } catch {
-      return 5_000_000;
-    }
-  });
 
   const nowMs = Date.now();
   const poolDefs: Array<{ id: 'gemini' | 'claude_gpt'; label: string }> = [
@@ -102,9 +88,6 @@ export const QuotaPanel: React.FC<QuotaPanelProps> = ({ quotaPools, employees, u
         .sort((a, b) => a.pct - b.pct),
     [employees],
   );
-
-  const budgetLeft = Math.max(0, budget - usedTokens);
-  const budgetPct = Math.round((budgetLeft / budget) * 100);
 
   return (
     <div
@@ -184,40 +167,6 @@ export const QuotaPanel: React.FC<QuotaPanelProps> = ({ quotaPools, employees, u
             </div>
           ))
         )}
-      </div>
-
-      {/* Session budget */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 10, color: '#9aa7c7', fontFamily: 'var(--font-pixel)' }}>
-            {t.quota.budgetTitle}
-          </span>
-          {BUDGET_OPTIONS.map((opt) => (
-            <button
-              key={opt}
-              type="button"
-              className={`pixel-btn ${opt === budget ? 'cyan' : ''}`}
-              style={{ padding: '2px 6px', fontSize: 9 }}
-              onClick={() => {
-                playSelectBlip();
-                setBudget(opt);
-                try {
-                  window.localStorage.setItem(BUDGET_KEY, String(opt));
-                } catch {
-                  // ignore storage errors
-                }
-              }}
-            >
-              {formatTokens(opt)}
-            </button>
-          ))}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
-          <Bar pct={budgetPct} color={pctColor(budgetPct)} />
-          <span style={{ color: pctColor(budgetPct), fontWeight: 700 }}>
-            {t.quota.budgetLeft}: ~{formatTokens(budgetLeft)} / {formatTokens(budget)} tok
-          </span>
-        </div>
       </div>
     </div>
   );
