@@ -1338,8 +1338,10 @@ export function drawEmployeeSprite(
 
   const isPresenting = !isWalking && (emp.activity === 'presenting' || Boolean(emp.isPresenter));
   const act = emp.activity as string;
+  const toolAct = (emp.toolActivity ?? '') as string;
   const isDeskZone =
     emp.zone === 'DESK_CODING' || emp.zone === 'DESK_QA' || emp.zone === 'DESK_ARCHITECT';
+  const isStandingWorkZone = emp.zone === 'SERVER_RACK' || emp.zone === 'ELEVATOR';
   const isCodingLikeActivity =
     act === 'coding' ||
     act === 'terminal' ||
@@ -1351,6 +1353,7 @@ export function drawEmployeeSprite(
   const autoSeated =
     !isWalking &&
     !isPresenting &&
+    !isStandingWorkZone &&
     (isCodingLikeActivity ||
       act === 'reading' ||
       act === 'searching' ||
@@ -1366,6 +1369,18 @@ export function drawEmployeeSprite(
     !isWalking &&
     (isCodingLikeActivity ||
       (isDeskZone && (act === 'reading' || act === 'searching' || act === 'thinking')));
+  const isLaptopPose =
+    !seated &&
+    !isWalking &&
+    !isPresenting &&
+    (isCodingLikeActivity ||
+      toolAct === 'terminal' ||
+      toolAct === 'coding' ||
+      toolAct === 'testing' ||
+      toolAct === 'writing' ||
+      (emp.zone === 'SERVER_RACK' &&
+        (act === 'reading' || act === 'searching' || act === 'thinking' || act === 'error')));
+  const hasScreenGlow = isCodingPose || isLaptopPose;
 
   // Respect true desk/chair facing (SE / SW / NE / NW) when seated; only flip standing idle poses toward camera
   const effectiveFacing: Facing =
@@ -1376,6 +1391,9 @@ export function drawEmployeeSprite(
       : facing;
   const dirFlip = effectiveFacing === 'SW' || effectiveFacing === 'NW' ? -1 : 1;
   const isFacingAway = seated && (effectiveFacing === 'NE' || effectiveFacing === 'NW');
+  const dRect = (dx: number, y: number, w: number, h: number, color: string) => {
+    rect(dirFlip > 0 ? cx + dx * z : cx - (dx + w) * z, y, w * z, h * z, color);
+  };
 
   ctx.save();
   if (alpha < 1) {
@@ -1843,6 +1861,11 @@ export function drawEmployeeSprite(
         rect(uX - 3.2 * z, uY - 14.4 * z, 2 * z, 1.6 * z, palette.skin);
         rect(uX + 1.2 * z, uY - 14.4 * z, 2 * z, 1.6 * z, palette.skin);
       }
+    } else if (isLaptopPose) {
+      // Standing laptop posture: bent upper sleeves + supporting forearm cradling the open laptop deck
+      dRect(-6.8, baseY - 18.2 * z, 2, 4, uniform.main);
+      dRect(4.4, baseY - 18.2 * z, 2, 4.2, uniform.main);
+      dRect(3.2, baseY - 14.2 * z, 3.4, 2.2, uniform.dark);
     } else {
       // Standing / walking slender 2*z arms (cx - 7*z and cx + 5*z -> 14*z total span with 1*z waist daylight gap!)
       rect(cx - 7 * z, baseY - 18 * z, 2 * z, 6.5 * z, uniform.main);
@@ -2057,6 +2080,15 @@ export function drawEmployeeSprite(
         rect(uX - 4 * z, uY - 15 * z, 2.4 * z, 1.8 * z, palette.skin);
         rect(uX + 1.6 * z, uY - 15 * z, 2.4 * z, 1.8 * z, palette.skin);
       }
+    } else if (isLaptopPose) {
+      // Standing laptop posture: athletic bent upper sleeves + supporting forearm under the aluminum laptop
+      dRect(-8.8, baseY - 18.8 * z, 2.8, 4.2, upperSleeveCol);
+      dRect(6, baseY - 18.8 * z, 2.8, 4.2, upperSleeveCol);
+      if (isVest) {
+        dRect(-8.8, baseY - 15.2 * z, 2.8, 1, '#cfd8ee');
+        dRect(6, baseY - 15.2 * z, 2.8, 1, '#cfd8ee');
+      }
+      dRect(4.4, baseY - 14.6 * z, 4, 2.4, foreArmCol);
     } else {
       // Standing / walking athletic sleeves (18*z total span, 1*z waist daylight gap) + side hands
       if (isHoodie) {
@@ -2113,7 +2145,7 @@ export function drawEmployeeSprite(
       ctx.stroke();
       ctx.fillStyle = '#ff5666';
       ctx.fillRect(Math.round(cx - 23 * z), Math.round(baseY - 29 * z + sweep), Math.ceil(3 * z), Math.ceil(3 * z));
-    } else if (emp.activity === 'reading' || emp.activity === 'searching') {
+    } else if (!isLaptopPose && (emp.activity === 'reading' || emp.activity === 'searching')) {
       ctx.fillStyle = '#f5ecd7';
       ctx.fillRect(
         Math.round(uX + (dirFlip > 0 ? 3.5 : -9.5) * z),
@@ -2161,10 +2193,10 @@ export function drawEmployeeSprite(
   }
 
   // 4. Head, Expressive Face & Monitor Glow Reflection
-  const fShift = dirFlip * (isCodingPose ? 0.9 : 0.6) * z;
+  const fShift = dirFlip * (hasScreenGlow ? 0.9 : 0.6) * z;
   const fEyeLx = uX - 3 * z + fShift;
   const fEyeRx = uX + 1 * z + fShift;
-  const mShift = dirFlip * (isCodingPose ? 0.9 : 0.6) * z;
+  const mShift = dirFlip * (hasScreenGlow ? 0.9 : 0.6) * z;
   const mEyeLx = uX - 3.6 * z + mShift;
   const mEyeRx = uX + 1.6 * z + mShift;
   const codeGlowCyan = Math.sin(timeSec * 5) >= 0;
@@ -2279,8 +2311,8 @@ export function drawEmployeeSprite(
     rect(uX - 4.6 * z, uY - 24.4 * z, 9.2 * z, 1.4 * z, palette.skin);
     rect(uX - 3 * z, uY - 23.1 * z, 6 * z, 1.1 * z, palette.skin);
 
-    // Subtle cyan/emerald monitor glow reflection washing across monitor-facing side of face
-    if (isCodingPose) {
+    // Subtle cyan/emerald monitor/laptop glow reflection washing across screen-facing side of face
+    if (hasScreenGlow) {
       const glowFaceX = dirFlip > 0 ? uX + 0.4 * z : uX - 5.4 * z;
       rect(glowFaceX, uY - 32.4 * z, 5 * z, 7.6 * z, 'rgba(72, 232, 255, 0.22)');
       rect(
@@ -2314,11 +2346,11 @@ export function drawEmployeeSprite(
       rect(fEyeRx, uY - 29.6 * z, 2 * z, 0.9 * z, '#141622');
       rect(fEyeLx - 1 * z, uY - 30.2 * z, 1 * z, 1 * z, '#141622');
       rect(fEyeRx + 2 * z, uY - 30.2 * z, 1 * z, 1 * z, '#141622');
-      // 1*z white sparkle catchlight (#ffffff) + lower cyan/emerald monitor code reflection glint
+      // 1*z white sparkle catchlight (#ffffff) + lower cyan/emerald screen reflection glint
       const catchOffset = dirFlip > 0 ? 1 * z : 0;
       rect(fEyeLx + catchOffset, uY - 29.1 * z, 0.9 * z, 0.9 * z, '#ffffff');
       rect(fEyeRx + catchOffset, uY - 29.1 * z, 0.9 * z, 0.9 * z, '#ffffff');
-      if (isCodingPose) {
+      if (hasScreenGlow) {
         const glintCol = codeGlowCyan ? '#7ef3ff' : '#6bffb8';
         rect(fEyeLx + catchOffset, uY - 27.2 * z, 0.9 * z, 0.8 * z, glintCol);
         rect(fEyeRx + catchOffset, uY - 27.2 * z, 0.9 * z, 0.8 * z, glintCol);
@@ -2340,8 +2372,8 @@ export function drawEmployeeSprite(
     rect(uX - 5 * z, uY - 26.2 * z, 10 * z, 2.4 * z, palette.skin);
     rect(uX - 3 * z, uY - 23.9 * z, 6 * z, 1.5 * z, palette.skin);
 
-    // Subtle cyan/emerald monitor glow reflection across monitor-facing brow, cheek & jaw
-    if (isCodingPose) {
+    // Subtle cyan/emerald monitor/laptop glow reflection across screen-facing brow, cheek & jaw
+    if (hasScreenGlow) {
       const glowFaceX = dirFlip > 0 ? uX + 0.4 * z : uX - 6 * z;
       rect(glowFaceX, uY - 32.8 * z, 5.6 * z, 8.2 * z, 'rgba(72, 232, 255, 0.22)');
       rect(
@@ -2375,7 +2407,7 @@ export function drawEmployeeSprite(
       const catchOffset = dirFlip > 0 ? 1 * z : 0;
       rect(mEyeLx + catchOffset, uY - 29.3 * z, 0.9 * z, 0.9 * z, '#ffffff');
       rect(mEyeRx + catchOffset, uY - 29.3 * z, 0.9 * z, 0.9 * z, '#ffffff');
-      if (isCodingPose) {
+      if (hasScreenGlow) {
         const glintCol = codeGlowCyan ? '#7ef3ff' : '#6bffb8';
         rect(mEyeLx + catchOffset, uY - 27.7 * z, 0.9 * z, 0.8 * z, glintCol);
         rect(mEyeRx + catchOffset, uY - 27.7 * z, 0.9 * z, 0.8 * z, glintCol);
@@ -2635,7 +2667,7 @@ export function drawEmployeeSprite(
     if (isFacingAway) {
       const visX = dirFlip > 0 ? uX + 2 * z : uX - 6.6 * z;
       rect(visX, uY - 30 * z, 4.6 * z, 2.2 * z, '#ffe64d');
-      rect(visX + (dirFlip > 0 ? 1.8 : 0.4) * z, uY - 29.6 * z, 2 * z, 0.9 * z, isCodingPose ? '#7ef3ff' : '#fffbe0');
+      rect(visX + (dirFlip > 0 ? 1.8 : 0.4) * z, uY - 29.6 * z, 2 * z, 0.9 * z, hasScreenGlow ? '#7ef3ff' : '#fffbe0');
     } else if (palette.gender === 'female') {
       rect(uX - 4.5 * z + fShift * 0.5, uY - 29.8 * z, 9 * z, 2.2 * z, '#ffe64d');
       rect(
@@ -2643,7 +2675,7 @@ export function drawEmployeeSprite(
         uY - 29.5 * z,
         2.5 * z,
         0.9 * z,
-        isCodingPose && codeGlowCyan ? '#9ef8ff' : '#fffbe0',
+        hasScreenGlow && codeGlowCyan ? '#9ef8ff' : '#fffbe0',
       );
     } else {
       rect(uX - 5.2 * z + mShift * 0.5, uY - 30 * z, 10.4 * z, 2.4 * z, '#ffe64d');
@@ -2652,12 +2684,12 @@ export function drawEmployeeSprite(
         uY - 29.6 * z,
         3 * z,
         0.9 * z,
-        isCodingPose && codeGlowCyan ? '#9ef8ff' : '#fffbe0',
+        hasScreenGlow && codeGlowCyan ? '#9ef8ff' : '#fffbe0',
       );
     }
   } else if (emp.modelFamily === 'carbon') {
-    // Crimson/white lab coat lapel + cyber glasses with bright monitor reflection
-    const lensTint = isCodingPose ? 'rgba(126, 243, 255, 0.42)' : 'rgba(126, 243, 255, 0.24)';
+    // Crimson/white lab coat lapel + cyber glasses with bright monitor/laptop reflection
+    const lensTint = hasScreenGlow ? 'rgba(126, 243, 255, 0.42)' : 'rgba(126, 243, 255, 0.24)';
     if (isFacingAway) {
       const templeX = dirFlip > 0 ? uX + 1.8 * z : uX - 6.4 * z;
       rect(templeX, uY - 29.8 * z, 4.6 * z, 0.8 * z, '#7ef3ff');
@@ -2669,7 +2701,7 @@ export function drawEmployeeSprite(
         lensTint,
       );
     } else if (palette.gender === 'female') {
-      const lapelH = isCodingPose ? 3.5 * z : 5.8 * z;
+      const lapelH = hasScreenGlow ? 3.5 * z : 5.8 * z;
       rect(uX - 3.8 * z, uY - 18.5 * z, 1.8 * z, lapelH, '#f2f5ff');
       rect(uX + 2 * z, uY - 18.5 * z, 1.8 * z, lapelH, '#f2f5ff');
       rect(fEyeLx - 0.6 * z, uY - 29.8 * z, 3.2 * z, 0.8 * z, '#7ef3ff');
@@ -2678,7 +2710,7 @@ export function drawEmployeeSprite(
       rect(fEyeLx - 0.6 * z, uY - 29.2 * z, 3.2 * z, 2.2 * z, lensTint);
       rect(fEyeRx - 0.6 * z, uY - 29.2 * z, 3.2 * z, 2.2 * z, lensTint);
     } else {
-      const lapelH = isCodingPose ? 3.8 * z : 6.4 * z;
+      const lapelH = hasScreenGlow ? 3.8 * z : 6.4 * z;
       rect(uX - 4.4 * z, uY - 19 * z, 2 * z, lapelH, '#f2f5ff');
       rect(uX + 2.4 * z, uY - 19 * z, 2 * z, lapelH, '#f2f5ff');
       rect(mEyeLx - 0.6 * z, uY - 30 * z, 3.2 * z, 0.8 * z, '#7ef3ff');
@@ -2688,8 +2720,8 @@ export function drawEmployeeSprite(
       rect(mEyeRx - 0.6 * z, uY - 29.4 * z, 3.2 * z, 2.2 * z, lensTint);
     }
   } else if (emp.modelFamily === 'pro') {
-    // Navy/gold executive accent + half-rim glasses with monitor syntax glow reflection!
-    const proLensTint = isCodingPose
+    // Navy/gold executive accent + half-rim glasses with monitor/laptop syntax glow reflection!
+    const proLensTint = hasScreenGlow
       ? codeGlowCyan
         ? 'rgba(118, 240, 255, 0.38)'
         : 'rgba(110, 245, 178, 0.34)'
@@ -2706,7 +2738,7 @@ export function drawEmployeeSprite(
       );
     } else if (palette.gender === 'male') {
       if (palette.maleOutfitStyle !== 'tech_hoodie') {
-        rect(uX - 0.9 * z, uY - 19.2 * z, 1.8 * z, isCodingPose ? 4 * z : 5.4 * z, '#ffd147');
+        rect(uX - 0.9 * z, uY - 19.2 * z, 1.8 * z, hasScreenGlow ? 4 * z : 5.4 * z, '#ffd147');
       }
       rect(mEyeLx - 0.6 * z, uY - 30 * z, 3.2 * z, 0.8 * z, '#e6ecff');
       rect(mEyeRx - 0.6 * z, uY - 30 * z, 3.2 * z, 0.8 * z, '#e6ecff');
@@ -2755,6 +2787,100 @@ export function drawEmployeeSprite(
       rect(uX - 1 * z, uY - 19.2 * z, 2 * z, 4 * z, '#b7c4ff');
       rect(uX - 1.8 * z, uY - 15.6 * z, 3.6 * z, 2.4 * z, '#ffd147');
     }
+  }
+
+  // 6.5 Handheld Glowing Open Aluminum Laptop & Active Typing Hand (Standing DevOps / QA at SERVER_RACK)
+  if (isLaptopPose) {
+    const lapWave = Math.sin(timeSec * 12);
+    const lapTapY = lapWave * 0.85 * z;
+    const lapTapX = Math.cos(timeSec * 6) * 0.55;
+
+    // Soft upward terminal glow cone illuminating chest & lower face
+    dRect(
+      2.6,
+      baseY - 22 * z,
+      8.6,
+      3.4,
+      codeGlowCyan ? 'rgba(92, 240, 255, 0.13)' : 'rgba(59, 232, 122, 0.12)',
+    );
+    dRect(3.8, baseY - 19.8 * z, 8.2, 6.8, 'rgba(60, 216, 255, 0.14)');
+
+    // Open 3-stepped isometric aluminum display lid (#cfd8dc silver outer rim + #e8f0f5 specular + #455a64 bezel)
+    dRect(5.2, baseY - 19.8 * z, 6.8, 2.4, '#cfd8dc');
+    dRect(5.4, baseY - 19.8 * z, 6.4, 0.7, '#eef4f8');
+    dRect(4.7, baseY - 17.5 * z, 6.9, 2.4, '#cfd8dc');
+    dRect(4.2, baseY - 15.2 * z, 6.9, 2.6, '#cfd8dc');
+    dRect(5.2, baseY - 19.1 * z, 6.1, 2.1, '#455a64');
+    dRect(4.7, baseY - 17.1 * z, 6.2, 2.2, '#455a64');
+    dRect(4.2, baseY - 15 * z, 6.2, 2.4, '#455a64');
+
+    // Glowing #0d1526 terminal screen + header bar + green (#3be87a) & cyan (#5cf0ff) CLI code lines
+    dRect(5.5, baseY - 18.7 * z, 5.4, 2, '#0d1526');
+    dRect(5, baseY - 16.8 * z, 5.4, 2, '#0d1526');
+    dRect(4.6, baseY - 14.9 * z, 5.4, 2, '#0d1526');
+    dRect(5.5, baseY - 18.7 * z, 5.4, 0.75, '#1c2d4f');
+    dRect(5.8, baseY - 18.6 * z, 0.8, 0.55, '#3be87a');
+    dRect(5.7, baseY - 17.4 * z, 3.8, 0.75, '#3be87a');
+    const cliLineW = 2.6 + (Math.floor(timeSec * 6) % 3) * 0.8;
+    dRect(5.3, baseY - 16.2 * z, cliLineW, 0.75, '#5cf0ff');
+    dRect(5, baseY - 15 * z, 1.8, 0.75, '#3be87a');
+    dRect(7.2, baseY - 15 * z, 2.2, 0.75, '#5cf0ff');
+    dRect(4.9, baseY - 13.8 * z, 2, 0.75, '#3be87a');
+    if (Math.floor(timeSec * 4) % 2 === 0) {
+      dRect(7.2, baseY - 13.85 * z, 0.9, 0.8, '#ffffff');
+    }
+
+    // Isometric 2-stepped anodized aluminum keyboard deck (#cfd8dc top + #455a64 bevel + #1b2432 chiclet keys)
+    dRect(3.8, baseY - 12.9 * z, 6.4, 0.9, '#263238');
+    dRect(1.2, baseY - 13 * z, 7.8, 1.2, '#cfd8dc');
+    dRect(-1.4, baseY - 12.3 * z, 8.8, 1.3, '#cfd8dc');
+    dRect(-1.4, baseY - 11.1 * z, 9, 0.9, '#455a64');
+    dRect(7.4, baseY - 11.9 * z, 1.8, 0.9, '#455a64');
+    dRect(1.8, baseY - 11.8 * z, 2.2, 0.65, '#90a4ae');
+    dRect(-0.5, baseY - 12.7 * z, 5.8, 1.05, '#1b2432');
+    dRect(-0.1, baseY - 12.5 * z, 1.4, 0.5, '#607d8b');
+    dRect(1.7, baseY - 12.5 * z, 1.6, 0.5, '#90a4ae');
+    dRect(3.6, baseY - 12.6 * z, 1.3, 0.5, '#607d8b');
+
+    // Supporting palm & fingers cradling the underside of the aluminum laptop chassis
+    dRect(2.6, baseY - 10.8 * z, 3.2, 1.2, palette.skin);
+    dRect(3, baseY - 11.2 * z, 2.2, 0.6, palette.skinShadow);
+
+    // Foreground cross-body forearm & active typing hand hovering over laptop keyboard
+    if (palette.gender === 'female') {
+      dRect(-6.2, baseY - 14.9 * z + lapTapY * 0.35, 7, 1.9, uniform.main);
+      dRect(0.4, baseY - 14.8 * z + lapTapY * 0.35, 0.8, 1.8, '#f6f7fc');
+      dRect(1 + lapTapX, baseY - 14.5 * z + lapTapY, 2.8, 1.8, palette.skin);
+    } else {
+      const mIsHoodie = palette.maleOutfitStyle === 'tech_hoodie';
+      const mIsVest = palette.maleOutfitStyle === 'vest_ensemble';
+      if (mIsVest) {
+        dRect(-8.4, baseY - 15.1 * z + lapTapY * 0.25, 2, 2.1, '#eef2fc');
+        dRect(-6.6, baseY - 15.1 * z + lapTapY * 0.3, 1.1, 2.1, '#cfd8ee');
+        dRect(-5.5, baseY - 15 * z + lapTapY * 0.35, 6.3, 2, palette.skin);
+      } else {
+        dRect(-8.2, baseY - 15.1 * z + lapTapY * 0.35, 9, 2.1, uniform.main);
+        if (!mIsHoodie) {
+          dRect(0.4, baseY - 15 * z + lapTapY * 0.35, 0.9, 2, '#f6f7fc');
+        }
+      }
+      dRect(1 + lapTapX, baseY - 14.7 * z + lapTapY, 3.2, 1.9, palette.skin);
+    }
+
+    if (lapWave > 0.45) {
+      dRect(2 + lapTapX, baseY - 12.8 * z, 1.4, 0.8, codeGlowCyan ? '#5cf0ff' : '#3be87a');
+    }
+
+    // Floating CLI / SSH terminal glyph rising gently above the open laptop screen
+    const glyphY = ((timeSec * 10) % 10) * z;
+    ctx.font = `bold ${Math.max(7, Math.round(7 * z))}px "JetBrains Mono", monospace`;
+    ctx.fillStyle = codeGlowCyan ? 'rgba(92, 240, 255, 0.88)' : 'rgba(59, 232, 122, 0.88)';
+    ctx.textAlign = 'center';
+    ctx.fillText(
+      Math.floor(timeSec * 2) % 2 === 0 ? '>_' : '</>',
+      cx + dirFlip * 10.5 * z,
+      baseY - 37 * z - glyphY,
+    );
   }
 
   // Floating Zzz, ♪ lounging sparkle, gaming excitement ★, or Error !
