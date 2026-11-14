@@ -21,6 +21,7 @@ interface TopHudProps {
   isElevatorOpen: boolean;
   onToggleElevator: () => void;
   alertCount?: number;
+  historyAlertCount?: number;
   onOpenAlerts?: () => void;
 }
 
@@ -41,6 +42,7 @@ export const TopHud: React.FC<TopHudProps> = ({
   isElevatorOpen,
   onToggleElevator,
   alertCount = 0,
+  historyAlertCount = 0,
   onOpenAlerts,
 }) => {
   const { t } = useI18n();
@@ -132,27 +134,38 @@ export const TopHud: React.FC<TopHudProps> = ({
                   </span>
                 )}
                 {quotaBadge}
-                {alertCount > 0 && onOpenAlerts && (
+                {(alertCount > 0 || historyAlertCount > 0) && onOpenAlerts && (
                   <button
                     type="button"
                     className="pixel-badge"
-                    title={t.hud.errorAlertsBadge}
+                    title={alertCount > 0 ? t.hud.errorAlertsBadge : t.hud.historyAlertsBadge}
                     onClick={() => {
                       playSelectBlip();
                       onOpenAlerts();
                     }}
-                    style={{
-                      color: '#ffffff',
-                      background: '#c92a37',
-                      borderColor: '#ff6b6b',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      fontFamily: 'inherit',
-                      padding: '2px 6px',
-                      boxShadow: '0 0 8px rgba(255, 86, 102, 0.55)',
-                    }}
+                    style={
+                      alertCount > 0
+                        ? {
+                            color: '#ffffff',
+                            background: '#c92a37',
+                            borderColor: '#ff6b6b',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            fontFamily: 'inherit',
+                            padding: '2px 6px',
+                            boxShadow: '0 0 8px rgba(255, 86, 102, 0.55)',
+                          }
+                        : {
+                            color: '#9aa7c7',
+                            background: '#171c2b',
+                            borderColor: '#3b496b',
+                            cursor: 'pointer',
+                            fontFamily: 'inherit',
+                            padding: '2px 6px',
+                          }
+                    }
                   >
-                    ! {alertCount}
+                    {alertCount > 0 ? `! ${alertCount}` : `🔔 ${historyAlertCount}`}
                   </button>
                 )}
               </div>
@@ -339,27 +352,38 @@ export const TopHud: React.FC<TopHudProps> = ({
                 🏠 {floor.offDutyCount} {t.hud.offDuty}
               </span>
             )}
-            {alertCount > 0 && onOpenAlerts && (
+            {(alertCount > 0 || historyAlertCount > 0) && onOpenAlerts && (
               <button
                 type="button"
                 className="pixel-badge"
-                title={t.hud.errorAlertsBadge}
+                title={alertCount > 0 ? t.hud.errorAlertsBadge : t.hud.historyAlertsBadge}
                 onClick={() => {
                   playSelectBlip();
                   onOpenAlerts();
                 }}
-                style={{
-                  color: '#ffffff',
-                  background: '#c92a37',
-                  borderColor: '#ff6b6b',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  padding: '2px 7px',
-                  boxShadow: '0 0 8px rgba(255, 86, 102, 0.55)',
-                }}
+                style={
+                  alertCount > 0
+                    ? {
+                        color: '#ffffff',
+                        background: '#c92a37',
+                        borderColor: '#ff6b6b',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        fontFamily: 'inherit',
+                        padding: '2px 7px',
+                        boxShadow: '0 0 8px rgba(255, 86, 102, 0.55)',
+                      }
+                    : {
+                        color: '#9aa7c7',
+                        background: '#171c2b',
+                        borderColor: '#3b496b',
+                        cursor: 'pointer',
+                        fontFamily: 'inherit',
+                        padding: '2px 7px',
+                      }
+                }
               >
-                ! {alertCount}
+                {alertCount > 0 ? `! ${alertCount}` : `🔔 ${historyAlertCount}`}
               </button>
             )}
           </div>

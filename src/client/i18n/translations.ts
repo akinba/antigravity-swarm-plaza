@@ -47,6 +47,7 @@ export interface Translations {
     alertsOff: string;
     settings: string;
     errorAlertsBadge: string;
+    historyAlertsBadge: string;
   };
   blueprints: string[];
   events: Record<FloorEventKind, string>;
@@ -212,6 +213,17 @@ export interface Translations {
     filterInfo: string;
     inspectAgent: string;
   };
+  stickyAlerts: {
+    viewError: string;
+    allAlerts: string;
+    dismissBanner: string;
+    otherErrors: string;
+    activeError: string;
+    recovered: string;
+    markAllRead: string;
+    deleteRow: string;
+    lastErrorTitle: string;
+  };
   notifications: {
     agentAlertTitle: string;
     agentStallOrError: string;
@@ -337,6 +349,7 @@ const TR: Translations = {
     alertsOff: '🔕 UYARI',
     settings: '⚙️ AYARLAR',
     errorAlertsBadge: 'Hata / Uyarılar',
+    historyAlertsBadge: 'Geçmiş Uyarılar',
   },
   blueprints: [
     'Klasik Köşe Stüdyo',
@@ -518,6 +531,17 @@ const TR: Translations = {
     filterInfo: 'BİLGİ',
     inspectAgent: 'AJANI İNCELE',
   },
+  stickyAlerts: {
+    viewError: '🔍 Hatayı Gör',
+    allAlerts: '📋 Tüm Uyarılar',
+    dismissBanner: '✕ Kapat',
+    otherErrors: '+{n} diğer hata',
+    activeError: '🔴 Aktif Hata',
+    recovered: '🟡 Toparlandı',
+    markAllRead: '✓ Tümünü Okundu Say',
+    deleteRow: 'Sil',
+    lastErrorTitle: 'Son Hata Kaydı',
+  },
   notifications: {
     agentAlertTitle: 'Swarm Plaza Ajan Uyarısı',
     agentStallOrError: 'hata verdi veya beklemede takıldı.',
@@ -643,6 +667,7 @@ const EN: Translations = {
     alertsOff: '🔕 ALERTS',
     settings: '⚙️ SETTINGS',
     errorAlertsBadge: 'Errors / Alerts',
+    historyAlertsBadge: 'Alert History',
   },
   blueprints: [
     'Classic Corner Studio',
@@ -823,6 +848,17 @@ const EN: Translations = {
     filterWarning: 'WARNING',
     filterInfo: 'INFO',
     inspectAgent: 'INSPECT AGENT',
+  },
+  stickyAlerts: {
+    viewError: '🔍 View Error',
+    allAlerts: '📋 All Alerts',
+    dismissBanner: '✕ Dismiss',
+    otherErrors: '+{n} more',
+    activeError: '🔴 Active Error',
+    recovered: '🟡 Recovered',
+    markAllRead: '✓ Mark All Read',
+    deleteRow: 'Delete',
+    lastErrorTitle: 'Last Error Record',
   },
   notifications: {
     agentAlertTitle: 'Swarm Plaza Agent Alert',

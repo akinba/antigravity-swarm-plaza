@@ -5,7 +5,12 @@ import {
   extractQuotaObservations,
   parseTranscriptSummary,
 } from '../../src/server/brainScanner.js';
-import { buildQuotaPools, getModelContextLimit } from '../../src/server/gamification.js';
+import {
+  LAST_ERROR_RETENTION_MS,
+  buildEmployeeLastError,
+  buildQuotaPools,
+  getModelContextLimit,
+} from '../../src/server/gamification.js';
 
 describe('Account quota & context window parsing', () => {
   const nowMs = Date.parse('2026-11-14T13:00:00Z');
@@ -91,5 +96,54 @@ describe('Account quota & context window parsing', () => {
     assert.equal(getModelContextLimit('gemini-4-hydrogen-medium'), 1_000_000);
     assert.equal(getModelContextLimit('claude-sonnet-5-5-medium'), 200_000);
     assert.equal(getModelContextLimit('gpt-oss-120b-medium'), 128_000);
+  });
+
+  it('preserves lastError across subsequent DONE steps and marks resolved: true', () => {
+    const errTs = '2026-11-14T12:58:00Z';
+    const lines = [
+      JSON.stringify({
+        step_index: 7,
+        type: 'TOOL_RESPONSE',
+        status: 'ERROR',
+        created_at: errTs,
+        tool_calls: [{ name: 'run_command', args: { CommandLine: 'npm test' } }],
+        error: { message: 'AssertionError: expected 1 to equal 2' },
+      }),
+      JSON.stringify({
+        step_index: 8,
+        type: 'PLANNER_RESPONSE',
+        status: 'DONE',
+        created_at: '2026-11-14T12:58:05Z',
+        content: 'Recovered and continuing.',
+      }),
+    ].join('\n');
+
+    const summary = parseTranscriptSummary(lines);
+    assert.equal(summary.lastStepStatus, 'DONE');
+    assert.ok(summary.lastError);
+    assert.equal(summary.lastError.stepIndex, 7);
+    assert.equal(summary.lastError.timestamp, errTs);
+    assert.equal(summary.lastError.toolName, 'run_command');
+    assert.equal(summary.lastError.target, 'npm test');
+    assert.equal(summary.lastError.message, 'AssertionError: expected 1 to equal 2');
+
+    const resolvedErr = buildEmployeeLastError('conv-1', summary, 'working', 0, nowMs);
+    assert.ok(resolvedErr);
+    assert.equal(resolvedErr.resolved, true);
+    assert.equal(resolvedErr.message, 'AssertionError: expected 1 to equal 2');
+
+    const activeErr = buildEmployeeLastError('conv-1', summary, 'error', 1, nowMs);
+    assert.ok(activeErr);
+    assert.equal(activeErr.resolved, false);
+
+    // Errors older than LAST_ERROR_RETENTION_MS (60m) are dropped
+    const expiredErr = buildEmployeeLastError(
+      'conv-1',
+      summary,
+      'working',
+      0,
+      Date.parse(errTs) + LAST_ERROR_RETENTION_MS + 1000,
+    );
+    assert.equal(expiredErr, undefined);
   });
 });

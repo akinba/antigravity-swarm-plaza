@@ -47,6 +47,14 @@ export interface QuotaObservation {
   sourceModel?: string;
 }
 
+export interface TranscriptLastError {
+  stepIndex: number;
+  timestamp: string;
+  message: string;
+  toolName?: string;
+  target?: string;
+}
+
 export interface TranscriptSummary {
   inputTokens: number;
   cacheReadTokens: number;
@@ -59,6 +67,7 @@ export interface TranscriptSummary {
   latestThoughtSnippet?: string;
   lastStepStatus?: string;
   lastTimestamp?: string;
+  lastError?: TranscriptLastError;
   recentSteps?: TranscriptStepEvent[];
 }
 
@@ -334,12 +343,49 @@ export function parseTranscriptSummary(text: string): TranscriptSummary {
     }
 
     const toolCalls = entry.tool_calls;
+    let entryToolName: string | undefined;
+    let entryTarget: string | undefined;
     if (Array.isArray(toolCalls) && toolCalls.length > 0) {
       const lastCall = toolCalls[toolCalls.length - 1] as Record<string, unknown> | undefined;
       if (lastCall && typeof lastCall.name === 'string') {
-        summary.latestToolName = lastCall.name;
-        summary.latestTargetSummary = extractTargetSummary(lastCall.args ?? lastCall.arguments);
+        entryToolName = lastCall.name;
+        entryTarget = extractTargetSummary(lastCall.args ?? lastCall.arguments);
+        summary.latestToolName = entryToolName;
+        summary.latestTargetSummary = entryTarget;
       }
+    }
+
+    if (typeof entry.status === 'string' && entry.status.toUpperCase() === 'ERROR') {
+      const rawErrObj = entry.error as Record<string, unknown> | string | undefined;
+      const errFromField =
+        typeof rawErrObj === 'string'
+          ? rawErrObj
+          : rawErrObj && typeof rawErrObj === 'object' && typeof rawErrObj.message === 'string'
+            ? rawErrObj.message
+            : '';
+      const rawContent = typeof entry.content === 'string' ? entry.content : '';
+      const cleanedContent = rawContent ? sanitizeAgentSpeechText(rawContent) || rawContent : '';
+      const rawMessage = errFromField.trim() || cleanedContent.trim();
+      const message = rawMessage
+        ? truncateText(rawMessage, 160)
+        : entryToolName
+          ? `${entryToolName} failed`
+          : 'Error detected';
+      const stepIndex =
+        typeof entry.step_index === 'number' && Number.isFinite(entry.step_index)
+          ? entry.step_index
+          : Math.max(0, (summary.recentSteps?.length ?? 1) - 1);
+      const timestamp =
+        typeof entry.created_at === 'string' && entry.created_at
+          ? entry.created_at
+          : summary.lastTimestamp || '';
+      summary.lastError = {
+        stepIndex,
+        timestamp,
+        message,
+        toolName: entryToolName ?? summary.latestToolName,
+        target: entryTarget ?? summary.latestTargetSummary,
+      };
     }
 
     const entryType = typeof entry.type === 'string' ? entry.type.toUpperCase() : '';

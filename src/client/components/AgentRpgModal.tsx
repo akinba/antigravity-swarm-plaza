@@ -29,6 +29,7 @@ export const AgentRpgModal: React.FC<AgentRpgModalProps> = ({
   const [activeTab, setActiveTab] = useState<'profile' | 'logs'>('profile');
   const [liveEmp, setLiveEmp] = useState<OfficeEmployee>(employee);
   const [logs, setLogs] = useState<AgentLogEntry[]>([]);
+  const [dismissedErrorId, setDismissedErrorId] = useState<string | null>(null);
   const portraitRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -158,57 +159,95 @@ export const AgentRpgModal: React.FC<AgentRpgModalProps> = ({
         {/* Body */}
         {activeTab === 'profile' ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto' }}>
-            {(liveEmp.status === 'error' ||
-              liveEmp.activity === 'error' ||
-              liveEmp.toolActivity === 'error' ||
-              (liveEmp.health?.consecutiveErrors ?? 0) > 0) && (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 10,
-                  flexWrap: 'wrap',
-                  padding: '8px 12px',
-                  background: 'rgba(201, 42, 55, 0.18)',
-                  border: '2px solid #ff5666',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 12 }}>
-                  <span style={{ color: '#ff6b6b', fontWeight: 700 }}>
-                    ⚠️ {t.rpgModal.errorBannerTitle}
-                  </span>
-                  <span style={{ color: '#ffd1d6', fontSize: 11 }}>
-                    • {Math.max(1, liveEmp.health?.consecutiveErrors ?? 0)} {t.rpgModal.consecutiveErrorsLabel}
-                  </span>
-                  {liveEmp.health && (
-                    <span
-                      className="pixel-badge"
-                      style={{ color: '#ff9aa4', background: '#2c1518', borderColor: '#7a252c' }}
-                    >
-                      HP {liveEmp.health.hpScore}/100
-                    </span>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  className="pixel-btn"
+            {(() => {
+              const hasActiveErr =
+                liveEmp.status === 'error' ||
+                liveEmp.activity === 'error' ||
+                liveEmp.toolActivity === 'error' ||
+                (liveEmp.health?.consecutiveErrors ?? 0) > 0;
+              const lastErr = liveEmp.lastError;
+              const showLastErr = Boolean(lastErr && dismissedErrorId !== lastErr.id);
+              if (!hasActiveErr && !showLastErr) return null;
+              return (
+                <div
                   style={{
-                    background: '#c92a37',
-                    borderColor: '#ff8a95',
-                    color: '#ffffff',
-                    fontSize: 10,
-                    padding: '5px 10px',
-                  }}
-                  onClick={() => {
-                    playSelectBlip();
-                    setActiveTab('logs');
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 10,
+                    flexWrap: 'wrap',
+                    padding: '8px 12px',
+                    background: hasActiveErr
+                      ? 'rgba(201, 42, 55, 0.18)'
+                      : 'rgba(255, 209, 71, 0.10)',
+                    border: `2px solid ${hasActiveErr ? '#ff5666' : '#ffd147'}`,
                   }}
                 >
-                  {t.rpgModal.goToLogs}
-                </button>
-              </div>
-            )}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 200 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 12 }}>
+                      <span style={{ color: hasActiveErr ? '#ff6b6b' : '#ffd147', fontWeight: 700 }}>
+                        {hasActiveErr
+                          ? `⚠️ ${t.rpgModal.errorBannerTitle}`
+                          : `🟡 ${t.stickyAlerts.lastErrorTitle} (${t.stickyAlerts.recovered})`}
+                      </span>
+                      {hasActiveErr && (
+                        <span style={{ color: '#ffd1d6', fontSize: 11 }}>
+                          • {Math.max(1, liveEmp.health?.consecutiveErrors ?? 0)} {t.rpgModal.consecutiveErrorsLabel}
+                        </span>
+                      )}
+                      {liveEmp.health && (
+                        <span
+                          className="pixel-badge"
+                          style={{ color: '#ff9aa4', background: '#2c1518', borderColor: '#7a252c' }}
+                        >
+                          HP {liveEmp.health.hpScore}/100
+                        </span>
+                      )}
+                    </div>
+                    {lastErr && (
+                      <div style={{ fontSize: 11, color: '#e4ecff', fontFamily: 'monospace', wordBreak: 'break-word' }}>
+                        {lastErr.toolName || lastErr.target
+                          ? `${[lastErr.toolName, lastErr.target].filter(Boolean).join(' · ')} — `
+                          : ''}
+                        {lastErr.message}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <button
+                      type="button"
+                      className="pixel-btn"
+                      style={{
+                        background: hasActiveErr ? '#c92a37' : '#262113',
+                        borderColor: hasActiveErr ? '#ff8a95' : '#ffd147',
+                        color: '#ffffff',
+                        fontSize: 10,
+                        padding: '5px 10px',
+                      }}
+                      onClick={() => {
+                        playSelectBlip();
+                        setActiveTab('logs');
+                      }}
+                    >
+                      {t.rpgModal.goToLogs}
+                    </button>
+                    {!hasActiveErr && lastErr && (
+                      <button
+                        type="button"
+                        className="pixel-btn"
+                        style={{ padding: '4px 7px', fontSize: 10 }}
+                        onClick={() => {
+                          playSelectBlip();
+                          setDismissedErrorId(lastErr.id);
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
             <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
               {/* Pixel Portrait Frame */}
               <div

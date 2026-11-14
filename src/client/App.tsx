@@ -402,41 +402,152 @@ export const App: React.FC = () => {
     }
   };
 
-  const derivedAlerts = useMemo<AlertHistoryEntry[]>(() => {
-    const floors = activeFloor ? [activeFloor] : localizedSnapshot?.floors ?? [];
-    const list: AlertHistoryEntry[] = [];
+const STICKY_ALERTS_STORAGE_KEY = 'swarm_plaza_sticky_alerts_v1';
+
+interface StickyAlertItem extends AlertHistoryEntry {
+  bannerDismissed: boolean;
+}
+
+function loadStickyAlerts(): StickyAlertItem[] {
+  try {
+    const raw =
+      typeof window !== 'undefined' ? window.localStorage.getItem(STICKY_ALERTS_STORAGE_KEY) : null;
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed.slice(0, 50) as StickyAlertItem[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+  const [stickyAlerts, setStickyAlerts] = useState<StickyAlertItem[]>(loadStickyAlerts);
+  const stickyBaselineDoneRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(STICKY_ALERTS_STORAGE_KEY, JSON.stringify(stickyAlerts.slice(0, 50)));
+      }
+    } catch {
+      // ignore storage quota errors
+    }
+  }, [stickyAlerts]);
+
+  useEffect(() => {
+    if (!localizedSnapshot) return;
+    const isColdStart = !stickyBaselineDoneRef.current;
+    stickyBaselineDoneRef.current = true;
+    const floors = localizedSnapshot.floors ?? [];
     const now = Date.now();
 
-    for (const fl of floors) {
-      for (const emp of fl.employees) {
-        const consecutiveErrors = emp.health?.consecutiveErrors ?? 0;
-        const normState = emp.health?.normalizedState;
-        const isCritical =
-          emp.status === 'error' ||
-          emp.activity === 'error' ||
-          emp.toolActivity === 'error' ||
-          consecutiveErrors > 0 ||
-          normState === 'error';
-        if (isCritical) {
-          list.push({
-            id: `emp-err-${fl.id}-${emp.id}`,
-            agentName: emp.name,
-            floorName: fl.companyName,
-            severity: 'critical',
-            reason: emp.health && emp.health.errorCount > 0 ? 'error' : (normState ?? emp.status),
-            message:
+    setStickyAlerts((prev) => {
+      const byId = new Map<string, StickyAlertItem>(prev.map((a) => [a.id, a]));
+      let changed = false;
+
+      for (const fl of floors) {
+        for (const emp of fl.employees) {
+          const consecutiveErrors = emp.health?.consecutiveErrors ?? 0;
+          const normState = emp.health?.normalizedState;
+          const isActivelyErrored =
+            emp.status === 'error' ||
+            emp.activity === 'error' ||
+            emp.toolActivity === 'error' ||
+            consecutiveErrors > 0 ||
+            normState === 'error';
+
+          if (emp.lastError) {
+            const le = emp.lastError;
+            const resolved = le.resolved && !isActivelyErrored;
+            const ts = Date.parse(le.timestamp) || now;
+            const existing = byId.get(le.id);
+            if (existing) {
+              if (existing.resolved !== resolved || existing.message !== le.message) {
+                byId.set(le.id, {
+                  ...existing,
+                  resolved,
+                  severity: resolved ? 'warning' : 'critical',
+                  message: le.message,
+                  toolName: le.toolName,
+                  target: le.target,
+                  timestamp: ts,
+                });
+                changed = true;
+              }
+            } else {
+              const silentColdStart = isColdStart && resolved;
+              byId.set(le.id, {
+                id: le.id,
+                agentName: emp.name,
+                floorName: fl.companyName,
+                severity: resolved ? 'warning' : 'critical',
+                reason: 'error',
+                message: le.message,
+                toolName: le.toolName,
+                target: le.target,
+                timestamp: ts,
+                count: Math.max(1, consecutiveErrors || 1),
+                resolved,
+                acknowledged: silentColdStart,
+                bannerDismissed: silentColdStart,
+              });
+              changed = true;
+            }
+          } else if (isActivelyErrored) {
+            const activeId = `emp-err-${fl.id}-${emp.id}`;
+            const existing = byId.get(activeId);
+            const msg =
               emp.speechBubble ||
               emp.currentTarget ||
               emp.currentTool ||
-              `${normState ?? emp.status} (${Math.max(1, consecutiveErrors)})`,
-            timestamp: emp.lastActiveAt ? Date.parse(emp.lastActiveAt) || now : now,
-            count: Math.max(1, consecutiveErrors),
-          });
+              `${normState ?? emp.status} (${Math.max(1, consecutiveErrors)})`;
+            if (existing) {
+              if (existing.resolved || existing.message !== msg) {
+                byId.set(activeId, {
+                  ...existing,
+                  resolved: false,
+                  severity: 'critical',
+                  message: msg,
+                  timestamp: now,
+                  count: Math.max(1, consecutiveErrors),
+                });
+                changed = true;
+              }
+            } else {
+              byId.set(activeId, {
+                id: activeId,
+                agentName: emp.name,
+                floorName: fl.companyName,
+                severity: 'critical',
+                reason: normState ?? emp.status,
+                message: msg,
+                timestamp: now,
+                count: Math.max(1, consecutiveErrors),
+                resolved: false,
+                acknowledged: false,
+                bannerDismissed: false,
+              });
+              changed = true;
+            }
+          }
         }
       }
-    }
-    return list;
-  }, [activeFloor, localizedSnapshot]);
+
+      if (!changed) return prev;
+      return Array.from(byId.values())
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .slice(0, 50);
+    });
+  }, [localizedSnapshot]);
+
+  const unreadAlertCount = useMemo(
+    () => stickyAlerts.filter((a) => !a.acknowledged).length,
+    [stickyAlerts],
+  );
+  const bannerAlerts = useMemo(
+    () => stickyAlerts.filter((a) => !a.bannerDismissed),
+    [stickyAlerts],
+  );
+  const topBannerAlert = bannerAlerts[0] ?? null;
 
   const isModalOpen = Boolean(
     whiteboardOpen || analyticsOpen || settingsOpen || alertsOpen || selectedEmployee,
@@ -460,9 +571,101 @@ export const App: React.FC = () => {
         isCompactPane={isCompactPane}
         isElevatorOpen={isElevatorOpen}
         onToggleElevator={() => setIsElevatorOpen((open) => !open)}
-        alertCount={derivedAlerts.length}
+        alertCount={unreadAlertCount}
+        historyAlertCount={stickyAlerts.length}
         onOpenAlerts={() => setAlertsOpen(true)}
       />
+
+      {topBannerAlert && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 10,
+            flexWrap: 'wrap',
+            padding: '7px 12px',
+            background: topBannerAlert.resolved ? '#262113' : '#351318',
+            borderBottom: `2px solid ${topBannerAlert.resolved ? '#ffd147' : '#ff5666'}`,
+            fontSize: 11,
+            zIndex: 20,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', flex: 1, minWidth: 220 }}>
+            <span style={{ fontWeight: 700, color: topBannerAlert.resolved ? '#ffd147' : '#ff6b6b' }}>
+              {topBannerAlert.resolved ? t.stickyAlerts.recovered : t.stickyAlerts.activeError}
+            </span>
+            <span className="pixel-title" style={{ fontSize: 9, color: '#3cd8ff' }}>
+              @{topBannerAlert.agentName}
+            </span>
+            <span style={{ color: '#e4ecff', fontFamily: 'monospace', wordBreak: 'break-word' }}>
+              {topBannerAlert.toolName || topBannerAlert.target
+                ? `${[topBannerAlert.toolName, topBannerAlert.target].filter(Boolean).join(' · ')} — `
+                : ''}
+              {topBannerAlert.message}
+            </span>
+            {bannerAlerts.length > 1 && (
+              <span className="pixel-badge" style={{ color: '#ffd147', borderColor: '#786221' }}>
+                {t.stickyAlerts.otherErrors.replace('{n}', String(bannerAlerts.length - 1))}
+              </span>
+            )}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="pixel-btn cyan"
+              style={{ fontSize: 9, padding: '4px 8px' }}
+              onClick={() => {
+                playSelectBlip();
+                setStickyAlerts((prev) =>
+                  prev.map((a) =>
+                    a.id === topBannerAlert.id
+                      ? { ...a, acknowledged: true, bannerDismissed: true }
+                      : a,
+                  ),
+                );
+                const targetName = topBannerAlert.agentName.toLowerCase();
+                const candidate =
+                  activeFloor?.employees.find((e) => e.name.toLowerCase() === targetName) ??
+                  localizedSnapshot?.floors
+                    .flatMap((f) => f.employees)
+                    .find((e) => e.name.toLowerCase() === targetName) ??
+                  null;
+                if (candidate) {
+                  setRpgOpenedFromWhiteboard(false);
+                  setSelectedEmployee(candidate);
+                } else {
+                  setAlertsOpen(true);
+                }
+              }}
+            >
+              {t.stickyAlerts.viewError}
+            </button>
+            <button
+              type="button"
+              className="pixel-btn"
+              style={{ fontSize: 9, padding: '4px 8px' }}
+              onClick={() => {
+                playSelectBlip();
+                setAlertsOpen(true);
+              }}
+            >
+              {t.stickyAlerts.allAlerts} ({stickyAlerts.length})
+            </button>
+            <button
+              type="button"
+              className="pixel-btn"
+              style={{ fontSize: 9, padding: '4px 8px', color: '#ff9aa4' }}
+              onClick={() => {
+                playSelectBlip();
+                setStickyAlerts((prev) => prev.map((a) => ({ ...a, bannerDismissed: true })));
+              }}
+            >
+              {t.stickyAlerts.dismissBanner}
+            </button>
+          </div>
+        </div>
+      )}
 
       <main className="plaza-main">
         {isElevatorOpen && (
@@ -594,9 +797,16 @@ export const App: React.FC = () => {
 
       {alertsOpen && (
         <AlertHistoryModal
-          alerts={derivedAlerts}
+          alerts={stickyAlerts}
           onInspectAgent={(agentName) => {
             const targetName = agentName.toLowerCase();
+            setStickyAlerts((prev) =>
+              prev.map((a) =>
+                a.agentName.toLowerCase() === targetName
+                  ? { ...a, acknowledged: true, bannerDismissed: true }
+                  : a,
+              ),
+            );
             const candidate =
               activeFloor?.employees.find((e) => e.name.toLowerCase() === targetName) ??
               localizedSnapshot?.floors
@@ -609,6 +819,15 @@ export const App: React.FC = () => {
               setSelectedEmployee(candidate);
             }
           }}
+          onMarkAllRead={() => {
+            setStickyAlerts((prev) =>
+              prev.map((a) => ({ ...a, acknowledged: true, bannerDismissed: true })),
+            );
+          }}
+          onDeleteAlert={(id) => {
+            setStickyAlerts((prev) => prev.filter((a) => a.id !== id));
+          }}
+          onClear={() => setStickyAlerts([])}
           onClose={() => setAlertsOpen(false)}
         />
       )}

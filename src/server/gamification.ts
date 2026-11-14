@@ -3,6 +3,7 @@ import type {
   ActivityTimelineBucket,
   AgentActivityKind,
   AgentHealthMetrics,
+  AgentLastError,
   AgentResourceUsage,
   CompanyTier,
   FloorAnalytics,
@@ -1273,6 +1274,38 @@ function buildEmployeeFromRow(
     contextLimitTokens: transcript?.lastContextTokens
       ? getModelContextLimit(modelId)
       : undefined,
+    lastError: buildEmployeeLastError(
+      convId,
+      transcript,
+      status,
+      health.consecutiveErrors,
+      nowMs,
+    ),
+  };
+}
+
+export const LAST_ERROR_RETENTION_MS = 60 * 60_000;
+
+export function buildEmployeeLastError(
+  convId: string,
+  transcript: TranscriptSummary | undefined,
+  status: OfficeEmployee['status'],
+  consecutiveErrors: number,
+  nowMs = Date.now(),
+): AgentLastError | undefined {
+  const err = transcript?.lastError;
+  if (!err) return undefined;
+  const errMs = err.timestamp ? parseTimestampMs(err.timestamp) : 0;
+  if (errMs > 0 && nowMs - errMs > LAST_ERROR_RETENTION_MS) return undefined;
+  const timestamp = err.timestamp || new Date(nowMs).toISOString();
+  return {
+    id: `${convId}:step:${err.stepIndex}:${timestamp}`,
+    stepIndex: err.stepIndex,
+    timestamp,
+    message: err.message,
+    toolName: err.toolName,
+    target: err.target,
+    resolved: status !== 'error' && consecutiveErrors === 0,
   };
 }
 

@@ -673,6 +673,18 @@ export function getDemoFloor(
       emp.id === 'demo-analyst-grill'
         ? 840_000 + (effectiveTick % 6) * 4_000
         : Math.min(700_000, 70_000 + idx * 62_000 + (effectiveTick % 10) * 3_500);
+    if (emp.id === 'demo-analyst-grill') {
+      const errTime = new Date(nowMs - 45_000).toISOString();
+      emp.lastError = {
+        id: `demo-analyst-grill:step:14:${Math.floor(nowMs / 300_000)}`,
+        stepIndex: 14,
+        timestamp: errTime,
+        message: 'Command exited with code 1: vitest assertion failed on edge-case snapshot',
+        toolName: 'run_command',
+        target: 'npm test',
+        resolved: emp.status !== 'error',
+      };
+    }
   }
 
   const demoCelebration = applyOfficeInteractions(

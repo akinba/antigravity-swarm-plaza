@@ -13,17 +13,24 @@ export interface AlertHistoryEntry {
   message: string;
   timestamp: number;
   count?: number;
+  resolved?: boolean;
+  acknowledged?: boolean;
+  toolName?: string;
+  target?: string;
 }
 
 export interface AlertHistoryModalProps {
   alerts: AlertHistoryEntry[];
   onInspectAgent?: (agentName: string) => void;
+  onMarkAllRead?: () => void;
+  onDeleteAlert?: (id: string) => void;
   onClose: () => void;
   onClear?: () => void;
 }
 
 interface GroupedAlert {
   key: string;
+  ids: string[];
   agentName: string;
   floorName?: string;
   severity: AlertSeverity;
@@ -31,6 +38,10 @@ interface GroupedAlert {
   message: string;
   lastSeen: number;
   count: number;
+  resolved?: boolean;
+  acknowledged?: boolean;
+  toolName?: string;
+  target?: string;
 }
 
 type SeverityFilter = 'all' | AlertSeverity;
@@ -70,6 +81,8 @@ function formatLastSeen(ts: number): string {
 export const AlertHistoryModal: React.FC<AlertHistoryModalProps> = ({
   alerts,
   onInspectAgent,
+  onMarkAllRead,
+  onDeleteAlert,
   onClose,
   onClear,
 }) => {
@@ -100,14 +113,21 @@ export const AlertHistoryModal: React.FC<AlertHistoryModalProps> = ({
       const existing = map.get(key);
       if (existing) {
         existing.count += increment;
+        existing.ids.push(item.id);
+        if (item.resolved === false) existing.resolved = false;
+        if (item.acknowledged === false) existing.acknowledged = false;
         if (item.timestamp >= existing.lastSeen) {
           existing.lastSeen = item.timestamp;
           existing.message = item.message;
           if (item.floorName) existing.floorName = item.floorName;
+          if (item.toolName) existing.toolName = item.toolName;
+          if (item.target) existing.target = item.target;
+          if (item.resolved !== undefined) existing.resolved = item.resolved;
         }
       } else {
         map.set(key, {
           key,
+          ids: [item.id],
           agentName: item.agentName,
           floorName: item.floorName,
           severity: item.severity,
@@ -115,6 +135,10 @@ export const AlertHistoryModal: React.FC<AlertHistoryModalProps> = ({
           message: item.message,
           lastSeen: item.timestamp,
           count: increment,
+          resolved: item.resolved,
+          acknowledged: item.acknowledged,
+          toolName: item.toolName,
+          target: item.target,
         });
       }
     }
@@ -168,7 +192,20 @@ export const AlertHistoryModal: React.FC<AlertHistoryModalProps> = ({
             </span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            {onMarkAllRead && counts.all > 0 && (
+              <button
+                type="button"
+                className="pixel-btn cyan"
+                style={{ fontSize: 9, padding: '4px 8px' }}
+                onClick={() => {
+                  playSelectBlip();
+                  onMarkAllRead();
+                }}
+              >
+                {t.stickyAlerts.markAllRead}
+              </button>
+            )}
             {onClear && counts.all > 0 && (
               <button
                 type="button"
@@ -273,6 +310,18 @@ export const AlertHistoryModal: React.FC<AlertHistoryModalProps> = ({
                           {group.floorName}
                         </span>
                       )}
+                      {group.resolved !== undefined && (
+                        <span
+                          className="pixel-badge"
+                          style={{
+                            color: group.resolved ? '#ffd147' : '#ff6b6b',
+                            background: group.resolved ? '#262113' : '#2c1518',
+                            borderColor: group.resolved ? '#786221' : '#7a252c',
+                          }}
+                        >
+                          {group.resolved ? t.stickyAlerts.recovered : t.stickyAlerts.activeError}
+                        </span>
+                      )}
                       {group.count > 1 && (
                         <span
                           className="pixel-badge"
@@ -304,9 +353,28 @@ export const AlertHistoryModal: React.FC<AlertHistoryModalProps> = ({
                           🔍 {t.alertModal.inspectAgent}
                         </button>
                       )}
+                      {onDeleteAlert && (
+                        <button
+                          type="button"
+                          className="pixel-btn"
+                          title={t.stickyAlerts.deleteRow}
+                          style={{ padding: '3px 6px', fontSize: 9, color: '#ff8a95' }}
+                          onClick={() => {
+                            playSelectBlip();
+                            for (const id of group.ids) onDeleteAlert(id);
+                          }}
+                        >
+                          ✕
+                        </button>
+                      )}
                     </div>
                   </div>
 
+                  {(group.toolName || group.target) && (
+                    <div style={{ fontSize: 10, color: '#ffd147', fontFamily: 'monospace' }}>
+                      {[group.toolName, group.target].filter(Boolean).join(' · ')}
+                    </div>
+                  )}
                   <div style={{ fontSize: 12, color: '#e4ecff', lineHeight: 1.35 }}>
                     {group.message}
                   </div>

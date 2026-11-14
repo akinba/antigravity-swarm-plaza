@@ -182,6 +182,17 @@ export interface OfficeEmployee {
   socialReaction?: SocialReactionKind;
   contextUsedTokens?: number;
   contextLimitTokens?: number;
+  lastError?: AgentLastError;
+}
+
+export interface AgentLastError {
+  id: string;
+  stepIndex: number;
+  timestamp: string;
+  message: string;
+  toolName?: string;
+  target?: string;
+  resolved: boolean;
 }
 
 export type QuotaPoolId = 'gemini' | 'claude_gpt';
