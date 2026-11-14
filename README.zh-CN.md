@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/akinba/antigravity-swarm-plaza/actions/workflows/ci.yml/badge.svg)](https://github.com/akinba/antigravity-swarm-plaza/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/akinba/antigravity-swarm-plaza?include_prereleases)](https://github.com/akinba/antigravity-swarm-plaza/releases)
-![Version](https://img.shields.io/badge/version-v1.3.1-ffd147)
+![Version](https://img.shields.io/badge/version-v1.3.2-ffd147)
 ![Node](https://img.shields.io/badge/node-%3E%3D22.5.0-3be87a)
 ![License](https://img.shields.io/badge/license-MIT-3cd8ff)
 ![Sidecar](https://img.shields.io/badge/Sidecar-Ready-b07cff)
@@ -125,7 +125,12 @@ flowchart LR
 
 ---
 
-## 🌟 核心特性与新功能 (Core Features & v1.3.1)
+## 🌟 核心特性与新功能 (Core Features & v1.3.2)
+
+- **🧭 弧形贝塞尔 SVG 拓扑与纵向甘特图一体化视图 (`🧭 WORKFLOW & GANTT`)：**
+  - 将交互式 `@mention` 交接拓扑图与纵向甘特时间线合二为一（`WorkflowDiagramSvg.tsx`），采用半圆蓝图布局（`★ BOSS HUB`、`@all` 广播节点、按角色着色的智能体卡片）、防重叠二次贝塞尔箭头与 `×N` 频次徽章，并支持点击节点/连线实时联动筛选下方可滚动的 `HH:MM` 甘特行。
+- **🚨 顶部栏可点击 `! N` 告警徽章、智能告警中心与 `📜 GO TO LOGS` 排障流：**
+  - 当楼层活跃智能体出现错误或健康停滞时，`TopHud` 顶部栏会亮起红色 **`! N`** 徽章；点击即可打开支持 `×N` 分组与严重级别筛选的 `AlertHistoryModal`，点击 **`🔍 INSPECT AGENT`** 可直达对应智能体 RPG 卡片顶部的红色错误横幅（`⚠️ Error detected • N consecutive errors`）、`HP` 徽章以及一键高亮 `ERROR` 日志行的 **`📜 GO TO LOGS`** 按钮。
 
 - **⚙️ 游戏级图形与系统设置 + 精简顶部工具栏：**
   - 配备独立 **`⚙️ SETTINGS`** 弹窗，支持一键切换性能预设（默认 **`⚡ 经典流畅 60 FPS`**、`⚖️ 均衡 30 FPS`、`🌱 省电 Eco`、`🔥 极致 Native`）、分辨率缩放（`0.75x` / `1.0x` / `2.0x` / `Native DPR`）、抗锯齿（`像素锐利` / `平滑`）、帧率上限（`Eco 14–24` / `30` / `60` / `无限制`）、静态建筑缓存开关及 **实时 FPS** 指示器。

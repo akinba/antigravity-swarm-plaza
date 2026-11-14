@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/akinba/antigravity-swarm-plaza/actions/workflows/ci.yml/badge.svg)](https://github.com/akinba/antigravity-swarm-plaza/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/akinba/antigravity-swarm-plaza?include_prereleases)](https://github.com/akinba/antigravity-swarm-plaza/releases)
-![Version](https://img.shields.io/badge/version-v1.3.1-ffd147)
+![Version](https://img.shields.io/badge/version-v1.3.2-ffd147)
 
 🇬🇧 **English** | [🇹🇷 **Türkçe**](README.tr.md) | [🇨🇳 **简体中文**](README.zh-CN.md)
 
@@ -118,7 +118,12 @@ flowchart LR
 
 ---
 
-## 🌟 Key Features & What's New (v1.3.1)
+## 🌟 Key Features & What's New (v1.3.2)
+
+- **🧭 Unified Workflow & Vertical Gantt (`🧭 WORKFLOW & GANTT`) with Curved Bezier SVG Topology:**
+  - Combines the interactive `@mention` handoff topology and Vertical Gantt timeline into a single unified tab (`WorkflowDiagramSvg.tsx`), featuring an amphitheater blueprint layout (`★ BOSS HUB`, `@all` broadcast node, role-colored agent cards), non-overlapping quadratic Bezier arrows with `×N` frequency badges, and bidirectional click-to-filter sync with the scrollable `HH:MM` Gantt rows below.
+- **🚨 Clickable Topbar `! N` Error Badge, Smart Alert Center & `📜 Go to Logs` Inspection Flow:**
+  - Displays a live pulsing red **`! N`** badge in `TopHud` whenever active floor employees encounter errors or health stalls; clicking opens `AlertHistoryModal` with `×N` grouping, severity filters, and **`🔍 INSPECT AGENT`** to jump straight into the agent's RPG Card—complete with a top red error banner (`⚠️ Error detected • N consecutive errors`), `HP` badge, and one-click **`📜 GO TO LOGS`** highlighting `ERROR` steps.
 
 - **⚙️ Game-Style Graphics & System Settings + Decluttered Top Bar:**
   - Dedicated **`⚙️ SETTINGS`** modal with one-click performance presets (**`⚡ Classic Smooth 60 FPS`** default, `⚖️ Balanced 30 FPS`, `🌱 Power Saver Eco`, `🔥 Ultra Native`), Resolution Scale (`0.75x` / `1.0x` / `2.0x` / `Native DPR`), Anti-Aliasing (`Pixel Crisp` / `Smooth`), Frame Rate Limit (`Eco 14–24` / `30` / `60` / `Unlimited`), Static Architecture Cache toggle, and a **Live FPS** readout.

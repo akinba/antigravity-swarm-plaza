@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/akinba/antigravity-swarm-plaza/actions/workflows/ci.yml/badge.svg)](https://github.com/akinba/antigravity-swarm-plaza/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/akinba/antigravity-swarm-plaza?include_prereleases)](https://github.com/akinba/antigravity-swarm-plaza/releases)
-![Version](https://img.shields.io/badge/version-v1.3.1-ffd147)
+![Version](https://img.shields.io/badge/version-v1.3.2-ffd147)
 
 [🇬🇧 **English**](README.md) | 🇹🇷 **Türkçe** | [🇨🇳 **简体中文**](README.zh-CN.md)
 
@@ -118,7 +118,12 @@ flowchart LR
 
 ---
 
-## 🌟 Temel Yetenekler & Yenilikler (v1.3.1)
+## 🌟 Temel Yetenekler & Yenilikler (v1.3.2)
+
+- **🧭 Kavisli Bezier SVG Diyagramlı Birleşik İş Akışı & Dikey Gantt (`🧭 İŞ AKIŞI & GANTT`):**
+  - Etkileşimli `@mention` devir topolojisi ile Dikey Gantt zaman çizelgesini tek sekmede (`WorkflowDiagramSvg.tsx`) birleştirir; `★ BOSS HUB`, ayrı `@all` yayın düğümü, rol renkli ajan kartları, çakışmasız kuadratik Bezier okları (`×N` sayaç rozetleri) ve tıklandığında alttaki kaydırılabilir `HH:MM` Gantt satırlarını anında süzen çift yönlü senkronizasyon sunar.
+- **🚨 Tıklanabilir Üst Bar `! N` Hata Rozeti, Akıllı Uyarı Merkezi & `📜 Loglara Git` İnceleme Akışı:**
+  - Kattaki aktif çalışanlarda hata veya takılma olduğunda `TopHud` üzerinde yanıp sönen kırmızı **`! N`** rozeti görünür; tıklandığında `×N` gruplama, önem derecesi filtreleri ve **`🔍 AJANI İNCELE`** butonu içeren `AlertHistoryModal` açılır. İncelenen ajanın RPG Kartı en üstte kırmızı hata kutusu (`⚠️ Hata tespit edildi • N ardışık hata`), `HP` rozeti ve `ERROR` satırlarını kırmızı vurgulayan **`📜 LOGLARA GİT`** butonu sunar.
 
 - **⚙️ Oyun Tarzı Grafik & Sistem Ayarları + Sadeleştirilmiş Üst Bar:**
   - Tek tıkla seçilebilen hazır performans profilleri (**`⚡ Eski Akıcı 60 FPS`** varsayılan, `⚖️ Dengeli 30 FPS`, `🌱 Güç Tasarrufu Eco`, `🔥 Ultra Native`), Çözünürlük Ölçeği (`0.75x` / `1.0x` / `2.0x` / `Native DPR`), Kenar Düzeltme (`Piksel Keskin` / `Yumuşak Smooth`), Kare Hızı Limiti (`Eco 14–24` / `30` / `60` / `Sınırsız`), Statik Mimari Önbelleği anahtarı ve **Canlı FPS** göstergesi içeren **`⚙️ AYARLAR`** penceresi.
