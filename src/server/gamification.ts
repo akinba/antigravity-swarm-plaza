@@ -14,6 +14,8 @@ import type {
   OfficeZone,
   PlazaFloor,
   PlazaSnapshot,
+  QuotaPoolId,
+  QuotaPoolStatus,
   SwarmBoardMessage,
   SwarmMentionEdge,
   SwarmTaskNode,
@@ -28,6 +30,7 @@ import {
   normalizeSwarmRoleLabel,
   scanBrainData,
   type BrainScanResult,
+  type QuotaObservation,
   type SubagentMeta,
   type SwarmMemberMeta,
   type TranscriptSummary,
@@ -39,7 +42,7 @@ import {
   type ConversationSummaryRow,
   type ResolvedWorkspaceInfo,
 } from './dbReader.js';
-import { getDemoFloor } from './demoSimulator.js';
+import { getDemoFloor, getDemoQuotaPools } from './demoSimulator.js';
 
 export const GO_HOME_START_MS = GO_HOME_MINUTES * 60_000;
 export const GO_HOME_GONE_MS = (GO_HOME_MINUTES + 1.5) * 60_000;
@@ -1266,7 +1269,60 @@ function buildEmployeeFromRow(
     outputTokens: transcript?.outputTokens || 0,
     lastActiveAt,
     health,
+    contextUsedTokens: transcript?.lastContextTokens,
+    contextLimitTokens: transcript?.lastContextTokens
+      ? getModelContextLimit(modelId)
+      : undefined,
   };
+}
+
+export function getModelContextLimit(modelId: string | undefined | null): number {
+  const lower = (modelId || '').toLowerCase();
+  if (/claude|opus|sonnet/.test(lower)) return 200_000;
+  if (/gpt/.test(lower)) return 128_000;
+  return 1_000_000;
+}
+
+const QUOTA_LOW_THRESHOLD_PCT = 20;
+const QUOTA_POOL_LABELS: Record<QuotaPoolId, string> = {
+  gemini: 'Gemini',
+  claude_gpt: 'Claude / GPT',
+};
+
+/**
+ * Aggregate real account-quota observations (from `[quota]` system messages and
+ * `swarm models` output in transcripts) into per-pool status. The freshest observation per
+ * pool wins; observations whose reset time already passed are discarded (stale).
+ */
+export function buildQuotaPools(
+  summaries: Iterable<TranscriptSummary>,
+  nowMs = Date.now(),
+): QuotaPoolStatus[] {
+  const best = new Map<QuotaPoolId, QuotaObservation>();
+  for (const summary of summaries) {
+    for (const obs of summary.quotaObservations ?? []) {
+      const resetsMs = obs.resetsAt ? Date.parse(obs.resetsAt) : NaN;
+      if (Number.isFinite(resetsMs) && resetsMs <= nowMs) continue;
+      const prev = best.get(obs.pool);
+      const obsMs = obs.observedAt ? parseTimestampMs(obs.observedAt) : 0;
+      const prevMs = prev?.observedAt ? parseTimestampMs(prev.observedAt) : 0;
+      if (!prev || obsMs >= prevMs) best.set(obs.pool, obs);
+    }
+  }
+  return (['gemini', 'claude_gpt'] as QuotaPoolId[])
+    .filter((pool) => best.has(pool))
+    .map((pool) => {
+      const obs = best.get(pool)!;
+      return {
+        pool,
+        label: QUOTA_POOL_LABELS[pool],
+        remainingPct: obs.remainingPct,
+        resetsAt: obs.resetsAt,
+        observedAt: obs.observedAt,
+        sourceModel: obs.sourceModel,
+        isLowWarning: obs.remainingPct < QUOTA_LOW_THRESHOLD_PCT,
+      };
+    });
 }
 
 /**
@@ -1587,5 +1643,9 @@ export function buildPlazaSnapshot(
     floors,
     timeline60m,
     modelBreakdown,
+    quotaPools: (() => {
+      const real = buildQuotaPools(scan.transcriptByConvId.values(), nowMs);
+      return real.length === 0 && demoMode ? getDemoQuotaPools(nowMs) : real;
+    })(),
   };
 }

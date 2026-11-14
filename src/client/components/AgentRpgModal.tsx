@@ -4,6 +4,7 @@ import { playSelectBlip } from '../audio/retroSynth';
 import { drawEmployeePortrait, UNIFORM_COLORS } from '../engine/pixelSprites';
 import { useI18n } from '../i18n/translations';
 import { sidecarFetch } from '../sidecarBridge';
+import { formatTokens, pctColor } from './QuotaPanel';
 
 interface AgentRpgModalProps {
   employee: OfficeEmployee;
@@ -409,6 +410,23 @@ export const AgentRpgModal: React.FC<AgentRpgModalProps> = ({
               >
                 {t.rpgModal.tokensTitle}
               </div>
+              {liveEmp.contextLimitTokens && liveEmp.contextUsedTokens !== undefined && (() => {
+                const limit = liveEmp.contextLimitTokens;
+                const left = Math.max(0, limit - liveEmp.contextUsedTokens);
+                const pct = Math.round((left / limit) * 100);
+                const color = pctColor(pct);
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: 11 }}>
+                    <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>{t.quota.ctxTitle}</span>
+                    <div className="pixel-bar-track" style={{ flex: 1, minWidth: 80 }}>
+                      <div className="pixel-bar-fill" style={{ width: `${pct}%`, background: color }} />
+                    </div>
+                    <span style={{ color, fontWeight: 700 }}>
+                      {formatTokens(left)} / {formatTokens(limit)} {t.quota.ctxLeft} (%{pct})
+                    </span>
+                  </div>
+                );
+              })()}
               <div
                 style={{
                   display: 'grid',

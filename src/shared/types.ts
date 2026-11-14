@@ -180,6 +180,20 @@ export interface OfficeEmployee {
   leftAt?: string;
   visitTargetId?: string;
   socialReaction?: SocialReactionKind;
+  contextUsedTokens?: number;
+  contextLimitTokens?: number;
+}
+
+export type QuotaPoolId = 'gemini' | 'claude_gpt';
+
+export interface QuotaPoolStatus {
+  pool: QuotaPoolId;
+  label: string;
+  remainingPct: number | null;
+  resetsAt?: string;
+  observedAt?: string;
+  sourceModel?: string;
+  isLowWarning?: boolean;
 }
 
 export interface PlazaFloor {
@@ -222,6 +236,7 @@ export interface PlazaSnapshot {
   floors: PlazaFloor[];
   timeline60m?: ActivityTimelineBucket[];
   modelBreakdown?: ModelBreakdownEntry[];
+  quotaPools?: QuotaPoolStatus[];
 }
 
 export interface AgentDetailResponse {

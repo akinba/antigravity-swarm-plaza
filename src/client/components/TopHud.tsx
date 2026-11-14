@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import type { PlazaFloor } from '../../shared/types';
+import type { PlazaFloor, QuotaPoolStatus } from '../../shared/types';
 import { playSelectBlip } from '../audio/retroSynth';
 import { useI18n } from '../i18n/translations';
+import { computeHudQuota, pctColor } from './QuotaPanel';
 
 interface TopHudProps {
   floor: PlazaFloor | null;
+  quotaPools?: QuotaPoolStatus[];
   globalEcoScore: number;
   viewMode: 'plaza' | 'office';
   onChangeViewMode: (mode: 'plaza' | 'office') => void;
@@ -24,6 +26,7 @@ interface TopHudProps {
 
 export const TopHud: React.FC<TopHudProps> = ({
   floor,
+  quotaPools,
   globalEcoScore,
   viewMode,
   onChangeViewMode,
@@ -47,6 +50,28 @@ export const TopHud: React.FC<TopHudProps> = ({
     ? Math.min(100, Math.round((floor.companyXp / Math.max(1, floor.nextTierXp)) * 100))
     : 0;
   const ecoScore = floor ? floor.ecoScore : globalEcoScore;
+  const quotaInfo = computeHudQuota(quotaPools, floor?.employees);
+  const quotaBadge = quotaInfo ? (
+    <button
+      type="button"
+      className="pixel-badge"
+      title={`${t.quota.hudTooltip} • ${quotaInfo.detail}`}
+      onClick={() => {
+        playSelectBlip();
+        onOpenAnalytics();
+      }}
+      style={{
+        color: pctColor(quotaInfo.pct),
+        borderColor: pctColor(quotaInfo.pct),
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        padding: '2px 6px',
+      }}
+    >
+      🔋 {quotaInfo.kind === 'quota' ? t.quota.hudQuota : t.quota.hudCtx} %{quotaInfo.pct}
+      {quotaInfo.resetsMin !== undefined ? ` · ↻ ${quotaInfo.resetsMin}m` : ''}
+    </button>
+  ) : null;
   const ecoColor = ecoScore >= 75 ? '#3be87a' : ecoScore >= 45 ? '#ffbe3b' : '#ff5666';
 
   const floorCode = floor
@@ -106,6 +131,7 @@ export const TopHud: React.FC<TopHudProps> = ({
                     🏠{floor.offDutyCount}
                   </span>
                 )}
+                {quotaBadge}
                 {alertCount > 0 && onOpenAlerts && (
                   <button
                     type="button"
@@ -342,6 +368,9 @@ export const TopHud: React.FC<TopHudProps> = ({
 
       {/* Right: Eco Score + Controls */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        {/* Remaining Quota / Context Battery */}
+        {quotaBadge}
+
         {/* Pure-Gemini Eco/Quota Score */}
         <div
           className="pixel-panel-inset"

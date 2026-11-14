@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type {
   AgentLogEntry,
+  QuotaPoolId,
   SwarmBoardMessage,
   SwarmMentionEdge,
   SwarmRole,
@@ -38,10 +39,21 @@ export interface TranscriptStepEvent {
   status: string;
 }
 
+export interface QuotaObservation {
+  pool: QuotaPoolId;
+  remainingPct: number;
+  resetsAt?: string;
+  observedAt?: string;
+  sourceModel?: string;
+}
+
 export interface TranscriptSummary {
   inputTokens: number;
   cacheReadTokens: number;
   outputTokens: number;
+  /** input + cache_read tokens of the latest model turn = real active context fill. */
+  lastContextTokens?: number;
+  quotaObservations?: QuotaObservation[];
   latestToolName?: string;
   latestTargetSummary?: string;
   latestThoughtSnippet?: string;
@@ -67,7 +79,7 @@ interface TranscriptCacheEntry {
 
 const transcriptCache = new Map<string, TranscriptCacheEntry>();
 
-const TRANSCRIPT_TAIL_BYTES = 16384;
+const TRANSCRIPT_TAIL_BYTES = 32768;
 const LOGS_TAIL_BYTES = 65536;
 
 function tailFileText(filePath: string, maxBytes: number): { text: string; stat: fs.Stats } | null {
@@ -232,6 +244,43 @@ function extractPostMessageText(toolCalls: unknown): string {
   return '';
 }
 
+export function classifyQuotaPool(modelName: string): QuotaPoolId | null {
+  const lower = modelName.toLowerCase();
+  if (/claude|gpt|opus|sonnet/.test(lower)) return 'claude_gpt';
+  if (/gemini|orchestrator/.test(lower)) return 'gemini';
+  return null;
+}
+
+const QUOTA_WARNING_RE =
+  /\[quota\]\s+model\s+([\w.\-]+)\s+is low on quota\s+\((\d+(?:\.\d+)?)%\s+remaining,\s+resets at\s+([0-9T:.\-+Z]+)\)/gi;
+const QUOTA_MODELS_JSON_RE =
+  /\\?"([\w.\-]+)\\?":\s*\{\s*\\?"quota_remaining\\?":\s*\\?"(\d+(?:\.\d+)?)%\\?",\s*\\?"quota_resets\\?":\s*\\?"([^"\\]+)\\?"\s*\}/g;
+
+/** Extract real account-quota observations from one raw transcript line. */
+export function extractQuotaObservations(
+  rawLine: string,
+  observedAt?: string,
+): QuotaObservation[] {
+  const byPool = new Map<QuotaPoolId, QuotaObservation>();
+  const record = (model: string, pct: string, resetsAt: string) => {
+    const pool = classifyQuotaPool(model);
+    const remainingPct = Number(pct);
+    if (!pool || !Number.isFinite(remainingPct)) return;
+    const prev = byPool.get(pool);
+    if (!prev || remainingPct < prev.remainingPct) {
+      byPool.set(pool, { pool, remainingPct, resetsAt, observedAt, sourceModel: model });
+    }
+  };
+
+  if (rawLine.includes('[quota]')) {
+    for (const m of rawLine.matchAll(QUOTA_WARNING_RE)) record(m[1], m[2], m[3]);
+  }
+  if (rawLine.includes('quota_remaining')) {
+    for (const m of rawLine.matchAll(QUOTA_MODELS_JSON_RE)) record(m[1], m[2], m[3]);
+  }
+  return Array.from(byPool.values());
+}
+
 export function parseTranscriptSummary(text: string): TranscriptSummary {
   const summary: TranscriptSummary = {
     inputTokens: 0,
@@ -239,6 +288,7 @@ export function parseTranscriptSummary(text: string): TranscriptSummary {
     outputTokens: 0,
     recentSteps: [],
   };
+  const latestQuotaByPool = new Map<QuotaPoolId, QuotaObservation>();
 
   const lines = text.split('\n');
   for (const rawLine of lines) {
@@ -256,6 +306,21 @@ export function parseTranscriptSummary(text: string): TranscriptSummary {
     summary.inputTokens += tokens.input;
     summary.cacheReadTokens += tokens.cacheRead;
     summary.outputTokens += tokens.output;
+
+    const entryTypeRaw = typeof entry.type === 'string' ? entry.type.toUpperCase() : '';
+    if (
+      tokens.input + tokens.cacheRead > 0 &&
+      (entryTypeRaw === 'PLANNER_RESPONSE' || entryTypeRaw === '')
+    ) {
+      summary.lastContextTokens = tokens.input + tokens.cacheRead;
+    }
+
+    for (const obs of extractQuotaObservations(
+      line,
+      typeof entry.created_at === 'string' ? entry.created_at : undefined,
+    )) {
+      latestQuotaByPool.set(obs.pool, obs);
+    }
 
     if (typeof entry.status === 'string' && entry.status) {
       summary.lastStepStatus = entry.status;
@@ -292,6 +357,9 @@ export function parseTranscriptSummary(text: string): TranscriptSummary {
     }
   }
 
+  if (latestQuotaByPool.size > 0) {
+    summary.quotaObservations = Array.from(latestQuotaByPool.values());
+  }
   return summary;
 }
 

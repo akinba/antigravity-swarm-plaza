@@ -446,6 +446,7 @@ export const App: React.FC = () => {
     <div className="plaza-shell">
       <TopHud
         floor={activeFloor}
+        quotaPools={localizedSnapshot?.quotaPools}
         globalEcoScore={localizedSnapshot?.globalEcoScore ?? 100}
         viewMode={viewMode}
         onChangeViewMode={setViewMode}

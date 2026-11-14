@@ -9,6 +9,7 @@ import type {
 } from '../../shared/types';
 import { playSelectBlip } from '../audio/retroSynth';
 import { useI18n } from '../i18n/translations';
+import { QuotaPanel } from './QuotaPanel';
 
 interface AnalyticsModalProps {
   floor: PlazaFloor | null;
@@ -441,6 +442,16 @@ export const AnalyticsModal: React.FC<AnalyticsModalProps> = ({
             paddingRight: 2,
           }}
         >
+          <QuotaPanel
+            quotaPools={snapshot?.quotaPools}
+            employees={
+              scope === 'floor' || !snapshot?.floors?.length
+                ? floor?.employees
+                : snapshot.floors.flatMap((f) => f.employees)
+            }
+            usedTokens={totalEstimatedTokens}
+          />
+
           {/* KPI Strip */}
           <div
             style={{

@@ -184,6 +184,24 @@ export interface Translations {
     estCostLabel: string;
     completedTasksCol: string;
   };
+  quota: {
+    title: string;
+    poolGemini: string;
+    poolClaudeGpt: string;
+    remainingLabel: string;
+    resetsInMin: string;
+    normalBadge: string;
+    normalNote: string;
+    ctxTitle: string;
+    ctxLeft: string;
+    compactWarn: string;
+    budgetTitle: string;
+    budgetLeft: string;
+    noContext: string;
+    hudQuota: string;
+    hudCtx: string;
+    hudTooltip: string;
+  };
   alertModal: {
     title: string;
     close: string;
@@ -472,6 +490,24 @@ const TR: Translations = {
     estCostLabel: 'Tahmini Maliyet',
     completedTasksCol: 'Tamamlanan',
   },
+  quota: {
+    title: '🔋 Kalan Kota, Context & Token Bütçesi',
+    poolGemini: 'Gemini Havuzu',
+    poolClaudeGpt: 'Claude / GPT Havuzu',
+    remainingLabel: 'kalan',
+    resetsInMin: '↻ {n} dk sonra',
+    normalBadge: '✅ Normal (>%20)',
+    normalNote: 'Düşük kota uyarısı yok; kota %20 altına düşünce burada gerçek değer görünür.',
+    ctxTitle: 'Ajan Kalan Context Penceresi',
+    ctxLeft: 'kalan',
+    compactWarn: '/compact önerilir',
+    budgetTitle: 'Oturum Token Bütçesi',
+    budgetLeft: 'Kalan',
+    noContext: 'Henüz context verisi yok.',
+    hudQuota: 'KOTA',
+    hudCtx: 'CTX',
+    hudTooltip: 'Kalan kota / context durumu — ayrıntı için tıkla',
+  },
   alertModal: {
     title: 'AKILLI UYARI MERKEZİ',
     close: 'KAPAT',
@@ -759,6 +795,24 @@ const EN: Translations = {
     estTokensLabel: 'Est. Tokens',
     estCostLabel: 'Est. Cost',
     completedTasksCol: 'Completed',
+  },
+  quota: {
+    title: '🔋 Remaining Quota, Context & Token Budget',
+    poolGemini: 'Gemini Pool',
+    poolClaudeGpt: 'Claude / GPT Pool',
+    remainingLabel: 'left',
+    resetsInMin: '↻ in {n} min',
+    normalBadge: '✅ Normal (>20%)',
+    normalNote: 'No low-quota warning; the real value appears here once quota drops below 20%.',
+    ctxTitle: 'Agent Remaining Context Window',
+    ctxLeft: 'left',
+    compactWarn: '/compact recommended',
+    budgetTitle: 'Session Token Budget',
+    budgetLeft: 'Left',
+    noContext: 'No context data yet.',
+    hudQuota: 'QUOTA',
+    hudCtx: 'CTX',
+    hudTooltip: 'Remaining quota / context status — click for details',
   },
   alertModal: {
     title: 'SMART ALERT CENTER',

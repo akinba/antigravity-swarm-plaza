@@ -7,6 +7,7 @@ import type {
   OfficeEmployee,
   OfficeZone,
   PlazaFloor,
+  QuotaPoolStatus,
   SwarmBoardMessage,
   SwarmRole,
 } from '../shared/types.js';
@@ -667,6 +668,11 @@ export function getDemoFloor(
       isVerifiedOutput,
       verifiedLabel: isVerifier ? 'PASS' : isCoreVerified ? 'EXIT 0' : undefined,
     };
+    emp.contextLimitTokens = 1_000_000;
+    emp.contextUsedTokens =
+      emp.id === 'demo-analyst-grill'
+        ? 840_000 + (effectiveTick % 6) * 4_000
+        : Math.min(700_000, 70_000 + idx * 62_000 + (effectiveTick % 10) * 3_500);
   }
 
   const demoCelebration = applyOfficeInteractions(
@@ -769,6 +775,31 @@ export function getDemoFloor(
     analytics,
     lastModifiedAt: now,
   };
+}
+
+/** Realistic demo account-quota pools (resets ~38 min after `nowMs`). */
+export function getDemoQuotaPools(nowMs = Date.now()): QuotaPoolStatus[] {
+  const observedAt = new Date(nowMs).toISOString();
+  return [
+    {
+      pool: 'gemini',
+      label: 'Gemini',
+      remainingPct: 14,
+      resetsAt: new Date(nowMs + 38 * 60_000).toISOString(),
+      observedAt,
+      sourceModel: 'gemini-4-hydrogen-medium',
+      isLowWarning: true,
+    },
+    {
+      pool: 'claude_gpt',
+      label: 'Claude / GPT',
+      remainingPct: 46,
+      resetsAt: new Date(nowMs + 5 * 24 * 3_600_000).toISOString(),
+      observedAt,
+      sourceModel: 'claude-sonnet-5-5-medium',
+      isLowWarning: false,
+    },
+  ];
 }
 
 export function getDemoEmployee(agentId: string): OfficeEmployee | null {
