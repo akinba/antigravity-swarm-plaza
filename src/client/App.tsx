@@ -410,41 +410,27 @@ export const App: React.FC = () => {
     for (const fl of floors) {
       for (const emp of fl.employees) {
         const consecutiveErrors = emp.health?.consecutiveErrors ?? 0;
-        const hasError =
+        const normState = emp.health?.normalizedState;
+        const isCritical =
           emp.status === 'error' ||
           emp.activity === 'error' ||
           emp.toolActivity === 'error' ||
-          consecutiveErrors > 0;
-        if (hasError) {
+          consecutiveErrors > 0 ||
+          normState === 'error';
+        if (isCritical) {
           list.push({
             id: `emp-err-${fl.id}-${emp.id}`,
             agentName: emp.name,
             floorName: fl.companyName,
             severity: 'critical',
-            reason: emp.health && emp.health.errorCount > 0 ? 'error' : emp.status,
+            reason: emp.health && emp.health.errorCount > 0 ? 'error' : (normState ?? emp.status),
             message:
               emp.speechBubble ||
               emp.currentTarget ||
               emp.currentTool ||
-              `${emp.status} (${Math.max(1, consecutiveErrors)})`,
+              `${normState ?? emp.status} (${Math.max(1, consecutiveErrors)})`,
             timestamp: emp.lastActiveAt ? Date.parse(emp.lastActiveAt) || now : now,
             count: Math.max(1, consecutiveErrors),
-          });
-        }
-      }
-
-      for (const msg of fl.boardMessages) {
-        if (/error|fail|hata|blocked|stuck|⚠️|❌|🔴/i.test(msg.text)) {
-          const isCrit = /error|fail|hata|❌|🔴/i.test(msg.text);
-          list.push({
-            id: `msg-alert-${fl.id}-${msg.seq}`,
-            agentName: msg.agent,
-            floorName: fl.companyName,
-            severity: isCrit ? 'critical' : 'warning',
-            reason: 'board_alert',
-            message: msg.text,
-            timestamp: msg.time ? Date.parse(msg.time.replace(' ', 'T')) || now : now,
-            count: 1,
           });
         }
       }
