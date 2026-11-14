@@ -21,7 +21,13 @@ import {
   type GridPoint,
   type IsoCamera,
 } from './isoMath';
-import { ELEVATOR_SLOT, getFloorLayout, type FloorLayout } from './officeLayouts';
+import {
+  ELEVATOR_SLOT,
+  getFloorLayout,
+  isPartitionKind,
+  resolvePartitionSeam,
+  type FloorLayout,
+} from './officeLayouts';
 import {
   drawAgentHealthBadge,
   drawDeskVerifiedTrophy,
@@ -975,6 +981,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
         for (let gy = 0; gy < GRID_H; gy++) {
           for (let gx = 0; gx < GRID_W; gx++) {
             const p = gridToScreen(gx, gy, cam);
+            const tileZone = currentLayout.getTileZone(gx, gy);
             drawEnhancedFloorTile(
               targetCtx,
               gx,
@@ -982,11 +989,31 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
               p.x,
               p.y,
               cam.zoom,
-              currentLayout.getTileZone(gx, gy),
+              tileZone,
               currentLayout.themePalette,
               night,
               archTimeSec,
             );
+            // Distinct rich mahogany/espresso executive parquet glaze so outer wood dividers sit on an exact floor seam
+            if (tileZone === 'DESK_ARCHITECT') {
+              const hw = (TILE_W / 2) * cam.zoom;
+              const hh = (TILE_H / 2) * cam.zoom;
+              targetCtx.save();
+              targetCtx.beginPath();
+              targetCtx.moveTo(p.x, p.y - hh);
+              targetCtx.lineTo(p.x + hw, p.y);
+              targetCtx.lineTo(p.x, p.y + hh);
+              targetCtx.lineTo(p.x - hw, p.y);
+              targetCtx.closePath();
+              targetCtx.fillStyle = night ? 'rgba(56, 20, 18, 0.46)' : 'rgba(88, 30, 20, 0.36)';
+              targetCtx.fill();
+              targetCtx.lineWidth = Math.max(0.6, 0.75 * cam.zoom);
+              targetCtx.strokeStyle = night
+                ? 'rgba(255, 209, 115, 0.16)'
+                : 'rgba(130, 64, 30, 0.42)';
+              targetCtx.stroke();
+              targetCtx.restore();
+            }
           }
         }
 
@@ -1294,11 +1321,23 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
         const itemKey = `${item.gx},${item.gy}`;
         const isWorkChair = WORK_CHAIR_KINDS.has(item.kind);
         const isBeanbag = isBeanbagKind(item.kind);
+        const isPartition = isPartitionKind(item.kind);
         const itemColorIndex = isBeanbag ? beanbagCounter++ : undefined;
         const chairDeskAlign = isWorkChair ? currentAlignments.deskSeatMap.get(itemKey) : undefined;
-        const renderItemGx = chairDeskAlign ? chairDeskAlign.seatGx : item.gx;
-        const renderItemGy = chairDeskAlign ? chairDeskAlign.seatGy : item.gy;
-        const itemDepth = chairDeskAlign ? chairDeskAlign.chairDepth : item.gx + item.gy;
+        const partitionSeam = isPartition
+          ? resolvePartitionSeam(item, currentLayout.getTileZone)
+          : null;
+        const renderItemGx = chairDeskAlign
+          ? chairDeskAlign.seatGx
+          : partitionSeam
+            ? partitionSeam.gx
+            : item.gx;
+        const renderItemGy = chairDeskAlign
+          ? chairDeskAlign.seatGy
+          : partitionSeam
+            ? partitionSeam.gy
+            : item.gy;
+        const itemDepth = chairDeskAlign ? chairDeskAlign.chairDepth : renderItemGx + renderItemGy;
         const itemFacing = currentAlignments.chairFacingMap.get(itemKey) ?? 'SE';
         const p = gridToScreen(renderItemGx, renderItemGy, cam);
         const isWb = item.kind === 'whiteboard_l' || item.kind === 'whiteboard_r';
@@ -1361,10 +1400,10 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
               (item.kind === 'elevator_doors' && isElevatorBusy) ||
               (isWb && isPresenterActive);
 
-            // Soft elliptical furniture contact shadow (beanbags render their own sculpted floor shadow)
+            // Soft elliptical furniture contact shadow (beanbags and seam-aligned partitions omit the generic oval shadow)
             if (
               !isBeanbag &&
-              item.kind !== 'glass_partition_x' &&
+              !isPartition &&
               item.kind !== 'glass_partition_y'
             ) {
               ctx.save();

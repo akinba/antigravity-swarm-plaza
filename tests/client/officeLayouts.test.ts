@@ -4,6 +4,9 @@ import { GRID_H, GRID_W } from '../../src/client/engine/isoMath.js';
 import {
   ELEVATOR_SLOT,
   getFloorLayout,
+  getVisualFloorKind,
+  isPartitionKind,
+  resolvePartitionSeam,
   THEME_PALETTES,
   type FloorLayout,
 } from '../../src/client/engine/officeLayouts.js';
@@ -400,6 +403,82 @@ describe('officeLayouts all 5 floor blueprints', () => {
               `Invalid enhanced rect on blueprint ${layout.blueprintIndex} (night=${night}, zoom=${zoom}): ${JSON.stringify(r)}`,
             );
           }
+        }
+      }
+    }
+  });
+
+  it('aligns every glass and wood partition strictly on a visual floor zone seam without colliding with work desks', () => {
+    const workDeskKinds = new Set(['dev_desk', 'qa_desk', 'exec_desk']);
+
+    for (const layout of getAllFiveLayouts()) {
+      const partitions = layout.furniture.filter((f) => isPartitionKind(f.kind));
+      const workDesks = layout.furniture.filter((f) => workDeskKinds.has(f.kind));
+      assert.ok(
+        partitions.length >= 8,
+        `blueprint ${layout.blueprintIndex} expected >= 8 partitions, found ${partitions.length}`,
+      );
+
+      for (const part of partitions) {
+        const seam = resolvePartitionSeam(part, layout.getTileZone);
+        const isYWall = part.kind === 'glass_partition' || part.kind === 'wood_partition';
+
+        if (isYWall) {
+          assert.equal(
+            seam.gy,
+            part.gy,
+            `blueprint ${layout.blueprintIndex} ${part.kind} at (${part.gx},${part.gy}) unexpectedly shifted gy=${seam.gy}`,
+          );
+          assert.equal(
+            Math.abs((seam.gx % 1) - 0.5) < 1e-6,
+            true,
+            `blueprint ${layout.blueprintIndex} ${part.kind} at (${part.gx},${part.gy}) did not snap to .5 gx seam (${seam.gx})`,
+          );
+          const leftGx = Math.floor(seam.gx);
+          const rightGx = Math.ceil(seam.gx);
+          assert.ok(
+            leftGx >= 0 && rightGx < GRID_W,
+            `blueprint ${layout.blueprintIndex} ${part.kind} seam gx=${seam.gx} out of interior bounds`,
+          );
+          const leftKind = getVisualFloorKind(layout.getTileZone(leftGx, part.gy));
+          const rightKind = getVisualFloorKind(layout.getTileZone(rightGx, part.gy));
+          assert.notEqual(
+            leftKind,
+            rightKind,
+            `blueprint ${layout.blueprintIndex} floating ${part.kind} at (${part.gx},${part.gy}) -> seam (${seam.gx},${seam.gy}): both sides have floor kind '${leftKind}'`,
+          );
+        } else {
+          assert.equal(
+            seam.gx,
+            part.gx,
+            `blueprint ${layout.blueprintIndex} ${part.kind} at (${part.gx},${part.gy}) unexpectedly shifted gx=${seam.gx}`,
+          );
+          assert.equal(
+            Math.abs((seam.gy % 1) - 0.5) < 1e-6,
+            true,
+            `blueprint ${layout.blueprintIndex} ${part.kind} at (${part.gx},${part.gy}) did not snap to .5 gy seam (${seam.gy})`,
+          );
+          const topGy = Math.floor(seam.gy);
+          const botGy = Math.ceil(seam.gy);
+          assert.ok(
+            topGy >= 0 && botGy < GRID_H,
+            `blueprint ${layout.blueprintIndex} ${part.kind} seam gy=${seam.gy} out of interior bounds`,
+          );
+          const topKind = getVisualFloorKind(layout.getTileZone(part.gx, topGy));
+          const botKind = getVisualFloorKind(layout.getTileZone(part.gx, botGy));
+          assert.notEqual(
+            topKind,
+            botKind,
+            `blueprint ${layout.blueprintIndex} floating ${part.kind} at (${part.gx},${part.gy}) -> seam (${seam.gx},${seam.gy}): both sides have floor kind '${topKind}'`,
+          );
+        }
+
+        for (const desk of workDesks) {
+          const dist = Math.hypot(desk.gx - seam.gx, desk.gy - seam.gy);
+          assert.ok(
+            dist >= 1.0,
+            `blueprint ${layout.blueprintIndex} ${part.kind} seam (${seam.gx},${seam.gy}) collides with ${desk.kind} at (${desk.gx},${desk.gy}), dist=${dist.toFixed(2)}`,
+          );
         }
       }
     }
