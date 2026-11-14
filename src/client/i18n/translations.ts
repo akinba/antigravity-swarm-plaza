@@ -148,6 +148,8 @@ export interface Translations {
     ganttFinishedThenStarted: string;
     workflowLinksLabel: string;
     noLinksYet: string;
+    workflowGanttTab: string;
+    clearFilter: string;
   };
   analyticsModal: {
     title: string;
@@ -424,6 +426,8 @@ const TR: Translations = {
     ganttFinishedThenStarted: 'tamamlandı ➔ sıradaki iş başladı:',
     workflowLinksLabel: '🔄 İŞ AKIŞI BAĞLANTILARI',
     noLinksYet: 'Henüz devir bağlantısı yok.',
+    workflowGanttTab: '🧭 İŞ AKIŞI & GANTT',
+    clearFilter: 'TÜMÜNÜ GÖSTER',
   },
   analyticsModal: {
     title: 'KAT ANALİTİĞİ & TELEMETRİ',
@@ -701,6 +705,8 @@ const EN: Translations = {
     ganttFinishedThenStarted: 'finished ➔ next task started:',
     workflowLinksLabel: '🔄 WORKFLOW LINKS',
     noLinksYet: 'No handoff links yet.',
+    workflowGanttTab: '🧭 WORKFLOW & GANTT',
+    clearFilter: 'SHOW ALL',
   },
   analyticsModal: {
     title: 'FLOOR ANALYTICS & TELEMETRY',

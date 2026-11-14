@@ -11,6 +11,7 @@ import type {
 import { playSelectBlip } from '../audio/retroSynth';
 import { drawEmployeePortrait, UNIFORM_COLORS } from '../engine/pixelSprites';
 import { useI18n } from '../i18n/translations';
+import { WorkflowDiagramSvg } from './WorkflowDiagramSvg';
 
 interface WhiteboardModalProps {
   companyName: string;
@@ -21,7 +22,7 @@ interface WhiteboardModalProps {
   employees?: OfficeEmployee[];
   agentResources?: AgentResourceUsage[];
   activeEventKind?: FloorEventKind | null;
-  initialTab?: 'feed' | 'personnel' | 'tasks' | 'gantt';
+  initialTab?: 'feed' | 'personnel' | 'workflow' | 'tasks' | 'gantt';
   onSelectEmployee?: (employee: OfficeEmployee) => void;
   onClose: () => void;
 }
@@ -285,7 +286,9 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
   onClose,
 }) => {
   const { t, locale } = useI18n();
-  const [activeTab, setActiveTab] = useState<'feed' | 'personnel' | 'tasks' | 'gantt'>(initialTab);
+  const normalizedInitialTab: 'feed' | 'personnel' | 'workflow' =
+    initialTab === 'tasks' || initialTab === 'gantt' ? 'workflow' : initialTab;
+  const [activeTab, setActiveTab] = useState<'feed' | 'personnel' | 'workflow'>(normalizedInitialTab);
   const [selectedGanttBlock, setSelectedGanttBlock] = useState<{
     agentName: string;
     phase: WorkPhase;
@@ -294,6 +297,7 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
   } | null>(null);
   const [ganttTopToBottom, setGanttTopToBottom] = useState(false);
   const [highlightedLink, setHighlightedLink] = useState<{ from: string; to: string } | null>(null);
+  const [selectedAgentFilter, setSelectedAgentFilter] = useState<string | null>(null);
   const feedRef = useRef<HTMLDivElement | null>(null);
   const isProgrammaticScrollRef = useRef(false);
   const scrollTimerRef = useRef<number | null>(null);
@@ -551,23 +555,13 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
           </button>
           <button
             type="button"
-            className={`pixel-tab ${activeTab === 'tasks' ? 'active' : ''}`}
+            className={`pixel-tab ${activeTab === 'workflow' ? 'active' : ''}`}
             onClick={() => {
               playSelectBlip();
-              setActiveTab('tasks');
+              setActiveTab('workflow');
             }}
           >
-            {t.whiteboardModal.taskFlowTab} ({filteredTaskNodes.length})
-          </button>
-          <button
-            type="button"
-            className={`pixel-tab ${activeTab === 'gantt' ? 'active' : ''}`}
-            onClick={() => {
-              playSelectBlip();
-              setActiveTab('gantt');
-            }}
-          >
-            {t.whiteboardModal.ganttTab}
+            {t.whiteboardModal.workflowGanttTab} ({edges.length})
           </button>
           <button
             type="button"
@@ -1038,321 +1032,16 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
           </div>
         )}
 
-        {activeTab === 'tasks' && (
-          <div
-            className="pixel-panel-inset"
-            style={{
-              padding: 12,
-              overflowY: 'auto',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 10,
-              maxHeight: 460,
-            }}
-          >
-            {edges.length > 0 && (
-              <div
-                style={{
-                  background: '#0d1019',
-                  border: '2px solid #07080d',
-                  padding: 6,
-                  display: 'flex',
-                  justifyContent: 'center',
-                }}
-              >
-                <svg
-                  viewBox="0 0 640 280"
-                  style={{ width: '100%', maxWidth: 640, height: 220 }}
-                  shapeRendering="crispEdges"
-                >
-                  <defs>
-                    <marker
-                      id="swarm-arrow"
-                      markerWidth="6"
-                      markerHeight="6"
-                      refX="5"
-                      refY="3"
-                      orient="auto"
-                    >
-                      <polygon points="0,0 6,3 0,6" fill="#ffd147" />
-                    </marker>
-                  </defs>
-
-                  {edges.map((edge) => {
-                    const fromPos = nodePosMap.get(edge.from);
-                    const toPos = nodePosMap.get(edge.to);
-                    if (!fromPos || !toPos) return null;
-                    const dx = toPos.x - fromPos.x;
-                    const dy = toPos.y - fromPos.y;
-                    const dist = Math.hypot(dx, dy) || 1;
-                    const pad = 34;
-                    const x1 = fromPos.x + (dx / dist) * pad;
-                    const y1 = fromPos.y + (dy / dist) * pad;
-                    const x2 = toPos.x - (dx / dist) * pad;
-                    const y2 = toPos.y - (dy / dist) * pad;
-                    const nx = -dy / dist;
-                    const ny = dx / dist;
-                    const mx = (x1 + x2) / 2 + nx * 10;
-                    const my = (y1 + y2) / 2 + ny * 10;
-                    return (
-                      <g key={`${edge.from}->${edge.to}`}>
-                        <line
-                          x1={x1}
-                          y1={y1}
-                          x2={x2}
-                          y2={y2}
-                          stroke="#8a63ff"
-                          strokeWidth={Math.min(4, 1 + edge.count * 0.6)}
-                          strokeDasharray={edge.count > 2 ? undefined : '4 2'}
-                          markerEnd="url(#swarm-arrow)"
-                        />
-                        <rect
-                          x={mx - 9}
-                          y={my - 8}
-                          width={18}
-                          height={15}
-                          fill="#171c2b"
-                          stroke="#ffd147"
-                          strokeWidth={1}
-                        />
-                        <text
-                          x={mx}
-                          y={my + 3}
-                          textAnchor="middle"
-                          fill="#ffd147"
-                          fontSize="9"
-                          fontFamily="monospace"
-                          fontWeight="bold"
-                        >
-                          {edge.count}
-                        </text>
-                      </g>
-                    );
-                  })}
-
-                  {graphNodes.map((node) => {
-                    const isCoord = node.name === 'coordinator';
-                    const isAll = node.name === 'all';
-                    const fill = isCoord ? '#3b2d14' : isAll ? '#2c1f4a' : '#182b3b';
-                    const stroke = isCoord ? '#ffd147' : isAll ? '#b07cff' : '#3cd8ff';
-                    const label = isCoord
-                      ? '★ BOSS'
-                      : node.name.length > 13
-                        ? `${node.name.slice(0, 12)}…`
-                        : node.name;
-                    return (
-                      <g key={node.name} transform={`translate(${node.x}, ${node.y})`}>
-                        <rect
-                          x={-48}
-                          y={-13}
-                          width={96}
-                          height={26}
-                          fill={fill}
-                          stroke={stroke}
-                          strokeWidth={2}
-                        />
-                        <text
-                          x={0}
-                          y={4}
-                          textAnchor="middle"
-                          fill="#f4f6fc"
-                          fontSize="9"
-                          fontFamily="monospace"
-                          fontWeight="bold"
-                        >
-                          {label}
-                        </text>
-                      </g>
-                    );
-                  })}
-                </svg>
-              </div>
-            )}
-            {filteredTaskNodes.length === 0 ? (
-              <div style={{ fontSize: 12, color: 'var(--text-dim)', padding: 12, textAlign: 'center' }}>
-                {t.whiteboardModal.noTasksYet}
-              </div>
-            ) : (
-              filteredTaskNodes.map((node) => {
-                const statusMeta: Record<
-                  SwarmTaskStatus,
-                  { icon: string; label: string; color: string; bg: string; border: string }
-                > = {
-                  verified: {
-                    icon: '✅',
-                    label: t.whiteboardModal.taskStatusVerified,
-                    color: '#3be87a',
-                    bg: '#13281d',
-                    border: '#2d7a4f',
-                  },
-                  running: {
-                    icon: '⚡',
-                    label: t.whiteboardModal.taskStatusRunning,
-                    color: '#3cd8ff',
-                    bg: '#132233',
-                    border: '#28648a',
-                  },
-                  pending: {
-                    icon: '⏳',
-                    label: t.whiteboardModal.taskStatusPending,
-                    color: '#ffd147',
-                    bg: '#262113',
-                    border: '#786221',
-                  },
-                  blocked: {
-                    icon: '⚠️',
-                    label: t.whiteboardModal.taskStatusBlocked,
-                    color: '#ff6b6b',
-                    bg: '#2c1518',
-                    border: '#802b32',
-                  },
-                  completed: {
-                    icon: '✔',
-                    label: t.whiteboardModal.taskStatusCompleted,
-                    color: '#9aa7c7',
-                    bg: '#192030',
-                    border: '#3b496b',
-                  },
-                };
-                const st = statusMeta[node.status];
-                return (
-                  <div
-                    key={node.id}
-                    style={{
-                      padding: '10px 12px',
-                      background: '#171c2b',
-                      border: `2px solid ${st.border}`,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 8,
-                    }}
-                  >
-                    {/* Top row: status + title + updatedAt */}
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: 8,
-                        flexWrap: 'wrap',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <span
-                          className="pixel-badge"
-                          style={{
-                            color: st.color,
-                            background: st.bg,
-                            borderColor: st.border,
-                          }}
-                        >
-                          {st.icon} {st.label}
-                        </span>
-                        <span style={{ fontWeight: 700, fontSize: 12, color: '#e8efff' }}>
-                          {node.title}
-                        </span>
-                      </div>
-                      <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'monospace' }}>
-                        {node.updatedAt}
-                        {node.durationSec !== undefined ? ` • ${node.durationSec}s` : ''}
-                      </span>
-                    </div>
-
-                    {/* Owner & DAG / Handoff flow */}
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        flexWrap: 'wrap',
-                        fontSize: 11,
-                      }}
-                    >
-                      <span style={{ color: 'var(--text-dim)' }}>{t.whiteboardModal.taskOwnerLabel}:</span>
-                      <span className="mention-chip">@{node.ownerName}</span>
-                      {node.ownerRole && (
-                        <span className="pixel-badge" style={{ color: '#9aa7c7' }}>
-                          {node.ownerRole}
-                        </span>
-                      )}
-
-                      {node.parentTaskId && (
-                        <span className="pixel-badge" style={{ color: '#b07cff' }}>
-                          ↳ {node.parentTaskId}
-                        </span>
-                      )}
-                      {node.dependsOnTaskIds.length > 0 && (
-                        <span className="pixel-badge" style={{ color: '#9aa7c7' }}>
-                          ← {node.dependsOnTaskIds.join(', ')}
-                        </span>
-                      )}
-
-                      {node.handoffTargetNames.length > 0 && (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-                          <span style={{ color: 'var(--text-dim)' }}>
-                            {t.whiteboardModal.taskHandoffLabel}:
-                          </span>
-                          <span style={{ color: '#3cd8ff' }}>@{node.ownerName}</span>
-                          <span style={{ color: '#ffd147', fontWeight: 700 }}>➔</span>
-                          {node.handoffTargetNames.map((target) => (
-                            <span key={target} className="mention-chip">
-                              @{target}
-                            </span>
-                          ))}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Verification proof & evidence badges */}
-                    {(node.verifiedKeyword || node.evidenceBadges.length > 0) && (
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          flexWrap: 'wrap',
-                          fontSize: 10,
-                        }}
-                      >
-                        <span style={{ color: 'var(--text-dim)' }}>{t.whiteboardModal.taskProofLabel}:</span>
-                        {node.verifiedKeyword && (
-                          <span
-                            className="pixel-badge"
-                            style={{ color: '#ffd147', background: '#252116', borderColor: '#786221' }}
-                          >
-                            {node.verifiedKeyword.trim().startsWith('✅')
-                              ? node.verifiedKeyword.trim()
-                              : `✅ ${node.verifiedKeyword}`}
-                          </span>
-                        )}
-                        {node.evidenceBadges.map((badge, idx) => (
-                          <span
-                            key={`${badge}-${idx}`}
-                            className="pixel-badge"
-                            style={{ color: '#3be87a', background: '#13281d', borderColor: '#2b6b45' }}
-                          >
-                            {badge}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
-        )}
-
-        {activeTab === 'gantt' && (
+        {activeTab === 'workflow' && (
           <div
             className="pixel-panel-inset"
             style={{
               padding: 10,
-              overflow: 'hidden',
+              overflowY: 'auto',
               display: 'flex',
               flexDirection: 'column',
               gap: 8,
-              maxHeight: 500,
+              maxHeight: '72vh',
               width: '100%',
               boxSizing: 'border-box',
             }}
@@ -1547,65 +1236,74 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                   </div>
 
                   {/* Workflow Links Strip */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      flexWrap: 'wrap',
-                      padding: '5px 8px',
-                      background: '#111625',
-                      border: '1px solid #2b3554',
-                      fontSize: 10,
+                  {/* Expert Curved Bezier Workflow SVG Diagram */}
+                  <WorkflowDiagramSvg
+                    edges={edges}
+                    employees={employees}
+                    messages={messages}
+                    taskNodes={filteredTaskNodes}
+                    selectedAgent={selectedAgentFilter}
+                    selectedEdge={highlightedLink}
+                    onSelectAgent={(name) => {
+                      playSelectBlip();
+                      setSelectedAgentFilter(name);
+                      setHighlightedLink(null);
                     }}
-                  >
-                    <span className="pixel-title" style={{ fontSize: 8, color: '#3cd8ff' }}>
-                      {t.whiteboardModal.workflowLinksLabel} ({edges.length}):
-                    </span>
-                    {edges.length === 0 ? (
-                      <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>
-                        {t.whiteboardModal.noLinksYet}
+                    onSelectEdge={(edge) => {
+                      playSelectBlip();
+                      setHighlightedLink(edge);
+                      setSelectedAgentFilter(null);
+                    }}
+                  />
+
+                  {/* Active Filter Indicator */}
+                  {(selectedAgentFilter || highlightedLink) && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 8,
+                        padding: '5px 8px',
+                        background: '#162033',
+                        border: '1px solid #3cd8ff',
+                        fontSize: 10,
+                      }}
+                    >
+                      <span style={{ color: '#dce6ff', fontFamily: 'monospace' }}>
+                        {selectedAgentFilter ? (
+                          <>
+                            <span style={{ color: '#3cd8ff' }}>@{selectedAgentFilter}</span>
+                          </>
+                        ) : highlightedLink ? (
+                          <>
+                            <span style={{ color: '#3cd8ff' }}>@{highlightedLink.from}</span>
+                            <span style={{ color: '#ffd147', margin: '0 4px' }}>➔</span>
+                            <span style={{ color: '#b07cff' }}>@{highlightedLink.to}</span>
+                          </>
+                        ) : null}
                       </span>
-                    ) : (
-                      edges.slice(0, 10).map((edge) => {
-                        const isSelected =
-                          highlightedLink?.from.toLowerCase() === edge.from.toLowerCase() &&
-                          highlightedLink?.to.toLowerCase() === edge.to.toLowerCase();
-                        return (
-                          <button
-                            key={`gantt-edge-${edge.from}->${edge.to}`}
-                            type="button"
-                            className="pixel-badge"
-                            onMouseEnter={() =>
-                              setHighlightedLink({ from: edge.from, to: edge.to })
-                            }
-                            onMouseLeave={() => setHighlightedLink(null)}
-                            onClick={() => {
-                              playSelectBlip();
-                              setHighlightedLink((prev) =>
-                                prev?.from === edge.from && prev?.to === edge.to
-                                  ? null
-                                  : { from: edge.from, to: edge.to },
-                              );
-                            }}
-                            style={{
-                              fontSize: 9,
-                              color: '#dce6ff',
-                              background: isSelected ? '#263459' : '#171c2b',
-                              borderColor: isSelected ? '#ffd147' : '#3b496b',
-                              cursor: 'pointer',
-                              fontFamily: 'inherit',
-                            }}
-                          >
-                            <span style={{ color: '#3cd8ff' }}>@{edge.from}</span>
-                            <span style={{ color: '#ffd147', margin: '0 3px' }}>➔</span>
-                            <span style={{ color: '#b07cff' }}>@{edge.to}</span>
-                            <span style={{ color: '#3be87a', marginLeft: 4 }}>×{edge.count}</span>
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
+                      <button
+                        type="button"
+                        className="pixel-badge"
+                        onClick={() => {
+                          playSelectBlip();
+                          setSelectedAgentFilter(null);
+                          setHighlightedLink(null);
+                        }}
+                        style={{
+                          cursor: 'pointer',
+                          color: '#ffd147',
+                          background: '#262113',
+                          borderColor: '#786221',
+                          fontSize: 9,
+                          fontFamily: 'inherit',
+                        }}
+                      >
+                        ✕ {t.whiteboardModal.clearFilter}
+                      </button>
+                    </div>
+                  )}
 
                   {ganttColumns.length === 0 || dateBlocks.length === 0 ? (
                     <div style={{ fontSize: 12, color: 'var(--text-dim)', padding: 16, textAlign: 'center' }}>
@@ -1725,9 +1423,29 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
 
                       {/* Date Blocks + Vertical Time Rows */}
                       {dateBlocks.map(([dateKey, blockSlots]) => {
-                        const orderedRows = ganttTopToBottom
+                        const baseRows = ganttTopToBottom
                           ? blockSlots
                           : [...blockSlots].reverse();
+                        const orderedRows = baseRows.filter((slot) => {
+                          if (selectedAgentFilter) {
+                            const af = selectedAgentFilter.toLowerCase();
+                            return (
+                              slot.agentName.toLowerCase() === af ||
+                              slot.targets.some((tg) => tg.toLowerCase() === af)
+                            );
+                          }
+                          if (highlightedLink) {
+                            const fl = highlightedLink.from.toLowerCase();
+                            const tl = highlightedLink.to.toLowerCase();
+                            return (
+                              slot.agentName.toLowerCase() === fl ||
+                              slot.agentName.toLowerCase() === tl ||
+                              slot.targets.some((tg) => tg.toLowerCase() === fl || tg.toLowerCase() === tl)
+                            );
+                          }
+                          return true;
+                        });
+                        if (orderedRows.length === 0) return null;
 
                         return (
                           <div key={dateKey}>
@@ -1795,11 +1513,14 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                                       Boolean(emp && (emp.status === 'waiting' || emp.status === 'idle'));
 
                                     const isHighlighted = Boolean(
-                                      highlightedLink &&
-                                        (slot.agentName.toLowerCase() ===
-                                          highlightedLink.from.toLowerCase() ||
-                                          slot.agentName.toLowerCase() ===
-                                            highlightedLink.to.toLowerCase()),
+                                      (selectedAgentFilter &&
+                                        slot.agentName.toLowerCase() ===
+                                          selectedAgentFilter.toLowerCase()) ||
+                                        (highlightedLink &&
+                                          (slot.agentName.toLowerCase() ===
+                                            highlightedLink.from.toLowerCase() ||
+                                            slot.agentName.toLowerCase() ===
+                                              highlightedLink.to.toLowerCase())),
                                     );
                                     const targetColIdx =
                                       slot.targets.length > 0
