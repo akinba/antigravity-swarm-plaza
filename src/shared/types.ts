@@ -212,3 +212,24 @@ export interface AgentDetailResponse {
   employee: OfficeEmployee;
   recentLogs: AgentLogEntry[];
 }
+
+export type ResolutionScaleMode = 'low' | 'medium' | 'high' | 'native';
+export type AntiAliasingMode = 'crisp' | 'smooth';
+export type FpsLimitMode = 'eco' | '30' | '60' | 'unlimited';
+export type GraphicsPreset = 'classic60' | 'balanced' | 'eco' | 'ultra' | 'custom';
+
+export interface GraphicsSettings {
+  preset: GraphicsPreset;
+  resolution: ResolutionScaleMode;
+  antiAliasing: AntiAliasingMode;
+  fpsLimit: FpsLimitMode;
+  staticCache: boolean;
+}
+
+export const DEFAULT_GRAPHICS_SETTINGS: GraphicsSettings = {
+  preset: 'classic60',
+  resolution: 'high',
+  antiAliasing: 'crisp',
+  fpsLimit: '60',
+  staticCache: true,
+};

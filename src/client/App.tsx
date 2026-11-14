@@ -1,5 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { OfficeEmployee, PlazaFloor, PlazaSnapshot } from '../shared/types';
+import {
+  DEFAULT_GRAPHICS_SETTINGS,
+  type GraphicsSettings,
+  type OfficeEmployee,
+  type PlazaFloor,
+  type PlazaSnapshot,
+} from '../shared/types';
 import {
   initAudioUnlock,
   isMuted,
@@ -17,12 +23,29 @@ import {
 import { AgentRpgModal } from './components/AgentRpgModal';
 import { AnalyticsModal } from './components/AnalyticsModal';
 import { ElevatorPanel } from './components/ElevatorPanel';
+import { SettingsModal } from './components/SettingsModal';
 import { TopHud } from './components/TopHud';
 import { WhiteboardModal } from './components/WhiteboardModal';
 import { OfficeCanvas } from './engine/OfficeCanvas';
 import { PlazaTowerCanvas } from './engine/PlazaTowerCanvas';
 import { buildSidecarWsUrl, isPluginScheme, sidecarFetch } from './sidecarBridge';
 import { localizeSnapshot, useI18n } from './i18n/translations';
+
+const GRAPHICS_STORAGE_KEY = 'swarm_plaza_graphics_settings_v1';
+
+function loadGraphicsSettings(): GraphicsSettings {
+  try {
+    const raw = window.localStorage.getItem(GRAPHICS_STORAGE_KEY);
+    if (!raw) return DEFAULT_GRAPHICS_SETTINGS;
+    const parsed = JSON.parse(raw) as Partial<GraphicsSettings>;
+    return {
+      ...DEFAULT_GRAPHICS_SETTINGS,
+      ...parsed,
+    };
+  } catch {
+    return DEFAULT_GRAPHICS_SETTINGS;
+  }
+}
 
 function pickInitialFloorId(snap: PlazaSnapshot): string | null {
   if (snap.activeProjectFloorId) {
@@ -48,6 +71,17 @@ export const App: React.FC = () => {
     isNotificationsEnabled(),
   );
   const [followCam, setFollowCam] = useState<boolean>(false);
+  const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
+  const [liveFps, setLiveFps] = useState<number>(60);
+  const [graphicsSettings, setGraphicsSettings] = useState<GraphicsSettings>(loadGraphicsSettings);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(GRAPHICS_STORAGE_KEY, JSON.stringify(graphicsSettings));
+    } catch {
+      // ignore storage quota errors
+    }
+  }, [graphicsSettings]);
   const [rpgOpenedFromWhiteboard, setRpgOpenedFromWhiteboard] = useState<boolean>(false);
   const [whiteboardInitialTab, setWhiteboardInitialTab] = useState<
     'feed' | 'personnel' | 'tasks' | 'gantt'
@@ -366,7 +400,7 @@ export const App: React.FC = () => {
     }
   };
 
-  const isModalOpen = Boolean(whiteboardOpen || analyticsOpen || selectedEmployee);
+  const isModalOpen = Boolean(whiteboardOpen || analyticsOpen || settingsOpen || selectedEmployee);
 
   return (
     <div className="plaza-shell">
@@ -375,19 +409,10 @@ export const App: React.FC = () => {
         globalEcoScore={localizedSnapshot?.globalEcoScore ?? 100}
         viewMode={viewMode}
         onChangeViewMode={setViewMode}
-        demoMode={localizedSnapshot?.demoMode ?? false}
-        onToggleDemo={handleToggleDemo}
-        isNight={isNight}
-        onToggleNight={() => setIsNight((n) => !n)}
-        muted={muted}
-        onToggleMute={handleToggleMute}
         onOpenWhiteboard={() => setWhiteboardOpen(true)}
         onOpenAnalytics={() => setAnalyticsOpen(true)}
-        followCam={followCam}
-        onToggleFollowCam={handleToggleFollowCam}
+        onOpenSettings={() => setSettingsOpen(true)}
         onExportPng={handleExportPng}
-        notificationsEnabled={notificationsEnabled}
-        onToggleNotifications={handleToggleNotifications}
         onRerollLayout={handleRerollLayout}
         onTriggerEvent={handleTriggerEvent}
         wsConnected={wsConnected}
@@ -414,6 +439,8 @@ export const App: React.FC = () => {
               selectedFloorId={activeFloor?.id ?? null}
               isNight={isNight}
               isOverlayOpen={isModalOpen}
+              graphicsSettings={graphicsSettings}
+              onFpsSample={setLiveFps}
               onSelectFloor={handleSelectFloorFromTower}
             />
           ) : activeFloor ? (
@@ -421,6 +448,8 @@ export const App: React.FC = () => {
               floor={activeFloor}
               isNight={isNight}
               isOverlayOpen={isModalOpen}
+              graphicsSettings={graphicsSettings}
+              onFpsSample={setLiveFps}
               selectedEmployeeId={selectedEmployee?.id ?? null}
               onSelectEmployee={(emp) => setSelectedEmployee(emp)}
               onOpenWhiteboard={() => setWhiteboardOpen(true)}
@@ -497,6 +526,25 @@ export const App: React.FC = () => {
           floor={activeFloor}
           snapshot={localizedSnapshot}
           onClose={() => setAnalyticsOpen(false)}
+        />
+      )}
+
+      {settingsOpen && (
+        <SettingsModal
+          graphicsSettings={graphicsSettings}
+          onChangeGraphics={setGraphicsSettings}
+          liveFps={liveFps}
+          followCam={followCam}
+          onToggleFollowCam={handleToggleFollowCam}
+          isNight={isNight}
+          onToggleNight={() => setIsNight((n) => !n)}
+          demoMode={localizedSnapshot?.demoMode ?? false}
+          onToggleDemo={handleToggleDemo}
+          muted={muted}
+          onToggleMute={handleToggleMute}
+          notificationsEnabled={notificationsEnabled}
+          onToggleNotifications={handleToggleNotifications}
+          onClose={() => setSettingsOpen(false)}
         />
       )}
     </div>

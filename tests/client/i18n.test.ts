@@ -309,5 +309,15 @@ describe('i18n browser locale & server snapshot localization', () => {
     // RPG Modal Back to List translation
     assert.equal(DICTIONARIES.tr.rpgModal.backToList, '⬅ LİSTEYE DÖN');
     assert.equal(DICTIONARIES.en.rpgModal.backToList, '⬅ BACK TO LIST');
+
+    // Settings modal & HUD button translations
+    assert.equal(DICTIONARIES.tr.hud.settings, '⚙️ AYARLAR');
+    assert.equal(DICTIONARIES.en.hud.settings, '⚙️ SETTINGS');
+    for (const key of Object.keys(DICTIONARIES.en.settingsModal) as Array<
+      keyof typeof DICTIONARIES.en.settingsModal
+    >) {
+      assert.ok(DICTIONARIES.tr.settingsModal[key].length > 0, `tr.settingsModal.${key}`);
+      assert.ok(DICTIONARIES.en.settingsModal[key].length > 0, `en.settingsModal.${key}`);
+    }
   });
 });

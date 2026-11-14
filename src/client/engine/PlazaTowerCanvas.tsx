@@ -1,5 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { PlazaFloor } from '../../shared/types';
+import {
+  DEFAULT_GRAPHICS_SETTINGS,
+  type AntiAliasingMode,
+  type GraphicsSettings,
+  type PlazaFloor,
+  type ResolutionScaleMode,
+} from '../../shared/types';
 import { playElevatorDing } from '../audio/retroSynth';
 import { useI18n } from '../i18n/translations';
 
@@ -9,6 +15,24 @@ interface PlazaTowerCanvasProps {
   isNight: boolean;
   onSelectFloor: (floorId: string) => void;
   isOverlayOpen?: boolean;
+  graphicsSettings?: GraphicsSettings;
+  onFpsSample?: (fps: number) => void;
+}
+
+function resolveRenderDpr(mode: ResolutionScaleMode): number {
+  if (mode === 'low') return 0.75;
+  if (mode === 'medium') return 1;
+  if (mode === 'high') return 2;
+  return typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+}
+
+function applyAntiAliasing(targetCtx: CanvasRenderingContext2D, mode: AntiAliasingMode): void {
+  if (mode === 'smooth') {
+    targetCtx.imageSmoothingEnabled = true;
+    targetCtx.imageSmoothingQuality = 'high';
+  } else {
+    targetCtx.imageSmoothingEnabled = false;
+  }
 }
 
 interface FloorHitBox {
@@ -25,6 +49,8 @@ export const PlazaTowerCanvas: React.FC<PlazaTowerCanvasProps> = ({
   isNight,
   onSelectFloor,
   isOverlayOpen = false,
+  graphicsSettings = DEFAULT_GRAPHICS_SETTINGS,
+  onFpsSample,
 }) => {
   const { t } = useI18n();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -51,6 +77,12 @@ export const PlazaTowerCanvas: React.FC<PlazaTowerCanvasProps> = ({
   const isOverlayOpenRef = useRef(isOverlayOpen);
   isOverlayOpenRef.current = isOverlayOpen;
 
+  const graphicsSettingsRef = useRef<GraphicsSettings>(graphicsSettings);
+  graphicsSettingsRef.current = graphicsSettings;
+
+  const onFpsSampleRef = useRef(onFpsSample);
+  onFpsSampleRef.current = onFpsSample;
+
   const hoveredRef = useRef(hoveredFloorId);
   hoveredRef.current = hoveredFloorId;
 
@@ -71,7 +103,7 @@ export const PlazaTowerCanvas: React.FC<PlazaTowerCanvasProps> = ({
     if (!container || !canvas) return;
 
     const updateSize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = resolveRenderDpr(graphicsSettingsRef.current.resolution);
       const w = container.clientWidth;
       const h = container.clientHeight;
       canvas.width = Math.max(1, Math.floor(w * dpr));
@@ -84,24 +116,49 @@ export const PlazaTowerCanvas: React.FC<PlazaTowerCanvasProps> = ({
     const ro = new ResizeObserver(updateSize);
     ro.observe(container);
     return () => ro.disconnect();
-  }, []);
+  }, [graphicsSettings.resolution]);
 
   useEffect(() => {
     let rafId = 0;
     let lastRenderTime = 0;
+    let fpsFrames = 0;
+    let fpsWindowStart = performance.now();
 
     const render = (now: number) => {
       if (typeof document !== 'undefined' && document.hidden) {
+        fpsWindowStart = now;
+        fpsFrames = 0;
         rafId = requestAnimationFrame(render);
         return;
       }
 
-      const minIntervalMs = isOverlayOpenRef.current ? 250 : 50; // 4 FPS overlay / 20 FPS normal
-      if (lastRenderTime > 0 && now - lastRenderTime < minIntervalMs) {
+      const gfx = graphicsSettingsRef.current;
+      let minIntervalMs = 0;
+      if (isOverlayOpenRef.current) {
+        minIntervalMs = gfx.fpsLimit === 'eco' ? 250 : 125; // 4 FPS (eco) / 8 FPS (other modes)
+      } else if (gfx.fpsLimit === 'eco') {
+        minIntervalMs = hoveredRef.current ? 41 : 71; // 14-24 FPS eco mode
+      } else if (gfx.fpsLimit === '30') {
+        minIntervalMs = 31.8; // ~30 FPS
+      } else if (gfx.fpsLimit === '60') {
+        minIntervalMs = 15.2; // ~60 FPS
+      } else {
+        minIntervalMs = 0; // 'unlimited'
+      }
+
+      if (minIntervalMs > 0 && lastRenderTime > 0 && now - lastRenderTime < minIntervalMs) {
         rafId = requestAnimationFrame(render);
         return;
       }
       lastRenderTime = now;
+
+      fpsFrames += 1;
+      if (now - fpsWindowStart >= 500) {
+        const sampledFps = Math.round((fpsFrames * 1000) / Math.max(1, now - fpsWindowStart));
+        onFpsSampleRef.current?.(sampledFps);
+        fpsFrames = 0;
+        fpsWindowStart = now;
+      }
 
       const timeSec = now / 1000;
       const canvas = canvasRef.current;
@@ -117,15 +174,20 @@ export const PlazaTowerCanvas: React.FC<PlazaTowerCanvasProps> = ({
         return;
       }
 
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = resolveRenderDpr(gfx.resolution);
       const w = container.clientWidth;
       const h = container.clientHeight;
+      const targetCanvasW = Math.max(1, Math.floor(w * dpr));
+      const targetCanvasH = Math.max(1, Math.floor(h * dpr));
+      if (canvas.width !== targetCanvasW) canvas.width = targetCanvasW;
+      if (canvas.height !== targetCanvasH) canvas.height = targetCanvasH;
+
       const night = isNightRef.current;
       const list = orderedRef.current;
 
       ctx.save();
       ctx.scale(dpr, dpr);
-      ctx.imageSmoothingEnabled = false;
+      applyAntiAliasing(ctx, gfx.antiAliasing);
 
       // 1. Dynamic Day / Night Sky
       const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
@@ -583,7 +645,11 @@ export const PlazaTowerCanvas: React.FC<PlazaTowerCanvasProps> = ({
         onPointerMove={handlePointerMove}
         onPointerUp={handleClick}
         onWheel={handleWheel}
-        style={{ display: 'block', cursor: hoveredFloorId ? 'pointer' : 'default' }}
+        style={{
+          display: 'block',
+          cursor: hoveredFloorId ? 'pointer' : 'default',
+          imageRendering: graphicsSettings.antiAliasing === 'smooth' ? 'auto' : 'pixelated',
+        }}
       />
 
       {/* Top-left Plaza Header */}

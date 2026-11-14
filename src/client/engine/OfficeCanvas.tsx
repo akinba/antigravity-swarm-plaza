@@ -1,5 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import type { OfficeEmployee, OfficeZone, PlazaFloor } from '../../shared/types';
+import {
+  DEFAULT_GRAPHICS_SETTINGS,
+  type AntiAliasingMode,
+  type GraphicsSettings,
+  type OfficeEmployee,
+  type OfficeZone,
+  type PlazaFloor,
+  type ResolutionScaleMode,
+} from '../../shared/types';
 import { playGamepadBlip, playSelectBlip, playTeleportZap } from '../audio/retroSynth';
 import { useI18n } from '../i18n/translations';
 import {
@@ -44,6 +52,24 @@ interface OfficeCanvasProps {
   onFollowCamChange?: (enabled: boolean) => void;
   onRegisterExportPng?: (exportFn: (() => void) | null) => void;
   isOverlayOpen?: boolean;
+  graphicsSettings?: GraphicsSettings;
+  onFpsSample?: (fps: number) => void;
+}
+
+function resolveRenderDpr(mode: ResolutionScaleMode): number {
+  if (mode === 'low') return 0.75;
+  if (mode === 'medium') return 1;
+  if (mode === 'high') return 2;
+  return typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+}
+
+function applyAntiAliasing(targetCtx: CanvasRenderingContext2D, mode: AntiAliasingMode): void {
+  if (mode === 'smooth') {
+    targetCtx.imageSmoothingEnabled = true;
+    targetCtx.imageSmoothingQuality = 'high';
+  } else {
+    targetCtx.imageSmoothingEnabled = false;
+  }
 }
 
 interface ActorState {
@@ -82,6 +108,8 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
   onFollowCamChange,
   onRegisterExportPng,
   isOverlayOpen = false,
+  graphicsSettings = DEFAULT_GRAPHICS_SETTINGS,
+  onFpsSample,
 }) => {
   const { locale, t } = useI18n();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -139,6 +167,12 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
 
   const isOverlayOpenRef = useRef(isOverlayOpen);
   isOverlayOpenRef.current = isOverlayOpen;
+
+  const graphicsSettingsRef = useRef<GraphicsSettings>(graphicsSettings);
+  graphicsSettingsRef.current = graphicsSettings;
+
+  const onFpsSampleRef = useRef(onFpsSample);
+  onFpsSampleRef.current = onFpsSample;
 
   const localeRef = useRef(locale);
   localeRef.current = locale;
@@ -475,14 +509,14 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
     hasLoadedFloorActorsRef.current = true;
   }, [floor.employees, floor.id, floor.layoutSeed, layout, walkableGrid]);
 
-  // Resize observer
+  // Resize observer (and instant resolution scale updates)
   useEffect(() => {
     const container = containerRef.current;
     const canvas = canvasRef.current;
     if (!container || !canvas) return;
 
     const updateSize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = resolveRenderDpr(graphicsSettingsRef.current.resolution);
       const w = container.clientWidth;
       const h = container.clientHeight;
       canvas.width = Math.max(1, Math.floor(w * dpr));
@@ -495,29 +529,35 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
     const ro = new ResizeObserver(updateSize);
     ro.observe(container);
     return () => ro.disconnect();
-  }, []);
+  }, [graphicsSettings.resolution]);
 
-  // Adaptive eco-FPS animation loop + offscreen static architecture cache
+  // Configurable FPS animation loop + optional offscreen static architecture cache
   useEffect(() => {
     let rafId = 0;
     let lastTime = performance.now();
     let lastRenderTime = 0;
+    let fpsFrames = 0;
+    let fpsWindowStart = performance.now();
 
     const tick = (now: number) => {
       if (typeof document !== 'undefined' && document.hidden) {
         lastTime = now;
+        fpsWindowStart = now;
+        fpsFrames = 0;
         rafId = requestAnimationFrame(tick);
         return;
       }
 
+      const gfx = graphicsSettingsRef.current;
       const actors = actorsRef.current;
       const currentFloor = floorRef.current;
       const eventKind = currentFloor.activeEvent?.kind;
 
-      let minIntervalMs = 71; // 14 FPS calm office mode (all agents seated/stationary)
+      let minIntervalMs = 0;
       if (isOverlayOpenRef.current) {
-        minIntervalMs = 250; // 4 FPS background mode while an overlay modal is open
-      } else {
+        minIntervalMs = gfx.fpsLimit === 'eco' ? 250 : 125; // 4 FPS (eco) or 8 FPS (other modes)
+      } else if (gfx.fpsLimit === 'eco') {
+        minIntervalMs = 71; // 14 FPS calm office mode
         let anyAgentWalking = false;
         for (const actor of actors.values()) {
           if (
@@ -542,9 +582,15 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
         if (anyAgentWalking || hasActiveEffects) {
           minIntervalMs = 41; // 24 FPS active motion / particle mode
         }
+      } else if (gfx.fpsLimit === '30') {
+        minIntervalMs = 31.8; // ~30 FPS (VSync-tolerant on 60Hz/120Hz)
+      } else if (gfx.fpsLimit === '60') {
+        minIntervalMs = 15.2; // ~60 FPS (VSync-tolerant on 60Hz/120Hz)
+      } else {
+        minIntervalMs = 0; // 'unlimited' — full monitor refresh rate
       }
 
-      if (lastRenderTime > 0 && now - lastRenderTime < minIntervalMs) {
+      if (minIntervalMs > 0 && lastRenderTime > 0 && now - lastRenderTime < minIntervalMs) {
         rafId = requestAnimationFrame(tick);
         return;
       }
@@ -553,6 +599,14 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
       lastTime = now;
       lastRenderTime = now;
       const timeSec = now / 1000;
+
+      fpsFrames += 1;
+      if (now - fpsWindowStart >= 500) {
+        const sampledFps = Math.round((fpsFrames * 1000) / Math.max(1, now - fpsWindowStart));
+        onFpsSampleRef.current?.(sampledFps);
+        fpsFrames = 0;
+        fpsWindowStart = now;
+      }
 
       const canvas = canvasRef.current;
       const container = containerRef.current;
@@ -567,9 +621,16 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
         return;
       }
 
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = resolveRenderDpr(gfx.resolution);
+      const antiAliasing = gfx.antiAliasing;
+      const useStaticCache = gfx.staticCache !== false;
       const viewW = container.clientWidth;
       const viewH = container.clientHeight;
+      const targetCanvasW = Math.max(1, Math.floor(viewW * dpr));
+      const targetCanvasH = Math.max(1, Math.floor(viewH * dpr));
+      if (canvas.width !== targetCanvasW) canvas.width = targetCanvasW;
+      if (canvas.height !== targetCanvasH) canvas.height = targetCanvasH;
+
       const cam = cameraRef.current;
       const night = isNightRef.current;
 
@@ -680,122 +741,135 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
         targetCtx.restore();
       };
 
-      // 1 & 2. Offscreen Static Layer Cache (backdrop + back walls + 224 enhanced floor tiles + ambient light pools)
       const canvasW = canvas.width;
       const canvasH = canvas.height;
-      const staticCacheKey = `${canvasW}x${canvasH}|${cam.zoom.toFixed(3)}|${Math.round(cam.offsetX)},${Math.round(cam.offsetY)}|${currentLayout.blueprintIndex}|${currentLayout.themePalette.nameEn}|${night ? 1 : 0}|${eventKind ?? 'none'}|${localeRef.current}`;
+      const drawStaticArchitecture = (
+        targetCtx: CanvasRenderingContext2D,
+        archTimeSec: number,
+      ) => {
+        // Background sky / studio void
+        targetCtx.fillStyle = night ? '#0b0e18' : '#182238';
+        targetCtx.fillRect(0, 0, Math.ceil(canvasW / dpr) + 2, Math.ceil(canvasH / dpr) + 2);
 
-      let staticCanvas = staticCacheRef.current.canvas;
-      if (!staticCanvas && typeof document !== 'undefined') {
-        staticCanvas = document.createElement('canvas');
-        staticCacheRef.current.canvas = staticCanvas;
-      }
+        // Top-center vertex of tile (0,0)
+        const tile00 = gridToScreen(0, 0, cam);
+        const topVertexX = tile00.x;
+        const topVertexY = tile00.y - 16 * cam.zoom;
 
-      if (staticCanvas && staticCacheRef.current.key !== staticCacheKey) {
-        if (staticCanvas.width !== canvasW) staticCanvas.width = canvasW;
-        if (staticCanvas.height !== canvasH) staticCanvas.height = canvasH;
-        const sctx = staticCanvas.getContext('2d');
-        if (sctx) {
-          sctx.save();
-          sctx.setTransform(1, 0, 0, 1, 0, 0);
-          sctx.clearRect(0, 0, canvasW, canvasH);
-          sctx.scale(dpr, dpr);
-          sctx.imageSmoothingEnabled = false;
+        // Enhanced back walls, acoustic panels & panoramic cityscape windows
+        drawEnhancedBackWalls(
+          targetCtx,
+          topVertexX,
+          topVertexY,
+          GRID_W,
+          GRID_H,
+          cam.zoom,
+          night,
+          archTimeSec,
+          currentLayout.themePalette,
+        );
 
-          // Background sky / studio void
-          sctx.fillStyle = night ? '#0b0e18' : '#182238';
-          sctx.fillRect(0, 0, viewW, viewH);
-
-          // Top-center vertex of tile (0,0)
-          const tile00 = gridToScreen(0, 0, cam);
-          const topVertexX = tile00.x;
-          const topVertexY = tile00.y - 16 * cam.zoom;
-
-          // Enhanced back walls, acoustic panels & panoramic cityscape windows
-          drawEnhancedBackWalls(
-            sctx,
-            topVertexX,
-            topVertexY,
-            GRID_W,
-            GRID_H,
-            cam.zoom,
-            night,
-            0,
-            currentLayout.themePalette,
-          );
-
-          // Enhanced isometric floor tiles & zone carpets/wood/marble
-          for (let gy = 0; gy < GRID_H; gy++) {
-            for (let gx = 0; gx < GRID_W; gx++) {
-              const p = gridToScreen(gx, gy, cam);
-              drawEnhancedFloorTile(
-                sctx,
-                gx,
-                gy,
-                p.x,
-                p.y,
-                cam.zoom,
-                currentLayout.getTileZone(gx, gy),
-                currentLayout.themePalette,
-                night,
-                0,
-              );
-            }
-          }
-
-          // Static window daylight/moonlight beams & zone ambient glows
-          const winBeamColor = night ? 'rgba(110, 165, 255, 0.11)' : 'rgba(255, 246, 200, 0.16)';
-          drawRadialPoolOn(sctx, 3.5, 1.5, 2.6, winBeamColor, 'rgba(0,0,0,0)');
-          drawRadialPoolOn(sctx, 10.5, 1.5, 2.8, winBeamColor, 'rgba(0,0,0,0)');
-          drawRadialPoolOn(sctx, 1.5, 4.0, 2.2, winBeamColor, 'rgba(0,0,0,0)');
-
-          const loungeAnchor = currentLayout.coffeeSlots[0] ?? currentLayout.loungeSeatSlots[0];
-          if (loungeAnchor) {
-            drawRadialPoolOn(
-              sctx,
-              loungeAnchor.gx,
-              loungeAnchor.gy,
-              2.2,
-              night ? 'rgba(255, 184, 77, 0.18)' : 'rgba(255, 205, 120, 0.08)',
-              'rgba(0,0,0,0)',
+        // Enhanced isometric floor tiles & zone carpets/wood/marble
+        for (let gy = 0; gy < GRID_H; gy++) {
+          for (let gx = 0; gx < GRID_W; gx++) {
+            const p = gridToScreen(gx, gy, cam);
+            drawEnhancedFloorTile(
+              targetCtx,
+              gx,
+              gy,
+              p.x,
+              p.y,
+              cam.zoom,
+              currentLayout.getTileZone(gx, gy),
+              currentLayout.themePalette,
+              night,
+              archTimeSec,
             );
           }
-          const serverAnchor = currentLayout.zoneSlots.SERVER_RACK[0];
-          if (serverAnchor) {
-            drawRadialPoolOn(
-              sctx,
-              serverAnchor.gx,
-              serverAnchor.gy,
-              1.9,
-              night ? 'rgba(60, 235, 180, 0.16)' : 'rgba(60, 235, 180, 0.06)',
-              'rgba(0,0,0,0)',
-            );
-          }
+        }
+
+        // Static window daylight/moonlight beams & zone ambient glows
+        const winBeamColor = night ? 'rgba(110, 165, 255, 0.11)' : 'rgba(255, 246, 200, 0.16)';
+        drawRadialPoolOn(targetCtx, 3.5, 1.5, 2.6, winBeamColor, 'rgba(0,0,0,0)');
+        drawRadialPoolOn(targetCtx, 10.5, 1.5, 2.8, winBeamColor, 'rgba(0,0,0,0)');
+        drawRadialPoolOn(targetCtx, 1.5, 4.0, 2.2, winBeamColor, 'rgba(0,0,0,0)');
+
+        const loungeAnchor = currentLayout.coffeeSlots[0] ?? currentLayout.loungeSeatSlots[0];
+        if (loungeAnchor) {
           drawRadialPoolOn(
-            sctx,
-            currentLayout.presenterSlot.gx,
-            currentLayout.presenterSlot.gy,
-            2.1,
-            night ? 'rgba(80, 210, 255, 0.15)' : 'rgba(80, 210, 255, 0.06)',
+            targetCtx,
+            loungeAnchor.gx,
+            loungeAnchor.gy,
+            2.2,
+            night ? 'rgba(255, 184, 77, 0.18)' : 'rgba(255, 205, 120, 0.08)',
             'rgba(0,0,0,0)',
           );
-
-          sctx.restore();
-          staticCacheRef.current.key = staticCacheKey;
         }
-      }
+        const serverAnchor = currentLayout.zoneSlots.SERVER_RACK[0];
+        if (serverAnchor) {
+          drawRadialPoolOn(
+            targetCtx,
+            serverAnchor.gx,
+            serverAnchor.gy,
+            1.9,
+            night ? 'rgba(60, 235, 180, 0.16)' : 'rgba(60, 235, 180, 0.06)',
+            'rgba(0,0,0,0)',
+          );
+        }
+        drawRadialPoolOn(
+          targetCtx,
+          currentLayout.presenterSlot.gx,
+          currentLayout.presenterSlot.gy,
+          2.1,
+          night ? 'rgba(80, 210, 255, 0.15)' : 'rgba(80, 210, 255, 0.06)',
+          'rgba(0,0,0,0)',
+        );
+      };
 
-      if (staticCanvas && staticCacheRef.current.key === staticCacheKey) {
-        ctx.save();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(staticCanvas, 0, 0);
-        ctx.restore();
+      // 1 & 2. Optional Offscreen Static Layer Cache
+      if (useStaticCache) {
+        const staticCacheKey = `${canvasW}x${canvasH}|${dpr.toFixed(2)}|${antiAliasing}|${cam.zoom.toFixed(3)}|${Math.round(cam.offsetX)},${Math.round(cam.offsetY)}|${currentLayout.blueprintIndex}|${currentLayout.themePalette.nameEn}|${night ? 1 : 0}|${eventKind ?? 'none'}|${localeRef.current}`;
+
+        let staticCanvas = staticCacheRef.current.canvas;
+        if (!staticCanvas && typeof document !== 'undefined') {
+          staticCanvas = document.createElement('canvas');
+          staticCacheRef.current.canvas = staticCanvas;
+        }
+
+        if (staticCanvas && staticCacheRef.current.key !== staticCacheKey) {
+          if (staticCanvas.width !== canvasW) staticCanvas.width = canvasW;
+          if (staticCanvas.height !== canvasH) staticCanvas.height = canvasH;
+          const sctx = staticCanvas.getContext('2d');
+          if (sctx) {
+            sctx.save();
+            sctx.setTransform(1, 0, 0, 1, 0, 0);
+            sctx.clearRect(0, 0, canvasW, canvasH);
+            sctx.scale(dpr, dpr);
+            applyAntiAliasing(sctx, antiAliasing);
+            drawStaticArchitecture(sctx, 0);
+            sctx.restore();
+            staticCacheRef.current.key = staticCacheKey;
+          }
+        }
+
+        if (staticCanvas && staticCacheRef.current.key === staticCacheKey) {
+          ctx.save();
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          applyAntiAliasing(ctx, antiAliasing);
+          ctx.drawImage(staticCanvas, 0, 0);
+          ctx.restore();
+        }
+      } else if (staticCacheRef.current.key) {
+        staticCacheRef.current.key = '';
       }
 
       ctx.save();
       ctx.scale(dpr, dpr);
-      ctx.imageSmoothingEnabled = false;
+      applyAntiAliasing(ctx, antiAliasing);
+
+      if (!useStaticCache) {
+        drawStaticArchitecture(ctx, timeSec);
+      }
 
       const drawRadialPool = (
         gx: number,
@@ -1373,7 +1447,12 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
           resetCamera();
         }}
         onWheel={handleWheel}
-        style={{ display: 'block', cursor: cursorStyle, touchAction: 'none' }}
+        style={{
+          display: 'block',
+          cursor: cursorStyle,
+          touchAction: 'none',
+          imageRendering: graphicsSettings.antiAliasing === 'smooth' ? 'auto' : 'pixelated',
+        }}
       />
 
       {/* Active Random Event Pixel Banner */}

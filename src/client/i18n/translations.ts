@@ -45,6 +45,7 @@ export interface Translations {
     snapshotPng: string;
     alertsOn: string;
     alertsOff: string;
+    settings: string;
   };
   blueprints: string[];
   events: Record<FloorEventKind, string>;
@@ -184,6 +185,45 @@ export interface Translations {
     agentAlertTitle: string;
     agentStallOrError: string;
   };
+  settingsModal: {
+    title: string;
+    subtitle: string;
+    presetLabel: string;
+    presetClassic60: string;
+    presetBalanced: string;
+    presetEco: string;
+    presetUltra: string;
+    presetCustom: string;
+    graphicsSection: string;
+    resolutionLabel: string;
+    resLow: string;
+    resMedium: string;
+    resHigh: string;
+    resNative: string;
+    antiAliasingLabel: string;
+    aaCrisp: string;
+    aaSmooth: string;
+    fpsLimitLabel: string;
+    fpsEco: string;
+    fps30: string;
+    fps60: string;
+    fpsUnlimited: string;
+    staticCacheLabel: string;
+    on: string;
+    off: string;
+    systemSection: string;
+    followCamLabel: string;
+    themeLabel: string;
+    themeDay: string;
+    themeNight: string;
+    demoModeLabel: string;
+    sfxLabel: string;
+    notificationsLabel: string;
+    languageLabel: string;
+    resetDefaults: string;
+    liveFpsLabel: string;
+    close: string;
+  };
 }
 
 const TR: Translations = {
@@ -264,6 +304,7 @@ const TR: Translations = {
     snapshotPng: '📷 PNG',
     alertsOn: '🔔 UYARI: AÇIK',
     alertsOff: '🔕 UYARI',
+    settings: '⚙️ AYARLAR',
   },
   blueprints: [
     'Klasik Köşe Stüdyo',
@@ -419,6 +460,45 @@ const TR: Translations = {
     agentAlertTitle: 'Swarm Plaza Ajan Uyarısı',
     agentStallOrError: 'hata verdi veya beklemede takıldı.',
   },
+  settingsModal: {
+    title: '⚙️ GRAFİK & SİSTEM AYARLARI',
+    subtitle: 'Performans, çözünürlük ve ortam tercihleri',
+    presetLabel: 'PROFİL / PRESET',
+    presetClassic60: '⚡ Eski Akıcı (60 FPS)',
+    presetBalanced: '⚖️ Dengeli (30 FPS)',
+    presetEco: '🌱 Güç Tasarrufu (Eco)',
+    presetUltra: '🔥 Ultra (Native)',
+    presetCustom: '🎛️ Özel',
+    graphicsSection: 'GÖRÜNTÜ & PERFORMANS',
+    resolutionLabel: 'Çözünürlük Ölçeği',
+    resLow: 'Düşük (0.75x)',
+    resMedium: 'Orta (1.0x)',
+    resHigh: 'Yüksek (2.0x)',
+    resNative: 'Doğal (Native)',
+    antiAliasingLabel: 'Kenar Düzeltme (AA)',
+    aaCrisp: 'Piksel Keskin',
+    aaSmooth: 'Yumuşak (Smooth)',
+    fpsLimitLabel: 'Kare Hızı (FPS)',
+    fpsEco: 'Eco (14–24)',
+    fps30: '30 FPS',
+    fps60: '60 FPS',
+    fpsUnlimited: 'Sınırsız',
+    staticCacheLabel: 'Statik Zemin Önbelleği',
+    on: 'AÇIK',
+    off: 'KAPALI',
+    systemSection: 'SİSTEM & ORTAM',
+    followCamLabel: 'Takip Kamerası',
+    themeLabel: 'Gece / Gündüz Teması',
+    themeDay: '☀️ Gündüz',
+    themeNight: '🌙 Gece',
+    demoModeLabel: 'Demo Modu',
+    sfxLabel: 'Ses Efektleri (SFX)',
+    notificationsLabel: 'Tarayıcı Bildirimleri',
+    languageLabel: 'Dil / Language',
+    resetDefaults: 'VARSAYILANLARA SIFIRLA',
+    liveFpsLabel: 'CANLI FPS',
+    close: 'KAPAT',
+  },
 };
 
 const EN: Translations = {
@@ -499,6 +579,7 @@ const EN: Translations = {
     snapshotPng: '📷 PNG',
     alertsOn: '🔔 ALERTS: ON',
     alertsOff: '🔕 ALERTS',
+    settings: '⚙️ SETTINGS',
   },
   blueprints: [
     'Classic Corner Studio',
@@ -653,6 +734,45 @@ const EN: Translations = {
   notifications: {
     agentAlertTitle: 'Swarm Plaza Agent Alert',
     agentStallOrError: 'encountered an error or stalled.',
+  },
+  settingsModal: {
+    title: '⚙️ GRAPHICS & SYSTEM SETTINGS',
+    subtitle: 'Performance, rendering scale, and environment preferences',
+    presetLabel: 'PRESET / PROFILE',
+    presetClassic60: '⚡ Classic Smooth (60 FPS)',
+    presetBalanced: '⚖️ Balanced (30 FPS)',
+    presetEco: '🌱 Power Saver (Eco)',
+    presetUltra: '🔥 Ultra (Native)',
+    presetCustom: '🎛️ Custom',
+    graphicsSection: 'DISPLAY & PERFORMANCE',
+    resolutionLabel: 'Resolution Scale',
+    resLow: 'Low (0.75x)',
+    resMedium: 'Medium (1.0x)',
+    resHigh: 'High (2.0x)',
+    resNative: 'Native (DPR)',
+    antiAliasingLabel: 'Anti-Aliasing (AA)',
+    aaCrisp: 'Pixel Crisp',
+    aaSmooth: 'Smooth',
+    fpsLimitLabel: 'Frame Rate Limit (FPS)',
+    fpsEco: 'Eco (14–24)',
+    fps30: '30 FPS',
+    fps60: '60 FPS',
+    fpsUnlimited: 'Unlimited',
+    staticCacheLabel: 'Static Architecture Cache',
+    on: 'ON',
+    off: 'OFF',
+    systemSection: 'SYSTEM & ENVIRONMENT',
+    followCamLabel: 'Follow Camera',
+    themeLabel: 'Day / Night Theme',
+    themeDay: '☀️ Day',
+    themeNight: '🌙 Night',
+    demoModeLabel: 'Demo Mode',
+    sfxLabel: 'Sound Effects (SFX)',
+    notificationsLabel: 'Browser Alerts',
+    languageLabel: 'Language / Dil',
+    resetDefaults: 'RESET TO DEFAULTS',
+    liveFpsLabel: 'LIVE FPS',
+    close: 'CLOSE',
   },
 };
 

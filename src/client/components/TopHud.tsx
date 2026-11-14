@@ -8,19 +8,10 @@ interface TopHudProps {
   globalEcoScore: number;
   viewMode: 'plaza' | 'office';
   onChangeViewMode: (mode: 'plaza' | 'office') => void;
-  demoMode: boolean;
-  onToggleDemo: () => void;
-  isNight: boolean;
-  onToggleNight: () => void;
-  muted: boolean;
-  onToggleMute: () => void;
   onOpenWhiteboard: () => void;
   onOpenAnalytics: () => void;
-  followCam: boolean;
-  onToggleFollowCam: () => void;
+  onOpenSettings: () => void;
   onExportPng: () => void;
-  notificationsEnabled: boolean;
-  onToggleNotifications: () => void;
   onRerollLayout: () => void;
   onTriggerEvent: () => void;
   wsConnected: boolean;
@@ -34,19 +25,10 @@ export const TopHud: React.FC<TopHudProps> = ({
   globalEcoScore,
   viewMode,
   onChangeViewMode,
-  demoMode,
-  onToggleDemo,
-  isNight,
-  onToggleNight,
-  muted,
-  onToggleMute,
   onOpenWhiteboard,
   onOpenAnalytics,
-  followCam,
-  onToggleFollowCam,
+  onOpenSettings,
   onExportPng,
-  notificationsEnabled,
-  onToggleNotifications,
   onRerollLayout,
   onTriggerEvent,
   wsConnected,
@@ -54,7 +36,7 @@ export const TopHud: React.FC<TopHudProps> = ({
   isElevatorOpen,
   onToggleElevator,
 }) => {
-  const { locale, setLocale, t } = useI18n();
+  const { t } = useI18n();
   const [moreOpen, setMoreOpen] = useState(false);
 
   const xpRatio = floor
@@ -211,44 +193,15 @@ export const TopHud: React.FC<TopHudProps> = ({
             )}
             <button
               type="button"
-              className={`pixel-btn ${demoMode ? 'active' : ''}`}
+              className="pixel-btn gold"
               style={{ padding: '4px 7px', fontSize: 8 }}
               onClick={() => {
                 playSelectBlip();
-                onToggleDemo();
+                setMoreOpen(false);
+                onOpenSettings();
               }}
             >
-              {demoMode ? t.hud.demoOn : t.hud.demoOff}
-            </button>
-            <button
-              type="button"
-              className="pixel-btn"
-              style={{ padding: '4px 7px', fontSize: 8 }}
-              onClick={() => {
-                playSelectBlip();
-                onToggleNight();
-              }}
-            >
-              {isNight ? t.hud.nightMode : t.hud.dayMode}
-            </button>
-            <button
-              type="button"
-              className="pixel-btn"
-              style={{ padding: '4px 7px', fontSize: 8 }}
-              onClick={onToggleMute}
-            >
-              {muted ? t.hud.soundOff : t.hud.soundOn}
-            </button>
-            <button
-              type="button"
-              className="pixel-btn"
-              style={{ padding: '4px 7px', fontSize: 8 }}
-              onClick={() => {
-                playSelectBlip();
-                setLocale(locale === 'tr' ? 'en' : 'tr');
-              }}
-            >
-              {locale === 'tr' ? 'TR | EN' : 'EN | TR'}
+              {t.hud.settings}
             </button>
           </div>
         )}
@@ -405,30 +358,18 @@ export const TopHud: React.FC<TopHudProps> = ({
           {t.hud.analytics}
         </button>
 
-        {/* Office Camera & PNG Snapshot */}
+        {/* Office PNG Snapshot */}
         {viewMode === 'office' && floor && (
-          <>
-            <button
-              type="button"
-              className={`pixel-btn ${followCam ? 'active' : ''}`}
-              onClick={() => {
-                playSelectBlip();
-                onToggleFollowCam();
-              }}
-            >
-              {followCam ? t.hud.followCamOn : t.hud.followCamOff}
-            </button>
-            <button
-              type="button"
-              className="pixel-btn"
-              onClick={() => {
-                playSelectBlip();
-                onExportPng();
-              }}
-            >
-              {t.hud.snapshotPng}
-            </button>
-          </>
+          <button
+            type="button"
+            className="pixel-btn"
+            onClick={() => {
+              playSelectBlip();
+              onExportPng();
+            }}
+          >
+            {t.hud.snapshotPng}
+          </button>
         )}
 
         {/* Reroll Layout & Trigger Event */}
@@ -454,57 +395,16 @@ export const TopHud: React.FC<TopHudProps> = ({
           </>
         )}
 
-        {/* Demo Mode */}
+        {/* Settings */}
         <button
           type="button"
-          className={`pixel-btn ${demoMode ? 'active' : ''}`}
+          className="pixel-btn gold"
           onClick={() => {
             playSelectBlip();
-            onToggleDemo();
+            onOpenSettings();
           }}
         >
-          {demoMode ? t.hud.demoOn : t.hud.demoOff}
-        </button>
-
-        {/* Day / Night */}
-        <button
-          type="button"
-          className="pixel-btn"
-          onClick={() => {
-            playSelectBlip();
-            onToggleNight();
-          }}
-        >
-          {isNight ? t.hud.nightMode : t.hud.dayMode}
-        </button>
-
-        {/* SFX Mute */}
-        <button type="button" className="pixel-btn" onClick={onToggleMute}>
-          {muted ? t.hud.soundOff : t.hud.soundOn}
-        </button>
-
-        {/* Browser Notifications */}
-        <button
-          type="button"
-          className={`pixel-btn ${notificationsEnabled ? 'active' : ''}`}
-          onClick={() => {
-            playSelectBlip();
-            onToggleNotifications();
-          }}
-        >
-          {notificationsEnabled ? t.hud.alertsOn : t.hud.alertsOff}
-        </button>
-
-        {/* Language Switcher */}
-        <button
-          type="button"
-          className="pixel-btn"
-          onClick={() => {
-            playSelectBlip();
-            setLocale(locale === 'tr' ? 'en' : 'tr');
-          }}
-        >
-          {locale === 'tr' ? 'TR | EN' : 'EN | TR'}
+          {t.hud.settings}
         </button>
       </div>
     </header>
