@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/akinba/antigravity-swarm-plaza/actions/workflows/ci.yml/badge.svg)](https://github.com/akinba/antigravity-swarm-plaza/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/akinba/antigravity-swarm-plaza?include_prereleases)](https://github.com/akinba/antigravity-swarm-plaza/releases)
-![Version](https://img.shields.io/badge/version-v1.3.0-ffd147)
+![Version](https://img.shields.io/badge/version-v1.3.1-ffd147)
 
 [🇬🇧 **English**](README.md) | 🇹🇷 **Türkçe** | [🇨🇳 **简体中文**](README.zh-CN.md)
 
@@ -49,6 +49,18 @@
       <strong>📊 60 Dakikalık Analitik &amp; Telemetri</strong><br /><br />
       <img src="docs/screenshots/analytics-modal.png" alt="60 Dakikalık Analitik" width="100%" /><br />
       <em>60 dakikalık aktivite çubukları, tamamlanan görev sayacı ve model dağılımı</em>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <strong>⚙️ Oyun Tarzı Grafik &amp; Sistem Ayarları</strong><br /><br />
+      <img src="docs/screenshots/settings-modal.png" alt="Grafik ve Sistem Ayarları Penceresi" width="100%" /><br />
+      <em>Tek tık FPS/DPR profilleri (60 FPS Eski Akıcı varsayılan), AA, statik önbellek ve sistem tercihleri</em>
+    </td>
+    <td width="50%" align="center">
+      <strong>📅 Dikey Gantt &amp; Swarm Beyaz Tahta</strong><br /><br />
+      <img src="docs/screenshots/whiteboard-modal.png" alt="Swarm Beyaz Tahta Dikey Gantt" width="100%" /><br />
+      <em>Yan yana ajan sütunları, gerçek tarih blokları, HH:MM zaman çizelgesi ve Resimli Personel Listesi</em>
     </td>
   </tr>
 </table>
@@ -106,7 +118,11 @@ flowchart LR
 
 ---
 
-## 🌟 Temel Yetenekler & Yenilikler (v1.3.0)
+## 🌟 Temel Yetenekler & Yenilikler (v1.3.1)
+
+- **⚙️ Oyun Tarzı Grafik & Sistem Ayarları + Sadeleştirilmiş Üst Bar:**
+  - Tek tıkla seçilebilen hazır performans profilleri (**`⚡ Eski Akıcı 60 FPS`** varsayılan, `⚖️ Dengeli 30 FPS`, `🌱 Güç Tasarrufu Eco`, `🔥 Ultra Native`), Çözünürlük Ölçeği (`0.75x` / `1.0x` / `2.0x` / `Native DPR`), Kenar Düzeltme (`Piksel Keskin` / `Yumuşak Smooth`), Kare Hızı Limiti (`Eco 14–24` / `30` / `60` / `Sınırsız`), Statik Mimari Önbelleği anahtarı ve **Canlı FPS** göstergesi içeren **`⚙️ AYARLAR`** penceresi.
+  - Masaüstü üst barı sadece temel kat ve gezinme eylemleriyle sadeleştirildi; `Takip Kamerası`, `Gece/Gündüz`, `Demo Modu`, `SFX`, `Tarayıcı Bildirimleri` ve `TR/EN` tercihleri `localStorage` kalıcılığıyla Ayarlar penceresine taşındı.
 
 - **👥 Resimli Personel Listesi (`👥 PERSONEL LİSTESİ`) & `⬅ LİSTEYE DÖN` RPG Geçişi:**
   - Kattaki her aktif ajan için canlı `64×64` 2.5B piksel portreler, güncel görev/aktivite özeti, model rozeti, `~Tahmini` kredi ve token kullanımı, `HP` sağlık çubuğu ve tek tıkla açılan RPG Kartı içinde doğrudan listeye dönmeyi sağlayan sol üst **`⬅ LİSTEYE DÖN`** butonu.

@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/akinba/antigravity-swarm-plaza/actions/workflows/ci.yml/badge.svg)](https://github.com/akinba/antigravity-swarm-plaza/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/akinba/antigravity-swarm-plaza?include_prereleases)](https://github.com/akinba/antigravity-swarm-plaza/releases)
-![Version](https://img.shields.io/badge/version-v1.3.0-ffd147)
+![Version](https://img.shields.io/badge/version-v1.3.1-ffd147)
 
 🇬🇧 **English** | [🇹🇷 **Türkçe**](README.tr.md) | [🇨🇳 **简体中文**](README.zh-CN.md)
 
@@ -49,6 +49,18 @@
       <strong>📊 60-Minute Analytics &amp; Telemetry</strong><br /><br />
       <img src="docs/screenshots/analytics-modal.png" alt="60-Minute Analytics" width="100%" /><br />
       <em>60-minute activity bar chart, completed task counters, and model distribution</em>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <strong>⚙️ Game-Style Graphics &amp; System Settings</strong><br /><br />
+      <img src="docs/screenshots/settings-modal.png" alt="Graphics &amp; System Settings Modal" width="100%" /><br />
+      <em>One-click FPS/DPR profiles (60 FPS Classic default), AA, static cache, and system toggles</em>
+    </td>
+    <td width="50%" align="center">
+      <strong>📅 Vertical Gantt &amp; Swarm Whiteboard</strong><br /><br />
+      <img src="docs/screenshots/whiteboard-modal.png" alt="Swarm Whiteboard Vertical Gantt" width="100%" /><br />
+      <em>Side-by-side agent swimlanes, real date blocks, HH:MM timeline, and Personnel Roster</em>
     </td>
   </tr>
 </table>
@@ -106,7 +118,11 @@ flowchart LR
 
 ---
 
-## 🌟 Key Features & What's New (v1.3.0)
+## 🌟 Key Features & What's New (v1.3.1)
+
+- **⚙️ Game-Style Graphics & System Settings + Decluttered Top Bar:**
+  - Dedicated **`⚙️ SETTINGS`** modal with one-click performance presets (**`⚡ Classic Smooth 60 FPS`** default, `⚖️ Balanced 30 FPS`, `🌱 Power Saver Eco`, `🔥 Ultra Native`), Resolution Scale (`0.75x` / `1.0x` / `2.0x` / `Native DPR`), Anti-Aliasing (`Pixel Crisp` / `Smooth`), Frame Rate Limit (`Eco 14–24` / `30` / `60` / `Unlimited`), Static Architecture Cache toggle, and a **Live FPS** readout.
+  - Decluttered desktop toolbar keeping only core navigation and floor actions, while moving `Follow Cam`, `Day/Night`, `Demo Mode`, `SFX`, `Browser Alerts`, and `TR/EN` into Settings with `localStorage` persistence.
 
 - **👥 Illustrated Personnel Roster (`👥 PERSONNEL ROSTER`) & Back-to-List RPG Navigation:**
   - Live `64×64` 2.5D pixel-art portraits for every active agent on the floor, paired with current activity/task summary, model badge, `~Estimated` credit & token usage, `HP` health bar, and one-click RPG Card inspection with a top-left **`⬅ BACK TO LIST`** button to jump straight back to the roster.

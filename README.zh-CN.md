@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/akinba/antigravity-swarm-plaza/actions/workflows/ci.yml/badge.svg)](https://github.com/akinba/antigravity-swarm-plaza/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/akinba/antigravity-swarm-plaza?include_prereleases)](https://github.com/akinba/antigravity-swarm-plaza/releases)
-![Version](https://img.shields.io/badge/version-v1.3.0-ffd147)
+![Version](https://img.shields.io/badge/version-v1.3.1-ffd147)
 ![Node](https://img.shields.io/badge/node-%3E%3D22.5.0-3be87a)
 ![License](https://img.shields.io/badge/license-MIT-3cd8ff)
 ![Sidecar](https://img.shields.io/badge/Sidecar-Ready-b07cff)
@@ -56,6 +56,18 @@
       <strong>📊 60 分钟活动分析与遥测</strong><br /><br />
       <img src="docs/screenshots/analytics-modal.png" alt="60 分钟活动分析" width="100%" /><br />
       <em>60 分钟活动柱状图、已完成任务统计与多模型分布视图</em>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <strong>⚙️ 游戏级图形与系统设置</strong><br /><br />
+      <img src="docs/screenshots/settings-modal.png" alt="图形与系统设置弹窗" width="100%" /><br />
+      <em>一键 FPS/DPR 预设（默认 60 FPS 经典流畅）、抗锯齿、静态缓存与系统偏好设置</em>
+    </td>
+    <td width="50%" align="center">
+      <strong>📅 纵向甘特图与 Swarm 白板</strong><br /><br />
+      <img src="docs/screenshots/whiteboard-modal.png" alt="Swarm 白板纵向甘特图" width="100%" /><br />
+      <em>并列智能体泳道、真实日期分组、HH:MM 时间线与图文人员名录</em>
     </td>
   </tr>
 </table>
@@ -113,7 +125,11 @@ flowchart LR
 
 ---
 
-## 🌟 核心特性与新功能 (Core Features & v1.3.0)
+## 🌟 核心特性与新功能 (Core Features & v1.3.1)
+
+- **⚙️ 游戏级图形与系统设置 + 精简顶部工具栏：**
+  - 配备独立 **`⚙️ SETTINGS`** 弹窗，支持一键切换性能预设（默认 **`⚡ 经典流畅 60 FPS`**、`⚖️ 均衡 30 FPS`、`🌱 省电 Eco`、`🔥 极致 Native`）、分辨率缩放（`0.75x` / `1.0x` / `2.0x` / `Native DPR`）、抗锯齿（`像素锐利` / `平滑`）、帧率上限（`Eco 14–24` / `30` / `60` / `无限制`）、静态建筑缓存开关及 **实时 FPS** 指示器。
+  - 精简桌面端顶部栏，仅保留核心楼层与导航操作；`跟随镜头`、`昼夜切换`、`Demo 模式`、`音效 SFX`、`浏览器提醒` 与 `TR/EN` 语言切换统一移入设置弹窗并通过 `localStorage` 持久化保存。
 
 - **👥 图文人员名录 (`👥 PERSONNEL ROSTER`) 与 `⬅ BACK TO LIST` RPG 返回导航：**
   - 为楼层中每位活跃智能体实时渲染 `64×64` 2.5D 像素肖像，展示当前任务/活动摘要、模型徽章、`~Estimated` 积分与 Token 消耗、`HP` 健康条，并支持一键打开 RPG 角色卡及左上角 **`⬅ BACK TO LIST`** 快速返回名录。
