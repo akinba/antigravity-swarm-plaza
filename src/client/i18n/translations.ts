@@ -146,6 +146,8 @@ export interface Translations {
     ganttLegendBreak: string;
     ganttSequenceTitle: string;
     ganttFinishedThenStarted: string;
+    workflowLinksLabel: string;
+    noLinksYet: string;
   };
   analyticsModal: {
     title: string;
@@ -420,6 +422,8 @@ const TR: Translations = {
     ganttLegendBreak: '☕ Moladaydı / Beklemede',
     ganttSequenceTitle: '🔄 SIRALI İŞ AKIŞI (BU İŞ BİTİNCE ŞUNA BAŞLANDI)',
     ganttFinishedThenStarted: 'tamamlandı ➔ sıradaki iş başladı:',
+    workflowLinksLabel: '🔄 İŞ AKIŞI BAĞLANTILARI',
+    noLinksYet: 'Henüz devir bağlantısı yok.',
   },
   analyticsModal: {
     title: 'KAT ANALİTİĞİ & TELEMETRİ',
@@ -695,6 +699,8 @@ const EN: Translations = {
     ganttLegendBreak: '☕ On Break / Waiting',
     ganttSequenceTitle: '🔄 SEQUENTIAL WORKFLOW (FINISHED ➔ STARTED NEXT)',
     ganttFinishedThenStarted: 'finished ➔ next task started:',
+    workflowLinksLabel: '🔄 WORKFLOW LINKS',
+    noLinksYet: 'No handoff links yet.',
   },
   analyticsModal: {
     title: 'FLOOR ANALYTICS & TELEMETRY',

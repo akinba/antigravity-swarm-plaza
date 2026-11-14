@@ -300,6 +300,8 @@ describe('i18n browser locale & server snapshot localization', () => {
       'ganttLegendBreak',
       'ganttSequenceTitle',
       'ganttFinishedThenStarted',
+      'workflowLinksLabel',
+      'noLinksYet',
     ] as const;
     for (const key of ganttKeys) {
       assert.ok(DICTIONARIES.tr.whiteboardModal[key].length > 0, `tr.whiteboardModal.${key}`);

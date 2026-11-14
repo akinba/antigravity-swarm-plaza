@@ -293,6 +293,7 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
     detail: string;
   } | null>(null);
   const [ganttTopToBottom, setGanttTopToBottom] = useState(false);
+  const [highlightedLink, setHighlightedLink] = useState<{ from: string; to: string } | null>(null);
   const feedRef = useRef<HTMLDivElement | null>(null);
   const isProgrammaticScrollRef = useRef(false);
   const scrollTimerRef = useRef<number | null>(null);
@@ -1347,12 +1348,11 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
             className="pixel-panel-inset"
             style={{
               padding: 10,
-              overflowY: 'auto',
-              overflowX: 'hidden',
+              overflow: 'hidden',
               display: 'flex',
               flexDirection: 'column',
               gap: 8,
-              maxHeight: 490,
+              maxHeight: 500,
               width: '100%',
               boxSizing: 'border-box',
             }}
@@ -1382,8 +1382,11 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                       break: '☕ Break',
                     };
 
-              const sceneAgents = employees.length > 0 ? employees : [];
-              const gridCols = `78px repeat(${Math.max(1, sceneAgents.length)}, minmax(0, 1fr))`;
+              interface GanttColumn {
+                key: string;
+                name: string;
+                emp?: OfficeEmployee;
+              }
 
               interface VerticalSlot {
                 id: string;
@@ -1393,33 +1396,73 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                 agentIdx: number;
                 agentName: string;
                 phase: WorkPhase;
+                targets: string[];
                 detail: string;
               }
 
               const orderedMsgs = [...messages].sort((a, b) => a.seq - b.seq);
-              const recentMsgs = orderedMsgs.slice(-18);
+              const recentMsgs = orderedMsgs.slice(-80);
+
+              const ganttColumns: GanttColumn[] = employees.map((emp) => ({
+                key: emp.id,
+                name: emp.name,
+                emp,
+              }));
+
+              const findColumnIndex = (agentName: string): number => {
+                const low = agentName.toLowerCase();
+                return ganttColumns.findIndex(
+                  (col) =>
+                    col.name.toLowerCase() === low ||
+                    (col.emp?.isCoordinator && low === 'coordinator'),
+                );
+              };
+
+              for (const m of recentMsgs) {
+                const low = m.agent.toLowerCase().trim();
+                if (
+                  /^task-\d+$/i.test(low) ||
+                  low === 'system' ||
+                  low === 'all' ||
+                  /^[0-9a-f]{8}-/i.test(low)
+                ) {
+                  continue;
+                }
+                if (findColumnIndex(m.agent) < 0) {
+                  ganttColumns.push({
+                    key: `extra-${low}`,
+                    name: m.agent,
+                  });
+                }
+              }
+
+              const gridCols = `74px repeat(${Math.max(1, ganttColumns.length)}, minmax(0, 1fr))`;
               const slots: VerticalSlot[] = [];
 
               recentMsgs.forEach((m, idx) => {
                 const ts = parseBoardTimestamp(m.time, idx);
-                const mLow = m.agent.toLowerCase();
-                const agentIdx = sceneAgents.findIndex(
-                  (e) =>
-                    e.name.toLowerCase() === mLow ||
-                    (e.isCoordinator && mLow === 'coordinator'),
-                );
+                const agentIdx = findColumnIndex(m.agent);
                 if (agentIdx < 0) return;
-                const emp = sceneAgents[agentIdx];
+                const col = ganttColumns[agentIdx];
                 const phase = classifyWorkPhase(m.text, undefined, m.agent);
                 const detail = summarizeSnippet(m.text, 110);
+                const rawMentions = m.mentions?.length
+                  ? m.mentions
+                  : Array.from(
+                      new Set((m.text.match(/@([a-zA-Z0-9_-]+)/g) ?? []).map((s) => s.slice(1))),
+                    );
+                const targets = rawMentions.filter(
+                  (tName) => tName && tName.toLowerCase() !== m.agent.toLowerCase(),
+                );
                 slots.push({
                   id: `vslot-${m.seq}-${idx}`,
                   seq: m.seq,
                   dateKey: ts.dateKey,
                   timeLabel: ts.timeLabel,
                   agentIdx,
-                  agentName: emp.name,
+                  agentName: col.name,
                   phase,
+                  targets,
                   detail,
                 });
               });
@@ -1503,7 +1546,68 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                     </div>
                   </div>
 
-                  {sceneAgents.length === 0 || dateBlocks.length === 0 ? (
+                  {/* Workflow Links Strip */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      flexWrap: 'wrap',
+                      padding: '5px 8px',
+                      background: '#111625',
+                      border: '1px solid #2b3554',
+                      fontSize: 10,
+                    }}
+                  >
+                    <span className="pixel-title" style={{ fontSize: 8, color: '#3cd8ff' }}>
+                      {t.whiteboardModal.workflowLinksLabel} ({edges.length}):
+                    </span>
+                    {edges.length === 0 ? (
+                      <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>
+                        {t.whiteboardModal.noLinksYet}
+                      </span>
+                    ) : (
+                      edges.slice(0, 10).map((edge) => {
+                        const isSelected =
+                          highlightedLink?.from.toLowerCase() === edge.from.toLowerCase() &&
+                          highlightedLink?.to.toLowerCase() === edge.to.toLowerCase();
+                        return (
+                          <button
+                            key={`gantt-edge-${edge.from}->${edge.to}`}
+                            type="button"
+                            className="pixel-badge"
+                            onMouseEnter={() =>
+                              setHighlightedLink({ from: edge.from, to: edge.to })
+                            }
+                            onMouseLeave={() => setHighlightedLink(null)}
+                            onClick={() => {
+                              playSelectBlip();
+                              setHighlightedLink((prev) =>
+                                prev?.from === edge.from && prev?.to === edge.to
+                                  ? null
+                                  : { from: edge.from, to: edge.to },
+                              );
+                            }}
+                            style={{
+                              fontSize: 9,
+                              color: '#dce6ff',
+                              background: isSelected ? '#263459' : '#171c2b',
+                              borderColor: isSelected ? '#ffd147' : '#3b496b',
+                              cursor: 'pointer',
+                              fontFamily: 'inherit',
+                            }}
+                          >
+                            <span style={{ color: '#3cd8ff' }}>@{edge.from}</span>
+                            <span style={{ color: '#ffd147', margin: '0 3px' }}>➔</span>
+                            <span style={{ color: '#b07cff' }}>@{edge.to}</span>
+                            <span style={{ color: '#3be87a', marginLeft: 4 }}>×{edge.count}</span>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {ganttColumns.length === 0 || dateBlocks.length === 0 ? (
                     <div style={{ fontSize: 12, color: 'var(--text-dim)', padding: 16, textAlign: 'center' }}>
                       {t.whiteboardModal.noTasksYet}
                     </div>
@@ -1514,6 +1618,12 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                         background: '#111625',
                         width: '100%',
                         boxSizing: 'border-box',
+                        flex: 1,
+                        minHeight: 220,
+                        maxHeight: 360,
+                        overflowY: 'auto',
+                        overflowX: 'hidden',
+                        overscrollBehavior: 'contain',
                       }}
                     >
                       {/* Sticky Horizontal Agent Column Headers */}
@@ -1547,16 +1657,18 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                           <span>HH:MM</span>
                         </div>
 
-                        {sceneAgents.map((emp) => {
-                          const statusColor =
-                            emp.status === 'working'
+                        {ganttColumns.map((col) => {
+                          const emp = col.emp;
+                          const statusColor = !emp
+                            ? '#9aa7c7'
+                            : emp.status === 'working'
                               ? '#3be87a'
                               : emp.status === 'error'
                                 ? '#ff5666'
                                 : '#ffbe3b';
                           return (
                             <div
-                              key={`vhdr-${emp.id}`}
+                              key={`vhdr-${col.key}`}
                               style={{
                                 padding: '6px 4px',
                                 display: 'flex',
@@ -1567,11 +1679,28 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                                 minWidth: 0,
                               }}
                             >
-                              <EmployeePortraitCanvas
-                                employee={emp}
-                                activeEventKind={activeEventKind}
-                                size={32}
-                              />
+                              {emp ? (
+                                <EmployeePortraitCanvas
+                                  employee={emp}
+                                  activeEventKind={activeEventKind}
+                                  size={28}
+                                />
+                              ) : (
+                                <div
+                                  style={{
+                                    width: 28,
+                                    height: 28,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    background: '#1b2236',
+                                    border: '2px solid #3b496b',
+                                    fontSize: 12,
+                                  }}
+                                >
+                                  🤖
+                                </div>
+                              )}
                               <span
                                 className="pixel-title"
                                 style={{
@@ -1582,12 +1711,12 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                                   textOverflow: 'ellipsis',
                                   whiteSpace: 'nowrap',
                                 }}
-                                title={emp.name}
+                                title={col.name}
                               >
-                                {emp.name}
+                                {col.name}
                               </span>
                               <span style={{ fontSize: 8, color: statusColor }}>
-                                ● {t.statuses[emp.status]}
+                                ● {emp ? t.statuses[emp.status] : 'LOG'}
                               </span>
                             </div>
                           );
@@ -1657,12 +1786,27 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                                   </div>
 
                                   {/* Agent Vertical Columns */}
-                                  {sceneAgents.map((emp, aIdx) => {
+                                  {ganttColumns.map((col, aIdx) => {
+                                    const emp = col.emp;
                                     const isActiveHere = slot.agentIdx === aIdx;
                                     const isWaitingNow =
                                       isLatestRow &&
                                       !isActiveHere &&
-                                      (emp.status === 'waiting' || emp.status === 'idle');
+                                      Boolean(emp && (emp.status === 'waiting' || emp.status === 'idle'));
+
+                                    const isHighlighted = Boolean(
+                                      highlightedLink &&
+                                        (slot.agentName.toLowerCase() ===
+                                          highlightedLink.from.toLowerCase() ||
+                                          slot.agentName.toLowerCase() ===
+                                            highlightedLink.to.toLowerCase()),
+                                    );
+                                    const targetColIdx =
+                                      slot.targets.length > 0
+                                        ? findColumnIndex(slot.targets[0])
+                                        : -1;
+                                    const isTargetHere =
+                                      !isActiveHere && targetColIdx === aIdx;
 
                                     if (isActiveHere) {
                                       const st = PHASE_STYLES[slot.phase];
@@ -1674,10 +1818,14 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                                         nextSlot &&
                                         nextSlot.agentIdx === aIdx &&
                                         nextSlot.phase === slot.phase;
+                                      const handoffHint =
+                                        slot.targets.length > 0
+                                          ? `➔ @${slot.targets[0]}`
+                                          : '';
 
                                       return (
                                         <div
-                                          key={`${slot.id}-col-${emp.id}`}
+                                          key={`${slot.id}-col-${col.key}`}
                                           style={{
                                             padding: `${connectTop ? 0 : 2}px 4px ${connectBottom ? 0 : 2}px 4px`,
                                             borderRight: '1px solid #232b44',
@@ -1693,7 +1841,9 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                                                 agentName: slot.agentName,
                                                 phase: slot.phase,
                                                 time: slot.timeLabel,
-                                                detail: slot.detail,
+                                                detail: handoffHint
+                                                  ? `${handoffHint} • ${slot.detail}`
+                                                  : slot.detail,
                                               })
                                             }
                                             onClick={() => {
@@ -1702,17 +1852,22 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                                                 agentName: slot.agentName,
                                                 phase: slot.phase,
                                                 time: slot.timeLabel,
-                                                detail: slot.detail,
+                                                detail: handoffHint
+                                                  ? `${handoffHint} • ${slot.detail}`
+                                                  : slot.detail,
                                               });
                                             }}
-                                            title={`${slot.agentName} • ${phaseLabels[slot.phase]} (${slot.timeLabel}): ${slot.detail}`}
+                                            title={`${slot.agentName} • ${phaseLabels[slot.phase]} (${slot.timeLabel}) ${handoffHint}: ${slot.detail}`}
                                             style={{
                                               width: '100%',
                                               background: st.bg,
-                                              borderLeft: `3px solid ${st.color}`,
-                                              borderRight: `1px solid ${st.border}`,
-                                              borderTop: connectTop ? 'none' : `1px solid ${st.border}`,
-                                              borderBottom: connectBottom ? 'none' : `1px solid ${st.border}`,
+                                              borderLeft: `3px solid ${isHighlighted ? '#ffd147' : st.color}`,
+                                              borderRight: `1px solid ${isHighlighted ? '#ffd147' : st.border}`,
+                                              borderTop: connectTop ? 'none' : `1px solid ${isHighlighted ? '#ffd147' : st.border}`,
+                                              borderBottom: connectBottom ? 'none' : `1px solid ${isHighlighted ? '#ffd147' : st.border}`,
+                                              boxShadow: isHighlighted
+                                                ? '0 0 8px rgba(255, 209, 71, 0.45)'
+                                                : undefined,
                                               color: st.color,
                                               fontSize: 9,
                                               fontWeight: 700,
@@ -1735,6 +1890,7 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                                               }}
                                             >
                                               {shortPhaseLabels[slot.phase]}
+                                              {handoffHint ? ` ${handoffHint}` : ''}
                                             </span>
                                             <span
                                               style={{
@@ -1751,11 +1907,11 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                                       );
                                     }
 
-                                    if (isWaitingNow) {
+                                    if (isWaitingNow && emp) {
                                       const brk = PHASE_STYLES.break;
                                       return (
                                         <div
-                                          key={`${slot.id}-col-${emp.id}`}
+                                          key={`${slot.id}-col-${col.key}`}
                                           style={{
                                             padding: '2px 4px',
                                             borderRight: '1px solid #232b44',
@@ -1785,9 +1941,37 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                                       );
                                     }
 
+                                    if (isTargetHere) {
+                                      return (
+                                        <div
+                                          key={`${slot.id}-col-${col.key}`}
+                                          style={{
+                                            borderRight: '1px solid #232b44',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            padding: '2px 4px',
+                                          }}
+                                        >
+                                          <span
+                                            style={{
+                                              fontSize: 9,
+                                              color: '#ffd147',
+                                              border: '1px dashed rgba(255, 209, 71, 0.5)',
+                                              background: 'rgba(255, 209, 71, 0.08)',
+                                              padding: '1px 5px',
+                                              whiteSpace: 'nowrap',
+                                            }}
+                                          >
+                                            {slot.agentIdx < aIdx ? '➔' : '⬅'} @{col.name}
+                                          </span>
+                                        </div>
+                                      );
+                                    }
+
                                     return (
                                       <div
-                                        key={`${slot.id}-col-${emp.id}`}
+                                        key={`${slot.id}-col-${col.key}`}
                                         style={{
                                           borderRight: '1px solid #232b44',
                                           position: 'relative',
