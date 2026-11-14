@@ -294,6 +294,10 @@ describe('i18n browser locale & server snapshot localization', () => {
     assert.equal(DICTIONARIES.en.whiteboardModal.workflowGanttTab, '🧭 WORKFLOW & GANTT');
     assert.equal(DICTIONARIES.tr.whiteboardModal.clearFilter, 'TÜMÜNÜ GÖSTER');
     assert.equal(DICTIONARIES.en.whiteboardModal.clearFilter, 'SHOW ALL');
+    assert.equal(DICTIONARIES.tr.whiteboardModal.minimizeTopology, '▴ KÜÇÜLT');
+    assert.equal(DICTIONARIES.en.whiteboardModal.minimizeTopology, '▴ MINIMIZE');
+    assert.equal(DICTIONARIES.tr.whiteboardModal.expandTopology, '▾ GENİŞLET');
+    assert.equal(DICTIONARIES.en.whiteboardModal.expandTopology, '▾ EXPAND');
     const ganttKeys = [
       'ganttTab',
       'ganttTitle',
@@ -308,6 +312,8 @@ describe('i18n browser locale & server snapshot localization', () => {
       'noLinksYet',
       'workflowGanttTab',
       'clearFilter',
+      'minimizeTopology',
+      'expandTopology',
     ] as const;
     for (const key of ganttKeys) {
       assert.ok(DICTIONARIES.tr.whiteboardModal[key].length > 0, `tr.whiteboardModal.${key}`);

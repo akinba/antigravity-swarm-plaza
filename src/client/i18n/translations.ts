@@ -154,6 +154,8 @@ export interface Translations {
     noLinksYet: string;
     workflowGanttTab: string;
     clearFilter: string;
+    minimizeTopology: string;
+    expandTopology: string;
   };
   analyticsModal: {
     title: string;
@@ -437,6 +439,8 @@ const TR: Translations = {
     noLinksYet: 'Henüz devir bağlantısı yok.',
     workflowGanttTab: '🧭 İŞ AKIŞI & GANTT',
     clearFilter: 'TÜMÜNÜ GÖSTER',
+    minimizeTopology: '▴ KÜÇÜLT',
+    expandTopology: '▾ GENİŞLET',
   },
   analyticsModal: {
     title: 'KAT ANALİTİĞİ & TELEMETRİ',
@@ -721,6 +725,8 @@ const EN: Translations = {
     noLinksYet: 'No handoff links yet.',
     workflowGanttTab: '🧭 WORKFLOW & GANTT',
     clearFilter: 'SHOW ALL',
+    minimizeTopology: '▴ MINIMIZE',
+    expandTopology: '▾ EXPAND',
   },
   analyticsModal: {
     title: 'FLOOR ANALYTICS & TELEMETRY',

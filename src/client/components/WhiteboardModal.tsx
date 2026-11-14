@@ -298,6 +298,25 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
   const [ganttTopToBottom, setGanttTopToBottom] = useState(false);
   const [highlightedLink, setHighlightedLink] = useState<{ from: string; to: string } | null>(null);
   const [selectedAgentFilter, setSelectedAgentFilter] = useState<string | null>(null);
+  const [topologyCollapsed, setTopologyCollapsed] = useState<boolean>(() => {
+    try {
+      return typeof window !== 'undefined'
+        ? window.localStorage.getItem('swarm_plaza_topology_collapsed') === 'true'
+        : false;
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('swarm_plaza_topology_collapsed', String(topologyCollapsed));
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, [topologyCollapsed]);
   const feedRef = useRef<HTMLDivElement | null>(null);
   const isProgrammaticScrollRef = useRef(false);
   const scrollTimerRef = useRef<number | null>(null);
@@ -1235,26 +1254,82 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Workflow Links Strip */}
-                  {/* Expert Curved Bezier Workflow SVG Diagram */}
-                  <WorkflowDiagramSvg
-                    edges={edges}
-                    employees={employees}
-                    messages={messages}
-                    taskNodes={filteredTaskNodes}
-                    selectedAgent={selectedAgentFilter}
-                    selectedEdge={highlightedLink}
-                    onSelectAgent={(name) => {
-                      playSelectBlip();
-                      setSelectedAgentFilter(name);
-                      setHighlightedLink(null);
+                  {/* Collapsible Topology Container */}
+                  <div
+                    style={{
+                      border: '1px solid #2b3554',
+                      background: '#0d1019',
+                      display: 'flex',
+                      flexDirection: 'column',
                     }}
-                    onSelectEdge={(edge) => {
-                      playSelectBlip();
-                      setHighlightedLink(edge);
-                      setSelectedAgentFilter(null);
-                    }}
-                  />
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 8,
+                        padding: '5px 8px',
+                        background: '#131929',
+                        borderBottom: topologyCollapsed ? 'none' : '1px solid #232b44',
+                      }}
+                    >
+                      <span
+                        className="pixel-title"
+                        style={{
+                          fontSize: 8,
+                          color: '#3cd8ff',
+                          letterSpacing: 0.4,
+                        }}
+                      >
+                        🧭 {locale === 'tr' ? 'CANLI SWARM İŞ AKIŞI TOPOLOJİSİ' : 'LIVE SWARM WORKFLOW TOPOLOGY'} •{' '}
+                        {ganttColumns.length} {locale === 'tr' ? 'Ajan' : 'Agents'} •{' '}
+                        {edges.length} {locale === 'tr' ? 'Bağlantı' : 'Links'}
+                      </span>
+                      <button
+                        type="button"
+                        className="pixel-badge"
+                        onClick={() => {
+                          playSelectBlip();
+                          setTopologyCollapsed((prev) => !prev);
+                        }}
+                        style={{
+                          cursor: 'pointer',
+                          color: topologyCollapsed ? '#3be87a' : '#ffd147',
+                          background: '#171c2b',
+                          borderColor: topologyCollapsed ? '#2d7a4f' : '#786221',
+                          fontSize: 9,
+                          fontFamily: 'inherit',
+                          padding: '2px 7px',
+                        }}
+                      >
+                        {topologyCollapsed
+                          ? t.whiteboardModal.expandTopology
+                          : t.whiteboardModal.minimizeTopology}
+                      </button>
+                    </div>
+
+                    {!topologyCollapsed && (
+                      <WorkflowDiagramSvg
+                        edges={edges}
+                        employees={employees}
+                        messages={messages}
+                        taskNodes={filteredTaskNodes}
+                        selectedAgent={selectedAgentFilter}
+                        selectedEdge={highlightedLink}
+                        onSelectAgent={(name) => {
+                          playSelectBlip();
+                          setSelectedAgentFilter(name);
+                          setHighlightedLink(null);
+                        }}
+                        onSelectEdge={(edge) => {
+                          playSelectBlip();
+                          setHighlightedLink(edge);
+                          setSelectedAgentFilter(null);
+                        }}
+                      />
+                    )}
+                  </div>
 
                   {/* Active Filter Indicator */}
                   {(selectedAgentFilter || highlightedLink) && (
@@ -1317,8 +1392,8 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                         width: '100%',
                         boxSizing: 'border-box',
                         flex: 1,
-                        minHeight: 220,
-                        maxHeight: 360,
+                        minHeight: topologyCollapsed ? 320 : 220,
+                        maxHeight: topologyCollapsed ? 520 : 360,
                         overflowY: 'auto',
                         overflowX: 'hidden',
                         overscrollBehavior: 'contain',
