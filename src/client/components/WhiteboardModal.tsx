@@ -20,6 +20,7 @@ interface WhiteboardModalProps {
   swarmEdges?: SwarmMentionEdge[];
   taskNodes?: SwarmTaskNode[];
   employees?: OfficeEmployee[];
+  recentlyLeftEmployees?: OfficeEmployee[];
   agentResources?: AgentResourceUsage[];
   activeEventKind?: FloorEventKind | null;
   initialTab?: 'feed' | 'personnel' | 'workflow' | 'tasks' | 'gantt';
@@ -278,7 +279,8 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
   messages,
   swarmEdges,
   taskNodes = [],
-  employees = [],
+  employees: activeEmployees = [],
+  recentlyLeftEmployees = [],
   agentResources = [],
   activeEventKind = null,
   initialTab = 'feed',
@@ -422,6 +424,11 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
     }
     return count;
   }, [isLiveFollow, messages]);
+
+  const employees = useMemo(() => {
+    const activeIds = new Set(activeEmployees.map((e) => e.id));
+    return [...activeEmployees, ...recentlyLeftEmployees.filter((e) => !activeIds.has(e.id))];
+  }, [activeEmployees, recentlyLeftEmployees]);
 
   const validSceneAgents = useMemo(() => {
     if (!employees || employees.length === 0) return null;
@@ -570,7 +577,7 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
               setActiveTab('personnel');
             }}
           >
-            {t.whiteboardModal.personnelTab} ({employees.length})
+            {t.whiteboardModal.personnelTab} ({activeEmployees.length})
           </button>
           <button
             type="button"
@@ -821,6 +828,7 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                               background: '#171c2b',
                               border: `2px solid ${emp.isCoordinator ? '#786221' : '#2d3654'}`,
                               alignItems: 'center',
+                              opacity: emp.leftAt ? 0.6 : 1,
                             }}
                           >
                             {/* Left: Illustrated Pixel Portrait */}
@@ -852,6 +860,22 @@ export const WhiteboardModal: React.FC<WhiteboardModalProps> = ({
                               >
                                 {t.statuses[emp.status]}
                               </span>
+                              {emp.leftAt && (() => {
+                                const mins = Math.max(
+                                  0,
+                                  Math.floor((Date.now() - (Date.parse(emp.leftAt) || Date.now())) / 60000),
+                                );
+                                return (
+                                  <span
+                                    className="pixel-badge"
+                                    style={{ fontSize: 8, color: '#9aa7c7', borderColor: '#3b496b', textAlign: 'center' }}
+                                  >
+                                    {mins < 1
+                                      ? t.whiteboardModal.offDutyJustNow
+                                      : t.whiteboardModal.offDutyBadge.replace('{n}', String(mins))}
+                                  </span>
+                                );
+                              })()}
                             </div>
 
                             {/* Middle: Identity, Model & Current Task */}

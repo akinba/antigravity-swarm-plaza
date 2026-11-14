@@ -29,8 +29,19 @@ import {
   determineZoneAndActivity,
   GO_HOME_GONE_MS,
   GO_HOME_START_MS,
+  WHITEBOARD_RETENTION_MS,
 } from '../../src/server/gamification.js';
 import type { OfficeEmployee } from '../../src/shared/types.js';
+import {
+  CELEBRATION_CHEER_BUBBLES,
+  CELEBRATION_DURATION_MS,
+  CELEBRATION_HERO_BUBBLES,
+  COFFEE_GIFT_BUBBLES,
+  COFFEE_VISIT_COOLDOWN_MS,
+  COFFEE_VISIT_DURATION_MS,
+  applyOfficeInteractions,
+  resetOfficeInteractionsState,
+} from '../../src/server/officeInteractions.js';
 import { createPlazaApp } from '../../src/server/index.js';
 import {
   AUTO_EVENT_COOLDOWN_MS,
@@ -923,5 +934,153 @@ describe('Go-Home lifecycle (8m..9.5m elevator, >=9.5m off-duty)', () => {
     const recent = employees.find((e) => e.id === 'recent');
     assert.ok(recent);
     assert.equal(recent.zone, 'COFFEE_LOUNGE');
+  });
+
+  it('keeps agents gone < 45m in recentlyLeft (with leftAt) for the whiteboard, and drops those gone >= 45m', () => {
+    const nowMs = Date.now();
+    const mk = (id: string, ageMs: number): OfficeEmployee => ({
+      id,
+      name: `emp-${id}`,
+      roleTitle: 'Engineer',
+      isCoordinator: false,
+      modelId: 'gemini-hydrogen',
+      modelFamily: 'hydrogen',
+      workspaceMode: 'inherit',
+      status: 'idle',
+      zone: 'COFFEE_LOUNGE',
+      activity: 'lounging',
+      xp: 100,
+      level: 2,
+      stepCount: 5,
+      inputTokens: 0,
+      cacheReadTokens: 0,
+      outputTokens: 0,
+      lastActiveAt: new Date(nowMs - ageMs).toISOString(),
+    });
+    const recentGone = mk('gone-recent', GO_HOME_GONE_MS + 5 * 60_000);
+    const oldGone = mk('gone-old', WHITEBOARD_RETENTION_MS + 60_000);
+    const { employees, offDutyCount, recentlyLeft } = applyGoHomeLifecycle(
+      [recentGone, oldGone],
+      nowMs,
+    );
+    assert.equal(employees.length, 0);
+    assert.equal(offDutyCount, 2);
+    assert.equal(recentlyLeft.length, 1);
+    assert.equal(recentlyLeft[0].id, 'gone-recent');
+    assert.ok(recentlyLeft[0].leftAt);
+    assert.equal(recentlyLeft[0].zone, 'ELEVATOR');
+  });
+});
+
+describe('Office interactions: hard-task celebration & coffee delivery', () => {
+  const makeEmp = (
+    id: string,
+    status: OfficeEmployee['status'],
+    zone: OfficeEmployee['zone'],
+    activity: OfficeEmployee['activity'],
+    extra: Partial<OfficeEmployee> = {},
+  ): OfficeEmployee => ({
+    id,
+    name: `emp-${id}`,
+    roleTitle: 'Engineer',
+    isCoordinator: false,
+    modelId: 'gemini-hydrogen',
+    modelFamily: 'hydrogen',
+    workspaceMode: 'inherit',
+    status,
+    zone,
+    activity,
+    xp: 100,
+    level: 2,
+    stepCount: 20,
+    inputTokens: 0,
+    cacheReadTokens: 0,
+    outputTokens: 0,
+    lastActiveAt: new Date(1_000_000).toISOString(),
+    ...extra,
+  });
+
+  const verifiedHealth = {
+    normalizedState: 'completed',
+    hpScore: 100,
+    successRatePct: 100,
+    totalSteps: 20,
+    errorCount: 0,
+    retryCount: 0,
+    consecutiveErrors: 0,
+    elapsedSec: 120,
+    isVerifiedOutput: true,
+    verifiedLabel: 'PASS',
+  } as OfficeEmployee['health'];
+
+  it('celebrates only a NEW hard-task verification (cold-start guarded), never changing zone/activity', () => {
+    resetOfficeInteractionsState();
+    const floorId = 'celebrate-floor';
+    const t0 = 5_000_000;
+
+    const hero = makeEmp('h', 'working', 'DESK_CODING', 'coding');
+    const worker = makeEmp('w', 'working', 'DESK_QA', 'terminal');
+    const idler = makeEmp('i', 'idle', 'COFFEE_LOUNGE', 'lounging');
+    const emps = [hero, worker, idler];
+
+    // First scan = baseline, no celebration
+    assert.equal(applyOfficeInteractions({ id: floorId, employees: emps }, t0), null);
+
+    // Hero becomes verified after baseline -> celebration
+    hero.health = verifiedHealth;
+    const cel = applyOfficeInteractions({ id: floorId, employees: emps }, t0 + 2000);
+    assert.ok(cel);
+    assert.equal(cel.heroAgentId, 'h');
+    assert.equal(idler.socialReaction, 'cheering');
+    assert.ok(CELEBRATION_CHEER_BUBBLES.includes(idler.speechBubble as never));
+    assert.ok(CELEBRATION_HERO_BUBBLES.includes(hero.speechBubble as never));
+    // real-work integrity
+    assert.equal(hero.zone, 'DESK_CODING');
+    assert.equal(hero.activity, 'coding');
+    assert.equal(worker.zone, 'DESK_QA');
+    assert.equal(worker.activity, 'terminal');
+    assert.equal(worker.status, 'working');
+
+    // Expires after duration
+    assert.equal(
+      applyOfficeInteractions({ id: floorId, employees: emps }, t0 + 2000 + CELEBRATION_DURATION_MS + 1),
+      null,
+    );
+  });
+
+  it('sends a coffee visit from a lounge agent to a desk worker after cooldown, one at a time, without touching the worker', () => {
+    resetOfficeInteractionsState();
+    const floorId = 'coffee-floor';
+    const t0 = 9_000_000;
+    const visitor = makeEmp('v', 'idle', 'COFFEE_LOUNGE', 'lounging');
+    const worker = makeEmp('w', 'working', 'DESK_CODING', 'coding');
+    const emps = [visitor, worker];
+
+    // Baseline scan + still in cooldown -> nothing
+    applyOfficeInteractions({ id: floorId, employees: emps }, t0);
+    applyOfficeInteractions({ id: floorId, employees: emps }, t0 + 5000);
+    assert.equal(visitor.visitTargetId, undefined);
+
+    // After cooldown the visit starts
+    const tVisit = t0 + COFFEE_VISIT_COOLDOWN_MS + 1000;
+    applyOfficeInteractions({ id: floorId, employees: emps }, tVisit);
+    assert.equal(visitor.visitTargetId, 'w');
+    assert.equal(visitor.socialReaction, 'coffee_gift');
+    assert.equal(visitor.zone, 'COFFEE_LOUNGE');
+    assert.ok(COFFEE_GIFT_BUBBLES.includes(visitor.speechBubble as never));
+
+    // Worker thanks later in the visit; zone/activity/status untouched
+    applyOfficeInteractions({ id: floorId, employees: emps }, tVisit + COFFEE_VISIT_DURATION_MS * 0.6);
+    assert.equal(worker.socialReaction, 'coffee_thanks');
+    assert.equal(worker.zone, 'DESK_CODING');
+    assert.equal(worker.activity, 'coding');
+    assert.equal(worker.status, 'working');
+
+    // No visit without a working target or without a lounge agent
+    resetOfficeInteractionsState();
+    const lonely = makeEmp('l', 'idle', 'COFFEE_LOUNGE', 'lounging');
+    applyOfficeInteractions({ id: 'x', employees: [lonely] }, t0);
+    applyOfficeInteractions({ id: 'x', employees: [lonely] }, t0 + COFFEE_VISIT_COOLDOWN_MS + 1000);
+    assert.equal(lonely.visitTargetId, undefined);
   });
 });

@@ -21,6 +21,7 @@ import type {
   ToolActivityStatus,
 } from '../shared/types.js';
 import { getActiveFloorEvent, getFloorLayoutSeed } from './officeEvents.js';
+import { applyOfficeInteractions } from './officeInteractions.js';
 import {
   buildSwarmMentionEdges,
   classifySwarmRole,
@@ -42,18 +43,23 @@ import { getDemoFloor } from './demoSimulator.js';
 
 export const GO_HOME_START_MS = GO_HOME_MINUTES * 60_000;
 export const GO_HOME_GONE_MS = (GO_HOME_MINUTES + 1.5) * 60_000;
+export const WHITEBOARD_RETENTION_MS = 45 * 60_000;
+export const MAX_RECENTLY_LEFT = 12;
 
 /**
  * Filter non-working employees by inactivity age:
  * - working: always stays
  * - 8m..9.5m inactive (non-working): walks to ELEVATOR with activity 'going_home'
- * - >= 9.5m inactive (non-working): removed from office & counted in offDutyCount
+ * - >= 9.5m inactive (non-working): removed from office & counted in offDutyCount;
+ *   those gone for < 45m are also returned in `recentlyLeft` (with `leftAt`) so the
+ *   Swarm Whiteboard keeps showing them (never drawn on the 2.5D canvas).
  */
 export function applyGoHomeLifecycle(
   employees: OfficeEmployee[],
   nowMs = Date.now(),
-): { employees: OfficeEmployee[]; offDutyCount: number } {
+): { employees: OfficeEmployee[]; offDutyCount: number; recentlyLeft: OfficeEmployee[] } {
   const present: OfficeEmployee[] = [];
+  const recentlyLeft: OfficeEmployee[] = [];
   let offDutyCount = 0;
 
   for (const emp of employees) {
@@ -67,6 +73,18 @@ export function applyGoHomeLifecycle(
 
     if (ageMs >= GO_HOME_GONE_MS) {
       offDutyCount += 1;
+      if (lastActiveMs > 0 && ageMs < WHITEBOARD_RETENTION_MS) {
+        recentlyLeft.push({
+          ...emp,
+          status: 'idle',
+          zone: 'ELEVATOR',
+          activity: 'going_home',
+          leftAt: new Date(lastActiveMs + GO_HOME_GONE_MS).toISOString(),
+          speechBubble: undefined,
+          visitTargetId: undefined,
+          socialReaction: undefined,
+        });
+      }
       continue;
     }
 
@@ -84,7 +102,7 @@ export function applyGoHomeLifecycle(
     present.push(emp);
   }
 
-  return { employees: present, offDutyCount };
+  return { employees: present, offDutyCount, recentlyLeft };
 }
 
 export function classifyToolActivity(params: {
@@ -1381,10 +1399,11 @@ export function buildPlazaSnapshot(
     const nonKilledOrWorking = candidatePairs.filter(
       (c) => !c.killed || c.employee.status === 'working',
     );
-    const { employees: lifecycleEmployees, offDutyCount } = applyGoHomeLifecycle(
-      nonKilledOrWorking.map((c) => c.employee),
-      nowMs,
-    );
+    const {
+      employees: lifecycleEmployees,
+      offDutyCount,
+      recentlyLeft: rawRecentlyLeft,
+    } = applyGoHomeLifecycle(nonKilledOrWorking.map((c) => c.employee), nowMs);
 
     const modifiedById = new Map(
       nonKilledOrWorking.map((c) => [c.row.conversation_id, c.modifiedMs]),
@@ -1399,6 +1418,12 @@ export function buildPlazaSnapshot(
         return (modifiedById.get(b.id) || 0) - (modifiedById.get(a.id) || 0);
       })
       .slice(0, 14);
+
+    const recentlyLeftEmployees = rawRecentlyLeft
+      .sort((a, b) => (modifiedById.get(b.id) || 0) - (modifiedById.get(a.id) || 0))
+      .slice(0, MAX_RECENTLY_LEFT);
+    // Whiteboard roster = on-floor agents + agents who recently went home.
+    const boardRoster = [...employees, ...recentlyLeftEmployees];
 
     const totalProjectSteps = group.rows.reduce(
       (sum, r) => sum + Math.max(0, Number(r.step_count || 0)),
@@ -1435,8 +1460,8 @@ export function buildPlazaSnapshot(
       }
     };
 
-    const sceneEmployeeById = new Map(employees.map((e) => [e.id, e]));
-    for (const emp of employees) {
+    const sceneEmployeeById = new Map(boardRoster.map((e) => [e.id, e]));
+    for (const emp of boardRoster) {
       addSceneAlias(emp.name);
       const subMeta = scan.subagentMetaByConvId.get(emp.id);
       if (subMeta?.role) addSceneAlias(subMeta.role);
@@ -1483,9 +1508,9 @@ export function buildPlazaSnapshot(
       })
       .filter((edge): edge is SwarmMentionEdge => edge !== null);
 
-    const taskNodes = buildFloorTaskNodes(employees, filteredBoard, swarmEdges);
+    const taskNodes = buildFloorTaskNodes(boardRoster, filteredBoard, swarmEdges);
     const analytics = computeFloorAnalytics({
-      employees,
+      employees: boardRoster,
       stepEventsByAgent,
       nowMs,
     });
@@ -1505,6 +1530,7 @@ export function buildPlazaSnapshot(
       totalConversations: group.rows.length,
       unlockedProps,
       employees,
+      recentlyLeftEmployees,
       boardMessages: filteredBoard,
       swarmEdges,
       swarmTitle,
@@ -1538,6 +1564,7 @@ export function buildPlazaSnapshot(
     floor.activeEvent = getActiveFloorEvent(floor.id, nowMs);
     applyWarRoomPresentation(floor.employees, floor.boardMessages, nowMs);
     applyLoungeActivities(floor.employees, floor.floorNumber, nowMs, floor.activeEvent);
+    floor.activeCelebration = applyOfficeInteractions(floor, nowMs);
   }
 
   if (demoMode) {

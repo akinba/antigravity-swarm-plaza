@@ -548,6 +548,7 @@ export const App: React.FC = () => {
           swarmEdges={activeFloor.swarmEdges}
           taskNodes={activeFloor.taskNodes}
           employees={activeFloor.employees}
+          recentlyLeftEmployees={activeFloor.recentlyLeftEmployees}
           agentResources={activeFloor.analytics?.agentResources}
           activeEventKind={activeFloor.activeEvent?.kind ?? null}
           initialTab={whiteboardInitialTab}

@@ -2153,7 +2153,7 @@ export function drawEmployeeSprite(
         Math.ceil(6 * z),
         Math.ceil(5 * z),
       );
-    } else if (emp.activity === 'coffee') {
+    } else if (emp.activity === 'coffee' || emp.socialReaction === 'coffee_gift') {
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(Math.round(uX + handSpanX * z), Math.round(uY - 14 * z), Math.ceil(4 * z), Math.ceil(5 * z));
       const steam = (timeSec * 10) % 6;

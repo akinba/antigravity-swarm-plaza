@@ -562,7 +562,43 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
     floor.employees.forEach((emp) => {
       let slot = layout.zoneSlots.DESK_CODING[0];
 
-      if (emp.activity === 'going_home' || emp.zone === 'ELEVATOR') {
+      let visitSlot: typeof slot | null = null;
+      if (emp.visitTargetId && emp.socialReaction === 'coffee_gift') {
+        const targetActor = actors.get(emp.visitTargetId);
+        if (targetActor) {
+          const tgx = Math.round(targetActor.targetSlotGx);
+          const tgy = Math.round(targetActor.targetSlotGy);
+          const candidates: Array<[number, number]> = [
+            [tgx + 1, tgy],
+            [tgx, tgy + 1],
+            [tgx - 1, tgy],
+            [tgx, tgy - 1],
+            [tgx + 1, tgy + 1],
+            [tgx - 1, tgy - 1],
+          ];
+          for (const [cgx, cgy] of candidates) {
+            if (
+              cgy >= 0 &&
+              cgy < GRID_H &&
+              cgx >= 0 &&
+              cgx < GRID_W &&
+              walkableGrid[cgy][cgx]
+            ) {
+              visitSlot = {
+                ...slot,
+                gx: cgx,
+                gy: cgy,
+                facing: facingFromDelta(tgx - cgx, tgy - cgy, 'SE'),
+              };
+              break;
+            }
+          }
+        }
+      }
+
+      if (visitSlot) {
+        slot = visitSlot;
+      } else if (emp.activity === 'going_home' || emp.zone === 'ELEVATOR') {
         slot = ELEVATOR_SLOT;
       } else if (emp.activity === 'gaming') {
         const nSlots = Math.max(1, layout.gamingSlots.length);
@@ -779,7 +815,9 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
           eventKind === 'STAR_WARS_PARTY' ||
           eventKind === 'SUPERHERO_PARTY' ||
           eventKind === 'HALLOWEEN_PARTY' ||
-          eventKind === 'MASCOT_ZOOMIES';
+          eventKind === 'MASCOT_ZOOMIES' ||
+          Boolean(currentFloor.activeCelebration) ||
+          currentFloor.employees.some((e) => Boolean(e.socialReaction));
 
         if (anyAgentWalking || hasActiveEffects) {
           minIntervalMs = 41; // 24 FPS active motion / particle mode
@@ -1555,9 +1593,24 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
 
         const renderGx = deskSeatAlign ? deskSeatAlign.seatGx : actor.gx;
         const renderGy = deskSeatAlign ? deskSeatAlign.seatGy : actor.gy;
-        const renderFacing: Facing = deskSeatAlign
-          ? deskSeatAlign.deskFacing
-          : (alignedChairFacing ?? actor.facing);
+        const celebrationHeroActor = currentFloor.activeCelebration
+          ? actors.get(currentFloor.activeCelebration.heroAgentId)
+          : undefined;
+        const turnToHero =
+          Boolean(celebrationHeroActor) &&
+          !deskSeatAlign &&
+          !actor.isWalking &&
+          emp.id !== currentFloor.activeCelebration?.heroAgentId &&
+          emp.status !== 'working';
+        const renderFacing: Facing = turnToHero && celebrationHeroActor
+          ? facingFromDelta(
+              celebrationHeroActor.gx - actor.gx,
+              celebrationHeroActor.gy - actor.gy,
+              actor.facing,
+            )
+          : deskSeatAlign
+            ? deskSeatAlign.deskFacing
+            : (alignedChairFacing ?? actor.facing);
         const empDepth = deskSeatAlign ? deskSeatAlign.empDepth : actor.gx + actor.gy + 0.14;
         const p = gridToScreen(renderGx, renderGy, cam);
         const beanbagFlip = renderFacing === 'NW' || renderFacing === 'SW' ? -1 : 1;
@@ -1646,6 +1699,36 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
               showSpeechBubble,
               currentFloor.activeEvent?.kind ?? null,
             );
+            {
+              const reaction = emp.socialReaction;
+              const isHero = currentFloor.activeCelebration?.heroAgentId === emp.id;
+              if (reaction === 'cheering' || reaction === 'coffee_thanks' || isHero) {
+                const z = cam.zoom;
+                const phase = timeSec * 5 + hashString(emp.id) * 0.37;
+                const bounce = Math.abs(Math.sin(phase)) * 4 * z;
+                ctx.save();
+                if (alpha < 1) ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.font = `${Math.max(9, Math.round(13 * z))}px sans-serif`;
+                const icon = reaction === 'coffee_thanks' ? '❤️' : isHero ? '🏆' : '👏';
+                ctx.fillText(icon, empScreenX + 13 * z, empScreenY - 50 * z - bounce);
+                if (isHero) {
+                  for (let i = 0; i < 6; i++) {
+                    const a = phase * 0.8 + (i * Math.PI * 2) / 6;
+                    const rad = (16 + (i % 2) * 6) * z;
+                    ctx.fillStyle = ['#ffd147', '#ff5666', '#3cd8ff', '#3be87a', '#b07cff', '#ffbe3b'][i];
+                    ctx.fillRect(
+                      Math.round(empScreenX + Math.cos(a) * rad),
+                      Math.round(empScreenY - 26 * z + Math.sin(a) * rad * 0.7 - bounce),
+                      Math.max(2, Math.ceil(2.5 * z)),
+                      Math.max(2, Math.ceil(2.5 * z)),
+                    );
+                  }
+                }
+                ctx.restore();
+              }
+            }
             if (emp.health) {
               const z = cam.zoom;
               const bob = actor.isWalking

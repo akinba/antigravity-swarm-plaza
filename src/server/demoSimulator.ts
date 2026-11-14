@@ -18,6 +18,7 @@ import {
   computeModelBreakdown,
 } from './gamification.js';
 import { getActiveFloorEvent, getFloorLayoutSeed } from './officeEvents.js';
+import { applyOfficeInteractions } from './officeInteractions.js';
 
 interface DemoEmployeeTemplate {
   id: string;
@@ -668,6 +669,38 @@ export function getDemoFloor(
     };
   }
 
+  const demoCelebration = applyOfficeInteractions(
+    { id: 'demo-penthouse', employees },
+    nowMs,
+    { demo: true },
+  );
+
+  const demoLeftMs = nowMs - 14 * 60_000;
+  const recentlyLeftEmployees: OfficeEmployee[] = [
+    {
+      id: 'demo-night-owl',
+      name: 'night-owl',
+      roleTitle: 'Release Engineer',
+      gender: 'male',
+      isCoordinator: false,
+      modelId: 'gemini-hydrogen',
+      modelFamily: 'hydrogen',
+      workspaceMode: 'inherit',
+      status: 'idle',
+      swarmRole: 'worker',
+      zone: 'ELEVATOR',
+      activity: 'going_home',
+      xp: 4200,
+      level: 10,
+      stepCount: 280,
+      inputTokens: 41000,
+      cacheReadTokens: 30000,
+      outputTokens: 6200,
+      lastActiveAt: new Date(demoLeftMs - 90_000).toISOString(),
+      leftAt: new Date(demoLeftMs).toISOString(),
+    },
+  ];
+
   const taskNodes = buildFloorTaskNodes(employees, boardMessages, swarmEdges);
   const { agentResources, totalEstimatedTokens, totalEstimatedCostUsd } =
     computeAgentResources(employees);
@@ -727,6 +760,8 @@ export function getDemoFloor(
     totalConversations: employees.length,
     unlockedProps: ['plants', 'dual_monitors', 'trophy', 'espresso', 'arcade', 'hologram'],
     employees,
+    recentlyLeftEmployees,
+    activeCelebration: demoCelebration,
     boardMessages,
     swarmEdges,
     swarmTitle: 'Antigravity Plaza Demo Swarm',

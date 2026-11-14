@@ -39,6 +39,17 @@ export interface FloorRandomEvent {
   expiresAt: number;
 }
 
+export type SocialReactionKind = 'cheering' | 'coffee_gift' | 'coffee_thanks';
+
+export interface FloorCelebration {
+  id: string;
+  heroAgentId: string;
+  heroName: string;
+  verifiedLabel?: string;
+  startedAt: number;
+  expiresAt: number;
+}
+
 export interface AgentLogEntry {
   stepIndex: number;
   timestamp: string;
@@ -166,6 +177,9 @@ export interface OfficeEmployee {
   outputTokens: number;
   lastActiveAt: string;
   health?: AgentHealthMetrics;
+  leftAt?: string;
+  visitTargetId?: string;
+  socialReaction?: SocialReactionKind;
 }
 
 export interface PlazaFloor {
@@ -190,6 +204,8 @@ export interface PlazaFloor {
   taskNodes?: SwarmTaskNode[];
   layoutSeed?: number;
   activeEvent?: FloorRandomEvent | null;
+  recentlyLeftEmployees?: OfficeEmployee[];
+  activeCelebration?: FloorCelebration | null;
   analytics?: FloorAnalytics;
   lastModifiedAt: string;
 }

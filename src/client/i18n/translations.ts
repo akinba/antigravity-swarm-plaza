@@ -154,6 +154,8 @@ export interface Translations {
     noLinksYet: string;
     workflowGanttTab: string;
     clearFilter: string;
+    offDutyBadge: string;
+    offDutyJustNow: string;
     minimizeTopology: string;
     expandTopology: string;
   };
@@ -439,6 +441,8 @@ const TR: Translations = {
     noLinksYet: 'Henüz devir bağlantısı yok.',
     workflowGanttTab: '🧭 İŞ AKIŞI & GANTT',
     clearFilter: 'TÜMÜNÜ GÖSTER',
+    offDutyBadge: '🏠 Mesai Bitti · {n} dk önce',
+    offDutyJustNow: '🏠 Mesai Bitti · az önce',
     minimizeTopology: '▴ KÜÇÜLT',
     expandTopology: '▾ GENİŞLET',
   },
@@ -725,6 +729,8 @@ const EN: Translations = {
     noLinksYet: 'No handoff links yet.',
     workflowGanttTab: '🧭 WORKFLOW & GANTT',
     clearFilter: 'SHOW ALL',
+    offDutyBadge: '🏠 Off-Duty · {n}m ago',
+    offDutyJustNow: '🏠 Off-Duty · just now',
     minimizeTopology: '▴ MINIMIZE',
     expandTopology: '▾ EXPAND',
   },
@@ -815,6 +821,18 @@ export const SERVER_TR_TO_EN: Record<string, string> = {
   'Zzz (0 token)': 'Zzz (0 tokens)',
   'Hata tespit edildi': 'Error detected',
   '📊 Mimari & ilerleme sunumu': '📊 Architecture & progress demo',
+
+  // officeInteractions.ts: celebrations & coffee motivation
+  '👏 Helal olsun!': '👏 Well done!',
+  '🎉 Bravo, zor işti!': '🎉 Bravo, that was a tough one!',
+  '🚀 Harika iş çıkardın!': '🚀 Awesome work!',
+  '🙌 Teşekkürler ekip!': '🙌 Thanks team!',
+  '☕ Kahve getirdim, kolay gelsin!': '☕ Brought you coffee, good luck!',
+  '💪 Yaparsın, çok iyi gidiyor!': "💪 You've got this, going great!",
+  '🔥 Az kaldı, harikasın!': "🔥 Almost there, you're amazing!",
+  '⚡ Taze espresso takviyesi!': '⚡ Fresh espresso boost!',
+  '❤️ Çok teşekkürler, ilaç gibi geldi!': '❤️ Thanks so much, just what I needed!',
+  '☕ Süpersin, sağ ol!': '☕ You rock, thanks!',
 
   // gamification.ts: gaming chats
   '🎮 Pas at, boşum!': "🎮 Pass it, I'm open!",
