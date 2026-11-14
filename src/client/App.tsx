@@ -24,6 +24,7 @@ import { AgentRpgModal } from './components/AgentRpgModal';
 import { AlertHistoryModal, type AlertHistoryEntry } from './components/AlertHistoryModal';
 import { AnalyticsModal } from './components/AnalyticsModal';
 import { ElevatorPanel } from './components/ElevatorPanel';
+import { IconLegendModal } from './components/IconLegendModal';
 import { SettingsModal } from './components/SettingsModal';
 import { TopHud } from './components/TopHud';
 import { WhiteboardModal } from './components/WhiteboardModal';
@@ -92,6 +93,22 @@ export const App: React.FC = () => {
   const [selectedEmployee, setSelectedEmployee] = useState<OfficeEmployee | null>(null);
   const [whiteboardOpen, setWhiteboardOpen] = useState<boolean>(false);
   const [alertsOpen, setAlertsOpen] = useState<boolean>(false);
+  const [legendOpen, setLegendOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== '?' && !(e.shiftKey && e.key === '/')) return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable) {
+        return;
+      }
+      e.preventDefault();
+      setLegendOpen((prev) => !prev);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   const [isCompactPane, setIsCompactPane] = useState<boolean>(() =>
     typeof window !== 'undefined' ? window.innerWidth < 760 : false,
@@ -550,7 +567,7 @@ function loadStickyAlerts(): StickyAlertItem[] {
   const topBannerAlert = bannerAlerts[0] ?? null;
 
   const isModalOpen = Boolean(
-    whiteboardOpen || analyticsOpen || settingsOpen || alertsOpen || selectedEmployee,
+    whiteboardOpen || analyticsOpen || settingsOpen || alertsOpen || legendOpen || selectedEmployee,
   );
 
   return (
@@ -574,6 +591,7 @@ function loadStickyAlerts(): StickyAlertItem[] {
         alertCount={unreadAlertCount}
         historyAlertCount={stickyAlerts.length}
         onOpenAlerts={() => setAlertsOpen(true)}
+        onOpenLegend={() => setLegendOpen(true)}
       />
 
       {topBannerAlert && (
@@ -702,6 +720,7 @@ function loadStickyAlerts(): StickyAlertItem[] {
               followCam={followCam}
               onFollowCamChange={setFollowCam}
               onRegisterExportPng={handleRegisterExportPng}
+              onOpenLegend={() => setLegendOpen(true)}
             />
           ) : (
             <div
@@ -831,6 +850,8 @@ function loadStickyAlerts(): StickyAlertItem[] {
           onClose={() => setAlertsOpen(false)}
         />
       )}
+
+      {legendOpen && <IconLegendModal onClose={() => setLegendOpen(false)} />}
     </div>
   );
 };

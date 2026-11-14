@@ -345,5 +345,19 @@ describe('i18n browser locale & server snapshot localization', () => {
     assert.equal(DICTIONARIES.en.rpgModal.goToLogs, '📜 GO TO LOGS');
     assert.equal(DICTIONARIES.tr.alertModal.inspectAgent, 'AJANI İNCELE');
     assert.equal(DICTIONARIES.en.alertModal.inspectAgent, 'INSPECT AGENT');
+
+    // Icon Legend HUD & Modal translations
+    assert.equal(DICTIONARIES.tr.hud.legend, '❓ İkonlar');
+    assert.equal(DICTIONARIES.en.hud.legend, '❓ Legend');
+    assert.ok(DICTIONARIES.tr.legendModal.title.length > 0);
+    assert.ok(DICTIONARIES.en.legendModal.title.length > 0);
+    for (const key of Object.keys(DICTIONARIES.en.legendModal.items) as Array<
+      keyof typeof DICTIONARIES.en.legendModal.items
+    >) {
+      assert.ok(DICTIONARIES.tr.legendModal.items[key].title.length > 0, `tr.legend.${key}.title`);
+      assert.ok(DICTIONARIES.en.legendModal.items[key].title.length > 0, `en.legend.${key}.title`);
+      assert.ok(DICTIONARIES.tr.legendModal.items[key].desc.length > 0, `tr.legend.${key}.desc`);
+      assert.ok(DICTIONARIES.en.legendModal.items[key].desc.length > 0, `en.legend.${key}.desc`);
+    }
   });
 });

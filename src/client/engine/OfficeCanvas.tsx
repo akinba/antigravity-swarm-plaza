@@ -60,6 +60,7 @@ interface OfficeCanvasProps {
   isOverlayOpen?: boolean;
   graphicsSettings?: GraphicsSettings;
   onFpsSample?: (fps: number) => void;
+  onOpenLegend?: () => void;
 }
 
 function resolveRenderDpr(mode: ResolutionScaleMode): number {
@@ -296,6 +297,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
   isOverlayOpen = false,
   graphicsSettings = DEFAULT_GRAPHICS_SETTINGS,
   onFpsSample,
+  onOpenLegend,
 }) => {
   const { locale, t } = useI18n();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -2110,6 +2112,18 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
           gap: 8,
         }}
       >
+        {onOpenLegend && (
+          <button
+            className="pixel-btn"
+            onClick={() => {
+              playSelectBlip();
+              onOpenLegend();
+            }}
+            type="button"
+          >
+            {t.hud.legend}
+          </button>
+        )}
         <div
           className="pixel-badge"
           style={{ color: 'var(--text-dim)', background: 'rgba(16, 19, 30, 0.88)' }}

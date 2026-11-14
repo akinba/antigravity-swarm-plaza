@@ -48,6 +48,8 @@ export interface Translations {
     settings: string;
     errorAlertsBadge: string;
     historyAlertsBadge: string;
+    legend: string;
+    legendShort: string;
   };
   blueprints: string[];
   events: Record<FloorEventKind, string>;
@@ -224,6 +226,44 @@ export interface Translations {
     deleteRow: string;
     lastErrorTitle: string;
   };
+  legendModal: {
+    title: string;
+    close: string;
+    subtitle: string;
+    catAll: string;
+    catTools: string;
+    catStatus: string;
+    catSocial: string;
+    catHealth: string;
+    items: Record<
+      | 'reading'
+      | 'writing'
+      | 'testing'
+      | 'searching'
+      | 'toolError'
+      | 'dotWorking'
+      | 'dotWaiting'
+      | 'dotError'
+      | 'dotIdle'
+      | 'bossBadge'
+      | 'sleepZzz'
+      | 'serverCli'
+      | 'gamingStar'
+      | 'loungeMusic'
+      | 'errorSquare'
+      | 'coffeeGift'
+      | 'coffeeThanks'
+      | 'heroTrophy'
+      | 'cheering'
+      | 'mentionEnvelope'
+      | 'teleportRing'
+      | 'hpBar'
+      | 'verifiedPin'
+      | 'errorLoopPin'
+      | 'speechBubble',
+      { title: string; desc: string }
+    >;
+  };
   notifications: {
     agentAlertTitle: string;
     agentStallOrError: string;
@@ -350,6 +390,8 @@ const TR: Translations = {
     settings: '⚙️ AYARLAR',
     errorAlertsBadge: 'Hata / Uyarılar',
     historyAlertsBadge: 'Geçmiş Uyarılar',
+    legend: '❓ İkonlar',
+    legendShort: '❓ Rehber',
   },
   blueprints: [
     'Klasik Köşe Stüdyo',
@@ -542,6 +584,43 @@ const TR: Translations = {
     deleteRow: 'Sil',
     lastErrorTitle: 'Son Hata Kaydı',
   },
+  legendModal: {
+    title: '❓ AJAN İKON REHBERİ',
+    close: 'KAPAT',
+    subtitle: 'Ajanların üzerinde görünen araç, durum, sosyal etkileşim ve sağlık göstergeleri (? tuşu ile aç/kapat)',
+    catAll: 'Tümü',
+    catTools: '🛠️ Araçlar',
+    catStatus: '💤 Durum & Aktivite',
+    catSocial: '🎉 Sosyal & İletişim',
+    catHealth: '💚 Sağlık & Kanıt',
+    items: {
+      reading: { title: 'Okuma (Reading)', desc: 'Dosya, log veya dokümantasyon okuyor (#3cd8ff)' },
+      writing: { title: 'Yazma (Writing)', desc: 'Kod dosyası oluşturuyor veya düzenliyor (#3be87a)' },
+      testing: { title: 'Test & Komut (Testing)', desc: 'Terminal komutu, build veya test çalıştırıyor (#ffd147)' },
+      searching: { title: 'Arama (Searching)', desc: 'Kod tabanında veya webde arama yapıyor (#b07cff)' },
+      toolError: { title: 'Araç Hatası (Tool Error)', desc: 'Son çalıştırılan araç veya komut hata döndürdü (#ff5666)' },
+      dotWorking: { title: 'Çalışıyor (Working)', desc: 'İsimlik solunda yeşil nokta — aktif üretimde' },
+      dotWaiting: { title: 'Bekliyor (Waiting)', desc: 'İsimlik solunda sarı nokta — mesaj veya sıra bekliyor' },
+      dotError: { title: 'Hata Durumu (Error)', desc: 'İsimlik solunda kırmızı nokta — inceleme gerekiyor' },
+      dotIdle: { title: 'Boşta (Idle)', desc: 'İsimlik solunda gri nokta — dinlenme/mola modunda' },
+      bossBadge: { title: '★ BOSS Rozeti', desc: 'Swarm koordinatörü / lider ajan işareti (#ffd147)' },
+      sleepZzz: { title: '0-Token Uyku / Nöbet', desc: 'Mavi Zzz — token harcamadan bekleme/uyku durumu' },
+      serverCli: { title: 'Sunucu Terminali (>_)', desc: 'Server Rack bölgesinde canlı CLI/derleme işlemi' },
+      gamingStar: { title: 'PlayStation Molası (★)', desc: 'Oyun koltuğunda konsol molası — ekip dinlenmesi' },
+      loungeMusic: { title: 'Müzik & Dinlenme (♪)', desc: 'Kahve/dinlenme alanında rahatlama modu' },
+      errorSquare: { title: 'Kritik Hata Karesi (!)', desc: 'Kırmızı kare içinde ! — ajan aktif hata döngüsünde' },
+      coffeeGift: { title: 'Kahve İkramı (☕)', desc: 'Moladaki ajan çalışan arkadaşına taze kahve ve motivasyon getiriyor' },
+      coffeeThanks: { title: 'Kahve Teşekkürü (❤️)', desc: 'Çalışan ajan kahve ikramına kalp/teşekkür ile karşılık veriyor' },
+      heroTrophy: { title: 'Görev Kahramanı (🏆)', desc: 'Zor/uzun bir görevi doğrulayan ajanın üzerinde kupa ve konfeti' },
+      cheering: { title: 'Ekip Kutlaması (👏)', desc: 'Diğer ajanlar görevi başaran kahramana dönüp alkışlıyor' },
+      mentionEnvelope: { title: '@mention Zarfı (✉️)', desc: 'Ajanlar arası canlı Swarm Board mesajı / devir sinyali' },
+      teleportRing: { title: 'War Room Işınlanması (⚡)', desc: 'Toplantı odasına hızlı geçiş halkası' },
+      hpBar: { title: 'Sağlık Barı (HP)', desc: '≥70 Yeşil (sağlıklı), 40-69 Sarı (uyarı), <40 Kırmızı (kritik)' },
+      verifiedPin: { title: 'Doğrulanmış Çıktı (✓ / 🏆)', desc: 'Altın/yeşil onay pini ve masa kupası — test/build PASS kanıtı' },
+      errorLoopPin: { title: 'Hata Döngüsü Pini', desc: 'HP barı solunda yanıp sönen kırmızı/sarı pin — ardışık ≥2 hata' },
+      speechBubble: { title: 'Canlı Konuşma Balonu', desc: 'Krem balon — anlık ajan düşüncesi, hedef dosya veya kutlama sözü' },
+    },
+  },
   notifications: {
     agentAlertTitle: 'Swarm Plaza Ajan Uyarısı',
     agentStallOrError: 'hata verdi veya beklemede takıldı.',
@@ -668,6 +747,8 @@ const EN: Translations = {
     settings: '⚙️ SETTINGS',
     errorAlertsBadge: 'Errors / Alerts',
     historyAlertsBadge: 'Alert History',
+    legend: '❓ Legend',
+    legendShort: '❓ Legend',
   },
   blueprints: [
     'Classic Corner Studio',
@@ -859,6 +940,43 @@ const EN: Translations = {
     markAllRead: '✓ Mark All Read',
     deleteRow: 'Delete',
     lastErrorTitle: 'Last Error Record',
+  },
+  legendModal: {
+    title: '❓ AGENT ICON LEGEND',
+    close: 'CLOSE',
+    subtitle: 'All tool, status, social interaction, and health indicators shown above agents (press ? to toggle)',
+    catAll: 'All',
+    catTools: '🛠️ Tools',
+    catStatus: '💤 Status & Activity',
+    catSocial: '🎉 Social & Comms',
+    catHealth: '💚 Health & Proof',
+    items: {
+      reading: { title: 'Reading', desc: 'Reading files, logs, or documentation (#3cd8ff)' },
+      writing: { title: 'Writing', desc: 'Creating or editing source files (#3be87a)' },
+      testing: { title: 'Testing / Command', desc: 'Running terminal commands, builds, or tests (#ffd147)' },
+      searching: { title: 'Searching', desc: 'Searching codebase or web (#b07cff)' },
+      toolError: { title: 'Tool Error', desc: 'Last executed tool or command failed (#ff5666)' },
+      dotWorking: { title: 'Working', desc: 'Green dot on nameplate — actively producing' },
+      dotWaiting: { title: 'Waiting', desc: 'Amber dot on nameplate — waiting on board or peer' },
+      dotError: { title: 'Error State', desc: 'Red dot on nameplate — needs inspection' },
+      dotIdle: { title: 'Idle', desc: 'Gray dot on nameplate — resting / off-task' },
+      bossBadge: { title: '★ BOSS Badge', desc: 'Swarm coordinator / lead orchestrator (#ffd147)' },
+      sleepZzz: { title: '0-Token Sleep / Standby', desc: 'Ice-blue Zzz — parked or waiting with zero token burn' },
+      serverCli: { title: 'Server CLI (>_)', desc: 'Live terminal/build activity in the Server Rack zone' },
+      gamingStar: { title: 'PlayStation Break (★)', desc: 'Console break in the lounge beanbags' },
+      loungeMusic: { title: 'Lounge Music (♪)', desc: 'Relaxing / break mode in the Coffee Lounge' },
+      errorSquare: { title: 'Critical Error Square (!)', desc: 'Red square with ! — agent in active error state' },
+      coffeeGift: { title: 'Coffee Delivery (☕)', desc: 'Break agent brings fresh coffee and motivation to a working peer' },
+      coffeeThanks: { title: 'Coffee Thanks (❤️)', desc: 'Working agent responds with a warm heart reaction' },
+      heroTrophy: { title: 'Task Hero (🏆)', desc: 'Trophy + confetti above an agent who verified a tough task' },
+      cheering: { title: 'Team Kudos (👏)', desc: 'Peers turn toward the hero and cheer' },
+      mentionEnvelope: { title: '@mention Envelope (✉️)', desc: 'Live Swarm Board message / handoff arc between agents' },
+      teleportRing: { title: 'War Room Teleport (⚡)', desc: 'Quick-warp ring into the War Room meeting' },
+      hpBar: { title: 'Health Bar (HP)', desc: '≥70 Green (healthy), 40–69 Amber (degraded), <40 Red (critical)' },
+      verifiedPin: { title: 'Verified Output (✓ / 🏆)', desc: 'Gold-green pip & desk trophy — PASS / EXIT 0 proof' },
+      errorLoopPin: { title: 'Error Loop Pip', desc: 'Blinking red/amber pip left of HP bar — ≥2 consecutive errors' },
+      speechBubble: { title: 'Live Speech Bubble', desc: 'Cream bubble — current thought, target file, or celebration' },
+    },
   },
   notifications: {
     agentAlertTitle: 'Swarm Plaza Agent Alert',

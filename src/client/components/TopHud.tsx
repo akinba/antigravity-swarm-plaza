@@ -23,6 +23,7 @@ interface TopHudProps {
   alertCount?: number;
   historyAlertCount?: number;
   onOpenAlerts?: () => void;
+  onOpenLegend?: () => void;
 }
 
 export const TopHud: React.FC<TopHudProps> = ({
@@ -44,6 +45,7 @@ export const TopHud: React.FC<TopHudProps> = ({
   alertCount = 0,
   historyAlertCount = 0,
   onOpenAlerts,
+  onOpenLegend,
 }) => {
   const { t } = useI18n();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -256,6 +258,20 @@ export const TopHud: React.FC<TopHudProps> = ({
                   {t.hud.triggerEvent}
                 </button>
               </>
+            )}
+            {onOpenLegend && (
+              <button
+                type="button"
+                className="pixel-btn"
+                style={{ padding: '4px 7px', fontSize: 8 }}
+                onClick={() => {
+                  playSelectBlip();
+                  setMoreOpen(false);
+                  onOpenLegend();
+                }}
+              >
+                {t.hud.legendShort}
+              </button>
             )}
             <button
               type="button"
@@ -496,6 +512,20 @@ export const TopHud: React.FC<TopHudProps> = ({
               {t.hud.triggerEvent}
             </button>
           </>
+        )}
+
+        {/* Icon Legend */}
+        {onOpenLegend && (
+          <button
+            type="button"
+            className="pixel-btn"
+            onClick={() => {
+              playSelectBlip();
+              onOpenLegend();
+            }}
+          >
+            {t.hud.legendShort}
+          </button>
         )}
 
         {/* Settings */}
