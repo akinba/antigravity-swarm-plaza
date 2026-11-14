@@ -32,37 +32,50 @@ function formatCompactTokens(val: number): string {
   return String(val);
 }
 
-const EmployeePortraitCanvas: React.FC<{
+const EmployeePortraitCanvas = React.memo<{
   employee: OfficeEmployee;
   activeEventKind?: FloorEventKind | null;
   size?: number;
-}> = ({ employee, activeEventKind, size = 64 }) => {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+}>(
+  ({ employee, activeEventKind, size = 64 }) => {
+    const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    drawEmployeePortrait(ctx, employee, size, activeEventKind ?? null);
-  }, [employee, activeEventKind, size]);
+    useEffect(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      drawEmployeePortrait(ctx, employee, size, activeEventKind ?? null);
+    }, [employee, activeEventKind, size]);
 
-  return (
-    <canvas
-      ref={canvasRef}
-      width={size}
-      height={size}
-      style={{
-        width: size,
-        height: size,
-        imageRendering: 'pixelated',
-        background: '#111625',
-        border: '2px solid #2b3554',
-        flexShrink: 0,
-      }}
-    />
-  );
-};
+    return (
+      <canvas
+        ref={canvasRef}
+        width={size}
+        height={size}
+        style={{
+          width: size,
+          height: size,
+          imageRendering: 'pixelated',
+          background: '#111625',
+          border: '2px solid #2b3554',
+          flexShrink: 0,
+        }}
+      />
+    );
+  },
+  (prev, next) =>
+    prev.size === next.size &&
+    prev.activeEventKind === next.activeEventKind &&
+    prev.employee.id === next.employee.id &&
+    prev.employee.name === next.employee.name &&
+    prev.employee.gender === next.employee.gender &&
+    prev.employee.isCoordinator === next.employee.isCoordinator &&
+    prev.employee.modelFamily === next.employee.modelFamily &&
+    prev.employee.swarmRole === next.employee.swarmRole &&
+    prev.employee.activity === next.employee.activity &&
+    prev.employee.status === next.employee.status,
+);
 
 type WorkPhase = 'coding' | 'analysis' | 'testing' | 'coord' | 'break';
 

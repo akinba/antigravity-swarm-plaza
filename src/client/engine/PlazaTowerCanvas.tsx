@@ -8,6 +8,7 @@ interface PlazaTowerCanvasProps {
   selectedFloorId: string | null;
   isNight: boolean;
   onSelectFloor: (floorId: string) => void;
+  isOverlayOpen?: boolean;
 }
 
 interface FloorHitBox {
@@ -23,6 +24,7 @@ export const PlazaTowerCanvas: React.FC<PlazaTowerCanvasProps> = ({
   selectedFloorId,
   isNight,
   onSelectFloor,
+  isOverlayOpen = false,
 }) => {
   const { t } = useI18n();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -45,6 +47,9 @@ export const PlazaTowerCanvas: React.FC<PlazaTowerCanvasProps> = ({
 
   const isNightRef = useRef(isNight);
   isNightRef.current = isNight;
+
+  const isOverlayOpenRef = useRef(isOverlayOpen);
+  isOverlayOpenRef.current = isOverlayOpen;
 
   const hoveredRef = useRef(hoveredFloorId);
   hoveredRef.current = hoveredFloorId;
@@ -83,8 +88,21 @@ export const PlazaTowerCanvas: React.FC<PlazaTowerCanvasProps> = ({
 
   useEffect(() => {
     let rafId = 0;
+    let lastRenderTime = 0;
 
     const render = (now: number) => {
+      if (typeof document !== 'undefined' && document.hidden) {
+        rafId = requestAnimationFrame(render);
+        return;
+      }
+
+      const minIntervalMs = isOverlayOpenRef.current ? 250 : 50; // 4 FPS overlay / 20 FPS normal
+      if (lastRenderTime > 0 && now - lastRenderTime < minIntervalMs) {
+        rafId = requestAnimationFrame(render);
+        return;
+      }
+      lastRenderTime = now;
+
       const timeSec = now / 1000;
       const canvas = canvasRef.current;
       const container = containerRef.current;

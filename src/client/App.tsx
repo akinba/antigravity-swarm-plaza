@@ -366,6 +366,8 @@ export const App: React.FC = () => {
     }
   };
 
+  const isModalOpen = Boolean(whiteboardOpen || analyticsOpen || selectedEmployee);
+
   return (
     <div className="plaza-shell">
       <TopHud
@@ -411,12 +413,14 @@ export const App: React.FC = () => {
               floors={localizedSnapshot?.floors ?? []}
               selectedFloorId={activeFloor?.id ?? null}
               isNight={isNight}
+              isOverlayOpen={isModalOpen}
               onSelectFloor={handleSelectFloorFromTower}
             />
           ) : activeFloor ? (
             <OfficeCanvas
               floor={activeFloor}
               isNight={isNight}
+              isOverlayOpen={isModalOpen}
               selectedEmployeeId={selectedEmployee?.id ?? null}
               onSelectEmployee={(emp) => setSelectedEmployee(emp)}
               onOpenWhiteboard={() => setWhiteboardOpen(true)}
