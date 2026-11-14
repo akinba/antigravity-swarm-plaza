@@ -157,6 +157,57 @@ export const AgentRpgModal: React.FC<AgentRpgModalProps> = ({
         {/* Body */}
         {activeTab === 'profile' ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto' }}>
+            {(liveEmp.status === 'error' ||
+              liveEmp.activity === 'error' ||
+              liveEmp.toolActivity === 'error' ||
+              (liveEmp.health?.consecutiveErrors ?? 0) > 0) && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 10,
+                  flexWrap: 'wrap',
+                  padding: '8px 12px',
+                  background: 'rgba(201, 42, 55, 0.18)',
+                  border: '2px solid #ff5666',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 12 }}>
+                  <span style={{ color: '#ff6b6b', fontWeight: 700 }}>
+                    ⚠️ {t.rpgModal.errorBannerTitle}
+                  </span>
+                  <span style={{ color: '#ffd1d6', fontSize: 11 }}>
+                    • {Math.max(1, liveEmp.health?.consecutiveErrors ?? 0)} {t.rpgModal.consecutiveErrorsLabel}
+                  </span>
+                  {liveEmp.health && (
+                    <span
+                      className="pixel-badge"
+                      style={{ color: '#ff9aa4', background: '#2c1518', borderColor: '#7a252c' }}
+                    >
+                      HP {liveEmp.health.hpScore}/100
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="pixel-btn"
+                  style={{
+                    background: '#c92a37',
+                    borderColor: '#ff8a95',
+                    color: '#ffffff',
+                    fontSize: 10,
+                    padding: '5px 10px',
+                  }}
+                  onClick={() => {
+                    playSelectBlip();
+                    setActiveTab('logs');
+                  }}
+                >
+                  {t.rpgModal.goToLogs}
+                </button>
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
               {/* Pixel Portrait Frame */}
               <div
@@ -426,13 +477,15 @@ export const AgentRpgModal: React.FC<AgentRpgModalProps> = ({
                 {t.rpgModal.noLogs}
               </div>
             ) : (
-              logs.map((entry) => (
+              logs.map((entry) => {
+                const isErrorEntry = entry.status?.toUpperCase() === 'ERROR';
+                return (
                 <div
                   key={`${entry.stepIndex}-${entry.timestamp}`}
                   style={{
                     padding: '8px 10px',
-                    background: '#171c2b',
-                    border: '1px solid #2b3452',
+                    background: isErrorEntry ? 'rgba(201, 42, 55, 0.16)' : '#171c2b',
+                    border: isErrorEntry ? '2px solid #ff5666' : '1px solid #2b3452',
                     fontSize: 11,
                     display: 'flex',
                     flexDirection: 'column',
@@ -440,10 +493,16 @@ export const AgentRpgModal: React.FC<AgentRpgModalProps> = ({
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                    <span style={{ color: '#ffd147', fontWeight: 700 }}>
+                    <span style={{ color: isErrorEntry ? '#ff6b6b' : '#ffd147', fontWeight: 700 }}>
                       #{entry.stepIndex} {entry.toolName ? `• ${entry.toolName}` : `• ${entry.type}`}
                     </span>
-                    <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>
+                    <span
+                      style={{
+                        color: isErrorEntry ? '#ff6b6b' : 'var(--text-dim)',
+                        fontWeight: isErrorEntry ? 700 : 400,
+                        fontSize: 10,
+                      }}
+                    >
                       {entry.status} • {new Date(entry.timestamp).toLocaleTimeString()}
                     </span>
                   </div>
@@ -458,7 +517,8 @@ export const AgentRpgModal: React.FC<AgentRpgModalProps> = ({
                     </div>
                   )}
                 </div>
-              ))
+                );
+              })
             )}
           </div>
         )}

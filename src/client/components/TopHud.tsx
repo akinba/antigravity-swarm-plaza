@@ -18,6 +18,8 @@ interface TopHudProps {
   isCompactPane: boolean;
   isElevatorOpen: boolean;
   onToggleElevator: () => void;
+  alertCount?: number;
+  onOpenAlerts?: () => void;
 }
 
 export const TopHud: React.FC<TopHudProps> = ({
@@ -35,6 +37,8 @@ export const TopHud: React.FC<TopHudProps> = ({
   isCompactPane,
   isElevatorOpen,
   onToggleElevator,
+  alertCount = 0,
+  onOpenAlerts,
 }) => {
   const { t } = useI18n();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -101,6 +105,29 @@ export const TopHud: React.FC<TopHudProps> = ({
                   <span className="pixel-badge" style={{ color: '#9aa7c7', padding: '2px 5px' }}>
                     🏠{floor.offDutyCount}
                   </span>
+                )}
+                {alertCount > 0 && onOpenAlerts && (
+                  <button
+                    type="button"
+                    className="pixel-badge"
+                    title={t.hud.errorAlertsBadge}
+                    onClick={() => {
+                      playSelectBlip();
+                      onOpenAlerts();
+                    }}
+                    style={{
+                      color: '#ffffff',
+                      background: '#c92a37',
+                      borderColor: '#ff6b6b',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                      padding: '2px 6px',
+                      boxShadow: '0 0 8px rgba(255, 86, 102, 0.55)',
+                    }}
+                  >
+                    ! {alertCount}
+                  </button>
                 )}
               </div>
             )}
@@ -285,6 +312,29 @@ export const TopHud: React.FC<TopHudProps> = ({
               <span className="pixel-badge" style={{ color: '#9aa7c7' }}>
                 🏠 {floor.offDutyCount} {t.hud.offDuty}
               </span>
+            )}
+            {alertCount > 0 && onOpenAlerts && (
+              <button
+                type="button"
+                className="pixel-badge"
+                title={t.hud.errorAlertsBadge}
+                onClick={() => {
+                  playSelectBlip();
+                  onOpenAlerts();
+                }}
+                style={{
+                  color: '#ffffff',
+                  background: '#c92a37',
+                  borderColor: '#ff6b6b',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  padding: '2px 7px',
+                  boxShadow: '0 0 8px rgba(255, 86, 102, 0.55)',
+                }}
+              >
+                ! {alertCount}
+              </button>
             )}
           </div>
         )}

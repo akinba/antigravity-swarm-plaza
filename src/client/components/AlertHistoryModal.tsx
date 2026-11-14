@@ -17,6 +17,7 @@ export interface AlertHistoryEntry {
 
 export interface AlertHistoryModalProps {
   alerts: AlertHistoryEntry[];
+  onInspectAgent?: (agentName: string) => void;
   onClose: () => void;
   onClear?: () => void;
 }
@@ -68,6 +69,7 @@ function formatLastSeen(ts: number): string {
 
 export const AlertHistoryModal: React.FC<AlertHistoryModalProps> = ({
   alerts,
+  onInspectAgent,
   onClose,
   onClear,
 }) => {
@@ -285,9 +287,24 @@ export const AlertHistoryModal: React.FC<AlertHistoryModalProps> = ({
                       )}
                     </div>
 
-                    <span style={{ fontSize: 11, color: '#9aa7c7', fontFamily: 'monospace' }}>
-                      {formatLastSeen(group.lastSeen)}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 11, color: '#9aa7c7', fontFamily: 'monospace' }}>
+                        {formatLastSeen(group.lastSeen)}
+                      </span>
+                      {onInspectAgent && (
+                        <button
+                          type="button"
+                          className="pixel-btn cyan"
+                          style={{ padding: '3px 7px', fontSize: 9 }}
+                          onClick={() => {
+                            playSelectBlip();
+                            onInspectAgent(group.agentName);
+                          }}
+                        >
+                          🔍 {t.alertModal.inspectAgent}
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div style={{ fontSize: 12, color: '#e4ecff', lineHeight: 1.35 }}>

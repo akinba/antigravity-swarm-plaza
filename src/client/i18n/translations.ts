@@ -46,6 +46,7 @@ export interface Translations {
     alertsOn: string;
     alertsOff: string;
     settings: string;
+    errorAlertsBadge: string;
   };
   blueprints: string[];
   events: Record<FloorEventKind, string>;
@@ -105,6 +106,9 @@ export interface Translations {
     verifiedBadgeLabel: string;
     unverifiedBadgeLabel: string;
     backToList: string;
+    errorBannerTitle: string;
+    consecutiveErrorsLabel: string;
+    goToLogs: string;
   };
   whiteboardModal: {
     title: string;
@@ -184,6 +188,7 @@ export interface Translations {
     filterCritical: string;
     filterWarning: string;
     filterInfo: string;
+    inspectAgent: string;
   };
   notifications: {
     agentAlertTitle: string;
@@ -309,6 +314,7 @@ const TR: Translations = {
     alertsOn: '🔔 UYARI: AÇIK',
     alertsOff: '🔕 UYARI',
     settings: '⚙️ AYARLAR',
+    errorAlertsBadge: 'Hata / Uyarılar',
   },
   blueprints: [
     'Klasik Köşe Stüdyo',
@@ -383,6 +389,9 @@ const TR: Translations = {
     verifiedBadgeLabel: 'DOĞRULANDI',
     unverifiedBadgeLabel: 'DOĞRULANMADI',
     backToList: '⬅ LİSTEYE DÖN',
+    errorBannerTitle: 'Hata tespit edildi',
+    consecutiveErrorsLabel: 'ardışık hata',
+    goToLogs: '📜 LOGLARA GİT',
   },
   whiteboardModal: {
     title: 'SWARM BEYAZ TAHTA PANOSU',
@@ -463,6 +472,7 @@ const TR: Translations = {
     filterCritical: 'KRİTİK',
     filterWarning: 'UYARI',
     filterInfo: 'BİLGİ',
+    inspectAgent: 'AJANI İNCELE',
   },
   notifications: {
     agentAlertTitle: 'Swarm Plaza Ajan Uyarısı',
@@ -588,6 +598,7 @@ const EN: Translations = {
     alertsOn: '🔔 ALERTS: ON',
     alertsOff: '🔕 ALERTS',
     settings: '⚙️ SETTINGS',
+    errorAlertsBadge: 'Errors / Alerts',
   },
   blueprints: [
     'Classic Corner Studio',
@@ -662,6 +673,9 @@ const EN: Translations = {
     verifiedBadgeLabel: 'VERIFIED',
     unverifiedBadgeLabel: 'UNVERIFIED',
     backToList: '⬅ BACK TO LIST',
+    errorBannerTitle: 'Error detected',
+    consecutiveErrorsLabel: 'consecutive errors',
+    goToLogs: '📜 GO TO LOGS',
   },
   whiteboardModal: {
     title: 'SWARM WHITEBOARD',
@@ -742,6 +756,7 @@ const EN: Translations = {
     filterCritical: 'CRITICAL',
     filterWarning: 'WARNING',
     filterInfo: 'INFO',
+    inspectAgent: 'INSPECT AGENT',
   },
   notifications: {
     agentAlertTitle: 'Swarm Plaza Agent Alert',

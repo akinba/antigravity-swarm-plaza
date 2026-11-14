@@ -21,6 +21,7 @@ import {
   toggleMuted,
 } from './audio/retroSynth';
 import { AgentRpgModal } from './components/AgentRpgModal';
+import { AlertHistoryModal, type AlertHistoryEntry } from './components/AlertHistoryModal';
 import { AnalyticsModal } from './components/AnalyticsModal';
 import { ElevatorPanel } from './components/ElevatorPanel';
 import { SettingsModal } from './components/SettingsModal';
@@ -90,6 +91,7 @@ export const App: React.FC = () => {
 
   const [selectedEmployee, setSelectedEmployee] = useState<OfficeEmployee | null>(null);
   const [whiteboardOpen, setWhiteboardOpen] = useState<boolean>(false);
+  const [alertsOpen, setAlertsOpen] = useState<boolean>(false);
 
   const [isCompactPane, setIsCompactPane] = useState<boolean>(() =>
     typeof window !== 'undefined' ? window.innerWidth < 760 : false,
@@ -400,7 +402,59 @@ export const App: React.FC = () => {
     }
   };
 
-  const isModalOpen = Boolean(whiteboardOpen || analyticsOpen || settingsOpen || selectedEmployee);
+  const derivedAlerts = useMemo<AlertHistoryEntry[]>(() => {
+    const floors = activeFloor ? [activeFloor] : localizedSnapshot?.floors ?? [];
+    const list: AlertHistoryEntry[] = [];
+    const now = Date.now();
+
+    for (const fl of floors) {
+      for (const emp of fl.employees) {
+        const consecutiveErrors = emp.health?.consecutiveErrors ?? 0;
+        const hasError =
+          emp.status === 'error' ||
+          emp.activity === 'error' ||
+          emp.toolActivity === 'error' ||
+          consecutiveErrors > 0;
+        if (hasError) {
+          list.push({
+            id: `emp-err-${fl.id}-${emp.id}`,
+            agentName: emp.name,
+            floorName: fl.companyName,
+            severity: 'critical',
+            reason: emp.health && emp.health.errorCount > 0 ? 'error' : emp.status,
+            message:
+              emp.speechBubble ||
+              emp.currentTarget ||
+              emp.currentTool ||
+              `${emp.status} (${Math.max(1, consecutiveErrors)})`,
+            timestamp: emp.lastActiveAt ? Date.parse(emp.lastActiveAt) || now : now,
+            count: Math.max(1, consecutiveErrors),
+          });
+        }
+      }
+
+      for (const msg of fl.boardMessages) {
+        if (/error|fail|hata|blocked|stuck|⚠️|❌|🔴/i.test(msg.text)) {
+          const isCrit = /error|fail|hata|❌|🔴/i.test(msg.text);
+          list.push({
+            id: `msg-alert-${fl.id}-${msg.seq}`,
+            agentName: msg.agent,
+            floorName: fl.companyName,
+            severity: isCrit ? 'critical' : 'warning',
+            reason: 'board_alert',
+            message: msg.text,
+            timestamp: msg.time ? Date.parse(msg.time.replace(' ', 'T')) || now : now,
+            count: 1,
+          });
+        }
+      }
+    }
+    return list;
+  }, [activeFloor, localizedSnapshot]);
+
+  const isModalOpen = Boolean(
+    whiteboardOpen || analyticsOpen || settingsOpen || alertsOpen || selectedEmployee,
+  );
 
   return (
     <div className="plaza-shell">
@@ -419,6 +473,8 @@ export const App: React.FC = () => {
         isCompactPane={isCompactPane}
         isElevatorOpen={isElevatorOpen}
         onToggleElevator={() => setIsElevatorOpen((open) => !open)}
+        alertCount={derivedAlerts.length}
+        onOpenAlerts={() => setAlertsOpen(true)}
       />
 
       <main className="plaza-main">
@@ -545,6 +601,27 @@ export const App: React.FC = () => {
           notificationsEnabled={notificationsEnabled}
           onToggleNotifications={handleToggleNotifications}
           onClose={() => setSettingsOpen(false)}
+        />
+      )}
+
+      {alertsOpen && (
+        <AlertHistoryModal
+          alerts={derivedAlerts}
+          onInspectAgent={(agentName) => {
+            const targetName = agentName.toLowerCase();
+            const candidate =
+              activeFloor?.employees.find((e) => e.name.toLowerCase() === targetName) ??
+              localizedSnapshot?.floors
+                .flatMap((f) => f.employees)
+                .find((e) => e.name.toLowerCase() === targetName) ??
+              null;
+            setAlertsOpen(false);
+            if (candidate) {
+              setRpgOpenedFromWhiteboard(false);
+              setSelectedEmployee(candidate);
+            }
+          }}
+          onClose={() => setAlertsOpen(false)}
         />
       )}
     </div>

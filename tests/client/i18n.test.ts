@@ -327,5 +327,17 @@ describe('i18n browser locale & server snapshot localization', () => {
       assert.ok(DICTIONARIES.tr.settingsModal[key].length > 0, `tr.settingsModal.${key}`);
       assert.ok(DICTIONARIES.en.settingsModal[key].length > 0, `en.settingsModal.${key}`);
     }
+
+    // Error alerts badge, RPG error banner, & Alert inspect translations
+    assert.equal(DICTIONARIES.tr.hud.errorAlertsBadge, 'Hata / Uyarılar');
+    assert.equal(DICTIONARIES.en.hud.errorAlertsBadge, 'Errors / Alerts');
+    assert.equal(DICTIONARIES.tr.rpgModal.errorBannerTitle, 'Hata tespit edildi');
+    assert.equal(DICTIONARIES.en.rpgModal.errorBannerTitle, 'Error detected');
+    assert.equal(DICTIONARIES.tr.rpgModal.consecutiveErrorsLabel, 'ardışık hata');
+    assert.equal(DICTIONARIES.en.rpgModal.consecutiveErrorsLabel, 'consecutive errors');
+    assert.equal(DICTIONARIES.tr.rpgModal.goToLogs, '📜 LOGLARA GİT');
+    assert.equal(DICTIONARIES.en.rpgModal.goToLogs, '📜 GO TO LOGS');
+    assert.equal(DICTIONARIES.tr.alertModal.inspectAgent, 'AJANI İNCELE');
+    assert.equal(DICTIONARIES.en.alertModal.inspectAgent, 'INSPECT AGENT');
   });
 });
