@@ -12,7 +12,8 @@ export type CustomPropKind =
   | 'aquarium'
   | 'ping_pong'
   | 'bonsai'
-  | 'elevator_doors';
+  | 'elevator_doors'
+  | 'gaming_neon_wall';
 
 export type FurnitureKind =
   | 'desk'
@@ -25,14 +26,24 @@ export type FurnitureKind =
   | 'exec_chair'
   | 'meeting_chair'
   | 'gaming_seat'
+  | 'beanbag'
+  | 'beanbag_cyan'
+  | 'beanbag_purple'
+  | 'beanbag_charcoal'
   | 'sofa'
   | 'sofa_l'
   | 'sofa_r'
   | 'armchair'
   | 'coffee_table'
   | 'lounge_table'
+  | 'gaming_table'
   | 'war_table'
   | 'tv_console'
+  | 'gaming_tv'
+  | 'gaming_neon_wall'
+  | 'neon_wall'
+  | 'gaming_poster'
+  | 'arcade'
   | 'coffee_machine'
   | 'watercooler'
   | 'water_cooler'
@@ -1167,51 +1178,85 @@ function drawCustomOrPartitionProp(
     return true;
   }
 
-  if (kind === 'arcade_cabinet') {
-    drawFloorShadow(ctx, cx, cy, 17, 11, z, 0.3);
-    drawBox(ctx, cx, cy, 15, 10, 17, '#3d2970', '#291b4d', '#1b1133', z);
-    ctx.fillStyle = '#ff4d94';
-    pxRect(ctx, cx - 11.5 * z, cy - 13 * z, 2 * z, 9 * z);
-    ctx.fillStyle = '#121624';
-    pxRect(ctx, cx - 4 * z, cy - 11 * z, 8 * z, 7 * z);
-    ctx.fillStyle = '#ff7b3b';
-    pxRect(ctx, cx - 2.5 * z, cy - 9 * z, 1.8 * z, 2.5 * z);
-    pxRect(ctx, cx + 0.8 * z, cy - 9 * z, 1.8 * z, 2.5 * z);
-
-    drawBox(ctx, cx - 1 * z, cy - 17 * z, 14, 9, 17, '#513791', '#362466', '#221642', z);
-    ctx.fillStyle = '#ff3d7f';
-    pxRect(ctx, cx - 10 * z, cy - 35 * z, 18 * z, 4 * z);
-    ctx.fillStyle = '#ffe14d';
-    pxRect(ctx, cx - 7 * z, cy - 34 * z, 12 * z, 2 * z);
-
+  if (kind === 'arcade_cabinet' || kind === 'arcade') {
     const pulse = 0.5 + 0.5 * Math.sin(timeSec * 5.5);
-    ctx.fillStyle = `rgba(60, 216, 255, ${((night ? 0.24 : 0.15) + pulse * 0.14).toFixed(3)})`;
-    pxRect(ctx, cx - 10.5 * z, cy - 31.5 * z, 19 * z, 14 * z);
-    ctx.fillStyle = '#0e1220';
+    drawFloorShadow(ctx, cx, cy, 17.5, 11.2, z, 0.32);
+
+    // Ambient magenta + cyan neon wall/floor bloom behind cabinet
+    ctx.fillStyle = `rgba(224, 64, 251, ${((night ? 0.22 : 0.12) + pulse * 0.08).toFixed(3)})`;
+    pxRect(ctx, cx - 14 * z, cy - 36 * z, 13 * z, 33 * z);
+    ctx.fillStyle = `rgba(0, 229, 255, ${((night ? 0.22 : 0.12) + pulse * 0.08).toFixed(3)})`;
+    pxRect(ctx, cx + 1 * z, cy - 36 * z, 13 * z, 33 * z);
+
+    // Lower matte-indigo cabinet base + coin door + pixel-art side game poster decal
+    drawBox(ctx, cx, cy, 15, 10, 17, '#32245c', '#221842', '#150e2b', z);
+    // Framed pixel-art side poster on left cabinet flank
+    ctx.fillStyle = '#0d101c';
+    pxRect(ctx, cx - 12.2 * z, cy - 14.2 * z, 6.2 * z, 10 * z);
+    ctx.fillStyle = '#1b1d42';
+    pxRect(ctx, cx - 11.4 * z, cy - 13.4 * z, 4.6 * z, 8.4 * z);
+    ctx.fillStyle = '#e040fb';
+    pxRect(ctx, cx - 11.4 * z, cy - 8.2 * z, 4.6 * z, 2 * z);
+    ctx.fillStyle = '#ffd147';
+    pxRect(ctx, cx - 10.2 * z, cy - 12.2 * z, 2.2 * z, 2.2 * z);
+    ctx.fillStyle = '#00e5ff';
+    pxRect(ctx, cx - 10.8 * z, cy - 6.6 * z, 3.4 * z, 1.2 * z);
+
+    // Coin-op door with glowing amber coin slots
+    ctx.fillStyle = '#101421';
+    pxRect(ctx, cx - 3.2 * z, cy - 11 * z, 8 * z, 7 * z);
+    ctx.fillStyle = '#ff8a3d';
+    pxRect(ctx, cx - 1.8 * z, cy - 9 * z, 1.8 * z, 2.5 * z);
+    pxRect(ctx, cx + 1.4 * z, cy - 9 * z, 1.8 * z, 2.5 * z);
+
+    // Upper CRT housing + backlit marquee
+    drawBox(ctx, cx - 1 * z, cy - 17 * z, 14, 9, 17, '#463080', '#2d1f57', '#1c1338', z);
+    ctx.fillStyle = '#e040fb';
+    pxRect(ctx, cx - 10 * z, cy - 35.2 * z, 18 * z, 4.2 * z);
+    ctx.fillStyle = '#00e5ff';
+    pxRect(ctx, cx - 9.2 * z, cy - 34.6 * z, 16.4 * z, 1 * z);
+    ctx.fillStyle = '#ffe14d';
+    pxRect(ctx, cx - 7 * z, cy - 33.4 * z, 12 * z, 1.8 * z);
+
+    // Vertical Magenta (#e040fb) & Cyan (#00e5ff) neon LED edge T-molding strips
+    ctx.fillStyle = '#e040fb';
+    pxRect(ctx, cx - 11.8 * z, cy - 34.5 * z, 1.6 * z, 29.5 * z);
+    ctx.fillStyle = '#ffb8ff';
+    pxRect(ctx, cx - 11.3 * z, cy - 33.5 * z, 0.8 * z, 27.5 * z);
+    ctx.fillStyle = '#00e5ff';
+    pxRect(ctx, cx + 7.6 * z, cy - 34.5 * z, 1.6 * z, 18 * z);
+    ctx.fillStyle = '#d4fcff';
+    pxRect(ctx, cx + 8.0 * z, cy - 33.5 * z, 0.8 * z, 16 * z);
+
+    // CRT screen & animated space shooter
+    ctx.fillStyle = `rgba(0, 229, 255, ${((night ? 0.26 : 0.16) + pulse * 0.14).toFixed(3)})`;
+    pxRect(ctx, cx - 10 * z, cy - 31 * z, 17.5 * z, 13.5 * z);
+    ctx.fillStyle = '#0c101d';
     pxRect(ctx, cx - 9 * z, cy - 30 * z, 16 * z, 11 * z);
-    ctx.fillStyle = pulse > 0.5 ? '#1b3e70' : '#132c52';
+    ctx.fillStyle = pulse > 0.5 ? '#193869' : '#12284d';
     pxRect(ctx, cx - 7.5 * z, cy - 28.5 * z, 13 * z, 8 * z);
 
     const shipX = cx + (-5.5 + (Math.sin(timeSec * 3.8) * 0.5 + 0.5) * 7.5) * z;
     const laserY = cy - (23.5 + ((timeSec * 9) % 4)) * z;
-    ctx.fillStyle = '#ff5666';
-    pxRect(ctx, cx - 2.5 * z, cy - 27.2 * z, 3 * z, 2 * z);
+    ctx.fillStyle = '#e040fb';
+    pxRect(ctx, cx - 2.5 * z, cy - 27.2 * z, 3.2 * z, 2 * z);
     ctx.fillStyle = '#ffd147';
     pxRect(ctx, shipX + 1 * z, laserY, 1.5 * z, 2 * z);
-    ctx.fillStyle = '#3be87a';
+    ctx.fillStyle = '#00e5ff';
     pxRect(ctx, shipX, cy - 22.5 * z, 3.5 * z, 2 * z);
     // CRT corner glint
     ctx.fillStyle = 'rgba(220, 248, 255, 0.45)';
     pxRect(ctx, cx - 6.8 * z, cy - 28 * z, 2.5 * z, 1.2 * z);
 
-    drawBox(ctx, cx + 1.5 * z, cy - 16 * z, 13, 8, 3, '#27365e', '#1a2442', '#10172b', z);
+    // Control deck with ball-top joystick & RGB arcade buttons
+    drawBox(ctx, cx + 1.5 * z, cy - 16 * z, 13, 8, 3, '#232e52', '#171f38', '#0e1426', z);
     ctx.fillStyle = '#dce5f7';
     pxRect(ctx, cx - 5 * z, cy - 20.5 * z, 1.5 * z, 2.5 * z);
-    ctx.fillStyle = '#ff3b5c';
+    ctx.fillStyle = '#ff3b6b';
     pxRect(ctx, cx - 5.8 * z, cy - 22.2 * z, 3 * z, 2.2 * z);
-    ctx.fillStyle = '#3cd8ff';
+    ctx.fillStyle = '#00e5ff';
     pxRect(ctx, cx + 0.5 * z, cy - 20 * z, 2 * z, 1.5 * z);
-    ctx.fillStyle = '#ffd147';
+    ctx.fillStyle = '#e040fb';
     pxRect(ctx, cx + 3.2 * z, cy - 20.5 * z, 2 * z, 1.5 * z);
     ctx.fillStyle = '#3be87a';
     pxRect(ctx, cx + 5.8 * z, cy - 19.5 * z, 2 * z, 1.5 * z);
@@ -1304,6 +1349,74 @@ function drawCustomOrPartitionProp(
     pxRect(ctx, cx + travelX - 2 * z, barY - 1 * z, 4 * z, 3.8 * z);
     ctx.fillStyle = Math.sin(timeSec * 12) > 0 ? '#ffd147' : '#5cf0ff';
     pxRect(ctx, cx + travelX - 1 * z, barY + 2.5 * z, 2 * z, 2 * z);
+    return true;
+  }
+
+  if (kind === 'gaming_neon_wall' || kind === 'neon_wall' || kind === 'gaming_poster') {
+    const pulse = 0.5 + 0.5 * Math.sin(timeSec * 3.6);
+    drawFloorShadow(ctx, cx, cy, 18, 7.5, z, 0.28);
+
+    // Matte-black slatted acoustic media accent panel
+    drawBox(ctx, cx, cy, 17, 5.2, 36, '#232938', '#151924', '#0c0f17', z);
+    ctx.fillStyle = '#0e111a';
+    for (let i = 0; i < 6; i++) {
+      pxRect(ctx, cx - (11.5 - i * 4.4) * z, cy - 33 * z, 1.4 * z, 28 * z);
+    }
+
+    // Soft dual-neon wall bloom (Magenta #e040fb + Cyan #00e5ff)
+    ctx.fillStyle = `rgba(224, 64, 251, ${((night ? 0.28 : 0.16) + pulse * 0.08).toFixed(3)})`;
+    pxRect(ctx, cx - 15.5 * z, cy - 38 * z, 15 * z, 34 * z);
+    ctx.fillStyle = `rgba(0, 229, 255, ${((night ? 0.28 : 0.16) + pulse * 0.08).toFixed(3)})`;
+    pxRect(ctx, cx + 0.5 * z, cy - 38 * z, 15 * z, 34 * z);
+
+    // Vertical & horizontal glowing neon LED light tubes
+    ctx.fillStyle = '#e040fb';
+    pxRect(ctx, cx - 13.8 * z, cy - 35.5 * z, 1.8 * z, 28 * z);
+    pxRect(ctx, cx - 13.8 * z, cy - 36.2 * z, 12.5 * z, 1.6 * z);
+    ctx.fillStyle = '#ffc4ff';
+    pxRect(ctx, cx - 13.3 * z, cy - 34.5 * z, 0.8 * z, 26 * z);
+
+    ctx.fillStyle = '#00e5ff';
+    pxRect(ctx, cx + 12 * z, cy - 35.5 * z, 1.8 * z, 28 * z);
+    pxRect(ctx, cx + 1.2 * z, cy - 36.2 * z, 12.5 * z, 1.6 * z);
+    ctx.fillStyle = '#d6fcff';
+    pxRect(ctx, cx + 12.5 * z, cy - 34.5 * z, 0.8 * z, 26 * z);
+
+    // Framed vibrant pixel-art retro game poster
+    ctx.fillStyle = '#090b12';
+    pxRect(ctx, cx - 9.2 * z, cy - 32.5 * z, 12.5 * z, 16.5 * z);
+    ctx.fillStyle = '#171d3d';
+    pxRect(ctx, cx - 8.2 * z, cy - 31.5 * z, 10.5 * z, 14.5 * z);
+    // Synthwave sunset & grid inside poster
+    ctx.fillStyle = '#e040fb';
+    pxRect(ctx, cx - 5.2 * z, cy - 28.5 * z, 4.5 * z, 4.2 * z);
+    ctx.fillStyle = '#ffd147';
+    pxRect(ctx, cx - 4.5 * z, cy - 27.6 * z, 3.1 * z, 2 * z);
+    ctx.fillStyle = '#00e5ff';
+    pxRect(ctx, cx - 8.2 * z, cy - 22.8 * z, 10.5 * z, 1.2 * z);
+    ctx.fillStyle = '#24184a';
+    pxRect(ctx, cx - 8.2 * z, cy - 21.6 * z, 10.5 * z, 4.6 * z);
+    ctx.fillStyle = '#3be87a';
+    pxRect(ctx, cx - 4.2 * z, cy - 20.5 * z, 2.6 * z, 2 * z);
+
+    // Floating mini shelf + glowing golden '?' Question-Block collectible cube
+    drawBox(ctx, cx + 6.8 * z, cy - 17.5 * z, 5.2, 3.2, 1.4, '#2f374d', '#1d2230', '#12151f', z);
+    ctx.fillStyle = `rgba(255, 209, 71, ${(0.24 + pulse * 0.12).toFixed(3)})`;
+    pxRect(ctx, cx + 3.2 * z, cy - 26.2 * z, 7.6 * z, 7.2 * z);
+    // 2.5D pixel '?' block: bright front square + top bevel + right depth face
+    const mqX = cx + 4.2 * z;
+    const mqY = cy - 24.4 * z;
+    ctx.fillStyle = '#ffe98a';
+    pxRect(ctx, mqX + 0.8 * z, mqY - 1.1 * z, 4.8 * z, 1.2 * z);
+    ctx.fillStyle = '#cc7a0a';
+    pxRect(ctx, mqX + 4.8 * z, mqY - 0.6 * z, 1.3 * z, 4.8 * z);
+    ctx.fillStyle = '#ffc42e';
+    pxRect(ctx, mqX, mqY, 4.8 * z, 4.8 * z);
+    ctx.fillStyle = '#ffffff';
+    pxRect(ctx, mqX + 1.3 * z, mqY + 0.8 * z, 2.2 * z, 0.8 * z);
+    pxRect(ctx, mqX + 2.6 * z, mqY + 1.5 * z, 0.9 * z, 1.1 * z);
+    pxRect(ctx, mqX + 1.9 * z, mqY + 2.2 * z, 1.2 * z, 0.8 * z);
+    pxRect(ctx, mqX + 1.9 * z, mqY + 3.4 * z, 0.9 * z, 0.8 * z);
     return true;
   }
 
@@ -1803,6 +1916,416 @@ export function drawErgonomicOfficeChair(
   }
 }
 
+export type BeanbagColorVariant = 'cyan' | 'purple' | 'charcoal';
+
+const BEANBAG_PALETTES: Record<
+  BeanbagColorVariant,
+  {
+    shadowBelly: string;
+    midLower: string;
+    mainBody: string;
+    upperLight: string;
+    specular: string;
+    hollowOuter: string;
+    hollowDeep: string;
+    seam: string;
+    stitchGlint: string;
+    outline: string;
+    tagAccent: string;
+  }
+> = {
+  // Reference Turquoise / Cyan (#189ab4)
+  cyan: {
+    shadowBelly: '#0b5061',
+    midLower: '#12788f',
+    mainBody: '#189ab4',
+    upperLight: '#33bad6',
+    specular: '#7be8fc',
+    hollowOuter: '#0f667a',
+    hollowDeep: '#084352',
+    seam: '#0a4b5c',
+    stitchGlint: '#62dcf2',
+    outline: '#06313d',
+    tagAccent: '#e040fb',
+  },
+  // Reference Neon Purple (#7b3fe4)
+  purple: {
+    shadowBelly: '#361475',
+    midLower: '#5825b3',
+    mainBody: '#7b3fe4',
+    upperLight: '#9b66ff',
+    specular: '#ccaaff',
+    hollowOuter: '#4a1d99',
+    hollowDeep: '#2e0f69',
+    seam: '#351373',
+    stitchGlint: '#b891ff',
+    outline: '#200a4a',
+    tagAccent: '#00e5ff',
+  },
+  // Reference Anthracite Dark Grey (#363c4a)
+  charcoal: {
+    shadowBelly: '#181c24',
+    midLower: '#282e3b',
+    mainBody: '#363c4a',
+    upperLight: '#545f75',
+    specular: '#8896b3',
+    hollowOuter: '#212632',
+    hollowDeep: '#13161e',
+    seam: '#171b24',
+    stitchGlint: '#6f7c99',
+    outline: '#0d1017',
+    tagAccent: '#00e5ff',
+  },
+};
+
+const BEANBAG_ORDER: readonly BeanbagColorVariant[] = ['cyan', 'purple', 'charcoal'];
+
+const beanbagFrameSeqMap = new WeakMap<
+  CanvasRenderingContext2D,
+  { timeSec: number; count: number; firstSx: number; firstSy: number }
+>();
+
+function resolveBeanbagColorVariant(
+  ctx: CanvasRenderingContext2D,
+  kind: string,
+  sx: number,
+  sy: number,
+  timeSec: number,
+  explicitIndex?: number,
+): BeanbagColorVariant {
+  const k = kind.toLowerCase();
+  if (k.includes('cyan') || k.includes('turquoise') || k.endsWith('_0')) return 'cyan';
+  if (k.includes('purple') || k.includes('violet') || k.endsWith('_1')) return 'purple';
+  if (k.includes('charcoal') || k.includes('grey') || k.includes('gray') || k.endsWith('_2')) {
+    return 'charcoal';
+  }
+  if (typeof explicitIndex === 'number' && Number.isFinite(explicitIndex)) {
+    return BEANBAG_ORDER[Math.abs(Math.trunc(explicitIndex)) % 3];
+  }
+
+  // Per-(ctx, timeSec) render-order counter: 100% invariant to camera pan & zoom!
+  const prev = beanbagFrameSeqMap.get(ctx);
+  if (
+    !prev ||
+    prev.timeSec !== timeSec ||
+    (prev.count > 0 && Math.abs(prev.firstSx - sx) < 0.5 && Math.abs(prev.firstSy - sy) < 0.5)
+  ) {
+    beanbagFrameSeqMap.set(ctx, { timeSec, count: 1, firstSx: sx, firstSy: sy });
+    return BEANBAG_ORDER[0];
+  }
+  const idx = prev.count;
+  prev.count += 1;
+  return BEANBAG_ORDER[idx % 3];
+}
+
+/**
+ * Renders a large, organic, slouchy 2.5D pear/teardrop lounge beanbag chair
+ * with a sunken ergonomic center seating hollow, plump backrest lobe oriented
+ * by `facing`, curved 6-panel gore stitch seams, compression creases, and woven tag.
+ */
+export function drawPlushBeanbag(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  zoom: number,
+  facing: ChairFacing = 'SE',
+  colorVariant: BeanbagColorVariant = 'cyan',
+): void {
+  const z = zoom;
+  const dir = (facing || 'SE').toLowerCase() as 'nw' | 'ne' | 'sw' | 'se';
+  const isFront = dir === 'se' || dir === 'sw';
+  // Canonical x has backrest on left (-x) and gamer facing right (+x); flip for SW / NW
+  const s = dir === 'sw' || dir === 'nw' ? -1 : 1;
+  const pal = BEANBAG_PALETTES[colorVariant] ?? BEANBAG_PALETTES.cyan;
+
+  const p = (dx: number, dy: number) => ({
+    x: cx + s * dx * z,
+    y: cy + dy * z,
+  });
+
+  const fillSmoothBlob = (
+    pts: ReadonlyArray<{ x: number; y: number }>,
+    fill: string,
+    stroke?: string,
+    lineW = 1.0,
+  ) => {
+    const n = pts.length;
+    if (n < 3) return;
+    const hasQuad = typeof ctx.quadraticCurveTo === 'function';
+    const m0x = (pts[n - 1].x + pts[0].x) * 0.5;
+    const m0y = (pts[n - 1].y + pts[0].y) * 0.5;
+    ctx.beginPath();
+    ctx.moveTo(m0x, m0y);
+    for (let i = 0; i < n; i++) {
+      const curr = pts[i];
+      const next = pts[(i + 1) % n];
+      const mx = (curr.x + next.x) * 0.5;
+      const my = (curr.y + next.y) * 0.5;
+      if (hasQuad) {
+        ctx.quadraticCurveTo(curr.x, curr.y, mx, my);
+      } else {
+        const prevMx = i === 0 ? m0x : (pts[i - 1].x + curr.x) * 0.5;
+        const prevMy = i === 0 ? m0y : (pts[i - 1].y + curr.y) * 0.5;
+        for (let step = 1; step <= 3; step++) {
+          const t = step / 3;
+          const omt = 1 - t;
+          ctx.lineTo(
+            omt * omt * prevMx + 2 * omt * t * curr.x + t * t * mx,
+            omt * omt * prevMy + 2 * omt * t * curr.y + t * t * my,
+          );
+        }
+      }
+    }
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+    if (stroke) {
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = Math.max(0.85, lineW * z);
+      ctx.stroke();
+    }
+  };
+
+  const strokeSmoothCurve = (
+    p0: { x: number; y: number },
+    ctrl: { x: number; y: number },
+    p1: { x: number; y: number },
+    color: string,
+    lineW = 0.95,
+  ) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(0.8, lineW * z);
+    ctx.beginPath();
+    ctx.moveTo(p0.x, p0.y);
+    if (typeof ctx.quadraticCurveTo === 'function') {
+      ctx.quadraticCurveTo(ctrl.x, ctrl.y, p1.x, p1.y);
+    } else {
+      ctx.lineTo(ctrl.x, ctrl.y);
+      ctx.lineTo(p1.x, p1.y);
+    }
+    ctx.stroke();
+  };
+
+  // Soft wide elliptical floor contact shadow
+  drawFloorShadow(ctx, cx, cy + 1.0 * z, 15.0, 8.6, z, 0.32);
+
+  if (isFront) {
+    // 1. Wide squished lower belly shadow base
+    fillSmoothBlob(
+      [
+        p(-13.8, -5.2),
+        p(-6.5, -11.4),
+        p(6.4, -9.8),
+        p(13.8, -4.4),
+        p(12.6, 1.8),
+        p(3.2, 4.3),
+        p(-6.8, 3.8),
+        p(-13.6, -0.2),
+      ],
+      pal.shadowBelly,
+      pal.outline,
+      1.05,
+    );
+
+    // 2. Plump pear/teardrop main silhouette rising into upper backrest lobe
+    fillSmoothBlob(
+      [
+        p(-13.8, -4.8),
+        p(-12.5, -11.8),
+        p(-8.8, -17.6),
+        p(-3.8, -18.0),
+        p(1.8, -13.2),
+        p(9.6, -10.4),
+        p(13.6, -5.2),
+        p(12.0, 0.8),
+        p(2.8, 3.1),
+        p(-7.2, 2.3),
+      ],
+      pal.midLower,
+      pal.outline,
+      1.0,
+    );
+
+    // 3. Lit upper microbead cushion volume
+    fillSmoothBlob(
+      [
+        p(-12.4, -5.8),
+        p(-11.4, -12.0),
+        p(-8.2, -17.0),
+        p(-3.8, -17.3),
+        p(1.5, -12.8),
+        p(9.0, -9.9),
+        p(12.5, -5.6),
+        p(10.2, -0.8),
+        p(2.2, 1.1),
+        p(-6.8, 0.3),
+      ],
+      pal.mainBody,
+    );
+
+    // 4. Upper teardrop backrest highlight & puffy front thigh bolster sheen
+    fillSmoothBlob(
+      [
+        p(-10.4, -10.6),
+        p(-8.4, -16.2),
+        p(-4.4, -16.5),
+        p(-1.6, -13.0),
+        p(-5.8, -9.8),
+      ],
+      pal.upperLight,
+    );
+    fillSmoothBlob(
+      [p(-8.4, -14.8), p(-6.2, -15.8), p(-4.8, -14.2), p(-6.8, -12.8)],
+      pal.specular,
+    );
+
+    // 5. Deep sunken center ergonomic seating hollow + thigh-support roll
+    fillSmoothBlob(
+      [
+        p(-3.8, -8.8),
+        p(1.8, -10.4),
+        p(8.0, -8.2),
+        p(8.4, -4.8),
+        p(2.2, -3.5),
+        p(-3.6, -5.2),
+      ],
+      pal.hollowOuter,
+    );
+    fillSmoothBlob(
+      [
+        p(-1.6, -7.8),
+        p(2.0, -8.6),
+        p(5.5, -7.1),
+        p(5.2, -5.4),
+        p(1.4, -4.8),
+        p(-1.8, -5.9),
+      ],
+      pal.hollowDeep,
+    );
+    // Puffy front knee-bolster highlight rim below hollow
+    fillSmoothBlob(
+      [p(-1.2, -3.4), p(4.5, -4.0), p(10.2, -4.6), p(9.6, -1.8), p(3.4, -0.8)],
+      pal.upperLight,
+    );
+
+    // 6. Curved panel stitch seams & compression dimple wrinkles
+    strokeSmoothCurve(p(-6.3, -17.2), p(-10.8, -8.8), p(-8.2, 2.2), pal.seam, 0.95);
+    strokeSmoothCurve(p(-5.4, -17.0), p(-2.8, -13.2), p(-0.8, -8.6), pal.seam, 0.9);
+    strokeSmoothCurve(p(5.2, -6.2), p(8.6, -6.4), p(11.6, -4.6), pal.seam, 0.85);
+    strokeSmoothCurve(p(1.4, -5.0), p(2.2, -3.2), p(2.8, -1.2), pal.seam, 0.85);
+
+    // Top carry-loop tab, topstitch glints & woven lounge brand tag (guaranteed positive pxRects)
+    ctx.fillStyle = pal.midLower;
+    pxRect(ctx, p(-6.9, -18.8).x - 1 * z, p(-6.9, -18.8).y, 2.2 * z, 1.5 * z);
+    ctx.fillStyle = pal.stitchGlint;
+    pxRect(ctx, p(-9.6, -9.2).x, p(-9.6, -9.2).y, 1.1 * z, 1.1 * z);
+    pxRect(ctx, p(-9.2, -4.8).x, p(-9.2, -4.8).y, 1.1 * z, 1.1 * z);
+    ctx.fillStyle = pal.tagAccent;
+    pxRect(ctx, p(-12.2, -1.4).x - 1 * z, p(-12.2, -1.4).y, 2.2 * z, 1.4 * z);
+  } else {
+    // Facing NE or NW: gamer faces upper screen; plump pear backrest wraps around near-side flank
+    // 1. Wide squished lower belly shadow base
+    fillSmoothBlob(
+      [
+        p(-14.0, -2.8),
+        p(-5.6, -10.6),
+        p(6.8, -11.2),
+        p(13.6, -6.0),
+        p(12.4, 0.6),
+        p(3.0, 4.2),
+        p(-6.8, 4.6),
+        p(-13.8, 1.4),
+      ],
+      pal.shadowBelly,
+      pal.outline,
+      1.05,
+    );
+
+    // 2. Plump 3/4 rear-side pear silhouette + wide front pouf cushion
+    fillSmoothBlob(
+      [
+        p(-13.8, 0.8),
+        p(-13.4, -7.8),
+        p(-9.2, -14.8),
+        p(-4.2, -15.2),
+        p(1.8, -11.6),
+        p(8.8, -11.0),
+        p(13.5, -6.2),
+        p(11.8, -0.2),
+        p(2.8, 3.2),
+        p(-6.8, 3.6),
+      ],
+      pal.midLower,
+      pal.outline,
+      1.0,
+    );
+
+    // 3. Main lit microbead body
+    fillSmoothBlob(
+      [
+        p(-12.5, -0.4),
+        p(-12.2, -8.0),
+        p(-8.6, -14.2),
+        p(-4.2, -14.6),
+        p(1.6, -11.2),
+        p(8.4, -10.5),
+        p(12.4, -6.2),
+        p(10.2, -1.2),
+        p(2.2, 1.5),
+        p(-6.6, 1.8),
+      ],
+      pal.mainBody,
+    );
+
+    // 4. Visible 3/4 sunken seating hollow on upper-forward pocket
+    fillSmoothBlob(
+      [
+        p(-1.4, -9.8),
+        p(4.2, -10.4),
+        p(9.2, -8.2),
+        p(8.4, -5.2),
+        p(2.6, -4.6),
+        p(-1.8, -6.8),
+      ],
+      pal.hollowOuter,
+    );
+    fillSmoothBlob(
+      [p(0.6, -8.8), p(4.4, -9.0), p(6.8, -7.4), p(5.8, -5.8), p(1.6, -5.8)],
+      pal.hollowDeep,
+    );
+
+    // 5. Plump near-side teardrop backrest bolster crown & soft sheen
+    fillSmoothBlob(
+      [
+        p(-11.2, -5.2),
+        p(-9.0, -13.6),
+        p(-4.4, -14.0),
+        p(-1.2, -9.2),
+        p(-3.8, -2.4),
+        p(-9.4, -1.2),
+      ],
+      pal.upperLight,
+    );
+    fillSmoothBlob(
+      [p(-8.4, -12.4), p(-5.8, -13.2), p(-4.6, -11.2), p(-7.2, -10.2)],
+      pal.specular,
+    );
+
+    // 6. Curved rear 6-panel gore stitch seams, top loop & woven brand tag
+    strokeSmoothCurve(p(-6.6, -14.4), p(-10.8, -6.2), p(-8.8, 3.0), pal.seam, 0.95);
+    strokeSmoothCurve(p(-5.6, -14.2), p(-4.2, -5.8), p(-2.2, 2.8), pal.seam, 0.95);
+    strokeSmoothCurve(p(4.8, -6.0), p(8.2, -4.6), p(10.8, -1.6), pal.seam, 0.85);
+
+    ctx.fillStyle = pal.midLower;
+    pxRect(ctx, p(-6.8, -15.8).x - 1 * z, p(-6.8, -15.8).y, 2.2 * z, 1.5 * z);
+    ctx.fillStyle = pal.stitchGlint;
+    pxRect(ctx, p(-4.8, -7.6).x, p(-4.8, -7.6).y, 1.1 * z, 1.1 * z);
+    pxRect(ctx, p(-3.8, -3.2).x, p(-3.8, -3.2).y, 1.1 * z, 1.1 * z);
+    ctx.fillStyle = pal.tagAccent;
+    pxRect(ctx, p(-12.4, 0.4).x - 1 * z, p(-12.4, 0.4).y, 2.2 * z, 1.4 * z);
+  }
+}
+
 /**
  * Renders high-craft 2.5D office furniture, tech racks, smartboards, partitions,
  * hospitality stations, and all 5 custom mini-room fixtures.
@@ -1821,6 +2344,7 @@ export function drawEnhancedFurniture(
   whiteboardLabel = 'SWARM BOARD',
   deskLevel = 1,
   facing: ChairFacing = 'SE',
+  colorIndex?: number,
 ): void {
   const z = zoom;
   const cx = sx;
@@ -1964,8 +2488,14 @@ export function drawEnhancedFurniture(
     const chairVariant: ChairVariant =
       kind === 'exec_chair' ? 'exec' : kind === 'meeting_chair' ? 'meeting' : 'task';
     drawErgonomicOfficeChair(ctx, cx, cy, z, chairVariant, facing, modelAccent);
-  } else if (kind === 'gaming_seat') {
-    drawErgonomicOfficeChair(ctx, cx, cy, z, 'gaming', facing, modelAccent);
+  } else if (
+    kind === 'gaming_seat' ||
+    kind === 'beanbag' ||
+    kind.startsWith('beanbag_') ||
+    kind.startsWith('gaming_seat_')
+  ) {
+    const bagColor = resolveBeanbagColorVariant(ctx, kind, sx, sy, timeSec, colorIndex);
+    drawPlushBeanbag(ctx, cx, cy, z, facing, bagColor);
   } else if (kind === 'sofa' || kind === 'sofa_l' || kind === 'sofa_r' || kind === 'armchair') {
     const isArm = kind === 'armchair';
     const w = isArm ? 15.5 : 20.5;
@@ -1997,33 +2527,91 @@ export function drawEnhancedFurniture(
       ctx.fillStyle = '#ffd166';
       pxRect(ctx, cx + 5 * z, cy - 12 * z, 4.5 * z, 4 * z);
     }
-  } else if (kind === 'coffee_table' || kind === 'lounge_table') {
-    drawFloorShadow(ctx, cx, cy, 17, 10, z, 0.26);
-    // Walnut base shelf & smoked-glass inset top
-    drawBox(ctx, cx, cy, 15.5, 9.2, 8, '#ad7851', '#805536', '#593923', z);
-    ctx.fillStyle = 'rgba(34, 54, 79, 0.72)';
-    pxRect(ctx, cx - 7.5 * z, cy - 11.5 * z, 15 * z, 5 * z);
+  } else if (kind === 'coffee_table' || kind === 'lounge_table' || kind === 'gaming_table') {
+    drawFloorShadow(ctx, cx, cy, 18.2, 10.6, z, 0.3);
+
+    // Modern matte-black steel legs & open lower magazine/accessory shelf
+    ctx.fillStyle = '#0f121a';
+    pxRect(ctx, cx - 13.5 * z, cy - 5.5 * z, 2 * z, 6.8 * z);
+    pxRect(ctx, cx + 11.5 * z, cy - 5.5 * z, 2 * z, 6.8 * z);
+    pxRect(ctx, cx - 1 * z, cy + 1.5 * z, 2.2 * z, 4.2 * z);
+    drawBox(ctx, cx, cy - 1.4 * z, 15.2, 8.6, 2.2, '#222836', '#161b26', '#0d1018', z);
+
+    // Artbooks / game magazines tucked on lower shelf
+    ctx.fillStyle = '#00e5ff';
+    pxRect(ctx, cx - 6.5 * z, cy - 5.2 * z, 5.5 * z, 1.4 * z);
+    ctx.fillStyle = '#e040fb';
+    pxRect(ctx, cx + 1.2 * z, cy - 4.8 * z, 5 * z, 1.3 * z);
+
+    // Glossy dark smoked-glass tabletop on matte-black bezel frame
+    drawBox(
+      ctx,
+      cx,
+      cy - 6.8 * z,
+      17.4,
+      9.8,
+      2.1,
+      '#151e30',
+      '#121724',
+      '#0b0e17',
+      z,
+      'rgba(130, 232, 255, 0.42)',
+    );
+    // Smoked-glass inner mirror tint + crisp diagonal glass specular streaks
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - 15.8 * z);
+    ctx.lineTo(cx + 14.2 * z, cy - 11.2 * z);
+    ctx.lineTo(cx, cy - 6.6 * z);
+    ctx.lineTo(cx - 14.2 * z, cy - 11.2 * z);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(18, 34, 56, 0.82)';
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(210, 248, 255, 0.45)';
+    ctx.lineWidth = Math.max(0.9, 1.1 * z);
+    ctx.beginPath();
+    ctx.moveTo(cx - 8.5 * z, cy - 10.2 * z);
+    ctx.lineTo(cx - 2.2 * z, cy - 13.8 * z);
+    ctx.moveTo(cx - 4.8 * z, cy - 8.8 * z);
+    ctx.lineTo(cx + 0.5 * z, cy - 11.8 * z);
+    ctx.stroke();
 
     if (isOccupied) {
-      // Hot open pepperoni pizza box
+      // Hot open pepperoni pizza box (PIZZA_PARTY active)
       ctx.fillStyle = '#f5ead6';
-      pxRect(ctx, cx - 8 * z, cy - 15 * z, 16 * z, 10 * z);
+      pxRect(ctx, cx - 8 * z, cy - 15.5 * z, 16 * z, 10 * z);
       ctx.fillStyle = '#f7be45';
-      pxRect(ctx, cx - 6 * z, cy - 13 * z, 12 * z, 6 * z);
+      pxRect(ctx, cx - 6 * z, cy - 13.5 * z, 12 * z, 6 * z);
       ctx.fillStyle = '#d93838';
-      pxRect(ctx, cx - 4 * z, cy - 12 * z, 2 * z, 2 * z);
-      pxRect(ctx, cx + 1 * z, cy - 10 * z, 2 * z, 2 * z);
-      pxRect(ctx, cx + 3 * z, cy - 12 * z, 2 * z, 2 * z);
+      pxRect(ctx, cx - 4 * z, cy - 12.5 * z, 2 * z, 2 * z);
+      pxRect(ctx, cx + 1 * z, cy - 10.5 * z, 2 * z, 2 * z);
+      pxRect(ctx, cx + 3 * z, cy - 12.5 * z, 2 * z, 2 * z);
     } else {
-      // Wireless dual gamepads & coasters on coffee table
-      ctx.fillStyle = '#1b2234';
-      pxRect(ctx, cx - 6 * z, cy - 11 * z, 5 * z, 2.8 * z);
-      ctx.fillStyle = '#3cd8ff';
-      pxRect(ctx, cx - 2.5 * z, cy - 10.4 * z, 1.2 * z, 1.2 * z);
-      ctx.fillStyle = '#f0f4fc';
-      pxRect(ctx, cx + 1.5 * z, cy - 10.8 * z, 5 * z, 2.8 * z);
-      ctx.fillStyle = '#ff5666';
-      pxRect(ctx, cx + 5 * z, cy - 10.2 * z, 1.2 * z, 1.2 * z);
+      // Ceramic rimmed snack/chips bowl heaped with golden tortilla crisps
+      ctx.fillStyle = '#9aa8bf';
+      pxRect(ctx, cx - 5.2 * z, cy - 12.0 * z, 6.2 * z, 2.8 * z);
+      ctx.fillStyle = '#eef3fc';
+      pxRect(ctx, cx - 5.8 * z, cy - 13.0 * z, 7.4 * z, 1.6 * z);
+      ctx.fillStyle = '#f59f2a';
+      pxRect(ctx, cx - 4.8 * z, cy - 14.4 * z, 5.4 * z, 1.8 * z);
+      ctx.fillStyle = '#ffd147';
+      pxRect(ctx, cx - 4.2 * z, cy - 15.2 * z, 2.2 * z, 1.6 * z);
+      pxRect(ctx, cx - 1.6 * z, cy - 14.9 * z, 2.0 * z, 1.5 * z);
+      ctx.fillStyle = '#ffe999';
+      pxRect(ctx, cx - 2.8 * z, cy - 15.5 * z, 1.5 * z, 1.2 * z);
+
+      // Sleek black TV remote + two-tone DualSense wireless gamepad on smoked glass
+      ctx.fillStyle = '#0d1018';
+      pxRect(ctx, cx + 2.2 * z, cy - 13.4 * z, 2.0 * z, 4.2 * z);
+      ctx.fillStyle = '#ff4d6d';
+      pxRect(ctx, cx + 2.7 * z, cy - 13.0 * z, 1.0 * z, 0.9 * z);
+
+      ctx.fillStyle = '#f2f6ff';
+      pxRect(ctx, cx + 5.2 * z, cy - 12.2 * z, 4.8 * z, 2.6 * z);
+      ctx.fillStyle = '#1b2130';
+      pxRect(ctx, cx + 6.3 * z, cy - 11.4 * z, 2.6 * z, 1.6 * z);
+      ctx.fillStyle = '#00e5ff';
+      pxRect(ctx, cx + 6.8 * z, cy - 12.0 * z, 1.6 * z, 0.8 * z);
     }
   } else if (kind === 'pizza_table') {
     drawFloorShadow(ctx, cx, cy, 19, 11, z, 0.28);
@@ -2041,55 +2629,264 @@ export function drawEnhancedFurniture(
     const wispY = cy - (18 + ((timeSec * 4) % 4)) * z;
     ctx.fillStyle = 'rgba(255, 245, 220, 0.65)';
     pxRect(ctx, cx + 4.5 * z, wispY, 1.6 * z, 2 * z);
-  } else if (kind === 'tv_console') {
-    drawFloorShadow(ctx, cx, cy, 24, 10.5, z, 0.3);
-    // Slatted media credenza + next-gen game console unit
-    drawBox(ctx, cx, cy, 22, 9, 10, '#3a435c', '#252c3d', '#161a24', z);
-    ctx.fillStyle = '#8c5c38';
-    pxRect(ctx, cx - 14 * z, cy - 7 * z, 10 * z, 4 * z);
-    pxRect(ctx, cx + 4 * z, cy - 7 * z, 10 * z, 4 * z);
-    drawBox(ctx, cx, cy - 10 * z, 11, 5, 4, '#1b1f2b', '#10131c', '#090b10', z);
-    ctx.fillStyle = isOccupied ? '#3be87a' : '#ff5666';
-    pxRect(ctx, cx - 5 * z, cy - 12 * z, 3 * z, 2 * z);
-    ctx.fillStyle = '#3cd8ff';
-    pxRect(ctx, cx, cy - 12 * z, 3 * z, 2 * z);
+  } else if (kind === 'tv_console' || kind === 'gaming_tv') {
+    const pulse = 0.5 + 0.5 * Math.sin(timeSec * 3.8);
+    drawFloorShadow(ctx, cx, cy, 26, 11, z, 0.34);
 
-    // Ultra-thin bezel widescreen TV + ambient bias glow
-    const tvX = cx - 22 * z;
-    const tvY = cy - 42 * z;
-    const tvW = 44 * z;
+    // 1. Dual Magenta (#e040fb) + Cyan (#00e5ff) Neon Ambilight Wall Halo & LED Strips
+    const tvX = cx - 23 * z;
+    const tvY = cy - 43.5 * z;
+    const tvW = 46 * z;
     const tvH = 26 * z;
-    if (night || isOccupied) {
-      ctx.fillStyle = isOccupied ? 'rgba(60, 216, 255, 0.18)' : 'rgba(110, 150, 255, 0.12)';
-      pxRect(ctx, tvX - 2 * z, tvY - 2 * z, tvW + 4 * z, tvH + 4 * z);
-    }
-    ctx.fillStyle = '#0f131d';
+    const glowBase = night ? 0.26 : 0.16;
+    ctx.fillStyle = `rgba(224, 64, 251, ${(glowBase + pulse * 0.07).toFixed(3)})`;
+    pxRect(ctx, tvX - 3.5 * z, tvY - 2.5 * z, tvW * 0.54, tvH + 6 * z);
+    ctx.fillStyle = `rgba(0, 229, 255, ${(glowBase + (1 - pulse) * 0.07).toFixed(3)})`;
+    pxRect(ctx, cx - 1 * z, tvY - 2.5 * z, tvW * 0.54 + 3.5 * z, tvH + 6 * z);
+
+    // Flanking vertical & crown neon light tubes behind TV
+    ctx.fillStyle = '#e040fb';
+    pxRect(ctx, tvX - 2.4 * z, tvY + 1 * z, 1.5 * z, tvH - 2 * z);
+    pxRect(ctx, tvX, tvY - 1.8 * z, tvW * 0.48, 1.3 * z);
+    ctx.fillStyle = '#ffc4ff';
+    pxRect(ctx, tvX - 2.0 * z, tvY + 2.5 * z, 0.8 * z, tvH - 5 * z);
+
+    ctx.fillStyle = '#00e5ff';
+    pxRect(ctx, tvX + tvW + 0.9 * z, tvY + 1 * z, 1.5 * z, tvH - 2 * z);
+    pxRect(ctx, cx + 1 * z, tvY - 1.8 * z, tvW * 0.48, 1.3 * z);
+    ctx.fillStyle = '#d4fcff';
+    pxRect(ctx, tvX + tvW + 1.2 * z, tvY + 2.5 * z, 0.8 * z, tvH - 5 * z);
+
+    // 2. Wide Matte-Black Shelved Media Credenza
+    drawBox(
+      ctx,
+      cx,
+      cy,
+      24.5,
+      9.6,
+      10.5,
+      '#222734',
+      '#151821',
+      '#0c0e15',
+      z,
+      'rgba(185, 210, 255, 0.18)',
+    );
+    // Open recessed media cubby shelves (left & right bays)
+    ctx.fillStyle = '#080a10';
+    pxRect(ctx, cx - 16.5 * z, cy - 8.2 * z, 14.5 * z, 5.6 * z);
+    pxRect(ctx, cx + 2 * z, cy - 8.2 * z, 14.5 * z, 5.6 * z);
+    ctx.fillStyle = '#2a3142';
+    pxRect(ctx, cx - 16.5 * z, cy - 5.2 * z, 14.5 * z, 1.1 * z);
+    pxRect(ctx, cx + 2 * z, cy - 5.2 * z, 14.5 * z, 1.1 * z);
+
+    // Left cubby: game case spines + retro 64-bit cartridge mini-console
+    ctx.fillStyle = '#00e5ff';
+    pxRect(ctx, cx - 15.5 * z, cy - 4.0 * z, 1.2 * z, 2.4 * z);
+    ctx.fillStyle = '#e040fb';
+    pxRect(ctx, cx - 13.8 * z, cy - 4.0 * z, 1.2 * z, 2.4 * z);
+    ctx.fillStyle = '#ffd147';
+    pxRect(ctx, cx - 12.1 * z, cy - 4.0 * z, 1.2 * z, 2.4 * z);
+    ctx.fillStyle = '#32394d';
+    pxRect(ctx, cx - 9.2 * z, cy - 7.8 * z, 5.8 * z, 2.2 * z);
+    ctx.fillStyle = '#ff4d6d';
+    pxRect(ctx, cx - 8.4 * z, cy - 7.1 * z, 1.1 * z, 0.9 * z);
+
+    // Right cubby: DualSense twin charging dock with 2 wireless gamepads
+    ctx.fillStyle = '#181d29';
+    pxRect(ctx, cx + 4.2 * z, cy - 3.8 * z, 9.6 * z, 1.2 * z);
+    ctx.fillStyle = '#f2f6ff';
+    pxRect(ctx, cx + 4.6 * z, cy - 5.0 * z, 3.8 * z, 1.8 * z);
+    ctx.fillStyle = '#283044';
+    pxRect(ctx, cx + 9.4 * z, cy - 5.0 * z, 3.8 * z, 1.8 * z);
+    ctx.fillStyle = '#00e5ff';
+    pxRect(ctx, cx + 5.8 * z, cy - 4.8 * z, 1.4 * z, 0.8 * z);
+    ctx.fillStyle = '#e040fb';
+    pxRect(ctx, cx + 10.6 * z, cy - 4.8 * z, 1.4 * z, 0.8 * z);
+
+    // 3. Large Widescreen OLED Gaming TV + Pedestal & Soundbar
+    ctx.fillStyle = '#252c3d';
+    pxRect(ctx, cx - 2.2 * z, cy - 17.5 * z, 4.4 * z, 4.2 * z);
+    // Matte-black Dolby soundbar centered on credenza
+    drawBox(ctx, cx, cy - 11.2 * z, 10.5, 3.4, 2.2, '#1c212e', '#11141d', '#090b10', z);
+    ctx.fillStyle = isOccupied ? '#3be87a' : '#00e5ff';
+    pxRect(ctx, cx - 1.8 * z, cy - 12.6 * z, 1.6 * z, 0.9 * z);
+    ctx.fillStyle = '#e040fb';
+    pxRect(ctx, cx + 0.4 * z, cy - 12.6 * z, 1.6 * z, 0.9 * z);
+
+    // Ultra-thin OLED frame & vivid game screen
+    ctx.fillStyle = '#0b0e16';
     pxRect(ctx, tvX, tvY, tvW, tvH);
-    ctx.fillStyle = isOccupied ? '#13203d' : '#192133';
-    pxRect(ctx, tvX + 2 * z, tvY + 2 * z, tvW - 4 * z, tvH - 4 * z);
+    const scrX = tvX + 1.6 * z;
+    const scrY = tvY + 1.6 * z;
+    const scrW = tvW - 3.2 * z;
+    const scrH = tvH - 3.2 * z;
+    ctx.fillStyle = '#0e142b';
+    pxRect(ctx, scrX, scrY, scrW, scrH);
+
+    // Synthwave horizon band & perspective cyber-floor on screen
+    ctx.fillStyle = '#2a164d';
+    pxRect(ctx, scrX, scrY + scrH * 0.52, scrW, scrH * 0.2);
+    ctx.fillStyle = '#e040fb';
+    pxRect(ctx, scrX, scrY + scrH * 0.68, scrW, 1.1 * z);
+    ctx.fillStyle = '#162247';
+    pxRect(ctx, scrX, scrY + scrH * 0.72, scrW, scrH * 0.28);
 
     if (isOccupied) {
-      ctx.fillStyle = '#3cd8ff';
-      pxRect(ctx, tvX + 4 * z, tvY + 4 * z, 14 * z, 2 * z);
-      ctx.fillStyle = '#ff5666';
-      pxRect(ctx, tvX + tvW - 18 * z, tvY + 4 * z, 14 * z, 2 * z);
-
-      const hop1 = Math.abs(Math.sin(timeSec * 8)) * 4 * z;
-      const hop2 = Math.abs(Math.cos(timeSec * 7)) * 4 * z;
-      ctx.fillStyle = '#3be87a';
-      pxRect(ctx, tvX + 10 * z, tvY + 15 * z - hop1, 6 * z, 6 * z);
+      // Live 2P cyber-fighter match: P1/P2 health bars + timer + animated fighters & energy blast
+      ctx.fillStyle = '#00e5ff';
+      pxRect(ctx, scrX + 2.5 * z, scrY + 2.2 * z, 15 * z, 2 * z);
       ctx.fillStyle = '#ffd147';
-      pxRect(ctx, tvX + 28 * z, tvY + 15 * z - hop2, 6 * z, 6 * z);
+      pxRect(ctx, cx - 2 * z, scrY + 1.8 * z, 4 * z, 2.8 * z);
+      ctx.fillStyle = '#ff4d8d';
+      pxRect(ctx, scrX + scrW - 17.5 * z, scrY + 2.2 * z, 15 * z, 2 * z);
 
-      const projX = tvX + (17 + ((timeSec * 30) % 10)) * z;
-      ctx.fillStyle = '#ff7eb9';
-      pxRect(ctx, projX, tvY + 13 * z, 3 * z, 3 * z);
+      const hop1 = Math.abs(Math.sin(timeSec * 8)) * 3.8 * z;
+      const hop2 = Math.abs(Math.cos(timeSec * 7)) * 3.8 * z;
+      // P1 fighter
+      ctx.fillStyle = '#3be87a';
+      pxRect(ctx, scrX + 8.5 * z, scrY + 12.5 * z - hop1, 5.2 * z, 6.2 * z);
+      ctx.fillStyle = '#00e5ff';
+      pxRect(ctx, scrX + 10.2 * z, scrY + 13.5 * z - hop1, 3.5 * z, 1.4 * z);
+      // P2 fighter
+      ctx.fillStyle = '#ffd147';
+      pxRect(ctx, scrX + scrW - 13.7 * z, scrY + 12.5 * z - hop2, 5.2 * z, 6.2 * z);
+      ctx.fillStyle = '#e040fb';
+      pxRect(ctx, scrX + scrW - 13.7 * z, scrY + 13.5 * z - hop2, 3.2 * z, 1.4 * z);
+
+      const projX = scrX + (15.5 + ((timeSec * 28) % 11)) * z;
+      ctx.fillStyle = '#00e5ff';
+      pxRect(ctx, projX, scrY + 12 * z, 3.6 * z, 2.8 * z);
+      ctx.fillStyle = '#ffffff';
+      pxRect(ctx, projX + 0.8 * z, scrY + 12.6 * z, 1.8 * z, 1.4 * z);
     } else {
-      ctx.fillStyle = '#2d3c5c';
-      pxRect(ctx, tvX + 12 * z, tvY + 11 * z, 20 * z, 2.5 * z);
-      ctx.fillStyle = '#3cd8ff';
-      pxRect(ctx, tvX + 17 * z, tvY + 15 * z, 10 * z, 1.5 * z);
+      // Animated Retro 64-Pixel / PlayStation-Lounge 4-Symbol Emblem (△ ○ × □) & attract screen
+      const bob = Math.sin(timeSec * 2.8) * 1.1 * z;
+      // 1) Emerald Triangle (△)
+      const triX = cx - 12.2 * z;
+      const triY = scrY + 6.4 * z + bob;
+      ctx.fillStyle = '#3be87a';
+      pxRect(ctx, triX + 1.2 * z, triY, 1.2 * z, 1.0 * z);
+      pxRect(ctx, triX + 0.5 * z, triY + 1.0 * z, 2.6 * z, 1.0 * z);
+      pxRect(ctx, triX, triY + 2.0 * z, 3.6 * z, 1.0 * z);
+      ctx.fillStyle = '#0e142b';
+      pxRect(ctx, triX + 1.3 * z, triY + 1.3 * z, 1.0 * z, 0.8 * z);
+
+      // 2) Coral Ring (○)
+      const cirX = cx - 5.4 * z;
+      const cirY = scrY + 5.6 * z - bob * 0.6;
+      ctx.fillStyle = '#ff4d6d';
+      pxRect(ctx, cirX + 0.6 * z, cirY, 2.4 * z, 3.6 * z);
+      pxRect(ctx, cirX, cirY + 0.6 * z, 3.6 * z, 2.4 * z);
+      ctx.fillStyle = '#0e142b';
+      pxRect(ctx, cirX + 1.0 * z, cirY + 1.0 * z, 1.6 * z, 1.6 * z);
+
+      // 3) Cyan Cross (×)
+      const crsX = cx + 1.8 * z;
+      const crsY = scrY + 5.6 * z + bob * 0.6;
+      ctx.fillStyle = '#00e5ff';
+      pxRect(ctx, crsX, crsY, 1.1 * z, 1.1 * z);
+      pxRect(ctx, crsX + 2.3 * z, crsY, 1.1 * z, 1.1 * z);
+      pxRect(ctx, crsX + 1.1 * z, crsY + 1.1 * z, 1.2 * z, 1.2 * z);
+      pxRect(ctx, crsX, crsY + 2.3 * z, 1.1 * z, 1.1 * z);
+      pxRect(ctx, crsX + 2.3 * z, crsY + 2.3 * z, 1.1 * z, 1.1 * z);
+
+      // 4) Magenta Square (□)
+      const sqX = cx + 8.6 * z;
+      const sqY = scrY + 6.4 * z - bob;
+      ctx.fillStyle = '#e040fb';
+      pxRect(ctx, sqX, sqY, 3.5 * z, 3.5 * z);
+      ctx.fillStyle = '#0e142b';
+      pxRect(ctx, sqX + 1.0 * z, sqY + 1.0 * z, 1.5 * z, 1.5 * z);
+
+      // Golden 64-bit title banner + pulsing "PRESS START" bar
+      ctx.fillStyle = '#ffd147';
+      pxRect(ctx, cx - 7.5 * z, scrY + 12.2 * z, 15 * z, 2.0 * z);
+      ctx.fillStyle = pulse > 0.45 ? '#00e5ff' : '#9eb8ff';
+      pxRect(ctx, cx - 4.5 * z, scrY + 18.0 * z, 9.0 * z, 1.4 * z);
     }
+
+    // Crisp diagonal OLED glass reflection
+    ctx.strokeStyle = 'rgba(220, 245, 255, 0.26)';
+    ctx.lineWidth = Math.max(0.9, 1.1 * z);
+    ctx.beginPath();
+    ctx.moveTo(scrX + 2 * z, scrY + 9 * z);
+    ctx.lineTo(scrX + 9 * z, scrY + 2 * z);
+    ctx.stroke();
+
+    // 4. Left Corner of Credenza: Glowing 2.5D Golden '?' Question-Block Cube Lamp
+    const qX = cx - 20.4 * z;
+    const qY = cy - 17.6 * z;
+    ctx.fillStyle = `rgba(255, 209, 71, ${(0.26 + pulse * 0.14).toFixed(3)})`;
+    pxRect(ctx, qX - 2.2 * z, qY - 2.6 * z, 11.4 * z, 10.6 * z);
+    // Lamp dark plinth base
+    ctx.fillStyle = '#141824';
+    pxRect(ctx, qX + 0.8 * z, qY + 6.4 * z, 5.6 * z, 1.2 * z);
+    // 3D top gold bevel & shaded right cube face
+    ctx.fillStyle = '#ffec99';
+    ctx.beginPath();
+    ctx.moveTo(qX, qY);
+    ctx.lineTo(qX + 1.8 * z, qY - 1.5 * z);
+    ctx.lineTo(qX + 8.2 * z, qY - 1.5 * z);
+    ctx.lineTo(qX + 6.4 * z, qY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#c9780c';
+    ctx.beginPath();
+    ctx.moveTo(qX + 6.4 * z, qY);
+    ctx.lineTo(qX + 8.2 * z, qY - 1.5 * z);
+    ctx.lineTo(qX + 8.2 * z, qY + 4.9 * z);
+    ctx.lineTo(qX + 6.4 * z, qY + 6.4 * z);
+    ctx.closePath();
+    ctx.fill();
+    // Bright luminous golden front square
+    ctx.fillStyle = '#ffc42e';
+    pxRect(ctx, qX, qY, 6.4 * z, 6.4 * z);
+    ctx.strokeStyle = '#6e3d04';
+    ctx.lineWidth = Math.max(0.8, 0.9 * z);
+    pxStrokeRect(ctx, qX, qY, 6.4 * z, 6.4 * z);
+    // 4 corner rivets
+    ctx.fillStyle = '#8f5106';
+    pxRect(ctx, qX + 0.6 * z, qY + 0.6 * z, 0.8 * z, 0.8 * z);
+    pxRect(ctx, qX + 5.0 * z, qY + 0.6 * z, 0.8 * z, 0.8 * z);
+    pxRect(ctx, qX + 0.6 * z, qY + 5.0 * z, 0.8 * z, 0.8 * z);
+    pxRect(ctx, qX + 5.0 * z, qY + 5.0 * z, 0.8 * z, 0.8 * z);
+    // Crisp white '?' pixel glyph with amber drop shadow
+    ctx.fillStyle = '#9e5a08';
+    pxRect(ctx, qX + 2.1 * z, qY + 1.5 * z, 2.6 * z, 0.9 * z);
+    pxRect(ctx, qX + 2.9 * z, qY + 4.7 * z, 1.0 * z, 0.9 * z);
+    ctx.fillStyle = '#ffffff';
+    pxRect(ctx, qX + 1.9 * z, qY + 1.2 * z, 2.6 * z, 0.9 * z);
+    pxRect(ctx, qX + 3.6 * z, qY + 2.0 * z, 0.9 * z, 1.2 * z);
+    pxRect(ctx, qX + 2.6 * z, qY + 2.9 * z, 1.6 * z, 0.9 * z);
+    pxRect(ctx, qX + 2.7 * z, qY + 4.4 * z, 1.0 * z, 0.9 * z);
+
+    // 5. Right Corner of Credenza: Sculpted Vertical White & Gloss-Black PS5 Console + Gamepad
+    const psX = cx + 16.2 * z;
+    const psY = cy - 11.0 * z;
+    // Matte circular stand base
+    ctx.fillStyle = '#10141f';
+    pxRect(ctx, psX - 3.2 * z, psY - 1.2 * z, 6.4 * z, 1.4 * z);
+    // Left flared pearl-white faceplate fin
+    ctx.fillStyle = '#f4f7ff';
+    pxRect(ctx, psX - 2.8 * z, psY - 11.6 * z, 1.7 * z, 10.6 * z);
+    // Gloss-black curved center core
+    ctx.fillStyle = '#0a0c12';
+    pxRect(ctx, psX - 1.1 * z, psY - 10.8 * z, 2.2 * z, 9.8 * z);
+    // Right shaded pearl-white faceplate fin
+    ctx.fillStyle = '#cfd9ed';
+    pxRect(ctx, psX + 1.1 * z, psY - 11.4 * z, 1.7 * z, 10.4 * z);
+    // Glowing Cyan-Blue PS5 inner power LED strip
+    ctx.fillStyle = '#00e5ff';
+    pxRect(ctx, psX - 1.1 * z, psY - 10.4 * z, 0.7 * z, 6.2 * z);
+    pxRect(ctx, psX + 0.4 * z, psY - 10.4 * z, 0.7 * z, 6.2 * z);
+
+    // Companion white DualSense controller resting beside PS5
+    ctx.fillStyle = '#f2f6ff';
+    pxRect(ctx, psX - 7.2 * z, psY - 2.4 * z, 3.6 * z, 1.9 * z);
+    ctx.fillStyle = '#181e2c';
+    pxRect(ctx, psX - 6.3 * z, psY - 1.7 * z, 1.8 * z, 1.1 * z);
+    ctx.fillStyle = '#00e5ff';
+    pxRect(ctx, psX - 6.0 * z, psY - 2.2 * z, 1.2 * z, 0.7 * z);
   } else if (kind === 'coffee_machine') {
     drawFloorShadow(ctx, cx, cy, 18, 11, z, 0.28);
     // Walnut espresso bar cabinet + chrome commercial dual-group espresso machine

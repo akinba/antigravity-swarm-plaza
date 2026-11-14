@@ -101,6 +101,15 @@ const WORK_DESK_KINDS = new Set(['dev_desk', 'qa_desk', 'exec_desk', 'desk']);
 const WORK_CHAIR_KINDS = new Set(['desk_chair', 'exec_chair', 'swivel_chair', 'chair']);
 const DESK_SEAT_DISTANCE = 0.72;
 
+function isBeanbagKind(kind: string): boolean {
+  return (
+    kind === 'gaming_seat' ||
+    kind === 'beanbag' ||
+    kind.startsWith('beanbag_') ||
+    kind.startsWith('gaming_seat_')
+  );
+}
+
 interface DeskSeatAlignment {
   deskGx: number;
   deskGy: number;
@@ -116,16 +125,20 @@ interface LayoutSeatAlignments {
   deskSeatMap: Map<string, DeskSeatAlignment>;
   chairFacingMap: Map<string, Facing>;
   explicitWorkChairKeys: Set<string>;
+  beanbagKeys: Set<string>;
 }
 
 function buildLayoutSeatAlignments(layout: FloorLayout): LayoutSeatAlignments {
   const deskSeatMap = new Map<string, DeskSeatAlignment>();
   const chairFacingMap = new Map<string, Facing>();
   const explicitWorkChairKeys = new Set<string>();
+  const beanbagKeys = new Set<string>();
 
   const workDesks = layout.furniture.filter((f) => WORK_DESK_KINDS.has(f.kind));
   const warTables = layout.furniture.filter((f) => f.kind === 'war_table');
-  const tvConsoles = layout.furniture.filter((f) => f.kind === 'tv_console');
+  const tvConsoles = layout.furniture.filter(
+    (f) => f.kind === 'tv_console' || f.kind === 'gaming_tv',
+  );
 
   const candidateSeats: Array<{ gx: number; gy: number }> = [];
   const seenCandidates = new Set<string>();
@@ -239,26 +252,30 @@ function buildLayoutSeatAlignments(layout: FloorLayout): LayoutSeatAlignments {
           facingFromDelta(best.gx - item.gx, best.gy - item.gy, 'SE'),
         );
       }
-    } else if (item.kind === 'gaming_seat' && tvConsoles.length > 0) {
-      let best: { gx: number; gy: number } | null = null;
-      let bestD = Infinity;
-      for (const tv of tvConsoles) {
-        const d = Math.hypot(tv.gx - item.gx, tv.gy - item.gy);
-        if (d < bestD) {
-          bestD = d;
-          best = tv;
+    } else if (isBeanbagKind(item.kind)) {
+      const bagKey = `${item.gx},${item.gy}`;
+      beanbagKeys.add(bagKey);
+      if (tvConsoles.length > 0) {
+        let best: { gx: number; gy: number } | null = null;
+        let bestD = Infinity;
+        for (const tv of tvConsoles) {
+          const d = Math.hypot(tv.gx - item.gx, tv.gy - item.gy);
+          if (d < bestD) {
+            bestD = d;
+            best = tv;
+          }
         }
-      }
-      if (best) {
-        chairFacingMap.set(
-          `${item.gx},${item.gy}`,
-          facingFromDelta(best.gx - item.gx, best.gy - item.gy, 'NE'),
-        );
+        if (best) {
+          chairFacingMap.set(
+            bagKey,
+            facingFromDelta(best.gx - item.gx, best.gy - item.gy, 'NE'),
+          );
+        }
       }
     }
   }
 
-  return { deskSeatMap, chairFacingMap, explicitWorkChairKeys };
+  return { deskSeatMap, chairFacingMap, explicitWorkChairKeys, beanbagKeys };
 }
 
 export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
@@ -532,6 +549,8 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
     let watercoolerIdx = 0;
     let pizzaIdx = 0;
     let coffeeIdx = 0;
+    let nextGamingFallback = 0;
+    const usedGamingIndices = new Set<number>();
     const gamingIds: string[] = [];
 
     floor.employees.forEach((emp) => {
@@ -540,7 +559,17 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
       if (emp.activity === 'going_home' || emp.zone === 'ELEVATOR') {
         slot = ELEVATOR_SLOT;
       } else if (emp.activity === 'gaming') {
-        slot = layout.gamingSlots[emp.playerSlot === 2 ? 1 : 0];
+        const nSlots = Math.max(1, layout.gamingSlots.length);
+        const prefIdx = emp.playerSlot && emp.playerSlot >= 1 ? (emp.playerSlot - 1) % nSlots : 0;
+        let chosenIdx = prefIdx;
+        if (usedGamingIndices.has(chosenIdx)) {
+          while (nextGamingFallback < nSlots && usedGamingIndices.has(nextGamingFallback)) {
+            nextGamingFallback += 1;
+          }
+          chosenIdx = nextGamingFallback < nSlots ? nextGamingFallback : prefIdx;
+        }
+        usedGamingIndices.add(chosenIdx);
+        slot = layout.gamingSlots[chosenIdx];
         gamingIds.push(emp.id);
       } else if (emp.activity === 'watercooler') {
         slot = layout.watercoolerSlots[watercoolerIdx % layout.watercoolerSlots.length];
@@ -978,6 +1007,135 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
             'rgba(0,0,0,0)',
           );
         }
+
+        // PlayStation Hobby Lounge Woven Gaming Rug & Dual Magenta + Cyan Neon Ambience
+        const tvConsoleItem = currentLayout.furniture.find(
+          (f) => f.kind === 'tv_console' || f.kind === 'gaming_tv',
+        );
+        if (tvConsoleItem) {
+          const tx = tvConsoleItem.gx;
+          const ty = tvConsoleItem.gy;
+          const rugX0 = Math.max(-0.4, tx - 0.35);
+          const rugY0 = Math.max(-0.4, ty - 0.35);
+          const rugX1 = Math.min(GRID_W - 0.52, tx + 2.45);
+          const rugY1 = Math.min(GRID_H - 0.52, ty + 2.45);
+          const cTop = gridToScreen(rugX0, rugY0, cam);
+          const cRight = gridToScreen(rugX1, rugY0, cam);
+          const cBot = gridToScreen(rugX1, rugY1, cam);
+          const cLeft = gridToScreen(rugX0, rugY1, cam);
+
+          targetCtx.save();
+          // Plush anthracite-indigo gaming zone area rug
+          targetCtx.beginPath();
+          targetCtx.moveTo(cTop.x, cTop.y);
+          targetCtx.lineTo(cRight.x, cRight.y);
+          targetCtx.lineTo(cBot.x, cBot.y);
+          targetCtx.lineTo(cLeft.x, cLeft.y);
+          targetCtx.closePath();
+          targetCtx.fillStyle = night ? 'rgba(13, 16, 28, 0.84)' : 'rgba(20, 24, 38, 0.74)';
+          targetCtx.fill();
+          targetCtx.lineWidth = Math.max(1, 1.35 * cam.zoom);
+          targetCtx.strokeStyle = night ? 'rgba(8, 10, 18, 0.9)' : 'rgba(12, 15, 26, 0.8)';
+          targetCtx.stroke();
+
+          // Dual neon LED woven border piping: Magenta (NW/SW) + Cyan (NE/SE)
+          const inset = 0.09;
+          const iTop = gridToScreen(rugX0 + inset, rugY0 + inset, cam);
+          const iRight = gridToScreen(rugX1 - inset, rugY0 + inset, cam);
+          const iBot = gridToScreen(rugX1 - inset, rugY1 - inset, cam);
+          const iLeft = gridToScreen(rugX0 + inset, rugY1 - inset, cam);
+
+          targetCtx.lineWidth = Math.max(1, 1.2 * cam.zoom);
+          targetCtx.beginPath();
+          targetCtx.moveTo(iTop.x, iTop.y);
+          targetCtx.lineTo(iLeft.x, iLeft.y);
+          targetCtx.lineTo(iBot.x, iBot.y);
+          targetCtx.strokeStyle = night ? 'rgba(224, 64, 251, 0.54)' : 'rgba(224, 64, 251, 0.40)';
+          targetCtx.stroke();
+
+          targetCtx.beginPath();
+          targetCtx.moveTo(iTop.x, iTop.y);
+          targetCtx.lineTo(iRight.x, iRight.y);
+          targetCtx.lineTo(iBot.x, iBot.y);
+          targetCtx.strokeStyle = night ? 'rgba(0, 229, 255, 0.52)' : 'rgba(0, 229, 255, 0.38)';
+          targetCtx.stroke();
+
+          // Subtle PlayStation-inspired 4-symbol woven micro-motif near front corner of rug
+          const motifPt = gridToScreen(
+            Math.min(rugX1 - 0.35, tx + 1.9),
+            Math.min(rugY1 - 0.35, ty + 1.9),
+            cam,
+          );
+          const mz = cam.zoom;
+          targetCtx.globalAlpha = night ? 0.34 : 0.24;
+          targetCtx.fillStyle = '#3be87a';
+          targetCtx.fillRect(motifPt.x - 9 * mz, motifPt.y - 2 * mz, 2.4 * mz, 2.2 * mz);
+          targetCtx.fillStyle = '#ff4d6d';
+          targetCtx.fillRect(motifPt.x - 3.5 * mz, motifPt.y - 3.5 * mz, 2.4 * mz, 2.2 * mz);
+          targetCtx.fillStyle = '#00e5ff';
+          targetCtx.fillRect(motifPt.x + 2 * mz, motifPt.y - 3.5 * mz, 2.4 * mz, 2.2 * mz);
+          targetCtx.fillStyle = '#e040fb';
+          targetCtx.fillRect(motifPt.x + 7.5 * mz, motifPt.y - 2 * mz, 2.4 * mz, 2.2 * mz);
+          targetCtx.restore();
+
+          // Magenta + Cyan Neon Floor Ambience Pools
+          drawRadialPoolOn(
+            targetCtx,
+            tx - 0.25,
+            ty + 0.65,
+            2.35,
+            night ? 'rgba(224, 64, 251, 0.17)' : 'rgba(224, 64, 251, 0.10)',
+            'rgba(0,0,0,0)',
+          );
+          drawRadialPoolOn(
+            targetCtx,
+            tx + 1.35,
+            ty + 0.95,
+            2.35,
+            night ? 'rgba(0, 229, 255, 0.14)' : 'rgba(0, 229, 255, 0.08)',
+            'rgba(0,0,0,0)',
+          );
+
+          // Upper Wall / Ceiling Neon Cove Wash behind Gaming TV & Arcade Cabinet
+          const wallLeftPt = gridToScreen(tx - 0.45, ty - 0.15, cam);
+          const wallRightPt = gridToScreen(tx + 0.45, ty - 0.15, cam);
+          const washRad = 1.65 * TILE_W * cam.zoom;
+          if (washRad > 0) {
+            targetCtx.save();
+            const mWashY = wallLeftPt.y - 26 * cam.zoom;
+            const mGrad = targetCtx.createRadialGradient(
+              wallLeftPt.x,
+              mWashY,
+              0,
+              wallLeftPt.x,
+              mWashY,
+              washRad,
+            );
+            mGrad.addColorStop(0, night ? 'rgba(224, 64, 251, 0.16)' : 'rgba(224, 64, 251, 0.10)');
+            mGrad.addColorStop(1, 'rgba(0,0,0,0)');
+            targetCtx.fillStyle = mGrad;
+            targetCtx.beginPath();
+            targetCtx.ellipse(wallLeftPt.x, mWashY, washRad, washRad * 0.62, 0, 0, Math.PI * 2);
+            targetCtx.fill();
+
+            const cWashY = wallRightPt.y - 26 * cam.zoom;
+            const cGrad = targetCtx.createRadialGradient(
+              wallRightPt.x,
+              cWashY,
+              0,
+              wallRightPt.x,
+              cWashY,
+              washRad,
+            );
+            cGrad.addColorStop(0, night ? 'rgba(0, 229, 255, 0.14)' : 'rgba(0, 229, 255, 0.08)');
+            cGrad.addColorStop(1, 'rgba(0,0,0,0)');
+            targetCtx.fillStyle = cGrad;
+            targetCtx.beginPath();
+            targetCtx.ellipse(wallRightPt.x, cWashY, washRad, washRad * 0.62, 0, 0, Math.PI * 2);
+            targetCtx.fill();
+            targetCtx.restore();
+          }
+        }
         const serverAnchor = currentLayout.zoneSlots.SERVER_RACK[0];
         if (serverAnchor) {
           drawRadialPoolOn(
@@ -1059,17 +1217,30 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
       }
       const renderables: RenderItem[] = [];
 
+      const currentAlignments = seatAlignmentsRef.current;
+
       // Occupied check for dev/qa desks, gaming TV console, presentation screen & pizza box
       const occupiedZones = new Set(
         currentFloor.employees.filter((e) => e.status === 'working').map((e) => e.zone),
       );
-      const isGamingOccupied = currentFloor.employees.some((e) => e.activity === 'gaming');
+      let hasSeatedBeanbagGamer = false;
+      for (const emp of currentFloor.employees) {
+        const actor = actors.get(emp.id);
+        if (!actor || actor.isWalking || emp.activity === 'going_home') continue;
+        const sk = `${Math.round(actor.gx)},${Math.round(actor.gy)}`;
+        if (currentAlignments.beanbagKeys.has(sk)) {
+          hasSeatedBeanbagGamer = true;
+          break;
+        }
+      }
+      const isGamingOccupied =
+        currentFloor.employees.some((e) => e.activity === 'gaming') || hasSeatedBeanbagGamer;
       const isPresenterActive = currentFloor.employees.some(
         (e) => e.activity === 'presenting' || e.isPresenter,
       );
+      const isPizzaPartyEvent = currentFloor.activeEvent?.kind === 'PIZZA_PARTY';
       const isPizzaActive =
-        currentFloor.activeEvent?.kind === 'PIZZA_PARTY' ||
-        currentFloor.employees.some((e) => e.activity === 'pizza');
+        isPizzaPartyEvent || currentFloor.employees.some((e) => e.activity === 'pizza');
       let isElevatorBusy = false;
       const empById = new Map(currentFloor.employees.map((e) => [e.id, e]));
       for (const [id, actor] of actors.entries()) {
@@ -1117,11 +1288,13 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
         }
       }
 
-      const currentAlignments = seatAlignmentsRef.current;
+      let beanbagCounter = 0;
 
       for (const item of currentLayout.furniture) {
         const itemKey = `${item.gx},${item.gy}`;
         const isWorkChair = WORK_CHAIR_KINDS.has(item.kind);
+        const isBeanbag = isBeanbagKind(item.kind);
+        const itemColorIndex = isBeanbag ? beanbagCounter++ : undefined;
         const chairDeskAlign = isWorkChair ? currentAlignments.deskSeatMap.get(itemKey) : undefined;
         const renderItemGx = chairDeskAlign ? chairDeskAlign.seatGx : item.gx;
         const renderItemGy = chairDeskAlign ? chairDeskAlign.seatGy : item.gy;
@@ -1174,6 +1347,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
               }
             }
 
+            const isTvItem = item.kind === 'tv_console' || item.kind === 'gaming_tv';
             const occupied =
               (WORK_DESK_KINDS.has(item.kind) &&
                 (deskHasWorking ||
@@ -1181,13 +1355,18 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
                   (item.kind === 'dev_desk' && occupiedZones.has('DESK_CODING')) ||
                   (item.kind === 'qa_desk' && occupiedZones.has('DESK_QA')) ||
                   (item.kind === 'exec_desk' && occupiedZones.has('DESK_ARCHITECT')))) ||
-              (item.kind === 'tv_console' && isGamingOccupied) ||
+              (isTvItem && isGamingOccupied) ||
               (item.kind === 'lounge_table' && isPizzaActive) ||
+              ((item.kind === 'coffee_table' || item.kind === 'gaming_table') && isPizzaPartyEvent) ||
               (item.kind === 'elevator_doors' && isElevatorBusy) ||
               (isWb && isPresenterActive);
 
-            // Soft elliptical furniture contact shadow
-            if (item.kind !== 'glass_partition_x' && item.kind !== 'glass_partition_y') {
+            // Soft elliptical furniture contact shadow (beanbags render their own sculpted floor shadow)
+            if (
+              !isBeanbag &&
+              item.kind !== 'glass_partition_x' &&
+              item.kind !== 'glass_partition_y'
+            ) {
               ctx.save();
               ctx.globalAlpha = night ? 0.3 : 0.2;
               ctx.fillStyle = '#070a14';
@@ -1208,6 +1387,28 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
               );
             }
 
+            // Subtle live neon TV screen & ambilight bounce onto the PlayStation lounge rug
+            if (isTvItem && (isGamingOccupied || night)) {
+              const pulseAlpha = (
+                (night ? 0.08 : 0.05) +
+                0.025 * Math.sin(timeSec * 3.2)
+              ).toFixed(3);
+              drawRadialPool(
+                item.gx + 0.55,
+                item.gy + 0.75,
+                1.65,
+                `rgba(0, 229, 255, ${pulseAlpha})`,
+                'rgba(0,0,0,0)',
+              );
+              drawRadialPool(
+                item.gx - 0.15,
+                item.gy + 0.35,
+                1.35,
+                `rgba(224, 64, 251, ${pulseAlpha})`,
+                'rgba(0,0,0,0)',
+              );
+            }
+
             drawEnhancedFurniture(
               ctx,
               item.kind,
@@ -1222,6 +1423,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
               tRef.current.office.whiteboardLabel,
               deskLevel,
               itemFacing,
+              itemColorIndex,
             );
             if (deskHasVerified) {
               drawDeskVerifiedTrophy(ctx, p.x, p.y, cam.zoom, timeSec);
@@ -1294,6 +1496,8 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
         const isPresenting =
           !actor.isWalking && (emp.activity === 'presenting' || Boolean(emp.isPresenter));
         const slotKey = `${Math.round(actor.gx)},${Math.round(actor.gy)}`;
+        const isSeatedStationary =
+          !actor.isWalking && !isPresenting && emp.activity !== 'going_home';
         const isDeskZoneOrActivity =
           emp.zone === 'DESK_CODING' ||
           emp.zone === 'DESK_QA' ||
@@ -1301,18 +1505,29 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
           emp.activity === 'coding' ||
           emp.activity === 'terminal';
         const deskSeatAlign =
-          !actor.isWalking &&
-          !isPresenting &&
-          emp.activity !== 'going_home' &&
-          isDeskZoneOrActivity
+          isSeatedStationary && isDeskZoneOrActivity
             ? currentAlignments.deskSeatMap.get(slotKey)
             : undefined;
+        const isSeatedOnBeanbag =
+          isSeatedStationary && !deskSeatAlign && currentAlignments.beanbagKeys.has(slotKey);
+        const alignedChairFacing = isSeatedStationary
+          ? currentAlignments.chairFacingMap.get(slotKey)
+          : undefined;
 
         const renderGx = deskSeatAlign ? deskSeatAlign.seatGx : actor.gx;
         const renderGy = deskSeatAlign ? deskSeatAlign.seatGy : actor.gy;
-        const renderFacing: Facing = deskSeatAlign ? deskSeatAlign.deskFacing : actor.facing;
+        const renderFacing: Facing = deskSeatAlign
+          ? deskSeatAlign.deskFacing
+          : (alignedChairFacing ?? actor.facing);
         const empDepth = deskSeatAlign ? deskSeatAlign.empDepth : actor.gx + actor.gy + 0.14;
         const p = gridToScreen(renderGx, renderGy, cam);
+        const beanbagFlip = renderFacing === 'NW' || renderFacing === 'SW' ? -1 : 1;
+        const empScreenX = isSeatedOnBeanbag ? p.x + beanbagFlip * 2.5 * cam.zoom : p.x;
+        const empScreenY = isSeatedOnBeanbag ? p.y - 1.2 * cam.zoom : p.y;
+        const renderEmp: OfficeEmployee =
+          isSeatedOnBeanbag && emp.activity === 'lounging'
+            ? { ...emp, activity: 'gaming' }
+            : emp;
 
         // Ensure secondary desk slots without an explicit chair prop still render an ergonomic task chair beneath the seated employee
         if (
@@ -1369,8 +1584,8 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
 
         nextHitBoxes.push({
           emp,
-          x: p.x,
-          y: p.y - 20 * cam.zoom,
+          x: empScreenX,
+          y: empScreenY - 20 * cam.zoom,
           r: 22 * cam.zoom,
         });
         renderables.push({
@@ -1378,9 +1593,9 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
           draw: () => {
             drawEmployeeSprite(
               ctx,
-              emp,
-              p.x,
-              p.y,
+              renderEmp,
+              empScreenX,
+              empScreenY,
               cam.zoom,
               renderFacing,
               actor.isWalking,
@@ -1401,16 +1616,17 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
                 !actor.isWalking &&
                 !isPresenting &&
                 (Boolean(deskSeatAlign) ||
-                  emp.activity === 'coding' ||
-                  emp.activity === 'terminal' ||
-                  emp.activity === 'reading' ||
-                  emp.activity === 'searching' ||
-                  emp.activity === 'thinking' ||
-                  emp.activity === 'meeting' ||
-                  emp.activity === 'lounging' ||
-                  emp.activity === 'sleeping' ||
-                  emp.activity === 'gaming');
-              const baseY = p.y - bob + (seated ? 4 * z : 0);
+                  isSeatedOnBeanbag ||
+                  renderEmp.activity === 'coding' ||
+                  renderEmp.activity === 'terminal' ||
+                  renderEmp.activity === 'reading' ||
+                  renderEmp.activity === 'searching' ||
+                  renderEmp.activity === 'thinking' ||
+                  renderEmp.activity === 'meeting' ||
+                  renderEmp.activity === 'lounging' ||
+                  renderEmp.activity === 'sleeping' ||
+                  renderEmp.activity === 'gaming');
+              const baseY = empScreenY - bob + (seated ? 4 * z : 0);
               const hasErrorLoop =
                 emp.health.consecutiveErrors >= 2 ||
                 emp.toolActivity === 'error' ||
@@ -1420,8 +1636,8 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
                 emp.status === 'error';
               const showNameTag = isHovered || isSelected;
               const badgeX = showNameTag
-                ? p.x + (hasActiveTool && !showSpeechBubble ? 18 * z : 0)
-                : p.x + (hasErrorLoop ? 15.5 * z : 12 * z);
+                ? empScreenX + (hasActiveTool && !showSpeechBubble ? 18 * z : 0)
+                : empScreenX + (hasErrorLoop ? 15.5 * z : 12 * z);
               const badgeY = showNameTag ? baseY - 59 * z : baseY - 47 * z;
 
               ctx.save();
