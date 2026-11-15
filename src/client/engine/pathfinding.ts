@@ -1,7 +1,48 @@
 import type { OfficeZone } from '../../shared/types';
 import { GRID_H, GRID_W, type GridPoint } from './isoMath';
 
-export type Facing = 'SE' | 'SW' | 'NE' | 'NW';
+export type Facing = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW';
+
+export const ALL_FACINGS: readonly Facing[] = [
+  'S',
+  'SE',
+  'E',
+  'NE',
+  'N',
+  'NW',
+  'W',
+  'SW',
+] as const;
+
+export interface FurnitureItem {
+  gx: number;
+  gy: number;
+  kind: string;
+  facing?: Facing;
+}
+
+export type ConferenceTableKind =
+  | 'war_table'
+  | 'war_table_oval'
+  | 'war_table_round'
+  | 'war_table_rect'
+  | 'war_table_u'
+  | 'war_table_s'
+  | 'war_table_part';
+
+export const CONFERENCE_TABLE_KINDS = new Set<string>([
+  'war_table',
+  'war_table_oval',
+  'war_table_round',
+  'war_table_rect',
+  'war_table_u',
+  'war_table_s',
+  'war_table_part',
+]);
+
+export function isConferenceTableKind(kind: string): boolean {
+  return CONFERENCE_TABLE_KINDS.has(kind);
+}
 
 export interface ZoneSlot {
   gx: number;
@@ -13,22 +54,23 @@ export interface ZoneSlot {
  * Blocked furniture coordinates on the 16x14 grid.
  * Kept in sync with furniture placement in OfficeCanvas / pixelSprites.
  */
-export const FURNITURE_BLOCKS: ReadonlyArray<{ gx: number; gy: number; kind: string }> = [
+export const FURNITURE_BLOCKS: ReadonlyArray<FurnitureItem> = [
   // Executive corner
   { gx: 2, gy: 2, kind: 'exec_desk' },
-  { gx: 2, gy: 3, kind: 'desk_chair' },
+  { gx: 2, gy: 3, kind: 'desk_chair', facing: 'NE' },
   { gx: 1, gy: 1, kind: 'bookshelf' },
   { gx: 4, gy: 1, kind: 'filing_cabinet' },
   // War room presentation screen, conference table & walkable meeting chairs
   { gx: 6, gy: 1, kind: 'whiteboard_l' },
   { gx: 7, gy: 1, kind: 'whiteboard_r' },
-  { gx: 6, gy: 3, kind: 'war_table' },
-  { gx: 7, gy: 3, kind: 'war_table' },
-  { gx: 5, gy: 3, kind: 'meeting_chair' },
-  { gx: 6, gy: 4, kind: 'meeting_chair' },
-  { gx: 7, gy: 4, kind: 'meeting_chair' },
-  { gx: 8, gy: 3, kind: 'meeting_chair' },
-  { gx: 8, gy: 2, kind: 'meeting_chair' },
+  { gx: 6, gy: 3, kind: 'war_table_oval' },
+  { gx: 7, gy: 3, kind: 'war_table_part' },
+  { gx: 5, gy: 3, kind: 'meeting_chair', facing: 'SE' },
+  { gx: 5, gy: 4, kind: 'meeting_chair', facing: 'E' },
+  { gx: 6, gy: 4, kind: 'meeting_chair', facing: 'NE' },
+  { gx: 7, gy: 4, kind: 'meeting_chair', facing: 'NE' },
+  { gx: 8, gy: 3, kind: 'meeting_chair', facing: 'NW' },
+  { gx: 8, gy: 2, kind: 'meeting_chair', facing: 'W' },
   // Server racks & test terminal
   { gx: 11, gy: 1, kind: 'server_rack' },
   { gx: 12, gy: 1, kind: 'server_rack' },
@@ -68,11 +110,12 @@ export const FURNITURE_BLOCKS: ReadonlyArray<{ gx: number; gy: number; kind: str
 export const PRESENTER_SLOT: ZoneSlot = { gx: 6, gy: 2, facing: 'SE' };
 
 export const MEETING_CHAIR_SLOTS: ZoneSlot[] = [
-  { gx: 5, gy: 3, facing: 'NE' },
-  { gx: 6, gy: 4, facing: 'NW' },
-  { gx: 7, gy: 4, facing: 'NW' },
+  { gx: 5, gy: 3, facing: 'SE' },
+  { gx: 5, gy: 4, facing: 'E' },
+  { gx: 6, gy: 4, facing: 'NE' },
+  { gx: 7, gy: 4, facing: 'NE' },
   { gx: 8, gy: 3, facing: 'NW' },
-  { gx: 8, gy: 2, facing: 'SW' },
+  { gx: 8, gy: 2, facing: 'W' },
 ];
 
 export const GAMING_SLOTS: ZoneSlot[] = [
@@ -180,12 +223,45 @@ export function buildWalkableGrid(): boolean[][] {
   return buildWalkableGridForFurniture(FURNITURE_BLOCKS);
 }
 
+const OCTANT_FACINGS: readonly Facing[] = ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'];
+
+/**
+ * Converts a grid movement/look vector `(dx, dy)` into one of 8 isometric screen facings.
+ * Isometric screen orientation (`+gx` -> SE, `+gy` -> SW):
+ * - `(1, 0)` -> `'SE'`, `(0, 1)` -> `'SW'`, `(-1, 0)` -> `'NW'`, `(0, -1)` -> `'NE'`
+ * - `(1, 1)` -> `'S'`, `(-1, -1)` -> `'N'`, `(1, -1)` -> `'E'`, `(-1, 1)` -> `'W'`
+ */
 export function facingFromDelta(dx: number, dy: number, fallback: Facing = 'SE'): Facing {
   if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return fallback;
-  if (Math.abs(dx) >= Math.abs(dy)) {
-    return dx > 0 ? 'SE' : 'NW';
+  const isoX = dx - dy;
+  const isoY = dx + dy;
+  const octant = ((Math.round((Math.atan2(isoY, isoX) * 4) / Math.PI) % 8) + 8) % 8;
+  return OCTANT_FACINGS[octant] ?? fallback;
+}
+
+/**
+ * Unit step in grid space `(dgx, dgy)` along an 8-directional `Facing`.
+ */
+export function facingUnitGridVector(facing: Facing): { dx: number; dy: number } {
+  const d = Math.SQRT1_2;
+  switch (facing) {
+    case 'SE':
+      return { dx: 1, dy: 0 };
+    case 'SW':
+      return { dx: 0, dy: 1 };
+    case 'NW':
+      return { dx: -1, dy: 0 };
+    case 'NE':
+      return { dx: 0, dy: -1 };
+    case 'S':
+      return { dx: d, dy: d };
+    case 'N':
+      return { dx: -d, dy: -d };
+    case 'E':
+      return { dx: d, dy: -d };
+    case 'W':
+      return { dx: -d, dy: d };
   }
-  return dy > 0 ? 'SW' : 'NE';
 }
 
 function keyOf(gx: number, gy: number): string {

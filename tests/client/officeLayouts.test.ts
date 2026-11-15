@@ -16,7 +16,14 @@ import {
   drawEnhancedFurniture,
   drawExtraFurnitureProp,
 } from '../../src/client/engine/officePropsSprites.js';
-import { buildWalkableGridForFurniture, findPath, type ZoneSlot } from '../../src/client/engine/pathfinding.js';
+import {
+  buildWalkableGridForFurniture,
+  facingUnitGridVector,
+  findPath,
+  isConferenceTableKind,
+  type Facing,
+  type ZoneSlot,
+} from '../../src/client/engine/pathfinding.js';
 import type { OfficeZone } from '../../src/shared/types.js';
 
 const MINI_ROOM_FIXTURE_KINDS = [
@@ -481,6 +488,79 @@ describe('officeLayouts all 5 floor blueprints', () => {
           );
         }
       }
+    }
+  });
+
+  it('equips all 5 War Rooms with distinct multi-tile conference tables and 8-way table-facing meeting chairs without obstructing SWARM BOARD', () => {
+    const expectedAnchorByBlueprint: Record<number, string> = {
+      0: 'war_table_oval',
+      1: 'war_table_round',
+      2: 'war_table_rect',
+      3: 'war_table_u',
+      4: 'war_table_s',
+    };
+    const observedChairFacings = new Set<Facing>();
+
+    for (const layout of getAllFiveLayouts()) {
+      const bp = layout.blueprintIndex;
+      const expectedAnchor = expectedAnchorByBlueprint[bp];
+      const confItems = layout.furniture.filter((f) => isConferenceTableKind(f.kind));
+      const anchors = confItems.filter((f) => f.kind !== 'war_table_part');
+
+      assert.equal(anchors.length, 1, `blueprint ${bp} expected 1 conference table anchor`);
+      assert.equal(anchors[0].kind, expectedAnchor, `blueprint ${bp} wrong conference table kind`);
+      assert.ok(confItems.length >= 2, `blueprint ${bp} conference table should span >=2 tiles`);
+
+      // SWARM BOARD whiteboards & presenter slot must not collide with conference table tiles
+      const whiteboards = layout.furniture.filter(
+        (f) => f.kind === 'whiteboard_l' || f.kind === 'whiteboard_r',
+      );
+      assert.equal(whiteboards.length, 2, `blueprint ${bp} missing whiteboard pair`);
+      assert.equal(
+        confItems.some(
+          (t) => t.gx === layout.presenterSlot.gx && t.gy === layout.presenterSlot.gy,
+        ),
+        false,
+        `blueprint ${bp} conference table blocks presenterSlot`,
+      );
+
+      // Every meetingChairSlot must match an explicit meeting_chair item and face toward the table
+      const chairItems = layout.furniture.filter((f) => f.kind === 'meeting_chair');
+      assert.ok(chairItems.length >= 6, `blueprint ${bp} expected >=6 meeting chairs`);
+      assert.equal(chairItems.length, layout.meetingChairSlots.length);
+
+      const cx = confItems.reduce((s, t) => s + t.gx, 0) / confItems.length;
+      const cy = confItems.reduce((s, t) => s + t.gy, 0) / confItems.length;
+
+      for (const slot of layout.meetingChairSlots) {
+        const chairItem = chairItems.find((c) => c.gx === slot.gx && c.gy === slot.gy);
+        assert.ok(
+          chairItem,
+          `blueprint ${bp} meetingChairSlot (${slot.gx},${slot.gy}) missing meeting_chair prop`,
+        );
+        assert.equal(chairItem.facing, slot.facing);
+        observedChairFacings.add(slot.facing);
+
+        // Chair facing unit vector must have positive dot product toward nearest table part or table centroid
+        const u = facingUnitGridVector(slot.facing);
+        const dotCentroid = (cx - slot.gx) * u.dx + (cy - slot.gy) * u.dy;
+        const maxDotPart = Math.max(
+          ...confItems.map((t) => (t.gx - slot.gx) * u.dx + (t.gy - slot.gy) * u.dy),
+        );
+        assert.ok(
+          dotCentroid > 0.25 || maxDotPart > 0.5,
+          `blueprint ${bp} chair (${slot.gx},${slot.gy}) facing ${slot.facing} does not face conference table`,
+        );
+      }
+    }
+
+    // Across the 5 conference rooms, all 8 directions (S, SE, E, NE, N, NW, W, SW) are represented
+    for (const dir of ['S', 'SE', 'E', 'NE', 'N', 'NW', 'W', 'SW'] as Facing[]) {
+      assert.equal(
+        observedChairFacings.has(dir),
+        true,
+        `expected conference room chairs across BP0..BP4 to cover facing '${dir}'`,
+      );
     }
   });
 });

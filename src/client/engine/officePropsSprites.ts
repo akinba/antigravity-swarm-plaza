@@ -38,6 +38,12 @@ export type FurnitureKind =
   | 'lounge_table'
   | 'gaming_table'
   | 'war_table'
+  | 'war_table_oval'
+  | 'war_table_round'
+  | 'war_table_rect'
+  | 'war_table_u'
+  | 'war_table_s'
+  | 'war_table_part'
   | 'tv_console'
   | 'gaming_tv'
   | 'gaming_neon_wall'
@@ -1435,47 +1441,84 @@ export function drawExtraFurnitureProp(
   return drawCustomOrPartitionProp(ctx, kind, cx, cy, zoom, timeSec, isOccupied, false);
 }
 
-export type ChairFacing = Facing | 'nw' | 'ne' | 'sw' | 'se';
+export type ChairFacing =
+  | Facing
+  | 'n'
+  | 'ne'
+  | 'e'
+  | 'se'
+  | 's'
+  | 'sw'
+  | 'w'
+  | 'nw';
 export type ChairVariant = 'task' | 'meeting' | 'exec' | 'gaming';
 
-/**
- * Renders a realistic, wafer-slim ergonomic 2.5D isometric swivel office chair:
- * 1. 5-star die-cast caster wheel base + gleaming pneumatic chrome cylinder + tilt housing
- * 2. Slim contoured waterfall seat cushion (~0.12 tile thickness, never a chunky block)
- * 3. Ultra-thin (~0.09 tile thickness) lumbar-supported mesh/leather backrest + tapered
- *    headrest + rear metallic J-spine bar (strictly non-cubic!)
- * 4. Left & right L/T-shaped padded armrests sorted in true isometric painter's depth order
- *    across all 4 facings (`nw`, `ne`, `sw`, `se`).
- */
-export function drawErgonomicOfficeChair(
+function normalizeChairFacing(facing: ChairFacing = 'SE'): Facing {
+  const up = String(facing || 'SE').toUpperCase();
+  if (
+    up === 'N' ||
+    up === 'NE' ||
+    up === 'E' ||
+    up === 'SE' ||
+    up === 'S' ||
+    up === 'SW' ||
+    up === 'W' ||
+    up === 'NW'
+  ) {
+    return up;
+  }
+  return 'SE';
+}
+
+function getChairIsoBasis(dir: Facing): {
+  fwd: { x: number; y: number };
+  lat: { x: number; y: number };
+} {
+  // Exact 2:1 isometric circle basis (|fwd|_iso = |lat|_iso = sqrt(2)) across all 8 facings.
+  // Note: lat.y >= 0 so l < 0 is the far/left flank and l > 0 is the near/right flank.
+  switch (dir) {
+    case 'S':
+      return { fwd: { x: 0, y: 0.7071 }, lat: { x: 1.4142, y: 0 } };
+    case 'SE':
+      return { fwd: { x: 1.0, y: 0.5 }, lat: { x: -1.0, y: 0.5 } };
+    case 'E':
+      return { fwd: { x: 1.4142, y: 0 }, lat: { x: 0, y: 0.7071 } };
+    case 'NE':
+      return { fwd: { x: 1.0, y: -0.5 }, lat: { x: 1.0, y: 0.5 } };
+    case 'N':
+      return { fwd: { x: 0, y: -0.7071 }, lat: { x: 1.4142, y: 0 } };
+    case 'NW':
+      return { fwd: { x: -1.0, y: -0.5 }, lat: { x: -1.0, y: 0.5 } };
+    case 'W':
+      return { fwd: { x: -1.4142, y: 0 }, lat: { x: 0, y: 0.7071 } };
+    case 'SW':
+      return { fwd: { x: -1.0, y: 0.5 }, lat: { x: 1.0, y: 0.5 } };
+  }
+}
+
+function renderErgonomicChairPass(
   ctx: CanvasRenderingContext2D,
   cx: number,
   cy: number,
   zoom: number,
-  variant: ChairVariant = 'task',
-  facing: ChairFacing = 'SE',
-  accentColor = '#5cf0ff',
+  variant: ChairVariant,
+  facing: ChairFacing,
+  accentColor: string,
+  foregroundOnly: boolean,
 ): void {
   const z = zoom;
-  const dir = (facing || 'SE').toLowerCase() as 'nw' | 'ne' | 'sw' | 'se';
+  const dir = normalizeChairFacing(facing);
+  const { fwd, lat } = getChairIsoBasis(dir);
 
-  // Forward unit step (direction the seated person faces) & orthogonal lateral step
-  // Note: lat.y is always +0.5 so l < 0 is ALWAYS the far/background flank and l > 0 is ALWAYS the near/foreground flank.
-  const fwd =
-    dir === 'se'
-      ? { x: 1.0, y: 0.5 }
-      : dir === 'sw'
-        ? { x: -1.0, y: 0.5 }
-        : dir === 'ne'
-          ? { x: 1.0, y: -0.5 }
-          : { x: -1.0, y: -0.5 };
+  const isFacingFront = fwd.y > 0.05; // S, SE, SW
+  const isSideFacing = Math.abs(fwd.y) <= 0.05; // E, W
+  const isFacingRear = fwd.y < -0.05; // N, NE, NW
 
-  const lat =
-    dir === 'se' || dir === 'nw'
-      ? { x: -1.0, y: 0.5 } // NE (-l) -> SW (+l)
-      : { x: 1.0, y: 0.5 }; // NW (-l) -> SE (+l)
+  if (foregroundOnly && isFacingFront) {
+    return;
+  }
 
-  const isFacingFront = fwd.y > 0; // 'se' or 'sw'
+  ctx.save();
 
   const pt = (f: number, l: number, h: number) => ({
     x: cx + (f * fwd.x + l * lat.x) * z,
@@ -1506,7 +1549,7 @@ export function drawErgonomicOfficeChair(
     }
   };
 
-  // Draws an oriented isometric 3D slab [f0..f1] x [l0..l1] x [h0..h1] with true thin-edge perspective
+  // Draws an oriented isometric 3D slab [f0..f1] x [l0..l1] x [h0..h1] across all 8 directions
   const drawOrientedSlab = (
     f0: number,
     f1: number,
@@ -1519,27 +1562,31 @@ export function drawErgonomicOfficeChair(
     lFaceCol: string,
     outline = '#0f131f',
   ) => {
-    const fVis = isFacingFront ? f1 : f0;
-    // 1. Visible front/rear face (f = fVis)
-    drawQuad(
-      pt(fVis, l0, h0),
-      pt(fVis, l1, h0),
-      pt(fVis, l1, h1),
-      pt(fVis, l0, h1),
-      fFaceCol,
-      outline,
-      0.8,
-    );
-    // 2. Visible near lateral edge face (l = l1, since lat.y > 0)
-    drawQuad(
-      pt(f0, l1, h0),
-      pt(f1, l1, h0),
-      pt(f1, l1, h1),
-      pt(f0, l1, h1),
-      lFaceCol,
-      outline,
-      0.8,
-    );
+    // 1. Visible front/rear face when fwd has a camera-facing/away component (S, SE, SW, N, NE, NW)
+    if (Math.abs(fwd.y) > 0.05) {
+      const fVis = fwd.y > 0 ? f1 : f0;
+      drawQuad(
+        pt(fVis, l0, h0),
+        pt(fVis, l1, h0),
+        pt(fVis, l1, h1),
+        pt(fVis, l0, h1),
+        fFaceCol,
+        outline,
+        0.8,
+      );
+    }
+    // 2. Visible near lateral edge face when lat has a camera-facing component (SE, SW, NE, NW, E, W)
+    if (lat.y > 0.05) {
+      drawQuad(
+        pt(f0, l1, h0),
+        pt(f1, l1, h0),
+        pt(f1, l1, h1),
+        pt(f0, l1, h1),
+        lFaceCol,
+        outline,
+        0.8,
+      );
+    }
     // 3. Top face (h = h1)
     drawQuad(
       pt(f0, l0, h1),
@@ -1611,62 +1658,64 @@ export function drawErgonomicOfficeChair(
               armStem: '#42506b',
             };
 
-  // 1. Floor contact shadow
-  drawFloorShadow(ctx, cx, cy + 0.5 * z, 9.2, 4.8, z, 0.25);
+  if (!foregroundOnly) {
+    // 1. Floor contact shadow
+    drawFloorShadow(ctx, cx, cy + 0.5 * z, 9.2, 4.8, z, 0.25);
 
-  // 2. 5-Star Swivel Caster Base & Dual-Wheel Rubber Casters
-  const hubY = cy - 1.8 * z;
-  const starAngles = [-2.55, -0.6, 0.48, 1.57, 2.66];
-  for (const ang of starAngles) {
-    const wx = cx + Math.cos(ang) * 7.2 * z;
-    const wy = cy + Math.sin(ang) * 3.4 * z + 0.4 * z;
+    // 2. 5-Star Swivel Caster Base & Dual-Wheel Rubber Casters
+    const hubY = cy - 1.8 * z;
+    const starAngles = [-2.55, -0.6, 0.48, 1.57, 2.66];
+    for (const ang of starAngles) {
+      const wx = cx + Math.cos(ang) * 7.2 * z;
+      const wy = cy + Math.sin(ang) * 3.4 * z + 0.4 * z;
 
-    // Dark wheel assembly touching floor
-    ctx.fillStyle = '#0c0f17';
-    pxRect(ctx, wx - 1.1 * z, wy - 0.3 * z, 2.2 * z, 1.7 * z);
-    ctx.fillStyle = '#485673';
-    pxRect(ctx, wx - 0.9 * z, wy - 0.9 * z, 1.8 * z, 0.9 * z);
+      // Dark wheel assembly touching floor
+      ctx.fillStyle = '#0c0f17';
+      pxRect(ctx, wx - 1.1 * z, wy - 0.3 * z, 2.2 * z, 1.7 * z);
+      ctx.fillStyle = '#485673';
+      pxRect(ctx, wx - 0.9 * z, wy - 0.9 * z, 1.8 * z, 0.9 * z);
 
-    // Arched aluminum/nylon spoke leg from center hub down to caster hood
-    ctx.strokeStyle = '#252e42';
-    ctx.lineWidth = Math.max(1.2, 1.8 * z);
+      // Arched aluminum/nylon spoke leg from center hub down to caster hood
+      ctx.strokeStyle = '#252e42';
+      ctx.lineWidth = Math.max(1.2, 1.8 * z);
+      ctx.beginPath();
+      ctx.moveTo(cx, hubY);
+      ctx.lineTo((cx + wx) * 0.5, (hubY + wy) * 0.5 - 0.6 * z);
+      ctx.lineTo(wx, wy - 0.5 * z);
+      ctx.stroke();
+
+      // Brushed metallic top bevel along each star spoke
+      ctx.strokeStyle = '#7e91b0';
+      ctx.lineWidth = Math.max(0.8, 0.95 * z);
+      ctx.beginPath();
+      ctx.moveTo(cx, hubY - 0.4 * z);
+      ctx.lineTo(wx * 0.88 + cx * 0.12, (wy - 0.8 * z) * 0.88 + hubY * 0.12);
+      ctx.stroke();
+    }
+
+    // 3. Telescopic Pneumatic Chrome Gas-Lift Cylinder & Under-Seat Tilt Mechanism
+    // Outer dark telescopic collar
+    ctx.fillStyle = '#181e2d';
+    pxRect(ctx, cx - 1.5 * z, cy - 3.8 * z, 3.0 * z, 2.3 * z);
+    // Gleaming chrome inner hydraulic shaft + bright specular highlight
+    ctx.fillStyle = '#7f93b3';
+    pxRect(ctx, cx - 1.1 * z, cy - 6.4 * z, 2.2 * z, 2.8 * z);
+    ctx.fillStyle = '#dce8ff';
+    pxRect(ctx, cx - 0.4 * z, cy - 6.3 * z, 0.9 * z, 2.6 * z);
+
+    // Compact dark under-seat tilt mechanism plate + height-adjust paddle lever
+    drawOrientedSlab(-1.9, 1.6, -2.0, 2.0, 5.8, 6.9, '#1c2233', '#141926', '#0e121c');
+    const leverTip = pt(0.2, 3.3, 6.1);
+    const leverRoot = pt(0.2, 1.8, 6.3);
+    ctx.strokeStyle = '#6c7e9c';
+    ctx.lineWidth = Math.max(0.9, 1.0 * z);
     ctx.beginPath();
-    ctx.moveTo(cx, hubY);
-    ctx.lineTo((cx + wx) * 0.5, (hubY + wy) * 0.5 - 0.6 * z);
-    ctx.lineTo(wx, wy - 0.5 * z);
-    ctx.stroke();
-
-    // Brushed metallic top bevel along each star spoke
-    ctx.strokeStyle = '#7e91b0';
-    ctx.lineWidth = Math.max(0.8, 0.95 * z);
-    ctx.beginPath();
-    ctx.moveTo(cx, hubY - 0.4 * z);
-    ctx.lineTo(wx * 0.88 + cx * 0.12, (wy - 0.8 * z) * 0.88 + hubY * 0.12);
+    ctx.moveTo(leverRoot.x, leverRoot.y);
+    ctx.lineTo(leverTip.x, leverTip.y);
     ctx.stroke();
   }
 
-  // 3. Telescopic Pneumatic Chrome Gas-Lift Cylinder & Under-Seat Tilt Mechanism
-  // Outer dark telescopic collar
-  ctx.fillStyle = '#181e2d';
-  pxRect(ctx, cx - 1.5 * z, cy - 3.8 * z, 3.0 * z, 2.3 * z);
-  // Gleaming chrome inner hydraulic shaft + bright specular highlight
-  ctx.fillStyle = '#7f93b3';
-  pxRect(ctx, cx - 1.1 * z, cy - 6.4 * z, 2.2 * z, 2.8 * z);
-  ctx.fillStyle = '#dce8ff';
-  pxRect(ctx, cx - 0.4 * z, cy - 6.3 * z, 0.9 * z, 2.6 * z);
-
-  // Compact dark under-seat tilt mechanism plate + height-adjust paddle lever
-  drawOrientedSlab(-1.9, 1.6, -2.0, 2.0, 5.8, 6.9, '#1c2233', '#141926', '#0e121c');
-  const leverTip = pt(0.2, 3.3, 6.1);
-  const leverRoot = pt(0.2, 1.8, 6.3);
-  ctx.strokeStyle = '#6c7e9c';
-  ctx.lineWidth = Math.max(0.9, 1.0 * z);
-  ctx.beginPath();
-  ctx.moveTo(leverRoot.x, leverRoot.y);
-  ctx.lineTo(leverTip.x, leverTip.y);
-  ctx.stroke();
-
-  // Helper: Slim L/T-shaped Armrest for side = -1 (far/background) or +1 (near/foreground)
+  // Helper: Slim L/T-shaped Armrest for side = -1 (far/left) or +1 (near/right)
   const drawArmrest = (side: -1 | 1) => {
     const lInner = side === -1 ? -5.6 : 4.5;
     const lOuter = side === -1 ? -4.5 : 5.6;
@@ -1773,19 +1822,21 @@ export function drawErgonomicOfficeChair(
       ctx.lineTo(sMid.x, sMid.y);
       ctx.stroke();
 
-      // Horizontal ergonomic Y-lumbar support bridge across rear frame
-      const lumL = pt(-5.4, -3.8, 12.0);
-      const lumR = pt(-5.4, 3.8, 12.0);
-      ctx.strokeStyle = '#4a5c7d';
-      ctx.lineWidth = Math.max(0.95, 1.25 * z);
-      ctx.beginPath();
-      ctx.moveTo(lumL.x, lumL.y);
-      ctx.lineTo(lumR.x, lumR.y);
-      ctx.stroke();
+      if (!isSideFacing) {
+        // Horizontal ergonomic Y-lumbar support bridge across rear frame
+        const lumL = pt(-5.4, -3.8, 12.0);
+        const lumR = pt(-5.4, 3.8, 12.0);
+        ctx.strokeStyle = '#4a5c7d';
+        ctx.lineWidth = Math.max(0.95, 1.25 * z);
+        ctx.beginPath();
+        ctx.moveTo(lumL.x, lumL.y);
+        ctx.lineTo(lumR.x, lumR.y);
+        ctx.stroke();
+      }
     };
 
-    // When facing front (SE/SW), the spine is behind the backrest; draw it first
-    if (isFacingFront) {
+    // When facing front (S/SE/SW) or pure side (E/W), draw the rear J-spine before the backrest slab
+    if (!isFacingRear) {
       drawSpineAndLumbarBridge();
     }
 
@@ -1803,41 +1854,53 @@ export function drawErgonomicOfficeChair(
       '#101522',
     );
 
-    // Breathable mesh / stitched leather inset panel on whichever face of backrest faces camera
-    const meshF = isFacingFront ? -4.16 : -5.24;
-    const mBot = 9.3;
-    const mTop = topMainH - 0.8;
-    drawQuad(
-      pt(meshF, -3.4, mBot),
-      pt(meshF, 3.4, mBot),
-      pt(meshF, 3.4, mTop),
-      pt(meshF, -3.4, mTop),
-      pal.meshInner,
-    );
-
-    if (isFacingFront) {
-      // Sculpted ergonomic lumbar support band + breathable horizontal mesh weave on front face
+    if (!isSideFacing) {
+      // Breathable mesh / stitched leather inset panel on whichever face of backrest faces camera
+      const meshF = isFacingFront ? -4.16 : -5.24;
+      const mBot = 9.3;
+      const mTop = topMainH - 0.8;
       drawQuad(
-        pt(meshF + 0.03, -3.4, 10.8),
-        pt(meshF + 0.03, 3.4, 10.8),
-        pt(meshF + 0.03, 3.4, 12.4),
-        pt(meshF + 0.03, -3.4, 12.4),
-        'rgba(120, 152, 204, 0.18)',
+        pt(meshF, -3.4, mBot),
+        pt(meshF, 3.4, mBot),
+        pt(meshF, 3.4, mTop),
+        pt(meshF, -3.4, mTop),
+        pal.meshInner,
       );
 
-      ctx.strokeStyle = pal.meshRib;
-      ctx.lineWidth = Math.max(0.8, 0.9 * z);
-      const ribHeights =
-        variant === 'meeting' ? [11.0, 13.0, 14.8] : [10.8, 12.5, 14.2, 15.8];
-      for (const rh of ribHeights) {
-        if (rh >= mTop) continue;
-        const r0 = pt(meshF, -3.1, rh);
-        const r1 = pt(meshF, 3.1, rh);
-        ctx.beginPath();
-        ctx.moveTo(r0.x, r0.y);
-        ctx.lineTo(r1.x, r1.y);
-        ctx.stroke();
+      if (isFacingFront) {
+        // Sculpted ergonomic lumbar support band + breathable horizontal mesh weave on front face
+        drawQuad(
+          pt(meshF + 0.03, -3.4, 10.8),
+          pt(meshF + 0.03, 3.4, 10.8),
+          pt(meshF + 0.03, 3.4, 12.4),
+          pt(meshF + 0.03, -3.4, 12.4),
+          'rgba(120, 152, 204, 0.18)',
+        );
+
+        ctx.strokeStyle = pal.meshRib;
+        ctx.lineWidth = Math.max(0.8, 0.9 * z);
+        const ribHeights =
+          variant === 'meeting' ? [11.0, 13.0, 14.8] : [10.8, 12.5, 14.2, 15.8];
+        for (const rh of ribHeights) {
+          if (rh >= mTop) continue;
+          const r0 = pt(meshF, -3.1, rh);
+          const r1 = pt(meshF, 3.1, rh);
+          ctx.beginPath();
+          ctx.moveTo(r0.x, r0.y);
+          ctx.lineTo(r1.x, r1.y);
+          ctx.stroke();
+        }
       }
+    } else {
+      // Side profile (E/W): subtle ergonomic side trim rib along lateral backrest frame
+      const sideRib0 = pt(-4.7, 4.32, 9.2);
+      const sideRib1 = pt(-4.7, 4.32, topMainH - 0.6);
+      ctx.strokeStyle = pal.trim;
+      ctx.lineWidth = Math.max(0.8, 0.9 * z);
+      ctx.beginPath();
+      ctx.moveTo(sideRib0.x, sideRib0.y);
+      ctx.lineTo(sideRib1.x, sideRib1.y);
+      ctx.stroke();
     }
 
     // Tapered upper shoulder / ergonomic headrest crown (slightly reclined to f = [-5.5 .. -4.4])
@@ -1894,19 +1957,55 @@ export function drawErgonomicOfficeChair(
     ctx.lineTo(h1.x, h1.y);
     ctx.stroke();
 
-    // When facing away from camera (NE/NW), the spine bar is on the camera-facing rear of the backrest!
-    if (!isFacingFront) {
+    // When facing away from camera (N/NE/NW), the spine bar is on the camera-facing rear of the backrest!
+    if (isFacingRear) {
       drawSpineAndLumbarBridge();
     }
   };
 
-  // 4. True Isometric Painter's Order Assembly
-  if (isFacingFront) {
+  if (foregroundOnly) {
+    // 2nd-pass foreground overlay drawn at empDepth + 0.02 so seated agents sit INSIDE the chair!
+    if (isSideFacing) {
+      // Pure profile (E / W): near-camera lateral armrest wraps in front of seated hip/lap
+      drawArmrest(1);
+    } else if (dir === 'N') {
+      // Pure rear (N): symmetric armrests + full rear backrest & J-spine cradle lower/mid back
+      drawArmrest(-1);
+      drawArmrest(1);
+      drawSlimBackrest();
+    } else {
+      // Diagonal rear (NE / NW): near armrest + reclined backrest & rear spine wrap over lower/mid back
+      drawArmrest(1);
+      drawSlimBackrest();
+    }
+    ctx.restore();
+    return;
+  }
+
+  // 4. True 8-Way Isometric Painter's Order Assembly (Base Chair Pass)
+  if (dir === 'S') {
+    drawSlimBackrest();
+    drawSeatCushion();
+    drawArmrest(-1);
+    drawArmrest(1);
+  } else if (isFacingFront) {
     // Facing SE or SW: Backrest (furthest) -> Far Armrest -> Seat Cushion -> Near Armrest (closest)
     drawSlimBackrest();
     drawArmrest(-1);
     drawSeatCushion();
     drawArmrest(1);
+  } else if (isSideFacing) {
+    // Facing E or W: Far Armrest -> Seat Cushion -> Side-Profile Backrest -> Near Armrest
+    drawArmrest(-1);
+    drawSeatCushion();
+    drawSlimBackrest();
+    drawArmrest(1);
+  } else if (dir === 'N') {
+    // Facing N: Seat Cushion -> Left & Right Armrests -> Full Rear Backrest + Spine
+    drawSeatCushion();
+    drawArmrest(-1);
+    drawArmrest(1);
+    drawSlimBackrest();
   } else {
     // Facing NE or NW: Far Armrest -> Seat Cushion -> Near Armrest -> Slim Reclined Backrest + Rear Spine
     drawArmrest(-1);
@@ -1914,6 +2013,41 @@ export function drawErgonomicOfficeChair(
     drawArmrest(1);
     drawSlimBackrest();
   }
+
+  ctx.restore();
+}
+
+/**
+ * Renders a realistic, wafer-slim ergonomic 2.5D isometric swivel office chair
+ * across all 8 facings (`S`, `SE`, `E`, `NE`, `N`, `NW`, `W`, `SW`).
+ */
+export function drawErgonomicOfficeChair(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  zoom: number,
+  variant: ChairVariant = 'task',
+  facing: ChairFacing = 'SE',
+  accentColor = '#5cf0ff',
+): void {
+  renderErgonomicChairPass(ctx, cx, cy, zoom, variant, facing, accentColor, false);
+}
+
+/**
+ * 2nd-pass foreground chair overlay (`empDepth + 0.02`) for seated agents facing
+ * `N`, `NE`, `NW`, `E`, or `W`: wraps the reclined backrest, metallic J-spine,
+ * and near-camera armrest cleanly in front of the seated agent's hip/lower back.
+ */
+export function drawChairForegroundBackrest(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  zoom: number,
+  variant: ChairVariant = 'task',
+  facing: ChairFacing = 'SE',
+  accentColor = '#5cf0ff',
+): void {
+  renderErgonomicChairPass(ctx, cx, cy, zoom, variant, facing, accentColor, true);
 }
 
 export type BeanbagColorVariant = 'cyan' | 'purple' | 'charcoal';
@@ -2032,14 +2166,15 @@ export function drawPlushBeanbag(
   colorVariant: BeanbagColorVariant = 'cyan',
 ): void {
   const z = zoom;
-  const dir = (facing || 'SE').toLowerCase() as 'nw' | 'ne' | 'sw' | 'se';
-  const isFront = dir === 'se' || dir === 'sw';
-  // Canonical x has backrest on left (-x) and gamer facing right (+x); flip for SW / NW
-  const s = dir === 'sw' || dir === 'nw' ? -1 : 1;
+  const dir = normalizeChairFacing(facing);
+  const isFront = dir === 'S' || dir === 'SE' || dir === 'SW' || dir === 'E' || dir === 'W';
+  // Canonical x has backrest on left (-x) and gamer facing right (+x); flip for SW / NW / W
+  const s = dir === 'SW' || dir === 'NW' || dir === 'W' ? -1 : 1;
+  const xScale = dir === 'S' || dir === 'N' ? 0.88 : 1;
   const pal = BEANBAG_PALETTES[colorVariant] ?? BEANBAG_PALETTES.cyan;
 
   const p = (dx: number, dy: number) => ({
-    x: cx + s * dx * z,
+    x: cx + s * dx * xScale * z,
     y: cy + dy * z,
   });
 
@@ -3044,16 +3179,17 @@ export function drawEnhancedFurniture(
       pxRect(ctx, ox + bx + 22 * z, oy + by + 18 * z, 4.5 * z, 4.5 * z);
     }
     ctx.restore();
-  } else if (kind === 'war_table') {
-    drawFloorShadow(ctx, cx, cy, 24, 13, z, 0.28);
-    drawBox(ctx, cx, cy, 22, 12, 11, '#8497b5', '#58677d', '#3b4554', z);
-    // Center AV connectivity hatch + post-it notes
-    ctx.fillStyle = '#242c3d';
-    pxRect(ctx, cx - 4 * z, cy - 12 * z, 8 * z, 2.5 * z);
-    ctx.fillStyle = '#ffe159';
-    pxRect(ctx, cx - 9 * z, cy - 14 * z, 4.5 * z, 3.5 * z);
-    ctx.fillStyle = '#ff7eb9';
-    pxRect(ctx, cx + 5 * z, cy - 13 * z, 4.5 * z, 3.5 * z);
+  } else if (kind === 'war_table_part') {
+    // Multi-tile conference table collision extension: intentional balanced no-op (anchor draws unified table)
+  } else if (
+    kind === 'war_table' ||
+    kind === 'war_table_oval' ||
+    kind === 'war_table_round' ||
+    kind === 'war_table_rect' ||
+    kind === 'war_table_u' ||
+    kind === 'war_table_s'
+  ) {
+    drawArchitecturalConferenceTable(ctx, kind, cx, cy, z, timeSec, night, isOccupied, modelAccent);
   } else if (kind === 'bookshelf') {
     drawFloorShadow(ctx, cx, cy, 18, 9.5, z, 0.28);
     drawBox(ctx, cx, cy, 16, 8, 30, '#946037', '#6b4322', '#472b14', z);
@@ -3094,6 +3230,520 @@ export function drawEnhancedFurniture(
   ctx.restore();
 }
 
+function drawArchitecturalConferenceTable(
+  ctx: CanvasRenderingContext2D,
+  kind: string,
+  cx: number,
+  cy: number,
+  z: number,
+  timeSec: number,
+  night: boolean,
+  isOccupied: boolean,
+  modelAccent: string,
+): void {
+  const isoPt = (dgx: number, dgy: number, h = 0) => ({
+    x: cx + (dgx - dgy) * 32 * z,
+    y: cy + (dgx + dgy) * 16 * z - h * z,
+  });
+
+  const fillIsoPoly = (
+    ptsGrid: ReadonlyArray<{ dgx: number; dgy: number }>,
+    h: number,
+    fill: string,
+    stroke?: string,
+    lineW = 0.9,
+  ) => {
+    if (ptsGrid.length < 3) return;
+    ctx.beginPath();
+    const p0 = isoPt(ptsGrid[0].dgx, ptsGrid[0].dgy, h);
+    ctx.moveTo(p0.x, p0.y);
+    for (let i = 1; i < ptsGrid.length; i++) {
+      const pi = isoPt(ptsGrid[i].dgx, ptsGrid[i].dgy, h);
+      ctx.lineTo(pi.x, pi.y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+    if (stroke) {
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = Math.max(0.8, lineW * z);
+      ctx.stroke();
+    }
+  };
+
+  const drawExtrudedSlab = (
+    rawPts: ReadonlyArray<{ dgx: number; dgy: number }>,
+    hBot: number,
+    hTop: number,
+    pal: {
+      top: string;
+      sideLit: string;
+      sideMid: string;
+      sideDark: string;
+      rim: string;
+      outline: string;
+    },
+  ) => {
+    if (rawPts.length < 3) return;
+    const basePts = rawPts.map((p) => isoPt(p.dgx, p.dgy, 0));
+    let area2 = 0;
+    for (let i = 0; i < basePts.length; i++) {
+      const j = (i + 1) % basePts.length;
+      area2 += basePts[i].x * basePts[j].y - basePts[j].x * basePts[i].y;
+    }
+    const pts = area2 >= 0 ? [...rawPts] : [...rawPts].reverse();
+    const scr0 = pts.map((p) => isoPt(p.dgx, p.dgy, 0));
+
+    // Collect camera-facing vertical bevel walls & sort back-to-front (handles U & S concavity seamlessly!)
+    const walls: Array<{
+      depthY: number;
+      aBot: { x: number; y: number };
+      bBot: { x: number; y: number };
+      bTop: { x: number; y: number };
+      aTop: { x: number; y: number };
+      col: string;
+    }> = [];
+
+    for (let i = 0; i < pts.length; i++) {
+      const j = (i + 1) % pts.length;
+      const dx = scr0[j].x - scr0[i].x;
+      const dy = scr0[j].y - scr0[i].y;
+      const outX = dy;
+      const outY = -dx;
+      if (outY > -0.05 * z) {
+        const len = Math.max(1e-4, Math.hypot(outX, outY));
+        const nx = outX / len;
+        const col = nx < -0.22 ? pal.sideLit : nx > 0.22 ? pal.sideDark : pal.sideMid;
+        walls.push({
+          depthY: (scr0[i].y + scr0[j].y) * 0.5,
+          aBot: isoPt(pts[i].dgx, pts[i].dgy, hBot),
+          bBot: isoPt(pts[j].dgx, pts[j].dgy, hBot),
+          bTop: isoPt(pts[j].dgx, pts[j].dgy, hTop),
+          aTop: isoPt(pts[i].dgx, pts[i].dgy, hTop),
+          col,
+        });
+      }
+    }
+
+    walls.sort((a, b) => a.depthY - b.depthY);
+    for (const w of walls) {
+      ctx.beginPath();
+      ctx.moveTo(w.aBot.x, w.aBot.y);
+      ctx.lineTo(w.bBot.x, w.bBot.y);
+      ctx.lineTo(w.bTop.x, w.bTop.y);
+      ctx.lineTo(w.aTop.x, w.aTop.y);
+      ctx.closePath();
+      ctx.fillStyle = w.col;
+      ctx.fill();
+      ctx.strokeStyle = pal.outline;
+      ctx.lineWidth = Math.max(0.75, 0.8 * z);
+      ctx.stroke();
+    }
+
+    // Unified seamless top surface + inner chamfer highlight
+    fillIsoPoly(pts, hTop, pal.top, pal.outline, 0.9);
+    fillIsoPoly(pts, hTop, 'rgba(255, 248, 232, 0.04)', pal.rim, 0.75);
+  };
+
+  const drawPedestalColumn = (dgx: number, dgy: number, radX = 0.17, radY = 0.17) => {
+    const p = isoPt(dgx, dgy, 0);
+    // Brushed gunmetal floor footplate + vertical column up to h = 7.6
+    const footPts = [
+      { dgx: dgx - radX * 1.25, dgy: dgy - radY * 1.25 },
+      { dgx: dgx + radX * 1.25, dgy: dgy - radY * 1.25 },
+      { dgx: dgx + radX * 1.25, dgy: dgy + radY * 1.25 },
+      { dgx: dgx - radX * 1.25, dgy: dgy + radY * 1.25 },
+    ];
+    drawExtrudedSlab(footPts, 0, 1.2, {
+      top: '#4a5670',
+      sideLit: '#364057',
+      sideMid: '#262e40',
+      sideDark: '#171c29',
+      rim: 'rgba(210, 226, 255, 0.25)',
+      outline: '#0e121c',
+    });
+    const colPts = [
+      { dgx: dgx - radX, dgy: dgy - radY },
+      { dgx: dgx + radX, dgy: dgy - radY },
+      { dgx: dgx + radX, dgy: dgy + radY },
+      { dgx: dgx - radX, dgy: dgy + radY },
+    ];
+    drawExtrudedSlab(colPts, 1.2, 7.5, {
+      top: '#2b344a',
+      sideLit: '#354059',
+      sideMid: '#232b3d',
+      sideDark: '#151a26',
+      rim: 'rgba(170, 194, 235, 0.18)',
+      outline: '#0d111b',
+    });
+    // Subtle brushed-brass accent collar at base
+    ctx.fillStyle = '#c9a24b';
+    pxRect(ctx, p.x - 2.4 * z, p.y - 1.9 * z, 4.8 * z, 0.9 * z);
+  };
+
+  const drawSpeakerphone = (dgx: number, dgy: number, hTop: number) => {
+    const sp = isoPt(dgx, dgy, hTop);
+    const ledCol = isOccupied
+      ? Math.sin(timeSec * 5) > 0
+        ? '#3be87a'
+        : modelAccent
+      : '#3cd8ff';
+    ctx.fillStyle = '#121724';
+    pxRect(ctx, sp.x - 3.6 * z, sp.y - 1.8 * z, 7.2 * z, 3.2 * z);
+    ctx.fillStyle = '#263147';
+    pxRect(ctx, sp.x - 2.6 * z, sp.y - 2.3 * z, 5.2 * z, 2.2 * z);
+    ctx.fillStyle = ledCol;
+    pxRect(ctx, sp.x - 1.1 * z, sp.y - 1.5 * z, 2.2 * z, 1.0 * z);
+  };
+
+  const drawFolioAndCup = (
+    dgx: number,
+    dgy: number,
+    hTop: number,
+    accent: string,
+    withCup = true,
+  ) => {
+    const fp = isoPt(dgx, dgy, hTop);
+    // Leather meeting notepad + crisp white agenda sheet + accent header
+    ctx.fillStyle = '#1b2233';
+    pxRect(ctx, fp.x - 3.2 * z, fp.y - 1.8 * z, 6.2 * z, 3.6 * z);
+    ctx.fillStyle = '#f4f7ff';
+    pxRect(ctx, fp.x - 2.4 * z, fp.y - 1.3 * z, 4.6 * z, 2.6 * z);
+    ctx.fillStyle = accent;
+    pxRect(ctx, fp.x - 2.0 * z, fp.y - 0.9 * z, 3.2 * z, 0.8 * z);
+    if (withCup) {
+      ctx.fillStyle = '#ffffff';
+      pxRect(ctx, fp.x + 3.8 * z, fp.y - 2.2 * z, 2.3 * z, 2.4 * z);
+      ctx.fillStyle = '#6e381d';
+      pxRect(ctx, fp.x + 4.2 * z, fp.y - 2.1 * z, 1.5 * z, 0.8 * z);
+    }
+  };
+
+  const woodWalnut = night
+    ? {
+        top: '#8c5a35',
+        sideLit: '#734727',
+        sideMid: '#59351c',
+        sideDark: '#3d2210',
+        rim: 'rgba(255, 224, 182, 0.28)',
+        outline: '#1a110b',
+      }
+    : {
+        top: '#b5794a',
+        sideLit: '#966038',
+        sideMid: '#784a29',
+        sideDark: '#54321a',
+        rim: 'rgba(255, 238, 210, 0.36)',
+        outline: '#24160d',
+      };
+
+  const woodTeak = night
+    ? {
+        top: '#966b43',
+        sideLit: '#7a5534',
+        sideMid: '#5e4026',
+        sideDark: '#422b18',
+        rim: 'rgba(255, 232, 196, 0.28)',
+        outline: '#1c130c',
+      }
+    : {
+        top: '#c4905e',
+        sideLit: '#a37447',
+        sideMid: '#825a35',
+        sideDark: '#5e3f23',
+        rim: 'rgba(255, 244, 220, 0.38)',
+        outline: '#26190e',
+      };
+
+  const woodMaple = night
+    ? {
+        top: '#9e8260',
+        sideLit: '#82694c',
+        sideMid: '#665139',
+        sideDark: '#473826',
+        rim: 'rgba(255, 240, 214, 0.30)',
+        outline: '#1c1610',
+      }
+    : {
+        top: '#d4b38a',
+        sideLit: '#b3936d',
+        sideMid: '#8f7352',
+        sideDark: '#695238',
+        rim: 'rgba(255, 250, 235, 0.42)',
+        outline: '#292015',
+      };
+
+  const hBot = 7.4;
+  const hTop = 10.4;
+
+  if (kind === 'war_table_oval') {
+    // BP0: 2x1 Seamless Racetrack / Oval Executive Table spanning (0,0)..(1,0), center (+0.5, -0.03)
+    const ovalPts: Array<{ dgx: number; dgy: number }> = [];
+    const inlayPts: Array<{ dgx: number; dgy: number }> = [];
+    const steps = 28;
+    const cGx = 0.5;
+    const cGy = -0.03;
+    for (let i = 0; i < steps; i++) {
+      const th = (i / steps) * Math.PI * 2;
+      const c = Math.cos(th);
+      const s = Math.sin(th);
+      // Superellipse exponent 0.84 creates a true architectural stadium/oval racetrack silhouette
+      const sx = Math.sign(c) * Math.pow(Math.abs(c), 0.84);
+      const sy = Math.sign(s) * Math.pow(Math.abs(s), 0.88);
+      ovalPts.push({ dgx: cGx + 1.02 * sx, dgy: cGy + 0.43 * sy });
+      inlayPts.push({ dgx: cGx + 0.56 * sx, dgy: cGy + 0.19 * sy });
+    }
+    fillIsoPoly(
+      ovalPts.map((p) => ({ dgx: cGx + (p.dgx - cGx) * 1.05, dgy: cGy + (p.dgy - cGy) * 1.08 })),
+      0,
+      'rgba(7, 10, 20, 0.28)',
+    );
+    drawPedestalColumn(0.06, cGy, 0.16, 0.15);
+    drawPedestalColumn(0.94, cGy, 0.16, 0.15);
+    drawExtrudedSlab(ovalPts, hBot, hTop, woodWalnut);
+    // Dark slate leather center racetrack inlay + brass pinstripe
+    fillIsoPoly(inlayPts, hTop + 0.05, '#1d2536', '#c9a24b', 0.8);
+    drawSpeakerphone(0.5, cGy, hTop + 0.1);
+    drawFolioAndCup(-0.12, 0.18, hTop + 0.1, '#3cd8ff', true);
+    drawFolioAndCup(0.82, 0.18, hTop + 0.1, '#ffd147', false);
+    drawFolioAndCup(1.08, -0.18, hTop + 0.1, '#ff7eb9', true);
+  } else if (kind === 'war_table_round') {
+    // BP1: Grand Circular Collaboration Table centered at (+0.5, -0.03), proportioned to 7 radial seats
+    const roundPts: Array<{ dgx: number; dgy: number }> = [];
+    const hubPts: Array<{ dgx: number; dgy: number }> = [];
+    const steps = 28;
+    const cGx = 0.5;
+    const cGy = -0.03;
+    const rxOuter = 0.88;
+    const ryOuter = 0.64;
+    const rxHub = 0.31;
+    const ryHub = 0.23;
+    for (let i = 0; i < steps; i++) {
+      const th = (i / steps) * Math.PI * 2;
+      roundPts.push({ dgx: cGx + rxOuter * Math.cos(th), dgy: cGy + ryOuter * Math.sin(th) });
+      hubPts.push({ dgx: cGx + rxHub * Math.cos(th), dgy: cGy + ryHub * Math.sin(th) });
+    }
+    fillIsoPoly(
+      roundPts.map((p) => ({ dgx: cGx + (p.dgx - cGx) * 1.06, dgy: cGy + (p.dgy - cGy) * 1.06 })),
+      0,
+      'rgba(7, 10, 20, 0.28)',
+    );
+    // Sculpted central drum pedestal
+    drawPedestalColumn(cGx, cGy, 0.26, 0.24);
+    drawExtrudedSlab(roundPts, hBot, hTop, woodTeak);
+
+    // Subtle radial 8-segment veneer grain lines
+    ctx.strokeStyle = 'rgba(72, 44, 22, 0.28)';
+    ctx.lineWidth = Math.max(0.7, 0.8 * z);
+    for (let k = 0; k < 8; k++) {
+      const ang = (k / 8) * Math.PI * 2;
+      const pIn = isoPt(cGx + rxHub * Math.cos(ang), cGy + ryHub * Math.sin(ang), hTop + 0.04);
+      const pOut = isoPt(
+        cGx + (rxOuter - 0.05) * Math.cos(ang),
+        cGy + (ryOuter - 0.05) * Math.sin(ang),
+        hTop + 0.04,
+      );
+      ctx.beginPath();
+      ctx.moveTo(pIn.x, pIn.y);
+      ctx.lineTo(pOut.x, pOut.y);
+      ctx.stroke();
+    }
+
+    // Recessed dark slate center AV turntable + 360° mic hub + radial folios
+    fillIsoPoly(hubPts, hTop + 0.06, '#1b2334', '#d4ad55', 0.85);
+    drawSpeakerphone(cGx, cGy, hTop + 0.12);
+    drawFolioAndCup(cGx - 0.48, cGy + 0.14, hTop + 0.1, '#3cd8ff', false);
+    drawFolioAndCup(cGx + 0.08, cGy + 0.38, hTop + 0.1, '#3be87a', true);
+    drawFolioAndCup(cGx + 0.50, cGy - 0.12, hTop + 0.1, '#ffd147', true);
+  } else if (kind === 'war_table_rect' || kind === 'war_table') {
+    // BP2: 3x1 Executive Boatboard Rectangular Table spanning (0,0)..(2,0) (or compact single-anchor fallback for bare 'war_table')
+    const isLong = kind === 'war_table_rect';
+    const xMin = isLong ? -0.52 : -0.52;
+    const xMax = isLong ? 2.48 : 0.52;
+    const xMid = (xMin + xMax) * 0.5;
+    const yBackEnd = -0.43;
+    const yBackMid = isLong ? -0.50 : -0.47;
+    const yFrontEnd = 0.36;
+    const yFrontMid = isLong ? 0.42 : 0.40;
+    const rectPts: Array<{ dgx: number; dgy: number }> = [
+      { dgx: xMin, dgy: yBackEnd + 0.06 },
+      { dgx: xMin + 0.08, dgy: yBackEnd },
+      { dgx: xMid, dgy: yBackMid },
+      { dgx: xMax - 0.08, dgy: yBackEnd },
+      { dgx: xMax, dgy: yBackEnd + 0.06 },
+      { dgx: xMax, dgy: yFrontEnd - 0.06 },
+      { dgx: xMax - 0.08, dgy: yFrontEnd },
+      { dgx: xMid, dgy: yFrontMid },
+      { dgx: xMin + 0.08, dgy: yFrontEnd },
+      { dgx: xMin, dgy: yFrontEnd - 0.06 },
+    ];
+    fillIsoPoly(
+      rectPts.map((p) => ({ dgx: xMid + (p.dgx - xMid) * 1.03, dgy: p.dgy * 1.08 })),
+      0,
+      'rgba(7, 10, 20, 0.28)',
+    );
+    if (isLong) {
+      drawPedestalColumn(0.20, -0.03, 0.18, 0.16);
+      drawPedestalColumn(1.80, -0.03, 0.18, 0.16);
+    } else {
+      drawPedestalColumn(0, -0.03, 0.2, 0.18);
+    }
+    drawExtrudedSlab(rectPts, hBot, hTop, woodWalnut);
+
+    // Recessed brushed-anthracite AV cable hatch spine
+    const hatchHalf = isLong ? 0.88 : 0.26;
+    const ySpine = -0.04;
+    fillIsoPoly(
+      [
+        { dgx: xMid - hatchHalf, dgy: ySpine - 0.10 },
+        { dgx: xMid + hatchHalf, dgy: ySpine - 0.10 },
+        { dgx: xMid + hatchHalf, dgy: ySpine + 0.10 },
+        { dgx: xMid - hatchHalf, dgy: ySpine + 0.10 },
+      ],
+      hTop + 0.05,
+      '#1a2233',
+      '#6d7f9e',
+      0.75,
+    );
+    if (isLong) {
+      drawSpeakerphone(0.46, ySpine, hTop + 0.1);
+      drawSpeakerphone(1.52, ySpine, hTop + 0.1);
+      drawFolioAndCup(0.02, 0.20, hTop + 0.1, '#3cd8ff', true);
+      drawFolioAndCup(0.98, 0.22, hTop + 0.1, '#ffd147', false);
+      drawFolioAndCup(1.92, 0.20, hTop + 0.1, '#3be87a', true);
+      drawFolioAndCup(1.35, -0.28, hTop + 0.1, '#ff7eb9', false);
+    } else {
+      drawSpeakerphone(0, ySpine, hTop + 0.1);
+      drawFolioAndCup(-0.22, 0.18, hTop + 0.1, '#ffd147', true);
+    }
+  } else if (kind === 'war_table_u') {
+    // BP3: 5-Tile Architectural U-Shaped Strategy Table anchored at (9,3)=(0,0), open toward -dgy (NE SWARM BOARD)
+    // Covers left wing (-1,-1)..(-1,0), base (-1,0)..(1,0), right wing (1,-1)..(1,0); tile (0,-1) stays 100% open!
+    const uPts: Array<{ dgx: number; dgy: number }> = [
+      { dgx: -1.46, dgy: -1.42 },
+      { dgx: -0.58, dgy: -1.42 },
+      { dgx: -0.58, dgy: -0.38 },
+      { dgx: 0.58, dgy: -0.38 },
+      { dgx: 0.58, dgy: -1.42 },
+      { dgx: 1.44, dgy: -1.42 },
+      { dgx: 1.44, dgy: 0.38 },
+      { dgx: -1.46, dgy: 0.38 },
+    ];
+    fillIsoPoly(uPts, 0, 'rgba(7, 10, 20, 0.26)');
+    drawPedestalColumn(-1.02, -1.06, 0.15, 0.15);
+    drawPedestalColumn(-1.02, 0.0, 0.15, 0.15);
+    drawPedestalColumn(0.0, 0.0, 0.16, 0.15);
+    drawPedestalColumn(1.01, 0.0, 0.15, 0.15);
+    drawPedestalColumn(1.01, -1.06, 0.15, 0.15);
+
+    drawExtrudedSlab(uPts, hBot, hTop, woodTeak);
+
+    // Continuous U-shaped dark leather conference blotter inlay along all 3 wings
+    const uInlay: Array<{ dgx: number; dgy: number }> = [
+      { dgx: -1.16, dgy: -1.22 },
+      { dgx: -0.86, dgy: -1.22 },
+      { dgx: -0.86, dgy: -0.14 },
+      { dgx: 0.86, dgy: -0.14 },
+      { dgx: 0.86, dgy: -1.22 },
+      { dgx: 1.15, dgy: -1.22 },
+      { dgx: 1.15, dgy: 0.14 },
+      { dgx: -1.16, dgy: 0.14 },
+    ];
+    fillIsoPoly(uInlay, hTop + 0.05, '#1c2538', '#c9a24b', 0.75);
+
+    // Delegate gooseneck microphones with glowing live indicator LEDs + folios
+    const micPositions: Array<[number, number]> = [
+      [-1.02, -0.96],
+      [-1.02, -0.22],
+      [-0.55, 0.02],
+      [0.0, 0.02],
+      [0.55, 0.02],
+      [1.02, -0.22],
+      [1.02, -0.96],
+    ];
+    const micLed = isOccupied ? '#3be87a' : '#3cd8ff';
+    for (const [mgx, mgy] of micPositions) {
+      const mp = isoPt(mgx, mgy, hTop + 0.1);
+      ctx.fillStyle = '#101522';
+      pxRect(ctx, mp.x - 1.4 * z, mp.y - 1.0 * z, 2.8 * z, 1.6 * z);
+      ctx.fillStyle = micLed;
+      pxRect(ctx, mp.x - 0.6 * z, mp.y - 2.4 * z, 1.2 * z, 1.4 * z);
+    }
+    drawFolioAndCup(-1.08, -0.62, hTop + 0.1, '#3cd8ff', false);
+    drawFolioAndCup(0.0, 0.15, hTop + 0.1, '#ffd147', true);
+    drawFolioAndCup(1.06, -0.62, hTop + 0.1, '#ff7eb9', true);
+  } else if (kind === 'war_table_s') {
+    // BP4: Sculpted Serpentine S-Wave Creative Studio Table spanning (0,0)..(1,0)
+    // End-caps add +-halfW along tangent, so spine [-0.20, +1.18] + halfW=0.31 spans [-0.51, +1.49] cleanly inside chair ring
+    const spineSamples = 18;
+    const halfW = 0.31;
+    const spine = (t: number) => {
+      const dgx = -0.20 + 1.38 * t;
+      const dgy = -0.04 + 0.16 * Math.sin(t * Math.PI * 2);
+      const dgxDt = 1.38;
+      const dgyDt = 0.16 * Math.PI * 2 * Math.cos(t * Math.PI * 2);
+      const len = Math.hypot(dgxDt, dgyDt);
+      return { dgx, dgy, nx: -dgyDt / len, ny: dgxDt / len };
+    };
+
+    const upperEdge: Array<{ dgx: number; dgy: number }> = [];
+    const lowerEdge: Array<{ dgx: number; dgy: number }> = [];
+    const ribbonUpper: Array<{ dgx: number; dgy: number }> = [];
+    const ribbonLower: Array<{ dgx: number; dgy: number }> = [];
+    for (let i = 0; i <= spineSamples; i++) {
+      const s = spine(i / spineSamples);
+      upperEdge.push({ dgx: s.dgx + s.nx * halfW, dgy: s.dgy + s.ny * halfW });
+      lowerEdge.push({ dgx: s.dgx - s.nx * halfW, dgy: s.dgy - s.ny * halfW });
+      ribbonUpper.push({ dgx: s.dgx + s.nx * 0.08, dgy: s.dgy + s.ny * 0.08 });
+      ribbonLower.push({ dgx: s.dgx - s.nx * 0.08, dgy: s.dgy - s.ny * 0.08 });
+    }
+
+    // Smooth rounded end-caps at t = 1 and t = 0
+    const sEnd = spine(1);
+    const sStart = spine(0);
+    const sPts: Array<{ dgx: number; dgy: number }> = [...upperEdge];
+    for (let c = 1; c < 5; c++) {
+      const a = (c / 5) * Math.PI;
+      const tx = -sEnd.ny;
+      const ty = sEnd.nx;
+      sPts.push({
+        dgx: sEnd.dgx + (Math.cos(a) * sEnd.nx + Math.sin(a) * tx) * halfW,
+        dgy: sEnd.dgy + (Math.cos(a) * sEnd.ny + Math.sin(a) * ty) * halfW,
+      });
+    }
+    for (let i = lowerEdge.length - 1; i >= 0; i--) {
+      sPts.push(lowerEdge[i]);
+    }
+    for (let c = 1; c < 5; c++) {
+      const a = (c / 5) * Math.PI;
+      const tx = sStart.ny;
+      const ty = -sStart.nx;
+      sPts.push({
+        dgx: sStart.dgx + (-Math.cos(a) * sStart.nx + Math.sin(a) * tx) * halfW,
+        dgy: sStart.dgy + (-Math.cos(a) * sStart.ny + Math.sin(a) * ty) * halfW,
+      });
+    }
+
+    fillIsoPoly(sPts, 0, 'rgba(7, 10, 20, 0.27)');
+    const legA = spine(0.14);
+    const legB = spine(0.5);
+    const legC = spine(0.86);
+    drawPedestalColumn(legA.dgx, legA.dgy, 0.14, 0.14);
+    drawPedestalColumn(legB.dgx, legB.dgy, 0.15, 0.15);
+    drawPedestalColumn(legC.dgx, legC.dgy, 0.14, 0.14);
+
+    drawExtrudedSlab(sPts, hBot, hTop, woodMaple);
+
+    // Sculpted S-curve indigo-slate inlay ribbon flowing down the center spine
+    const ribbonPts = [...ribbonUpper, ...ribbonLower.reverse()];
+    fillIsoPoly(ribbonPts, hTop + 0.05, '#22304a', '#5cf0ff', 0.7);
+
+    drawSpeakerphone(legB.dgx, legB.dgy, hTop + 0.1);
+    drawFolioAndCup(legA.dgx - 0.04, legA.dgy + 0.12, hTop + 0.1, '#e040fb', true);
+    drawFolioAndCup(legC.dgx + 0.04, legC.dgy - 0.12, hTop + 0.1, '#00e5ff', true);
+  }
+}
+
 export function drawOfficeDog(
   ctx: CanvasRenderingContext2D,
   cx: number,
@@ -3104,7 +3754,7 @@ export function drawOfficeDog(
   isZoomies: boolean,
 ): void {
   const z = zoom;
-  const dir = facing === 'SW' || facing === 'NW' ? -1 : 1;
+  const dir = facing === 'SW' || facing === 'NW' || facing === 'W' ? -1 : 1;
   const hop = isZoomies ? Math.abs(Math.sin(timeSec * 14)) * 4 * z : 0;
   const baseY = cy - hop;
 

@@ -1,5 +1,5 @@
 import type { OfficeZone } from '../../shared/types';
-import { type Facing, type ZoneSlot } from './pathfinding';
+import { type Facing, type FurnitureItem, type ZoneSlot } from './pathfinding';
 import { hashString } from './pixelSprites';
 
 export type MascotKind = 'none' | 'tabby_cat' | 'tuxedo_cat' | 'robo_vac' | 'office_dog';
@@ -92,7 +92,7 @@ export interface FloorLayout {
   blueprintIndex: number;
   themeIndex: number;
   deskStyle: 'clover_desk' | 'single_desk' | 'bench_desk' | 'u_pod_desk' | 'twin_desk';
-  furniture: ReadonlyArray<{ gx: number; gy: number; kind: string }>;
+  furniture: ReadonlyArray<FurnitureItem>;
   getTileZone: (gx: number, gy: number) => OfficeZone;
   zoneSlots: Record<OfficeZone, ZoneSlot[]>;
   presenterSlot: ZoneSlot;
@@ -187,16 +187,17 @@ const BLUEPRINT_0: BlueprintBase = {
     { gx: 0, gy: 4, kind: 'wood_partition_x' },
     { gx: 1, gy: 4, kind: 'wood_partition_x' },
     { gx: 2, gy: 4, kind: 'wood_partition_x' },
-    // War Room N (5..9, 0..4)
+    // War Room N (5..9, 0..4) — Oval / Racetrack Conference Table
     { gx: 6, gy: 1, kind: 'whiteboard_l' },
     { gx: 7, gy: 1, kind: 'whiteboard_r' },
-    { gx: 6, gy: 3, kind: 'war_table' },
-    { gx: 7, gy: 3, kind: 'war_table' },
-    { gx: 5, gy: 3, kind: 'meeting_chair' },
-    { gx: 6, gy: 4, kind: 'meeting_chair' },
-    { gx: 7, gy: 4, kind: 'meeting_chair' },
-    { gx: 8, gy: 3, kind: 'meeting_chair' },
-    { gx: 8, gy: 2, kind: 'meeting_chair' },
+    { gx: 6, gy: 3, kind: 'war_table_oval' },
+    { gx: 7, gy: 3, kind: 'war_table_part' },
+    { gx: 5, gy: 3, kind: 'meeting_chair', facing: 'SE' },
+    { gx: 5, gy: 4, kind: 'meeting_chair', facing: 'E' },
+    { gx: 6, gy: 4, kind: 'meeting_chair', facing: 'NE' },
+    { gx: 7, gy: 4, kind: 'meeting_chair', facing: 'NE' },
+    { gx: 8, gy: 3, kind: 'meeting_chair', facing: 'NW' },
+    { gx: 8, gy: 2, kind: 'meeting_chair', facing: 'W' },
     { gx: 9, gy: 0, kind: 'glass_partition' },
     { gx: 9, gy: 1, kind: 'glass_partition' },
     { gx: 9, gy: 2, kind: 'glass_partition' },
@@ -288,10 +289,11 @@ const BLUEPRINT_0: BlueprintBase = {
     ],
     WAR_ROOM: [
       { gx: 5, gy: 3, facing: 'SE' },
+      { gx: 5, gy: 4, facing: 'E' },
       { gx: 6, gy: 4, facing: 'NE' },
       { gx: 7, gy: 4, facing: 'NE' },
       { gx: 8, gy: 3, facing: 'NW' },
-      { gx: 8, gy: 2, facing: 'SW' },
+      { gx: 8, gy: 2, facing: 'W' },
     ],
     SERVER_RACK: [
       { gx: 11, gy: 2, facing: 'NE' },
@@ -309,10 +311,11 @@ const BLUEPRINT_0: BlueprintBase = {
   presenterSlot: { gx: 6, gy: 2, facing: 'SE' },
   meetingChairSlots: [
     { gx: 5, gy: 3, facing: 'SE' },
+    { gx: 5, gy: 4, facing: 'E' },
     { gx: 6, gy: 4, facing: 'NE' },
     { gx: 7, gy: 4, facing: 'NE' },
     { gx: 8, gy: 3, facing: 'NW' },
-    { gx: 8, gy: 2, facing: 'SW' },
+    { gx: 8, gy: 2, facing: 'W' },
   ],
   gamingSlots: [
     { gx: 12, gy: 11, facing: 'NE' },
@@ -380,16 +383,18 @@ const BLUEPRINT_1: BlueprintBase = {
     { gx: 1, gy: 11, kind: 'desk_chair' },
     { gx: 4, gy: 11, kind: 'qa_desk' },
     { gx: 4, gy: 12, kind: 'desk_chair' },
-    // Central War-Room Hub (6..10, 4..8)
+    // Central War-Room Hub (6..10, 4..8) — Round / Octagonal Executive Table
     { gx: 7, gy: 4, kind: 'whiteboard_l' },
     { gx: 8, gy: 4, kind: 'whiteboard_r' },
-    { gx: 7, gy: 6, kind: 'war_table' },
-    { gx: 8, gy: 6, kind: 'war_table' },
-    { gx: 6, gy: 6, kind: 'meeting_chair' },
-    { gx: 7, gy: 7, kind: 'meeting_chair' },
-    { gx: 8, gy: 7, kind: 'meeting_chair' },
-    { gx: 9, gy: 6, kind: 'meeting_chair' },
-    { gx: 9, gy: 5, kind: 'meeting_chair' },
+    { gx: 7, gy: 6, kind: 'war_table_round' },
+    { gx: 8, gy: 6, kind: 'war_table_part' },
+    { gx: 6, gy: 5, kind: 'meeting_chair', facing: 'S' },
+    { gx: 6, gy: 6, kind: 'meeting_chair', facing: 'SE' },
+    { gx: 6, gy: 7, kind: 'meeting_chair', facing: 'E' },
+    { gx: 7, gy: 7, kind: 'meeting_chair', facing: 'NE' },
+    { gx: 8, gy: 7, kind: 'meeting_chair', facing: 'N' },
+    { gx: 9, gy: 6, kind: 'meeting_chair', facing: 'NW' },
+    { gx: 9, gy: 5, kind: 'meeting_chair', facing: 'W' },
     { gx: 5, gy: 5, kind: 'glass_partition' },
     { gx: 5, gy: 6, kind: 'glass_partition' },
     { gx: 5, gy: 7, kind: 'glass_partition' },
@@ -465,11 +470,13 @@ const BLUEPRINT_1: BlueprintBase = {
       { gx: 4, gy: 12, facing: 'NE' },
     ],
     WAR_ROOM: [
+      { gx: 6, gy: 5, facing: 'S' },
       { gx: 6, gy: 6, facing: 'SE' },
+      { gx: 6, gy: 7, facing: 'E' },
       { gx: 7, gy: 7, facing: 'NE' },
-      { gx: 8, gy: 7, facing: 'NE' },
+      { gx: 8, gy: 7, facing: 'N' },
       { gx: 9, gy: 6, facing: 'NW' },
-      { gx: 9, gy: 5, facing: 'SW' },
+      { gx: 9, gy: 5, facing: 'W' },
     ],
     SERVER_RACK: [
       { gx: 5, gy: 2, facing: 'NE' },
@@ -486,11 +493,13 @@ const BLUEPRINT_1: BlueprintBase = {
   },
   presenterSlot: { gx: 7, gy: 5, facing: 'SE' },
   meetingChairSlots: [
+    { gx: 6, gy: 5, facing: 'S' },
     { gx: 6, gy: 6, facing: 'SE' },
+    { gx: 6, gy: 7, facing: 'E' },
     { gx: 7, gy: 7, facing: 'NE' },
-    { gx: 8, gy: 7, facing: 'NE' },
+    { gx: 8, gy: 7, facing: 'N' },
     { gx: 9, gy: 6, facing: 'NW' },
-    { gx: 9, gy: 5, facing: 'SW' },
+    { gx: 9, gy: 5, facing: 'W' },
   ],
   gamingSlots: [
     { gx: 12, gy: 12, facing: 'NE' },
@@ -578,16 +587,19 @@ const BLUEPRINT_2: BlueprintBase = {
     { gx: 6, gy: 7, kind: 'desk_chair' },
     { gx: 7, gy: 7, kind: 'desk_chair' },
     { gx: 8, gy: 7, kind: 'desk_chair' },
-    // Presentation Room SE (9..15, 8..13)
+    // Presentation Room SE (9..15, 8..13) — Executive Rectangular / Boatboard Table
     { gx: 11, gy: 9, kind: 'whiteboard_l' },
     { gx: 12, gy: 9, kind: 'whiteboard_r' },
-    { gx: 11, gy: 11, kind: 'war_table' },
-    { gx: 12, gy: 11, kind: 'war_table' },
-    { gx: 10, gy: 11, kind: 'meeting_chair' },
-    { gx: 11, gy: 12, kind: 'meeting_chair' },
-    { gx: 12, gy: 12, kind: 'meeting_chair' },
-    { gx: 13, gy: 11, kind: 'meeting_chair' },
-    { gx: 13, gy: 10, kind: 'meeting_chair' },
+    { gx: 11, gy: 11, kind: 'war_table_rect' },
+    { gx: 12, gy: 11, kind: 'war_table_part' },
+    { gx: 13, gy: 11, kind: 'war_table_part' },
+    { gx: 10, gy: 11, kind: 'meeting_chair', facing: 'SE' },
+    { gx: 11, gy: 12, kind: 'meeting_chair', facing: 'NE' },
+    { gx: 12, gy: 12, kind: 'meeting_chair', facing: 'NE' },
+    { gx: 13, gy: 12, kind: 'meeting_chair', facing: 'NE' },
+    { gx: 14, gy: 11, kind: 'meeting_chair', facing: 'NW' },
+    { gx: 12, gy: 10, kind: 'meeting_chair', facing: 'SW' },
+    { gx: 13, gy: 10, kind: 'meeting_chair', facing: 'SW' },
     { gx: 9, gy: 10, kind: 'glass_partition' },
     { gx: 9, gy: 11, kind: 'glass_partition' },
     { gx: 9, gy: 12, kind: 'glass_partition' },
@@ -645,7 +657,9 @@ const BLUEPRINT_2: BlueprintBase = {
       { gx: 10, gy: 11, facing: 'SE' },
       { gx: 11, gy: 12, facing: 'NE' },
       { gx: 12, gy: 12, facing: 'NE' },
-      { gx: 13, gy: 11, facing: 'NW' },
+      { gx: 13, gy: 12, facing: 'NE' },
+      { gx: 14, gy: 11, facing: 'NW' },
+      { gx: 12, gy: 10, facing: 'SW' },
       { gx: 13, gy: 10, facing: 'SW' },
     ],
     SERVER_RACK: [
@@ -666,7 +680,9 @@ const BLUEPRINT_2: BlueprintBase = {
     { gx: 10, gy: 11, facing: 'SE' },
     { gx: 11, gy: 12, facing: 'NE' },
     { gx: 12, gy: 12, facing: 'NE' },
-    { gx: 13, gy: 11, facing: 'NW' },
+    { gx: 13, gy: 12, facing: 'NE' },
+    { gx: 14, gy: 11, facing: 'NW' },
+    { gx: 12, gy: 10, facing: 'SW' },
     { gx: 13, gy: 10, facing: 'SW' },
   ],
   gamingSlots: [
@@ -722,15 +738,21 @@ const BLUEPRINT_3: BlueprintBase = {
     { gx: 9, gy: 5, kind: 'glass_partition_x' },
     { gx: 10, gy: 5, kind: 'glass_partition' },
     { gx: 10, gy: 6, kind: 'glass_partition' },
-    { gx: 9, gy: 1, kind: 'whiteboard_l' },
-    { gx: 10, gy: 1, kind: 'whiteboard_r' },
-    { gx: 9, gy: 3, kind: 'war_table' },
-    { gx: 10, gy: 3, kind: 'war_table' },
-    { gx: 8, gy: 3, kind: 'meeting_chair' },
-    { gx: 9, gy: 4, kind: 'meeting_chair' },
-    { gx: 10, gy: 4, kind: 'meeting_chair' },
-    { gx: 11, gy: 3, kind: 'meeting_chair' },
-    { gx: 11, gy: 2, kind: 'meeting_chair' },
+    // U-Shaped Strategy Conference Table open toward North SWARM BOARD
+    { gx: 9, gy: 0, kind: 'whiteboard_l' },
+    { gx: 10, gy: 0, kind: 'whiteboard_r' },
+    { gx: 9, gy: 3, kind: 'war_table_u' },
+    { gx: 8, gy: 3, kind: 'war_table_part' },
+    { gx: 10, gy: 3, kind: 'war_table_part' },
+    { gx: 8, gy: 2, kind: 'war_table_part' },
+    { gx: 10, gy: 2, kind: 'war_table_part' },
+    { gx: 7, gy: 2, kind: 'meeting_chair', facing: 'SE' },
+    { gx: 7, gy: 3, kind: 'meeting_chair', facing: 'SE' },
+    { gx: 8, gy: 4, kind: 'meeting_chair', facing: 'NE' },
+    { gx: 9, gy: 4, kind: 'meeting_chair', facing: 'NE' },
+    { gx: 10, gy: 4, kind: 'meeting_chair', facing: 'NE' },
+    { gx: 11, gy: 3, kind: 'meeting_chair', facing: 'NW' },
+    { gx: 11, gy: 2, kind: 'meeting_chair', facing: 'NW' },
     // U-Pod Coding Left Wing (2..5, 8..11) — keeping (0..2, 6..7) open
     { gx: 3, gy: 8, kind: 'dev_desk' },
     { gx: 4, gy: 8, kind: 'dev_desk' },
@@ -820,11 +842,13 @@ const BLUEPRINT_3: BlueprintBase = {
       { gx: 13, gy: 8, facing: 'NE' },
     ],
     WAR_ROOM: [
-      { gx: 8, gy: 3, facing: 'SE' },
+      { gx: 7, gy: 2, facing: 'SE' },
+      { gx: 7, gy: 3, facing: 'SE' },
+      { gx: 8, gy: 4, facing: 'NE' },
       { gx: 9, gy: 4, facing: 'NE' },
       { gx: 10, gy: 4, facing: 'NE' },
       { gx: 11, gy: 3, facing: 'NW' },
-      { gx: 11, gy: 2, facing: 'SW' },
+      { gx: 11, gy: 2, facing: 'NW' },
     ],
     SERVER_RACK: [
       { gx: 12, gy: 6, facing: 'NE' },
@@ -839,13 +863,15 @@ const BLUEPRINT_3: BlueprintBase = {
       { gx: 9, gy: 9, facing: 'NW' },
     ],
   },
-  presenterSlot: { gx: 9, gy: 2, facing: 'SE' },
+  presenterSlot: { gx: 9, gy: 1, facing: 'SE' },
   meetingChairSlots: [
-    { gx: 8, gy: 3, facing: 'SE' },
+    { gx: 7, gy: 2, facing: 'SE' },
+    { gx: 7, gy: 3, facing: 'SE' },
+    { gx: 8, gy: 4, facing: 'NE' },
     { gx: 9, gy: 4, facing: 'NE' },
     { gx: 10, gy: 4, facing: 'NE' },
     { gx: 11, gy: 3, facing: 'NW' },
-    { gx: 11, gy: 2, facing: 'SW' },
+    { gx: 11, gy: 2, facing: 'NW' },
   ],
   gamingSlots: [
     { gx: 7, gy: 9, facing: 'NE' },
@@ -886,16 +912,17 @@ const BLUEPRINT_4: BlueprintBase = {
     { gx: 1, gy: 1, kind: 'server_rack' },
     { gx: 2, gy: 1, kind: 'server_rack' },
     { gx: 3, gy: 1, kind: 'filing_cabinet' },
-    // Presentation Stage West (1..5, 2..6) — keeping (0..1, 6..7) elevator foyer open
+    // Presentation Stage West (1..5, 2..6) — S-Curve Creative Studio Table
     { gx: 3, gy: 2, kind: 'whiteboard_l' },
     { gx: 4, gy: 2, kind: 'whiteboard_r' },
-    { gx: 3, gy: 4, kind: 'war_table' },
-    { gx: 4, gy: 4, kind: 'war_table' },
-    { gx: 2, gy: 4, kind: 'meeting_chair' },
-    { gx: 3, gy: 5, kind: 'meeting_chair' },
-    { gx: 4, gy: 5, kind: 'meeting_chair' },
-    { gx: 5, gy: 4, kind: 'meeting_chair' },
-    { gx: 5, gy: 3, kind: 'meeting_chair' },
+    { gx: 3, gy: 4, kind: 'war_table_s' },
+    { gx: 4, gy: 4, kind: 'war_table_part' },
+    { gx: 2, gy: 4, kind: 'meeting_chair', facing: 'SE' },
+    { gx: 2, gy: 5, kind: 'meeting_chair', facing: 'E' },
+    { gx: 3, gy: 5, kind: 'meeting_chair', facing: 'NE' },
+    { gx: 4, gy: 5, kind: 'meeting_chair', facing: 'NE' },
+    { gx: 5, gy: 4, kind: 'meeting_chair', facing: 'NW' },
+    { gx: 4, gy: 3, kind: 'meeting_chair', facing: 'SW' },
     { gx: 6, gy: 2, kind: 'glass_partition' },
     { gx: 6, gy: 3, kind: 'glass_partition' },
     { gx: 6, gy: 4, kind: 'glass_partition' },
@@ -987,10 +1014,11 @@ const BLUEPRINT_4: BlueprintBase = {
     ],
     WAR_ROOM: [
       { gx: 2, gy: 4, facing: 'SE' },
+      { gx: 2, gy: 5, facing: 'E' },
       { gx: 3, gy: 5, facing: 'NE' },
       { gx: 4, gy: 5, facing: 'NE' },
       { gx: 5, gy: 4, facing: 'NW' },
-      { gx: 5, gy: 3, facing: 'SW' },
+      { gx: 4, gy: 3, facing: 'SW' },
     ],
     SERVER_RACK: [
       { gx: 1, gy: 2, facing: 'NE' },
@@ -1009,10 +1037,11 @@ const BLUEPRINT_4: BlueprintBase = {
   presenterSlot: { gx: 3, gy: 3, facing: 'SE' },
   meetingChairSlots: [
     { gx: 2, gy: 4, facing: 'SE' },
+    { gx: 2, gy: 5, facing: 'E' },
     { gx: 3, gy: 5, facing: 'NE' },
     { gx: 4, gy: 5, facing: 'NE' },
     { gx: 5, gy: 4, facing: 'NW' },
-    { gx: 5, gy: 3, facing: 'SW' },
+    { gx: 4, gy: 3, facing: 'SW' },
   ],
   gamingSlots: [
     { gx: 7, gy: 10, facing: 'NE' },

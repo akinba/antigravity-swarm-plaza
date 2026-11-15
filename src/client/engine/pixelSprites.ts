@@ -480,13 +480,23 @@ export function drawFurniture(
     ctx.fillRect(Math.round(cx - 7 * z), Math.round(cy - 20 * z), Math.ceil(14 * z), Math.ceil(11 * z));
     ctx.fillStyle = '#4be07a';
     ctx.fillRect(Math.round(cx - 4 * z), Math.round(cy - 25 * z), Math.ceil(8 * z), Math.ceil(7 * z));
-  } else if (kind === 'war_table') {
-    drawIsoBox(ctx, cx, cy, 22, 12, 11, '#7a8ca8', '#526075', '#3b4554', z);
-    // Sticky notes on table
+  } else if (kind === 'war_table_part') {
+    // Multi-tile conference table collision extension: intentional no-op
+  } else if (
+    kind === 'war_table' ||
+    kind === 'war_table_oval' ||
+    kind === 'war_table_round' ||
+    kind === 'war_table_rect' ||
+    kind === 'war_table_u' ||
+    kind === 'war_table_s'
+  ) {
+    const shiftX = kind === 'war_table_rect' ? 32 * z : kind === 'war_table' || kind === 'war_table_u' ? 0 : 16 * z;
+    const shiftY = kind === 'war_table_rect' ? 16 * z : kind === 'war_table' || kind === 'war_table_u' ? 0 : 8 * z;
+    drawIsoBox(ctx, cx + shiftX, cy + shiftY, 24, 12, 10.5, '#b5794a', '#784a29', '#54321a', z);
     ctx.fillStyle = '#ffe159';
-    ctx.fillRect(Math.round(cx - 6 * z), Math.round(cy - 14 * z), Math.ceil(5 * z), Math.ceil(4 * z));
+    ctx.fillRect(Math.round(cx + shiftX - 6 * z), Math.round(cy + shiftY - 13.5 * z), Math.ceil(5 * z), Math.ceil(4 * z));
     ctx.fillStyle = '#ff7eb9';
-    ctx.fillRect(Math.round(cx + 2 * z), Math.round(cy - 12 * z), Math.ceil(5 * z), Math.ceil(4 * z));
+    ctx.fillRect(Math.round(cx + shiftX + 2 * z), Math.round(cy + shiftY - 12 * z), Math.ceil(5 * z), Math.ceil(4 * z));
   } else if (kind === 'whiteboard_l' || kind === 'whiteboard_r') {
     // 2:1 X-axis isometric Illuminated Presentation Screen (whiteboard_l at gx, whiteboard_r at gx+1 join seamlessly)
     drawIsoBox(ctx, cx, cy, 16, 6, 4, '#454e66', '#2c3345', '#1e2330', z);
@@ -692,6 +702,7 @@ function drawSpriteCostumeOverlay(
   eventKind: 'STAR_WARS_PARTY' | 'SUPERHERO_PARTY' | 'HALLOWEEN_PARTY',
   timeSec: number,
   isFemale = false,
+  isPureBack = false,
 ): void {
   const saberSide = dirFlip > 0 ? 1 : -1;
   if (isFemale) {
@@ -702,11 +713,15 @@ function drawSpriteCostumeOverlay(
         rect(cx - 5 * z, baseY - 18.5 * z, 10 * z, 3.5 * z, '#e7d7b8');
         rect(cx - 4 * z, baseY - 15 * z, 8 * z, 3.5 * z, '#e7d7b8');
         rect(cx - 5.2 * z, baseY - 11.5 * z, 10.4 * z, 3.5 * z, '#e7d7b8');
-        rect(cx - 1.5 * z, baseY - 18.5 * z, 3 * z, 3 * z, '#cbb692');
+        if (!isPureBack) {
+          rect(cx - 1.5 * z, baseY - 18.5 * z, 3 * z, 3 * z, '#cbb692');
+        }
         rect(cx - 4 * z, baseY - 14 * z, 8 * z, 1.6 * z, '#452814');
         rect(cx - 5.5 * z, baseY - 37.5 * z, 11 * z, 2 * z, '#6b4226');
         rect(cx - 6.8 * z, baseY - 36 * z, 13.6 * z, 4 * z, '#6b4226');
-        rect(cx - 5.5 * z, baseY - 35 * z, 11 * z, 2 * z, '#452814');
+        if (!isPureBack) {
+          rect(cx - 5.5 * z, baseY - 35 * z, 11 * z, 2 * z, '#452814');
+        }
         const hiltX = cx + saberSide * 6.5 * z;
         rect(hiltX, baseY - 15 * z, 1.8 * z, 3.5 * z, '#b4bed4');
         const bladeColor = Math.sin(timeSec * 8) > 0 ? '#3cd8ff' : '#3be87a';
@@ -719,14 +734,18 @@ function drawSpriteCostumeOverlay(
         rect(cx - 5 * z, baseY - 18.5 * z, 10 * z, 3.5 * z, '#1d2232');
         rect(cx - 4 * z, baseY - 15 * z, 8 * z, 4 * z, '#1d2232');
         rect(cx - 5.2 * z, baseY - 11 * z, 10.4 * z, 3 * z, '#161922');
-        rect(cx - 2.5 * z, baseY - 17.5 * z, 5 * z, 3 * z, '#4a556e');
+        if (!isPureBack) {
+          rect(cx - 2.5 * z, baseY - 17.5 * z, 5 * z, 3 * z, '#4a556e');
+        }
         rect(cx - 4 * z, baseY - 13 * z, 8 * z, 1.2 * z, '#ff384c');
         rect(cx - 5.5 * z, baseY - 36.5 * z, 11 * z, 2 * z, '#161922');
         rect(cx - 6.5 * z, baseY - 35 * z, 13 * z, 11 * z, '#161922');
         rect(cx - 4.5 * z, baseY - 24 * z, 9 * z, 2.5 * z, '#11131c');
         rect(cx - 5.5 * z, baseY - 34.5 * z, 11 * z, 3 * z, '#2a3040');
-        rect(cx - 4.2 * z, baseY - 29 * z, 3.2 * z, 1.8 * z, '#ff384c');
-        rect(cx + 1 * z, baseY - 29 * z, 3.2 * z, 1.8 * z, '#ff384c');
+        if (!isPureBack) {
+          rect(cx - 4.2 * z, baseY - 29 * z, 3.2 * z, 1.8 * z, '#ff384c');
+          rect(cx + 1 * z, baseY - 29 * z, 3.2 * z, 1.8 * z, '#ff384c');
+        }
         const hiltX = cx + saberSide * 6.5 * z;
         rect(hiltX, baseY - 15 * z, 1.8 * z, 3.5 * z, '#9aa7c7');
         rect(hiltX, baseY - 30 * z, 1.8 * z, 15 * z, '#ff384c');
@@ -740,7 +759,9 @@ function drawSpriteCostumeOverlay(
         rect(cx - 4 * z, baseY - 13.5 * z, 8 * z, 1.5 * z, '#c9d2e8');
         rect(cx - 8.5 * z, baseY - 32.5 * z, 2.5 * z, 5.5 * z, hairColor);
         rect(cx + 6 * z, baseY - 32.5 * z, 2.5 * z, 5.5 * z, hairColor);
-        rect(cx - 4.5 * z, baseY - 29.8 * z, 9 * z, 1.8 * z, '#ff9c3b');
+        if (!isPureBack) {
+          rect(cx - 4.5 * z, baseY - 29.8 * z, 9 * z, 1.8 * z, '#ff9c3b');
+        }
       } else {
         // Contoured Bo-Katan Mandalorian beskar armor + tapered T-visor helmet
         rect(cx - 2.2 * z, baseY - 22 * z, 4.4 * z, 4 * z, '#525d78');
@@ -751,8 +772,10 @@ function drawSpriteCostumeOverlay(
         rect(cx - 6 * z, baseY - 34.5 * z, 12 * z, 11 * z, '#b4bed4');
         rect(cx - 4.5 * z, baseY - 23.5 * z, 9 * z, 2 * z, '#8f9bb8');
         rect(cx - 5 * z, baseY - 34 * z, 10 * z, 2.5 * z, '#7a87a3');
-        rect(cx - 4.5 * z, baseY - 29.8 * z, 9 * z, 2.2 * z, '#11131c');
-        rect(cx - 1.2 * z, baseY - 28 * z, 2.4 * z, 5 * z, '#11131c');
+        if (!isPureBack) {
+          rect(cx - 4.5 * z, baseY - 29.8 * z, 9 * z, 2.2 * z, '#11131c');
+          rect(cx - 1.2 * z, baseY - 28 * z, 2.4 * z, 5 * z, '#11131c');
+        }
         rect(cx + 5.5 * z, baseY - 39 * z, 1.5 * z, 7 * z, '#ff9c3b');
       }
     } else if (eventKind === 'SUPERHERO_PARTY') {
@@ -761,35 +784,45 @@ function drawSpriteCostumeOverlay(
         rect(cx - 6.8 * z, baseY - 19 * z, 13.6 * z, 11.5 * z, '#161a26');
         rect(cx - 5 * z, baseY - 18.5 * z, 10 * z, 3.5 * z, '#2c344a');
         rect(cx - 4 * z, baseY - 15 * z, 8 * z, 4 * z, '#2c344a');
-        rect(cx - 2 * z, baseY - 17.5 * z, 4 * z, 1.8 * z, '#ffd147');
+        if (!isPureBack) {
+          rect(cx - 2 * z, baseY - 17.5 * z, 4 * z, 1.8 * z, '#ffd147');
+        }
         rect(cx - 4 * z, baseY - 12.5 * z, 8 * z, 1.5 * z, '#ffd147');
         rect(cx - 6 * z, baseY - 36 * z, 12 * z, 8.5 * z, '#1b2030');
         rect(cx - 5.8 * z, baseY - 39.5 * z, 2.2 * z, 3.8 * z, '#1b2030');
         rect(cx + 3.6 * z, baseY - 39.5 * z, 2.2 * z, 3.8 * z, '#1b2030');
-        rect(cx - 3.8 * z, baseY - 29.2 * z, 2.8 * z, 1.6 * z, '#ffffff');
-        rect(cx + 1 * z, baseY - 29.2 * z, 2.8 * z, 1.6 * z, '#ffffff');
+        if (!isPureBack) {
+          rect(cx - 3.8 * z, baseY - 29.2 * z, 2.8 * z, 1.6 * z, '#ffffff');
+          rect(cx + 1 * z, baseY - 29.2 * z, 2.8 * z, 1.6 * z, '#ffffff');
+        }
       } else if (variant === 1) {
         // Supergirl crimson cape + hourglass blue top + pleated crimson skirt + emblem
         rect(cx - 6.5 * z, baseY - 19 * z, 13 * z, 12 * z, '#d93838');
-        rect(cx - 5 * z, baseY - 18.5 * z, 10 * z, 3.5 * z, '#2b62d9');
-        rect(cx - 4 * z, baseY - 15 * z, 8 * z, 3.5 * z, '#2b62d9');
-        rect(cx - 5.5 * z, baseY - 11.5 * z, 11 * z, 4 * z, '#d93838');
-        rect(cx - 4 * z, baseY - 12 * z, 8 * z, 1.2 * z, '#ffd147');
-        rect(cx - 2.5 * z, baseY - 18 * z, 5 * z, 3 * z, '#ffd147');
-        rect(cx - 1 * z, baseY - 17.2 * z, 2 * z, 1.6 * z, '#d93838');
+        if (!isPureBack) {
+          rect(cx - 5 * z, baseY - 18.5 * z, 10 * z, 3.5 * z, '#2b62d9');
+          rect(cx - 4 * z, baseY - 15 * z, 8 * z, 3.5 * z, '#2b62d9');
+          rect(cx - 5.5 * z, baseY - 11.5 * z, 11 * z, 4 * z, '#d93838');
+          rect(cx - 4 * z, baseY - 12 * z, 8 * z, 1.2 * z, '#ffd147');
+          rect(cx - 2.5 * z, baseY - 18 * z, 5 * z, 3 * z, '#ffd147');
+          rect(cx - 1 * z, baseY - 17.2 * z, 2 * z, 1.6 * z, '#d93838');
+        }
       } else if (variant === 2) {
         // Sleek Iron Rescue crimson-gold hourglass armor + armored gorget + cyan arc reactor
         rect(cx - 2.2 * z, baseY - 22.5 * z, 4.4 * z, 4.5 * z, '#9e1f2c');
         rect(cx - 5 * z, baseY - 18.5 * z, 10 * z, 3.5 * z, '#c42838');
         rect(cx - 4 * z, baseY - 15 * z, 8 * z, 4.5 * z, '#c42838');
         rect(cx - 3.8 * z, baseY - 18 * z, 7.6 * z, 5 * z, '#ffd147');
-        rect(cx - 1.8 * z, baseY - 17.5 * z, 3.6 * z, 3 * z, '#7ef3ff');
-        rect(cx - 0.8 * z, baseY - 16.8 * z, 1.6 * z, 1.6 * z, '#ffffff');
+        if (!isPureBack) {
+          rect(cx - 1.8 * z, baseY - 17.5 * z, 3.6 * z, 3 * z, '#7ef3ff');
+          rect(cx - 0.8 * z, baseY - 16.8 * z, 1.6 * z, 1.6 * z, '#ffffff');
+        }
         rect(cx - 5 * z, baseY - 36 * z, 10 * z, 2 * z, '#c42838');
         rect(cx - 6 * z, baseY - 34.5 * z, 12 * z, 11 * z, '#c42838');
-        rect(cx - 4.2 * z, baseY - 32.5 * z, 8.4 * z, 9.5 * z, '#ffd147');
-        rect(cx - 3.8 * z, baseY - 29.2 * z, 2.8 * z, 1.6 * z, '#7ef3ff');
-        rect(cx + 1 * z, baseY - 29.2 * z, 2.8 * z, 1.6 * z, '#7ef3ff');
+        if (!isPureBack) {
+          rect(cx - 4.2 * z, baseY - 32.5 * z, 8.4 * z, 9.5 * z, '#ffd147');
+          rect(cx - 3.8 * z, baseY - 29.2 * z, 2.8 * z, 1.6 * z, '#7ef3ff');
+          rect(cx + 1 * z, baseY - 29.2 * z, 2.8 * z, 1.6 * z, '#7ef3ff');
+        }
       } else {
         // Wonder Heroine gold tiara + domino mask + crimson-gold corset & skirt
         rect(cx - 4.8 * z, baseY - 18 * z, 9.6 * z, 2 * z, '#ffd147');
@@ -797,10 +830,12 @@ function drawSpriteCostumeOverlay(
         rect(cx - 5.5 * z, baseY - 12 * z, 11 * z, 4.5 * z, '#243b6b');
         rect(cx - 4.2 * z, baseY - 12.5 * z, 8.4 * z, 1.5 * z, '#ffd147');
         rect(cx - 5 * z, baseY - 35.8 * z, 10 * z, 2 * z, '#ffd147');
-        rect(cx - 1 * z, baseY - 37 * z, 2 * z, 2 * z, '#ff5666');
-        rect(cx - 4.8 * z, baseY - 29.8 * z, 9.6 * z, 2 * z, '#1b2030');
-        rect(cx - 3.2 * z, baseY - 29.3 * z, 1.2 * z, 1 * z, '#ffffff');
-        rect(cx + 2 * z, baseY - 29.3 * z, 1.2 * z, 1 * z, '#ffffff');
+        if (!isPureBack) {
+          rect(cx - 1 * z, baseY - 37 * z, 2 * z, 2 * z, '#ff5666');
+          rect(cx - 4.8 * z, baseY - 29.8 * z, 9.6 * z, 2 * z, '#1b2030');
+          rect(cx - 3.2 * z, baseY - 29.3 * z, 1.2 * z, 1 * z, '#ffffff');
+          rect(cx + 2 * z, baseY - 29.3 * z, 1.2 * z, 1 * z, '#ffffff');
+        }
       }
     } else {
       // HALLOWEEN_PARTY (female)
@@ -827,19 +862,23 @@ function drawSpriteCostumeOverlay(
         rect(cx - 7 * z, baseY - 34 * z, 14 * z, 11 * z, '#ff7b1c');
         rect(cx - 5 * z, baseY - 33.5 * z, 10 * z, 10.5 * z, '#ff9838');
         rect(cx - 1.5 * z, baseY - 38 * z, 3 * z, 2.5 * z, '#3be87a');
-        rect(cx - 3.8 * z, baseY - 29.5 * z, 2.8 * z, 2.5 * z, '#ffe64d');
-        rect(cx + 1 * z, baseY - 29.5 * z, 2.8 * z, 2.5 * z, '#ffe64d');
-        rect(cx - 3 * z, baseY - 25.2 * z, 6 * z, 1.6 * z, '#ffe64d');
+        if (!isPureBack) {
+          rect(cx - 3.8 * z, baseY - 29.5 * z, 2.8 * z, 2.5 * z, '#ffe64d');
+          rect(cx + 1 * z, baseY - 29.5 * z, 2.8 * z, 2.5 * z, '#ffe64d');
+          rect(cx - 3 * z, baseY - 25.2 * z, 6 * z, 1.6 * z, '#ffe64d');
+        }
       } else if (variant === 2) {
         // Vampire Countess high crimson collar + velvet corset + dainty fangs
         rect(cx - 6.8 * z, baseY - 23.5 * z, 4.8 * z, 14.5 * z, '#161822');
         rect(cx + 2 * z, baseY - 23.5 * z, 4.8 * z, 14.5 * z, '#161822');
         rect(cx - 6.5 * z, baseY - 24.5 * z, 2.5 * z, 5.5 * z, '#b82e43');
         rect(cx + 4 * z, baseY - 24.5 * z, 2.5 * z, 5.5 * z, '#b82e43');
-        rect(cx - 4 * z, baseY - 18 * z, 8 * z, 6.5 * z, '#d93838');
-        rect(cx - 1 * z, baseY - 17.5 * z, 2 * z, 5 * z, '#161822');
-        rect(cx - 1.1 * z + saberSide * 0.4 * z, baseY - 23.6 * z, 0.8 * z, 1 * z, '#ffffff');
-        rect(cx + 0.6 * z + saberSide * 0.4 * z, baseY - 23.6 * z, 0.8 * z, 1 * z, '#ffffff');
+        if (!isPureBack) {
+          rect(cx - 4 * z, baseY - 18 * z, 8 * z, 6.5 * z, '#d93838');
+          rect(cx - 1 * z, baseY - 17.5 * z, 2 * z, 5 * z, '#161822');
+          rect(cx - 1.1 * z + saberSide * 0.4 * z, baseY - 23.6 * z, 0.8 * z, 1 * z, '#ffffff');
+          rect(cx + 0.6 * z + saberSide * 0.4 * z, baseY - 23.6 * z, 0.8 * z, 1 * z, '#ffffff');
+        }
       } else {
         // Cute Ghost / Skeleton draped hourglass tunic & rounded hood
         rect(cx - 5 * z, baseY - 18.5 * z, 10 * z, 3.5 * z, '#eef2fc');
@@ -849,10 +888,12 @@ function drawSpriteCostumeOverlay(
         rect(cx - 2.5 * z, baseY - 14.5 * z, 5 * z, 1.4 * z, '#cfd6e6');
         rect(cx - 5.5 * z, baseY - 36 * z, 11 * z, 2 * z, '#eef2fc');
         rect(cx - 6.5 * z, baseY - 34.5 * z, 13 * z, 12 * z, '#eef2fc');
-        rect(cx - 3.8 * z, baseY - 29.2 * z, 2.6 * z, 2.8 * z, '#1b2030');
-        rect(cx + 1.2 * z, baseY - 29.2 * z, 2.6 * z, 2.8 * z, '#1b2030');
-        rect(cx - 2.8 * z, baseY - 29 * z, 1 * z, 1 * z, '#ffffff');
-        rect(cx + 2.2 * z, baseY - 29 * z, 1 * z, 1 * z, '#ffffff');
+        if (!isPureBack) {
+          rect(cx - 3.8 * z, baseY - 29.2 * z, 2.6 * z, 2.8 * z, '#1b2030');
+          rect(cx + 1.2 * z, baseY - 29.2 * z, 2.6 * z, 2.8 * z, '#1b2030');
+          rect(cx - 2.8 * z, baseY - 29 * z, 1 * z, 1 * z, '#ffffff');
+          rect(cx + 2.2 * z, baseY - 29 * z, 1 * z, 1 * z, '#ffffff');
+        }
       }
     }
     return;
@@ -869,12 +910,16 @@ function drawSpriteCostumeOverlay(
       rect(cx - 6.6 * z, baseY - 19.2 * z, 13.2 * z, 3.8 * z, '#e7d7b8');
       rect(cx - 5.2 * z, baseY - 15.4 * z, 10.4 * z, 3.8 * z, '#e7d7b8');
       rect(cx - 6 * z, baseY - 11.6 * z, 12 * z, 3 * z, '#d8c5a2');
-      rect(cx - 1.8 * z, baseY - 19.2 * z, 3.6 * z, 3.5 * z, '#cbb692');
+      if (!isPureBack) {
+        rect(cx - 1.8 * z, baseY - 19.2 * z, 3.6 * z, 3.5 * z, '#cbb692');
+      }
       rect(cx - 5.4 * z, baseY - 13.8 * z, 10.8 * z, 1.8 * z, '#452814');
       rect(cx - 1.2 * z, baseY - 13.8 * z, 2.4 * z, 1.8 * z, '#b4bed4');
       rect(cx - 6 * z, baseY - 38.2 * z, 12 * z, 2.4 * z, '#6b4226');
       rect(cx - 7.4 * z, baseY - 36.2 * z, 14.8 * z, 4.4 * z, '#6b4226');
-      rect(cx - 6.2 * z, baseY - 35 * z, 12.4 * z, 2.2 * z, '#452814');
+      if (!isPureBack) {
+        rect(cx - 6.2 * z, baseY - 35 * z, 12.4 * z, 2.2 * z, '#452814');
+      }
       const hiltX = cx + saberSide * 8 * z;
       rect(hiltX, baseY - 15.5 * z, 2 * z, 4 * z, '#b4bed4');
       const bladeColor = Math.sin(timeSec * 8) > 0 ? '#3cd8ff' : '#3be87a';
@@ -890,17 +935,21 @@ function drawSpriteCostumeOverlay(
       rect(cx - 2.8 * z, baseY - 22.5 * z, 5.6 * z, 3.5 * z, '#1d2232');
       rect(cx - 6.8 * z, baseY - 19.2 * z, 13.6 * z, 4 * z, '#1d2232');
       rect(cx - 5.2 * z, baseY - 15.2 * z, 10.4 * z, 4 * z, '#1d2232');
-      rect(cx - 3 * z, baseY - 18 * z, 6 * z, 3.6 * z, '#4a556e');
-      rect(cx - 2.2 * z, baseY - 17.2 * z, 1.4 * z, 1.4 * z, '#ff384c');
-      rect(cx + 0.8 * z, baseY - 17.2 * z, 1.4 * z, 1.4 * z, '#3cd8ff');
+      if (!isPureBack) {
+        rect(cx - 3 * z, baseY - 18 * z, 6 * z, 3.6 * z, '#4a556e');
+        rect(cx - 2.2 * z, baseY - 17.2 * z, 1.4 * z, 1.4 * z, '#ff384c');
+        rect(cx + 0.8 * z, baseY - 17.2 * z, 1.4 * z, 1.4 * z, '#3cd8ff');
+      }
       rect(cx - 5.2 * z, baseY - 12.8 * z, 10.4 * z, 1.4 * z, '#2a3040');
       rect(cx - 6 * z, baseY - 37 * z, 12 * z, 2.2 * z, '#161922');
       rect(cx - 7.4 * z, baseY - 35.2 * z, 14.8 * z, 11.5 * z, '#161922');
       rect(cx - 5.6 * z, baseY - 24 * z, 11.2 * z, 2.2 * z, '#11131c');
       rect(cx - 6.4 * z, baseY - 34.5 * z, 12.8 * z, 3.2 * z, '#2a3040');
-      rect(cx - 4.6 * z, baseY - 29.2 * z, 3.6 * z, 2 * z, '#ff384c');
-      rect(cx + 1 * z, baseY - 29.2 * z, 3.6 * z, 2 * z, '#ff384c');
-      rect(cx - 2.4 * z, baseY - 25.6 * z, 4.8 * z, 2.4 * z, '#2a3040');
+      if (!isPureBack) {
+        rect(cx - 4.6 * z, baseY - 29.2 * z, 3.6 * z, 2 * z, '#ff384c');
+        rect(cx + 1 * z, baseY - 29.2 * z, 3.6 * z, 2 * z, '#ff384c');
+        rect(cx - 2.4 * z, baseY - 25.6 * z, 4.8 * z, 2.4 * z, '#2a3040');
+      }
       const hiltX = cx + saberSide * 8 * z;
       rect(hiltX, baseY - 15.5 * z, 2 * z, 4 * z, '#9aa7c7');
       rect(hiltX, baseY - 30.5 * z, 2 * z, 15 * z, '#ff384c');
@@ -914,13 +963,17 @@ function drawSpriteCostumeOverlay(
       rect(cx - 6.8 * z, baseY - 19.2 * z, 13.6 * z, 4 * z, '#f4f6fc');
       rect(cx - 5.4 * z, baseY - 15.2 * z, 10.8 * z, 4 * z, '#f4f6fc');
       rect(cx - 6 * z, baseY - 11.4 * z, 12 * z, 2.4 * z, '#e9edf7');
-      rect(cx - 2 * z, baseY - 18.2 * z, 4 * z, 3.2 * z, '#dce4f7');
+      if (!isPureBack) {
+        rect(cx - 2 * z, baseY - 18.2 * z, 4 * z, 3.2 * z, '#dce4f7');
+      }
       rect(cx - 5.4 * z, baseY - 13 * z, 10.8 * z, 1.6 * z, '#c9d2e8');
       rect(cx - 1.2 * z, baseY - 13 * z, 2.4 * z, 1.6 * z, '#ff9c3b');
       rect(cx - 8.6 * z, baseY - 32.5 * z, 2.4 * z, 5.5 * z, hairColor);
       rect(cx + 6.2 * z, baseY - 32.5 * z, 2.4 * z, 5.5 * z, hairColor);
-      rect(cx - 5.2 * z, baseY - 30 * z, 10.4 * z, 2.2 * z, '#ff9c3b');
-      rect(cx - 3.8 * z, baseY - 29.6 * z, 3 * z, 0.9 * z, '#ffe6a3');
+      if (!isPureBack) {
+        rect(cx - 5.2 * z, baseY - 30 * z, 10.4 * z, 2.2 * z, '#ff9c3b');
+        rect(cx - 3.8 * z, baseY - 29.6 * z, 3 * z, 0.9 * z, '#ffe6a3');
+      }
     } else {
       // Athletic Mandalorian beskar pauldrons + vambraces + V-taper chestplate + stepped T-visor dome
       rect(cx - 9 * z, baseY - 18.8 * z, 3 * z, 3.2 * z, '#b4bed4');
@@ -936,8 +989,10 @@ function drawSpriteCostumeOverlay(
       rect(cx - 6.8 * z, baseY - 34.8 * z, 13.6 * z, 11.2 * z, '#b4bed4');
       rect(cx - 5.2 * z, baseY - 23.8 * z, 10.4 * z, 1.8 * z, '#8f9bb8');
       rect(cx - 5.8 * z, baseY - 34.2 * z, 11.6 * z, 2.6 * z, '#7a87a3');
-      rect(cx - 5 * z, baseY - 29.8 * z, 10 * z, 2.4 * z, '#11131c');
-      rect(cx - 1.4 * z, baseY - 27.8 * z, 2.8 * z, 5.4 * z, '#11131c');
+      if (!isPureBack) {
+        rect(cx - 5 * z, baseY - 29.8 * z, 10 * z, 2.4 * z, '#11131c');
+        rect(cx - 1.4 * z, baseY - 27.8 * z, 2.8 * z, 5.4 * z, '#11131c');
+      }
       rect(cx + 6.2 * z, baseY - 39.5 * z, 1.6 * z, 7.5 * z, '#ff9c3b');
     }
   } else if (eventKind === 'SUPERHERO_PARTY') {
@@ -950,13 +1005,17 @@ function drawSpriteCostumeOverlay(
       rect(cx + 6 * z, baseY - 15.6 * z, 2 * z, 3.6 * z, '#1b2030');
       rect(cx - 6.8 * z, baseY - 19.2 * z, 13.6 * z, 4 * z, '#2c344a');
       rect(cx - 5.2 * z, baseY - 15.2 * z, 10.4 * z, 4.2 * z, '#2c344a');
-      rect(cx - 2.6 * z, baseY - 18 * z, 5.2 * z, 2 * z, '#ffd147');
+      if (!isPureBack) {
+        rect(cx - 2.6 * z, baseY - 18 * z, 5.2 * z, 2 * z, '#ffd147');
+      }
       rect(cx - 5.4 * z, baseY - 12.4 * z, 10.8 * z, 1.8 * z, '#ffd147');
       rect(cx - 6.8 * z, baseY - 37.2 * z, 13.6 * z, 10 * z, '#1b2030');
       rect(cx - 6.6 * z, baseY - 41.2 * z, 2.6 * z, 4.2 * z, '#1b2030');
       rect(cx + 4 * z, baseY - 41.2 * z, 2.6 * z, 4.2 * z, '#1b2030');
-      rect(cx - 4.2 * z, baseY - 29.2 * z, 3 * z, 1.8 * z, '#ffffff');
-      rect(cx + 1.2 * z, baseY - 29.2 * z, 3 * z, 1.8 * z, '#ffffff');
+      if (!isPureBack) {
+        rect(cx - 4.2 * z, baseY - 29.2 * z, 3 * z, 1.8 * z, '#ffffff');
+        rect(cx + 1.2 * z, baseY - 29.2 * z, 3 * z, 1.8 * z, '#ffffff');
+      }
     } else if (variant === 1) {
       // Heroic crimson cape + athletic V-taper royal-blue suit & sleeves + gold belt + diamond emblem
       rect(cx - 8 * z, baseY - 19.6 * z, 16 * z, 12.6 * z, '#d93838');
@@ -964,11 +1023,13 @@ function drawSpriteCostumeOverlay(
       rect(cx + 6 * z, baseY - 18.8 * z, 3 * z, 3.2 * z, '#2b62d9');
       rect(cx - 8 * z, baseY - 15.6 * z, 2 * z, 3.6 * z, '#2b62d9');
       rect(cx + 6 * z, baseY - 15.6 * z, 2 * z, 3.6 * z, '#2b62d9');
-      rect(cx - 6.8 * z, baseY - 19.2 * z, 13.6 * z, 4.2 * z, '#2b62d9');
-      rect(cx - 5.2 * z, baseY - 15 * z, 10.4 * z, 4.2 * z, '#2b62d9');
-      rect(cx - 5.2 * z, baseY - 12.2 * z, 10.4 * z, 1.4 * z, '#ffd147');
-      rect(cx - 3 * z, baseY - 18.4 * z, 6 * z, 3.6 * z, '#ffd147');
-      rect(cx - 1.2 * z, baseY - 17.4 * z, 2.4 * z, 1.8 * z, '#d93838');
+      if (!isPureBack) {
+        rect(cx - 6.8 * z, baseY - 19.2 * z, 13.6 * z, 4.2 * z, '#2b62d9');
+        rect(cx - 5.2 * z, baseY - 15 * z, 10.4 * z, 4.2 * z, '#2b62d9');
+        rect(cx - 5.2 * z, baseY - 12.2 * z, 10.4 * z, 1.4 * z, '#ffd147');
+        rect(cx - 3 * z, baseY - 18.4 * z, 6 * z, 3.6 * z, '#ffd147');
+        rect(cx - 1.2 * z, baseY - 17.4 * z, 2.4 * z, 1.8 * z, '#d93838');
+      }
     } else if (variant === 2) {
       // V-taper crimson-gold Mark armor + armored gauntlets + glowing cyan arc reactor + faceplate helmet
       rect(cx - 9 * z, baseY - 18.8 * z, 3 * z, 3.2 * z, '#c42838');
@@ -979,13 +1040,17 @@ function drawSpriteCostumeOverlay(
       rect(cx - 6.8 * z, baseY - 19.2 * z, 13.6 * z, 4.2 * z, '#c42838');
       rect(cx - 5.2 * z, baseY - 15 * z, 10.4 * z, 4.4 * z, '#c42838');
       rect(cx - 4.8 * z, baseY - 18.4 * z, 9.6 * z, 5.6 * z, '#ffd147');
-      rect(cx - 2 * z, baseY - 17.8 * z, 4 * z, 3.4 * z, '#7ef3ff');
-      rect(cx - 1 * z, baseY - 17 * z, 2 * z, 1.8 * z, '#ffffff');
+      if (!isPureBack) {
+        rect(cx - 2 * z, baseY - 17.8 * z, 4 * z, 3.4 * z, '#7ef3ff');
+        rect(cx - 1 * z, baseY - 17 * z, 2 * z, 1.8 * z, '#ffffff');
+      }
       rect(cx - 5.8 * z, baseY - 36.6 * z, 11.6 * z, 2.2 * z, '#c42838');
       rect(cx - 6.8 * z, baseY - 34.8 * z, 13.6 * z, 11.2 * z, '#c42838');
-      rect(cx - 4.8 * z, baseY - 32.8 * z, 9.6 * z, 9.6 * z, '#ffd147');
-      rect(cx - 4.2 * z, baseY - 29.2 * z, 3 * z, 1.8 * z, '#7ef3ff');
-      rect(cx + 1.2 * z, baseY - 29.2 * z, 3 * z, 1.8 * z, '#7ef3ff');
+      if (!isPureBack) {
+        rect(cx - 4.8 * z, baseY - 32.8 * z, 9.6 * z, 9.6 * z, '#ffd147');
+        rect(cx - 4.2 * z, baseY - 29.2 * z, 3 * z, 1.8 * z, '#7ef3ff');
+        rect(cx + 1.2 * z, baseY - 29.2 * z, 3 * z, 1.8 * z, '#7ef3ff');
+      }
     } else {
       // Heroic Champion V-taper crimson-gold cuirass + gold bracers + circlet + sleek domino mask
       rect(cx - 9 * z, baseY - 18.8 * z, 3 * z, 3 * z, '#b82e43');
@@ -997,10 +1062,12 @@ function drawSpriteCostumeOverlay(
       rect(cx - 5.6 * z, baseY - 18.8 * z, 11.2 * z, 2.4 * z, '#ffd147');
       rect(cx - 5.4 * z, baseY - 12.4 * z, 10.8 * z, 1.8 * z, '#ffd147');
       rect(cx - 5.8 * z, baseY - 36.2 * z, 11.6 * z, 2.2 * z, '#ffd147');
-      rect(cx - 1 * z, baseY - 37.6 * z, 2 * z, 2 * z, '#ff5666');
-      rect(cx - 5.4 * z, baseY - 30 * z, 10.8 * z, 2.4 * z, '#1b2030');
-      rect(cx - 3.6 * z, baseY - 29.4 * z, 1.4 * z, 1 * z, '#ffffff');
-      rect(cx + 2.2 * z, baseY - 29.4 * z, 1.4 * z, 1 * z, '#ffffff');
+      if (!isPureBack) {
+        rect(cx - 1 * z, baseY - 37.6 * z, 2 * z, 2 * z, '#ff5666');
+        rect(cx - 5.4 * z, baseY - 30 * z, 10.8 * z, 2.4 * z, '#1b2030');
+        rect(cx - 3.6 * z, baseY - 29.4 * z, 1.4 * z, 1 * z, '#ffffff');
+        rect(cx + 2.2 * z, baseY - 29.4 * z, 1.4 * z, 1 * z, '#ffffff');
+      }
     }
   } else {
     // HALLOWEEN_PARTY (male)
@@ -1033,9 +1100,11 @@ function drawSpriteCostumeOverlay(
       rect(cx - 7.6 * z, baseY - 34.4 * z, 15.2 * z, 11.4 * z, '#ff7b1c');
       rect(cx - 5.4 * z, baseY - 33.8 * z, 10.8 * z, 10.6 * z, '#ff9838');
       rect(cx - 1.8 * z, baseY - 38.6 * z, 3.6 * z, 2.6 * z, '#3be87a');
-      rect(cx - 4.2 * z, baseY - 29.8 * z, 3 * z, 2.6 * z, '#ffe64d');
-      rect(cx + 1.2 * z, baseY - 29.8 * z, 3 * z, 2.6 * z, '#ffe64d');
-      rect(cx - 3.6 * z, baseY - 25.4 * z, 7.2 * z, 1.8 * z, '#ffe64d');
+      if (!isPureBack) {
+        rect(cx - 4.2 * z, baseY - 29.8 * z, 3 * z, 2.6 * z, '#ffe64d');
+        rect(cx + 1.2 * z, baseY - 29.8 * z, 3 * z, 2.6 * z, '#ffe64d');
+        rect(cx - 3.6 * z, baseY - 25.4 * z, 7.2 * z, 1.8 * z, '#ffe64d');
+      }
     } else if (variant === 2) {
       // Count Vampire high crimson-lined cape collar + dark tailcoat sleeves + crimson waistcoat + fangs
       rect(cx - 9 * z, baseY - 18.8 * z, 3 * z, 3.2 * z, '#161822');
@@ -1046,11 +1115,13 @@ function drawSpriteCostumeOverlay(
       rect(cx + 2.6 * z, baseY - 23.8 * z, 5.6 * z, 15 * z, '#161822');
       rect(cx - 7.8 * z, baseY - 25 * z, 2.8 * z, 6 * z, '#b82e43');
       rect(cx + 5 * z, baseY - 25 * z, 2.8 * z, 6 * z, '#b82e43');
-      rect(cx - 5 * z, baseY - 18.8 * z, 10 * z, 7.4 * z, '#d93838');
-      rect(cx - 1.2 * z, baseY - 18.4 * z, 2.4 * z, 5 * z, '#161822');
-      rect(cx - 0.8 * z, baseY - 16.8 * z, 1.6 * z, 1.2 * z, '#ffd147');
-      rect(cx - 1.8 * z + saberSide * 0.4 * z, baseY - 24.4 * z, 1.1 * z, 1.5 * z, '#ffffff');
-      rect(cx + 0.7 * z + saberSide * 0.4 * z, baseY - 24.4 * z, 1.1 * z, 1.5 * z, '#ffffff');
+      if (!isPureBack) {
+        rect(cx - 5 * z, baseY - 18.8 * z, 10 * z, 7.4 * z, '#d93838');
+        rect(cx - 1.2 * z, baseY - 18.4 * z, 2.4 * z, 5 * z, '#161822');
+        rect(cx - 0.8 * z, baseY - 16.8 * z, 1.6 * z, 1.2 * z, '#ffd147');
+        rect(cx - 1.8 * z + saberSide * 0.4 * z, baseY - 24.4 * z, 1.1 * z, 1.5 * z, '#ffffff');
+        rect(cx + 0.7 * z + saberSide * 0.4 * z, baseY - 24.4 * z, 1.1 * z, 1.5 * z, '#ffffff');
+      }
     } else {
       // Spectral Phantom / Skeleton V-taper ribcage tunic + bone sleeves + rounded hood
       rect(cx - 9 * z, baseY - 18.8 * z, 3 * z, 3.2 * z, '#eef2fc');
@@ -1064,10 +1135,12 @@ function drawSpriteCostumeOverlay(
       rect(cx - 3.2 * z, baseY - 15 * z, 6.4 * z, 1.5 * z, '#cfd6e6');
       rect(cx - 6 * z, baseY - 36.4 * z, 12 * z, 2 * z, '#eef2fc');
       rect(cx - 7.2 * z, baseY - 34.8 * z, 14.4 * z, 12.2 * z, '#eef2fc');
-      rect(cx - 4.2 * z, baseY - 29.4 * z, 3 * z, 3 * z, '#1b2030');
-      rect(cx + 1.2 * z, baseY - 29.4 * z, 3 * z, 3 * z, '#1b2030');
-      rect(cx - 3 * z, baseY - 29 * z, 1 * z, 1 * z, '#7ef3ff');
-      rect(cx + 2.4 * z, baseY - 29 * z, 1 * z, 1 * z, '#7ef3ff');
+      if (!isPureBack) {
+        rect(cx - 4.2 * z, baseY - 29.4 * z, 3 * z, 3 * z, '#1b2030');
+        rect(cx + 1.2 * z, baseY - 29.4 * z, 3 * z, 3 * z, '#1b2030');
+        rect(cx - 3 * z, baseY - 29 * z, 1 * z, 1 * z, '#7ef3ff');
+        rect(cx + 2.4 * z, baseY - 29 * z, 1 * z, 1 * z, '#7ef3ff');
+      }
     }
   }
 }
@@ -1382,15 +1455,24 @@ export function drawEmployeeSprite(
         (act === 'reading' || act === 'searching' || act === 'thinking' || act === 'error')));
   const hasScreenGlow = isCodingPose || isLaptopPose;
 
-  // Respect true desk/chair facing (SE / SW / NE / NW) when seated; only flip standing idle poses toward camera
-  const effectiveFacing: Facing =
-    !isWalking && !seated && (facing === 'NE' || facing === 'NW')
-      ? facing === 'NE'
-        ? 'SE'
-        : 'SW'
-      : facing;
-  const dirFlip = effectiveFacing === 'SW' || effectiveFacing === 'NW' ? -1 : 1;
-  const isFacingAway = seated && (effectiveFacing === 'NE' || effectiveFacing === 'NW');
+  // True 8-directional anatomical orientation (S, SE, E, NE, N, NW, W, SW) — zero forced front-flips!
+  const effectiveFacing: Facing = facing;
+  const viewMode: 'front' | 'front_diag' | 'side' | 'back_diag' | 'back' =
+    effectiveFacing === 'S'
+      ? 'front'
+      : effectiveFacing === 'N'
+        ? 'back'
+        : effectiveFacing === 'E' || effectiveFacing === 'W'
+          ? 'side'
+          : effectiveFacing === 'NE' || effectiveFacing === 'NW'
+            ? 'back_diag'
+            : 'front_diag';
+  const dirFlip: -1 | 1 =
+    effectiveFacing === 'SW' || effectiveFacing === 'W' || effectiveFacing === 'NW' ? -1 : 1;
+  const isFacingAway = viewMode === 'back_diag' || viewMode === 'back';
+  const isSideProfile = viewMode === 'side';
+  const isPureFront = viewMode === 'front';
+  const isPureBack = viewMode === 'back';
   const dRect = (dx: number, y: number, w: number, h: number, color: string) => {
     rect(dirFlip > 0 ? cx + dx * z : cx - (dx + w) * z, y, w * z, h * z, color);
   };
@@ -1402,17 +1484,20 @@ export function drawEmployeeSprite(
 
   if (seated) {
     // Subtle dark contact shadow directly on the chair cushion (never floating over caster wheels!)
+    const shadX =
+      isPureFront || isPureBack
+        ? cx
+        : isSideProfile
+          ? cx + dirFlip * 0.4 * z
+          : cx + dirFlip * (isFacingAway ? 1.6 : 0.8) * z;
+    const shadY = isPureBack
+      ? cy - 9.0 * z
+      : isFacingAway
+        ? cy - 9.2 * z
+        : cy - 8.4 * z;
     ctx.fillStyle = 'rgba(0, 0, 0, 0.24)';
     ctx.beginPath();
-    ctx.ellipse(
-      cx + dirFlip * (isFacingAway ? 1.6 : 0.8) * z,
-      cy - (isFacingAway ? 9.2 : 8.4) * z,
-      5.2 * z,
-      2.2 * z,
-      0,
-      0,
-      Math.PI * 2,
-    );
+    ctx.ellipse(shadX, shadY, 5.2 * z, 2.2 * z, 0, 0, Math.PI * 2);
     ctx.fill();
   } else {
     // Standing / walking floor shadow
@@ -1439,26 +1524,48 @@ export function drawEmployeeSprite(
     ctx.stroke();
   }
 
-  const seatOffsetY = seated ? (isFacingAway ? 1.0 : 0.2) * z : 0;
+  const seatOffsetY = seated
+    ? (isPureBack ? 0.5 : isFacingAway ? 1.0 : isSideProfile ? 0.3 : 0.2) * z
+    : 0;
   const baseY = cy - bob + seatOffsetY;
-  // Subtle forward focus lean toward the monitor when seated (and nested forward of chair backrest on NE/NW)
+  // Angle-aware seated focus lean so hips nestle inside the chair cushion & backrest across all 8 angles
   const leanX = seated
-    ? dirFlip * (isFacingAway ? (isCodingPose ? 2.5 : 1.8) : isCodingPose ? 1.6 : 0.8) * z
+    ? isPureFront || isPureBack
+      ? 0
+      : isSideProfile
+        ? dirFlip * (isCodingPose ? 0.4 : -0.6) * z
+        : dirFlip * (isFacingAway ? (isCodingPose ? 2.5 : 1.8) : isCodingPose ? 1.6 : 0.8) * z
     : 0;
   const leanY = seated
-    ? (isFacingAway ? (isCodingPose ? -1.4 : -0.9) : isCodingPose ? 0.4 : 0.1) * z
+    ? (isPureBack
+        ? isCodingPose
+          ? -1.5
+          : -1.1
+        : isFacingAway
+          ? isCodingPose
+            ? -1.4
+            : -0.9
+          : isSideProfile
+            ? -0.2
+            : isCodingPose
+              ? 0.4
+              : 0.1) * z
     : 0;
   const uX = cx + leanX;
   const uY = baseY + leanY;
+  const uRect = (dx: number, y: number, w: number, h: number, color: string) => {
+    rect(dirFlip > 0 ? uX + dx * z : uX - (dx + w) * z, y, w * z, h * z, color);
+  };
 
   const costumeVariant = (hashString(emp.id) >>> 12) & 3;
   const enclosingHelmet = hasEnclosingCostumeHelmet(activeEventKind, costumeVariant);
   const hideTopChignon = suppressesTopChignon(activeEventKind, costumeVariant);
   const isLeiaCostume = activeEventKind === 'STAR_WARS_PARTY' && costumeVariant === 2;
   const fLegSwing = isWalking ? Math.sin(walkPhase * Math.PI * 2) * 2 * z : 0;
+  const sideStride = isWalking ? Math.sin(walkPhase * Math.PI * 2) * 2.4 : 0;
 
-  // 1. Back hair layer for female styles (when facing front SE/SW; for NE/NW rear hair is drawn over back of head)
-  if (palette.gender === 'female' && !enclosingHelmet && !isFacingAway) {
+  // 1. Back hair underlay for front/front-diagonal views (for side, back_diag & back, hair drapes over nape in step 5)
+  if (palette.gender === 'female' && !enclosingHelmet && !isFacingAway && !isSideProfile) {
     if (palette.femaleHairStyle === 'long_locks') {
       // Rounded back crown + twin S-curve cascades tapering behind the slender waist
       rect(uX - 5.5 * z, uY - 35 * z, 11 * z, 13 * z, palette.hair);
@@ -1489,12 +1596,11 @@ export function drawEmployeeSprite(
       // Smooth rounded cap + silk scrunchie + arched S-curve cascading ponytail with subtle sway
       rect(uX - 5.8 * z, uY - 35 * z, 11.6 * z, 9 * z, palette.hair);
       if (!isLeiaCostume) {
-        const ts = dirFlip > 0 ? -1 : 1;
+        const ts = isPureFront ? 1 : dirFlip > 0 ? -1 : 1;
         const ponySway =
           (isWalking ? Math.sin(walkPhase * Math.PI * 2) * 1.2 : Math.sin(timeSec * 2.5) * 0.5) * z;
         const scrunchX = ts < 0 ? uX - 7.4 * z : uX + 5.2 * z;
         rect(scrunchX, uY - 34.8 * z, 2.2 * z, 2.5 * z, palette.accessoryColor);
-        // Arches up 1*z -> sweeps out 3*z -> tapers to 1.5*z flicked tip at uY - 19*z
         rect(ts < 0 ? uX - 9.2 * z : uX + 6.7 * z, uY - 35.8 * z, 2.5 * z, 2.5 * z, palette.hair);
         rect(ts < 0 ? uX - 8.8 * z : uX + 7.1 * z, uY - 35.5 * z, 1.5 * z, 1.2 * z, palette.hairHighlight);
         rect(
@@ -1540,77 +1646,114 @@ export function drawEmployeeSprite(
     }
   }
 
-  // 2. Legs & Skirt / Trousers (True seated lap & 90°-bent foreshortened knees on cushion vs standing)
+  // 2. Legs & Skirt / Trousers across all 8 angles (front, front_diag, side, back_diag, back)
   if (palette.gender === 'female' && palette.femaleOutfit === 'skirt_blazer') {
     if (seated) {
-      if (isFacingAway) {
-        // Seated skirt resting on cushion facing NE/NW: hip drape + forward lap tucked toward desk (armrest & casters clear)
+      if (isPureBack) {
+        // Seated pure rear (N): symmetric skirt hips resting inside cushion; legs tucked forward away from camera
+        rect(uX - 4 * z, uY - 12.2 * z, 8 * z, 1.6 * z, uniform.main);
+        rect(uX - 4.6 * z, uY - 10.8 * z, 9.2 * z, 2.0 * z, uniform.dark);
+        rect(uX - 3.8 * z, uY - 10.8 * z, 7.6 * z, 1.6 * z, uniform.main);
+      } else if (isFacingAway) {
+        // Seated skirt resting on cushion facing NE/NW: hip drape + forward lap tucked toward desk
         rect(uX - 4 * z, uY - 12.2 * z, 8 * z, 1.6 * z, uniform.main);
         rect(uX - 4.6 * z, uY - 10.8 * z, 9.2 * z, 2.2 * z, uniform.dark);
         rect(uX - 4 * z, uY - 10.8 * z, 8 * z, 1.8 * z, uniform.main);
         const lapX = dirFlip > 0 ? uX + 0.6 * z : uX - 6.8 * z;
         rect(lapX, uY - 11.2 * z, 6.2 * z, 2.1 * z, uniform.main);
         rect(lapX + (dirFlip > 0 ? 1.4 : 0.4) * z, uY - 9.4 * z, 4.4 * z, 1 * z, uniform.dark);
-        // Short tucked knee peek toward kneehole (above foreground armrest stem)
         const kneeX = dirFlip > 0 ? uX + 5.4 * z : uX - 7.4 * z;
         rect(kneeX, uY - 9.6 * z, 2 * z, 1.8 * z, palette.skin);
+      } else if (isSideProfile) {
+        // Pure 90° lateral profile seated (E / W): hip on cushion -> horizontal lap -> 90°-bent calves -> side Mary-Jane
+        uRect(-3.4, uY - 12.2 * z, 5.4, 1.8, uniform.main);
+        uRect(-3.2, uY - 10.6 * z, 8.2, 2.2, uniform.main);
+        uRect(-2.6, uY - 8.8 * z, 7.8, 1.0, uniform.dark);
+        uRect(1.2, uY - 10.4 * z, 0.9, 2.4, uniform.dark);
+        // Far calf subtle offset + near calf vertical drop from knee
+        uRect(3.2, uY - 8.2 * z, 1.8, 3.8, palette.skinShadow);
+        uRect(3.8, uY - 7.9 * z, 2.0, 3.9, palette.skin);
+        // Side-profile Mary-Jane shoe pointing in dirFlip direction
+        uRect(3.5, uY - 4.2 * z, 3.4, 1.5, '#1b2030');
+        uRect(4.5, uY - 4.2 * z, 1.4, 0.7, uniform.trim);
       } else {
-        // Seated SE/SW: skirt draped horizontally across lap + 90°-bent foreshortened calves & tucked Mary-Janes
-        const kneeShift = dirFlip * 2.2 * z;
+        // Seated S (kneeShift = 0) or SE/SW: skirt draped horizontally across lap + 90°-bent calves & Mary-Janes
+        const kneeShift = isPureFront ? 0 : dirFlip * 2.2 * z;
         rect(uX - 4 * z, uY - 12 * z, 8 * z, 1.5 * z, uniform.main);
         rect(uX - 4.6 * z + kneeShift * 0.4, uY - 10.6 * z, 9.2 * z, 1.8 * z, uniform.main);
-        // Horizontal lap & pleated knee hem resting over waterfall cushion edge
         rect(uX - 4.8 * z + kneeShift * 0.85, uY - 9.2 * z, 9.6 * z, 2.1 * z, uniform.dark);
         rect(uX - 4.2 * z + kneeShift * 0.85, uY - 9.2 * z, 8.4 * z, 1.6 * z, uniform.main);
         rect(uX - 1.8 * z + kneeShift * 0.75, uY - 10 * z, 1 * z, 2.6 * z, uniform.dark);
         rect(uX + 1 * z + kneeShift * 0.75, uY - 10 * z, 1 * z, 2.6 * z, uniform.dark);
-        // Short 90°-bent foreshortened calves (stopping well above chair caster wheels)
         const legLx = uX - 2.8 * z + kneeShift;
         const legRx = uX + 0.8 * z + kneeShift;
         rect(legLx, uY - 7.1 * z, 2 * z, 0.9 * z, palette.skinShadow);
         rect(legLx, uY - 6.3 * z, 2 * z, 2.1 * z, palette.skin);
         rect(legRx, uY - 7.1 * z, 2 * z, 0.9 * z, palette.skinShadow);
         rect(legRx, uY - 6.3 * z, 2 * z, 2.1 * z, palette.skin);
-        // Compact tucked Mary-Jane toes
         rect(legLx - 0.1 * z, uY - 4.3 * z, 2.2 * z, 1.4 * z, '#1b2030');
         rect(legRx - 0.1 * z, uY - 4.3 * z, 2.2 * z, 1.4 * z, '#1b2030');
         rect(legLx, uY - 4.3 * z, 2 * z, 0.7 * z, uniform.trim);
         rect(legRx, uY - 4.3 * z, 2 * z, 0.7 * z, uniform.trim);
       }
+    } else if (isSideProfile) {
+      // Standing / walking 90° profile flared A-line skirt + horizontal stride legs + side Mary-Janes
+      dRect(-2.8, baseY - 12 * z, 5.4, 1.5, uniform.main);
+      dRect(-3.4, baseY - 10.5 * z, 6.6, 2, uniform.dark);
+      dRect(-2.8, baseY - 10.5 * z, 5.6, 2, uniform.main);
+      dRect(-4.0, baseY - 8.5 * z, 7.8, 2, uniform.dark);
+      dRect(-3.3, baseY - 8.5 * z, 6.6, 1.5, uniform.main);
+      dRect(-0.4, baseY - 10 * z, 0.9, 3.5, uniform.dark);
+      // Far leg & near leg striding horizontally along x
+      dRect(-1.1 - sideStride, baseY - 6.5 * z, 2, 5, palette.skinShadow);
+      dRect(-1.3 - sideStride, baseY - 2 * z, 3.2, 2, '#141824');
+      dRect(-0.7 + sideStride, baseY - 6.5 * z, 2, 5, palette.skin);
+      dRect(-0.9 + sideStride, baseY - 2 * z, 3.2, 2, '#1b2030');
+      dRect(0.3 + sideStride, baseY - 2 * z, 1.4, 0.8, uniform.trim);
     } else {
-      // Standing/walking 3-step flared A-line skirt (8*z -> 10*z -> 12*z) + slender 2*z x 5*z calves + Mary-Janes
+      // Standing/walking 3-step flared A-line skirt + slender calves + Mary-Janes (front/diag/back)
       rect(cx - 4 * z, baseY - 12 * z, 8 * z, 1.5 * z, uniform.main);
       rect(cx - 5 * z, baseY - 10.5 * z, 10 * z, 2 * z, uniform.dark);
       rect(cx - 4.2 * z, baseY - 10.5 * z, 8.4 * z, 2 * z, uniform.main);
       rect(cx - 6 * z, baseY - 8.5 * z, 12 * z, 2 * z, uniform.dark);
       rect(cx - 5.2 * z, baseY - 8.5 * z, 10.4 * z, 1.5 * z, uniform.main);
-      // Subtle knife-pleat shading
       rect(cx - 2.5 * z, baseY - 10 * z, 1 * z, 3.5 * z, uniform.dark);
       rect(cx + 1.5 * z, baseY - 10 * z, 1 * z, 3.5 * z, uniform.dark);
-      // Slender 2*z calves (5*z tall) with soft hem shadow
       rect(cx - 3 * z, baseY - 6.5 * z + fLegSwing, 2 * z, 5 * z, palette.skin);
       rect(cx - 3 * z, baseY - 6.5 * z + fLegSwing, 2 * z, 1 * z, palette.skinShadow);
       rect(cx + 1 * z, baseY - 6.5 * z - fLegSwing, 2 * z, 5 * z, palette.skin);
       rect(cx + 1 * z, baseY - 6.5 * z - fLegSwing, 2 * z, 1 * z, palette.skinShadow);
-      // Dainty 2*z Mary-Jane heeled shoes
       rect(cx - 3.2 * z, baseY - 2 * z + fLegSwing, 2.2 * z, 2 * z, '#1b2030');
       rect(cx + 1 * z, baseY - 2 * z - fLegSwing, 2.2 * z, 2 * z, '#1b2030');
-      rect(cx - 3 * z, baseY - 2 * z + fLegSwing, 2 * z, 0.8 * z, uniform.trim);
-      rect(cx + 1 * z, baseY - 2 * z - fLegSwing, 2 * z, 0.8 * z, uniform.trim);
+      if (!isFacingAway) {
+        rect(cx - 3 * z, baseY - 2 * z + fLegSwing, 2 * z, 0.8 * z, uniform.trim);
+        rect(cx + 1 * z, baseY - 2 * z - fLegSwing, 2 * z, 0.8 * z, uniform.trim);
+      }
     }
   } else if (palette.gender === 'female' && palette.femaleOutfit === 'tailored_suit') {
     if (seated) {
-      if (isFacingAway) {
-        // Seated tailored trousers on cushion facing NE/NW: hip + forward thigh tucked toward kneehole
+      if (isPureBack) {
+        rect(uX - 4.2 * z, uY - 11.8 * z, 8.4 * z, 2.4 * z, '#2c3550');
+        rect(uX - 3.8 * z, uY - 11.6 * z, 7.6 * z, 1.8 * z, uniform.main);
+      } else if (isFacingAway) {
         rect(uX - 4.2 * z, uY - 11.8 * z, 8.4 * z, 2.4 * z, '#2c3550');
         rect(uX - 3.8 * z, uY - 11.6 * z, 7.6 * z, 1.8 * z, uniform.main);
         const thighX = dirFlip > 0 ? uX + 0.6 * z : uX - 6.8 * z;
         rect(thighX, uY - 11 * z, 6.2 * z, 2.1 * z, '#364161');
         const kneeX = dirFlip > 0 ? uX + 5.2 * z : uX - 7.2 * z;
         rect(kneeX, uY - 9.4 * z, 2 * z, 1.8 * z, '#2c3550');
+      } else if (isSideProfile) {
+        // Pure 90° lateral profile seated tailored trousers + 90°-bent knee + side pump
+        uRect(-3.4, uY - 12.0 * z, 5.4, 1.5, uniform.main);
+        uRect(-3.4, uY - 10.8 * z, 8.6, 2.3, '#364161');
+        uRect(-2.8, uY - 8.9 * z, 7.4, 0.8, '#2c3550');
+        uRect(3.0, uY - 9.6 * z, 2.0, 4.2, '#2c3550');
+        uRect(3.6, uY - 9.4 * z, 2.2, 4.4, '#364161');
+        uRect(3.8, uY - 5.0 * z, 1.8, 0.9, palette.skin);
+        uRect(3.5, uY - 4.2 * z, 3.4, 1.5, '#141824');
+        uRect(4.5, uY - 4.2 * z, 1.4, 0.7, uniform.trim);
       } else {
-        // Seated SE/SW: horizontal thigh lap across cushion + 90°-bent foreshortened trouser shins & pumps
-        const kneeShift = dirFlip * 2.2 * z;
+        const kneeShift = isPureFront ? 0 : dirFlip * 2.2 * z;
         rect(uX - 4.4 * z, uY - 11.6 * z, 8.8 * z, 2 * z, uniform.main);
         rect(uX - 4.6 * z + kneeShift * 0.45, uY - 10 * z, 9.2 * z, 2.1 * z, '#2c3550');
         const legLx = uX - 2.8 * z + kneeShift;
@@ -1626,8 +1769,17 @@ export function drawEmployeeSprite(
         rect(legLx, uY - 4.3 * z, 2 * z, 0.7 * z, uniform.trim);
         rect(legRx, uY - 4.3 * z, 2 * z, 0.7 * z, uniform.trim);
       }
+    } else if (isSideProfile) {
+      dRect(-2.8, baseY - 12 * z, 5.4, 1.2, uniform.main);
+      dRect(-3.0, baseY - 11 * z, 5.8, 2.0, '#2c3550');
+      dRect(-1.3 - sideStride, baseY - 9 * z, 2.4, 6.2, '#2c3550');
+      dRect(-1.3 - sideStride, baseY - 2.8 * z, 1.8, 0.9, palette.skinShadow);
+      dRect(-1.5 - sideStride, baseY - 2 * z, 3.2, 2, '#0f131f');
+      dRect(-0.9 + sideStride, baseY - 9 * z, 2.4, 6.2, '#364161');
+      dRect(-0.7 + sideStride, baseY - 2.8 * z, 1.8, 0.9, palette.skin);
+      dRect(-1.0 + sideStride, baseY - 2 * z, 3.3, 2, '#141824');
+      dRect(0.4 + sideStride, baseY - 2 * z, 1.4, 0.8, uniform.trim);
     } else {
-      // 8*z waist -> 10*z tailored hip -> slender 2*z tapered ankle trousers + 1*z ankle peek + dainty pumps
       rect(cx - 4 * z, baseY - 12 * z, 8 * z, 1 * z, uniform.main);
       rect(cx - 5 * z, baseY - 11 * z, 10 * z, 2 * z, '#2c3550');
       rect(cx - 4.8 * z, baseY - 11.5 * z, 4 * z, 1.8 * z, uniform.main);
@@ -1640,11 +1792,13 @@ export function drawEmployeeSprite(
       rect(cx + 1 * z, baseY - 2.8 * z - fLegSwing, 2 * z, 1 * z, palette.skin);
       rect(cx - 3.2 * z, baseY - 2 * z + fLegSwing, 2.2 * z, 2 * z, '#141824');
       rect(cx + 1 * z, baseY - 2 * z - fLegSwing, 2.2 * z, 2 * z, '#141824');
-      rect(cx - 3 * z, baseY - 2 * z + fLegSwing, 2 * z, 0.8 * z, uniform.trim);
-      rect(cx + 1 * z, baseY - 2 * z - fLegSwing, 2 * z, 0.8 * z, uniform.trim);
+      if (!isFacingAway) {
+        rect(cx - 3 * z, baseY - 2 * z + fLegSwing, 2 * z, 0.8 * z, uniform.trim);
+        rect(cx + 1 * z, baseY - 2 * z - fLegSwing, 2 * z, 0.8 * z, uniform.trim);
+      }
     }
   } else {
-    // Tailored male trousers with belt + metal buckle, crease shading, sock trim & two-tone Oxfords / sneakers
+    // Tailored male trousers across all 8 angles
     const isSneaker = palette.maleOutfitStyle === 'tech_hoodie';
     const trouserMain =
       palette.maleOutfitStyle === 'tech_hoodie'
@@ -1668,7 +1822,13 @@ export function drawEmployeeSprite(
     const mLegSwing = legSwing * 0.8;
 
     if (seated) {
-      if (isFacingAway) {
+      if (isPureBack) {
+        // Seated pure rear (N): belt + rear belt-loop + seated pelvis inside chair cushion
+        rect(uX - 4.8 * z, uY - 11.4 * z, 9.6 * z, 1.3 * z, beltColor);
+        rect(uX - 0.6 * z, uY - 11.5 * z, 1.2 * z, 1.5 * z, trouserDark);
+        rect(uX - 4.8 * z, uY - 10.2 * z, 9.6 * z, 2.0 * z, trouserDark);
+        rect(uX - 4.2 * z, uY - 10 * z, 8.4 * z, 1.6 * z, trouserMain);
+      } else if (isFacingAway) {
         // Seated male pelvis on chair cushion facing NE/NW + forward thigh tucked cleanly toward kneehole
         rect(uX - 4.8 * z, uY - 11.4 * z, 9.6 * z, 1.3 * z, beltColor);
         rect(uX - 4.8 * z, uY - 10.2 * z, 9.6 * z, 2.2 * z, trouserDark);
@@ -1678,78 +1838,121 @@ export function drawEmployeeSprite(
         rect(thighX, uY - 8.8 * z, 6.6 * z, 0.9 * z, trouserDark);
         const kneeX = dirFlip > 0 ? uX + 5.4 * z : uX - 8 * z;
         rect(kneeX, uY - 9.2 * z, 2.6 * z, 1.8 * z, trouserDark);
+      } else if (isSideProfile) {
+        // Pure 90° lateral profile seated male (E / W): side belt -> horizontal thigh -> 90°-bent shin -> side Oxford/sneaker
+        uRect(-3.8, uY - 11.5 * z, 6.6, 1.3, beltColor);
+        uRect(2.0, uY - 11.5 * z, 1.0, 1.3, buckleColor);
+        uRect(-3.8, uY - 10.2 * z, 9.4, 2.5, trouserMain);
+        uRect(-3.2, uY - 8.1 * z, 8.2, 0.8, trouserDark);
+        // Far shin shadow + near vertical trouser shin
+        uRect(2.8, uY - 9.6 * z, 2.4, 4.6, trouserDark);
+        uRect(3.4, uY - 9.4 * z, 2.8, 4.6, trouserMain);
+        if (isSneaker) {
+          uRect(3.2, uY - 4.8 * z, 4.2, 1.2, '#1e2436');
+          uRect(4.4, uY - 4.6 * z, 1.6, 0.7, uniform.trim);
+          uRect(3.2, uY - 3.8 * z, 4.2, 0.7, '#f2f5ff');
+        } else {
+          const vampCol = palette.maleOutfitStyle === 'vest_ensemble' ? '#382216' : '#2b1a12';
+          const capCol = palette.maleOutfitStyle === 'vest_ensemble' ? '#5e3a24' : '#4d3020';
+          uRect(3.2, uY - 4.8 * z, 4.2, 1.2, vampCol);
+          uRect(5.6, uY - 4.7 * z, 1.8, 0.9, capCol);
+          uRect(3.2, uY - 3.8 * z, 4.2, 0.7, '#11131c');
+        }
       } else {
-        // Seated SE/SW: waist belt + horizontal thighs across cushion + 90°-bent foreshortened shins & compact shoes
-        const kneeShift = dirFlip * 2.4 * z;
+        // Seated S (kneeShift = 0) or SE/SW
+        const kneeShift = isPureFront ? 0 : dirFlip * 2.4 * z;
+        const buckShift = isPureFront ? 0 : dirFlip * 0.5 * z;
         rect(uX - 4.8 * z, uY - 11.4 * z, 9.6 * z, 1.3 * z, beltColor);
-        rect(uX - 1 * z + dirFlip * 0.5 * z, uY - 11.4 * z, 2 * z, 1.3 * z, buckleColor);
-        // Seated hip & horizontal foreshortened thighs resting on waterfall seat cushion
+        rect(uX - 1 * z + buckShift, uY - 11.4 * z, 2 * z, 1.3 * z, buckleColor);
         rect(uX - 4.8 * z + kneeShift * 0.35, uY - 10.1 * z, 9.6 * z, 2.1 * z, trouserDark);
         const legLx = uX - 3.8 * z + kneeShift;
         const legRx = uX + 0.8 * z + kneeShift;
         rect(legLx - 0.4 * z, uY - 9.6 * z, 3.4 * z, 2.2 * z, trouserMain);
         rect(legRx - 0.2 * z, uY - 9.6 * z, 3.4 * z, 2.2 * z, trouserMain);
-        // Short 90°-bent shins (2.5*z tall, stopping well above chair caster hub)
         rect(legLx, uY - 7.4 * z, 2.8 * z, 2.5 * z, trouserMain);
         rect(legRx, uY - 7.4 * z, 2.8 * z, 2.5 * z, trouserMain);
         rect(legLx + 1.8 * z, uY - 7.2 * z, 0.9 * z, 2.2 * z, trouserDark);
         rect(legRx + 0.9 * z, uY - 7.2 * z, 0.9 * z, 2.2 * z, trouserDark);
-        // Compact tucked shoes
+        const toeShift = isPureFront ? 0 : dirFlip * 0.3 * z;
         if (isSneaker) {
-          rect(legLx - 0.2 * z + dirFlip * 0.3 * z, uY - 4.9 * z, 3.2 * z, 1.2 * z, '#1e2436');
-          rect(legRx - 0.2 * z + dirFlip * 0.3 * z, uY - 4.9 * z, 3.2 * z, 1.2 * z, '#1e2436');
-          rect(legLx - 0.2 * z + dirFlip * 0.3 * z, uY - 3.9 * z, 3.2 * z, 0.7 * z, '#f2f5ff');
-          rect(legRx - 0.2 * z + dirFlip * 0.3 * z, uY - 3.9 * z, 3.2 * z, 0.7 * z, '#f2f5ff');
+          rect(legLx - 0.2 * z + toeShift, uY - 4.9 * z, 3.2 * z, 1.2 * z, '#1e2436');
+          rect(legRx - 0.2 * z + toeShift, uY - 4.9 * z, 3.2 * z, 1.2 * z, '#1e2436');
+          rect(legLx - 0.2 * z + toeShift, uY - 3.9 * z, 3.2 * z, 0.7 * z, '#f2f5ff');
+          rect(legRx - 0.2 * z + toeShift, uY - 3.9 * z, 3.2 * z, 0.7 * z, '#f2f5ff');
         } else {
           const vampCol = palette.maleOutfitStyle === 'vest_ensemble' ? '#382216' : '#2b1a12';
           const capCol = palette.maleOutfitStyle === 'vest_ensemble' ? '#5e3a24' : '#4d3020';
-          rect(legLx - 0.2 * z + dirFlip * 0.3 * z, uY - 4.9 * z, 3.2 * z, 1.2 * z, vampCol);
-          rect(legRx - 0.2 * z + dirFlip * 0.3 * z, uY - 4.9 * z, 3.2 * z, 1.2 * z, vampCol);
+          rect(legLx - 0.2 * z + toeShift, uY - 4.9 * z, 3.2 * z, 1.2 * z, vampCol);
+          rect(legRx - 0.2 * z + toeShift, uY - 4.9 * z, 3.2 * z, 1.2 * z, vampCol);
           rect(
-            (dirFlip > 0 ? legLx + 1.4 * z : legLx - 0.2 * z) + dirFlip * 0.3 * z,
+            (isPureFront ? legLx + 0.6 * z : dirFlip > 0 ? legLx + 1.4 * z : legLx - 0.2 * z) + toeShift,
             uY - 4.8 * z,
             1.5 * z,
             0.9 * z,
             capCol,
           );
           rect(
-            (dirFlip > 0 ? legRx + 1.4 * z : legRx - 0.2 * z) + dirFlip * 0.3 * z,
+            (isPureFront ? legRx + 0.6 * z : dirFlip > 0 ? legRx + 1.4 * z : legRx - 0.2 * z) + toeShift,
             uY - 4.8 * z,
             1.5 * z,
             0.9 * z,
             capCol,
           );
-          rect(legLx - 0.2 * z + dirFlip * 0.3 * z, uY - 3.9 * z, 3.2 * z, 0.7 * z, '#11131c');
-          rect(legRx - 0.2 * z + dirFlip * 0.3 * z, uY - 3.9 * z, 3.2 * z, 0.7 * z, '#11131c');
+          rect(legLx - 0.2 * z + toeShift, uY - 3.9 * z, 3.2 * z, 0.7 * z, '#11131c');
+          rect(legRx - 0.2 * z + toeShift, uY - 3.9 * z, 3.2 * z, 0.7 * z, '#11131c');
         }
       }
+    } else if (isSideProfile) {
+      // Standing / walking 90° side profile male belt, striding trousers & side-pointing shoes
+      dRect(-3.4, baseY - 11.4 * z, 6.6, 1.4, beltColor);
+      dRect(2.2, baseY - 11.4 * z, 1.1, 1.4, buckleColor);
+      dRect(-3.4, baseY - 10 * z, 6.6, 1.8, trouserDark);
+      // Far leg
+      dRect(-1.8 - sideStride, baseY - 8.4 * z, 3.0, 5.8, trouserDark);
+      dRect(-1.8 - sideStride, baseY - 2 * z, 4.0, 2.0, '#11131c');
+      // Near leg
+      dRect(-1.4 + sideStride, baseY - 8.4 * z, 3.2, 5.8, trouserMain);
+      dRect(-0.2 + sideStride, baseY - 8.0 * z, 0.9, 5.0, trouserDark);
+      dRect(-1.4 + sideStride, baseY - 2.7 * z, 2.8, 0.8, uniform.dark);
+      if (isSneaker) {
+        dRect(-1.4 + sideStride, baseY - 2 * z, 4.4, 1.4, '#1e2436');
+        dRect(0.2 + sideStride, baseY - 1.8 * z, 1.6, 0.8, uniform.trim);
+        dRect(-1.4 + sideStride, baseY - 0.8 * z, 4.4, 0.8, '#f2f5ff');
+      } else {
+        const vampCol = palette.maleOutfitStyle === 'vest_ensemble' ? '#382216' : '#2b1a12';
+        const capCol = palette.maleOutfitStyle === 'vest_ensemble' ? '#5e3a24' : '#4d3020';
+        dRect(-1.4 + sideStride, baseY - 2 * z, 4.4, 1.4, vampCol);
+        dRect(1.2 + sideStride, baseY - 1.8 * z, 1.8, 1.0, capCol);
+        dRect(-1.4 + sideStride, baseY - 0.8 * z, 4.4, 0.8, '#11131c');
+      }
     } else {
-      // Waist belt + gleaming center buckle
+      // Standing/walking front, diagonal, or rear male legs
       rect(cx - 5 * z, baseY - 11.4 * z, 10 * z, 1.4 * z, beltColor);
-      rect(cx - 1 * z, baseY - 11.4 * z, 2 * z, 1.4 * z, buckleColor);
-      // Standing/walking tailored pelvis + tapered creased trouser legs + cuff break + sock edge + two-tone shoes
+      if (isFacingAway) {
+        rect(cx - 0.6 * z, baseY - 11.5 * z, 1.2 * z, 1.5 * z, trouserDark);
+      } else {
+        rect(cx - 1 * z, baseY - 11.4 * z, 2 * z, 1.4 * z, buckleColor);
+      }
       rect(cx - 5 * z, baseY - 10 * z, 10 * z, 1.8 * z, trouserDark);
       rect(cx - 4.6 * z, baseY - 9.8 * z, 3.8 * z, 1.6 * z, trouserMain);
       rect(cx + 0.8 * z, baseY - 9.8 * z, 3.8 * z, 1.6 * z, trouserMain);
-      // Upper thighs
       rect(cx - 4.6 * z, baseY - 8.4 * z + mLegSwing, 3.6 * z, 3.2 * z, trouserMain);
       rect(cx + 1 * z, baseY - 8.4 * z - mLegSwing, 3.6 * z, 3.2 * z, trouserMain);
-      // Tapered lower legs + inner crease & cuff fold
       rect(cx - 4 * z, baseY - 5.4 * z + mLegSwing, 3 * z, 2.8 * z, trouserMain);
       rect(cx + 1 * z, baseY - 5.4 * z - mLegSwing, 3 * z, 2.8 * z, trouserMain);
       rect(cx - 2 * z, baseY - 8 * z + mLegSwing, 1 * z, 5 * z, trouserDark);
       rect(cx + 1 * z, baseY - 8 * z - mLegSwing, 1 * z, 5 * z, trouserDark);
       rect(cx - 4.2 * z, baseY - 3.4 * z + mLegSwing, 3.2 * z, 0.8 * z, trouserDark);
       rect(cx + 1 * z, baseY - 3.4 * z - mLegSwing, 3.2 * z, 0.8 * z, trouserDark);
-      // Thin sock trim
       rect(cx - 4 * z, baseY - 2.7 * z + mLegSwing, 3 * z, 0.8 * z, uniform.dark);
       rect(cx + 1 * z, baseY - 2.7 * z - mLegSwing, 3 * z, 0.8 * z, uniform.dark);
-      // Two-tone Oxford dress shoes or tech sneakers
       if (isSneaker) {
         rect(cx - 4.4 * z, baseY - 2 * z + mLegSwing, 3.4 * z, 1.4 * z, '#1e2436');
         rect(cx + 1 * z, baseY - 2 * z - mLegSwing, 3.4 * z, 1.4 * z, '#1e2436');
-        rect(cx - 3.6 * z, baseY - 1.8 * z + mLegSwing, 1.6 * z, 0.8 * z, uniform.trim);
-        rect(cx + 2 * z, baseY - 1.8 * z - mLegSwing, 1.6 * z, 0.8 * z, uniform.trim);
+        if (!isFacingAway) {
+          rect(cx - 3.6 * z, baseY - 1.8 * z + mLegSwing, 1.6 * z, 0.8 * z, uniform.trim);
+          rect(cx + 2 * z, baseY - 1.8 * z - mLegSwing, 1.6 * z, 0.8 * z, uniform.trim);
+        }
         rect(cx - 4.4 * z, baseY - 0.8 * z + mLegSwing, 3.4 * z, 0.8 * z, '#f2f5ff');
         rect(cx + 1 * z, baseY - 0.8 * z - mLegSwing, 3.4 * z, 0.8 * z, '#f2f5ff');
       } else {
@@ -1757,58 +1960,133 @@ export function drawEmployeeSprite(
         const capCol = palette.maleOutfitStyle === 'vest_ensemble' ? '#5e3a24' : '#4d3020';
         rect(cx - 4.4 * z, baseY - 2 * z + mLegSwing, 3.4 * z, 1.4 * z, vampCol);
         rect(cx + 1 * z, baseY - 2 * z - mLegSwing, 3.4 * z, 1.4 * z, vampCol);
-        rect(cx - 4.4 * z, baseY - 1.8 * z + mLegSwing, 1.6 * z, 1 * z, capCol);
-        rect(cx + 2.8 * z, baseY - 1.8 * z - mLegSwing, 1.6 * z, 1 * z, capCol);
+        if (!isFacingAway) {
+          rect(cx - 4.4 * z, baseY - 1.8 * z + mLegSwing, 1.6 * z, 1 * z, capCol);
+          rect(cx + 2.8 * z, baseY - 1.8 * z - mLegSwing, 1.6 * z, 1 * z, capCol);
+        }
         rect(cx - 4.4 * z, baseY - 0.8 * z + mLegSwing, 3.4 * z, 0.8 * z, '#11131c');
         rect(cx + 1 * z, baseY - 0.8 * z - mLegSwing, 3.4 * z, 0.8 * z, '#11131c');
       }
     }
   }
 
-  // 3. Torso, Neck & Arms (Hourglass feminine silhouette vs Athletic V-Taper male silhouette)
+  // 3. Torso, Neck & Arms (Hourglass feminine silhouette vs Athletic V-Taper male silhouette across 8 angles)
   const typeWaveL = Math.sin(timeSec * 14);
   const typeWaveR = Math.sin(timeSec * 14 + Math.PI);
   const keyTapL = isCodingPose ? (typeWaveL > 0 ? 1.1 : -0.5) * z : 0;
   const keyTapR = isCodingPose ? (typeWaveR > 0 ? 1.1 : -0.5) * z : 0;
 
   if (palette.gender === 'female') {
-    // Slender 4*z neck between tapered chin and collar
-    rect(uX - 2 * z, uY - 22 * z, 4 * z, 1 * z, palette.skinShadow);
-    rect(uX - 2 * z, uY - 21 * z, 4 * z, 2.5 * z, palette.skin);
-
-    if (isFacingAway) {
-      // 3/4 Rear view of tailored feminine blazer & silk collar nape (facing NE/NW toward monitor)
-      rect(uX - 2.4 * z, uY - 19.8 * z, 4.8 * z, 1.1 * z, '#f6f7fc');
-      rect(uX - 4 * z, uY - 19.3 * z, 8 * z, 1.2 * z, uniform.dark);
-      rect(uX - 5 * z, uY - 18.4 * z, 10 * z, 3.6 * z, uniform.dark);
-      rect(uX - 4.2 * z, uY - 18.4 * z, 8.4 * z, 3.5 * z, uniform.main);
-      rect(uX - 4 * z, uY - 15 * z, 8 * z, 3 * z, uniform.dark);
-      rect(uX - 3.3 * z, uY - 15 * z, 6.6 * z, 2.5 * z, uniform.main);
-      // Tailored center back seam + waist belt trim
-      rect(uX - 0.5 * z, uY - 18.4 * z, 1 * z, 5.8 * z, uniform.dark);
-      rect(uX - 4 * z, uY - 12.6 * z, 8 * z, 0.8 * z, uniform.dark);
+    if (isSideProfile) {
+      // Slender 3.2*z lateral neck positioned cleanly under profile jaw
+      uRect(-1.8, uY - 22 * z, 3.2, 1, palette.skinShadow);
+      uRect(-1.4, uY - 21 * z, 2.8, 2.5, palette.skin);
+      // Lateral feminine hourglass blazer (6.4*z bust -> 5.2*z cinched waist) + silk lapel & pendant
+      uRect(0.4, uY - 19.6 * z, 2.2, 1.4, '#f6f7fc');
+      uRect(-3.0, uY - 19.4 * z, 5.6, 1.2, uniform.dark);
+      uRect(-3.2, uY - 18.4 * z, 6.6, 3.5, uniform.dark);
+      uRect(-2.6, uY - 18.4 * z, 5.6, 3.4, uniform.main);
+      uRect(1.8, uY - 18.4 * z, 1.4, 2.4, '#f6f7fc');
+      uRect(2.4, uY - 17.2 * z, 0.9, 0.9, uniform.trim);
+      uRect(-2.6, uY - 15 * z, 5.2, 3, uniform.dark);
+      uRect(-2.0, uY - 15 * z, 4.2, 2.5, uniform.main);
+      uRect(-2.6, uY - 12.6 * z, 5.2, 0.8, uniform.dark);
+      uRect(1.6, uY - 12.6 * z, 1.2, 0.8, uniform.trim);
     } else {
-      // Sloped 8*z top shoulder edge -> 10*z slim upper chest -> 8*z tapered hourglass waist
-      rect(uX - 4 * z, uY - 19.5 * z, 8 * z, 1.2 * z, uniform.dark);
-      rect(uX - 3.4 * z, uY - 19.3 * z, 6.8 * z, 1.2 * z, uniform.main);
-      rect(uX - 5 * z, uY - 18.5 * z, 10 * z, 3.6 * z, uniform.dark);
-      rect(uX - 4.2 * z, uY - 18.5 * z, 8.4 * z, 3.6 * z, uniform.main);
-      // Tapered 8*z waist (uY - 15*z..uY - 12*z) + subtle waist belt/seam
-      rect(uX - 4 * z, uY - 15 * z, 8 * z, 3 * z, uniform.dark);
-      rect(uX - 3.2 * z, uY - 15 * z, 6.4 * z, 2.4 * z, uniform.main);
-      rect(uX - 4 * z, uY - 12.6 * z, 8 * z, 0.8 * z, uniform.dark);
-      rect(uX - 1 * z, uY - 12.6 * z, 2 * z, 0.8 * z, uniform.trim);
+      // Slender 4*z neck between tapered chin and collar
+      rect(uX - 2 * z, uY - 22 * z, 4 * z, 1 * z, palette.skinShadow);
+      rect(uX - 2 * z, uY - 21 * z, 4 * z, 2.5 * z, palette.skin);
 
-      // Open collarbone V + silk V-neck blouse (#f6f7fc) + 1*z pendant necklace (uniform.trim)
-      rect(uX - 1.4 * z, uY - 19.5 * z, 2.8 * z, 1.4 * z, palette.skin);
-      rect(uX - 2.4 * z, uY - 18.5 * z, 4.8 * z, 1.5 * z, '#f6f7fc');
-      rect(uX - 1 * z, uY - 18.8 * z, 2 * z, 1 * z, palette.skin);
-      rect(uX - 1.5 * z, uY - 17 * z, 3 * z, 2 * z, '#f6f7fc');
-      rect(uX - 0.8 * z, uY - 15 * z, 1.6 * z, 1.5 * z, '#f6f7fc');
-      rect(uX - 0.5 * z, uY - 17.6 * z, 1 * z, 1 * z, uniform.trim);
+      if (isFacingAway) {
+        // Rear / 3/4-Rear view of tailored feminine blazer & silk collar nape (N / NE / NW)
+        rect(uX - 2.4 * z, uY - 19.8 * z, 4.8 * z, 1.1 * z, '#f6f7fc');
+        rect(uX - 4 * z, uY - 19.3 * z, 8 * z, 1.2 * z, uniform.dark);
+        rect(uX - 5 * z, uY - 18.4 * z, 10 * z, 3.6 * z, uniform.dark);
+        rect(uX - 4.2 * z, uY - 18.4 * z, 8.4 * z, 3.5 * z, uniform.main);
+        rect(uX - 4 * z, uY - 15 * z, 8 * z, 3 * z, uniform.dark);
+        rect(uX - 3.3 * z, uY - 15 * z, 6.6 * z, 2.5 * z, uniform.main);
+        // Tailored center back seam (symmetric at 0 on pure N; subtly rotated on NE/NW) + waist belt trim
+        const seamShift = isPureBack ? 0 : -dirFlip * 0.6 * z;
+        rect(uX - 0.5 * z + seamShift, uY - 18.4 * z, 1 * z, 5.8 * z, uniform.dark);
+        rect(uX - 4 * z, uY - 12.6 * z, 8 * z, 0.8 * z, uniform.dark);
+      } else {
+        // Sloped 8*z top shoulder edge -> 10*z slim upper chest -> 8*z tapered hourglass waist (S / SE / SW)
+        const frontShift = isPureFront ? 0 : dirFlip * 0.35 * z;
+        rect(uX - 4 * z, uY - 19.5 * z, 8 * z, 1.2 * z, uniform.dark);
+        rect(uX - 3.4 * z, uY - 19.3 * z, 6.8 * z, 1.2 * z, uniform.main);
+        rect(uX - 5 * z, uY - 18.5 * z, 10 * z, 3.6 * z, uniform.dark);
+        rect(uX - 4.2 * z, uY - 18.5 * z, 8.4 * z, 3.6 * z, uniform.main);
+        // Tapered 8*z waist (uY - 15*z..uY - 12*z) + subtle waist belt/seam
+        rect(uX - 4 * z, uY - 15 * z, 8 * z, 3 * z, uniform.dark);
+        rect(uX - 3.2 * z, uY - 15 * z, 6.4 * z, 2.4 * z, uniform.main);
+        rect(uX - 4 * z, uY - 12.6 * z, 8 * z, 0.8 * z, uniform.dark);
+        rect(uX - 1 * z + frontShift, uY - 12.6 * z, 2 * z, 0.8 * z, uniform.trim);
+
+        // Open collarbone V + silk V-neck blouse (#f6f7fc) + 1*z pendant necklace (uniform.trim)
+        rect(uX - 1.4 * z + frontShift * 0.5, uY - 19.5 * z, 2.8 * z, 1.4 * z, palette.skin);
+        rect(uX - 2.4 * z + frontShift, uY - 18.5 * z, 4.8 * z, 1.5 * z, '#f6f7fc');
+        rect(uX - 1 * z + frontShift, uY - 18.8 * z, 2 * z, 1 * z, palette.skin);
+        rect(uX - 1.5 * z + frontShift, uY - 17 * z, 3 * z, 2 * z, '#f6f7fc');
+        rect(uX - 0.8 * z + frontShift, uY - 15 * z, 1.6 * z, 1.5 * z, '#f6f7fc');
+        rect(uX - 0.5 * z + frontShift, uY - 17.6 * z, 1 * z, 1 * z, uniform.trim);
+      }
     }
 
-    if (isCodingPose) {
+    // Female Arms & Hands across all 8 angles
+    if (isSideProfile) {
+      if (isCodingPose) {
+        uRect(2.4, uY - 16.4 * z + keyTapL * 0.4, 4.8, 1.6, uniform.dark);
+        uRect(6.8, uY - 16.5 * z + keyTapL, 2.4, 1.6, palette.skinShadow);
+        uRect(-1.2, uY - 18 * z, 2.4, 3.2, uniform.main);
+        uRect(-0.4, uY - 15.2 * z + keyTapR * 0.4, 6.8, 1.9, uniform.main);
+        uRect(6, uY - 15.3 * z + keyTapR, 2.8, 1.8, palette.skin);
+        if (typeWaveR > 0.55) {
+          uRect(7.4, uY - 13.4 * z + keyTapR, 1.5, 0.9, '#3be87a');
+        }
+      } else if (seated) {
+        // Seated lateral profile (E / W conference chair): 90°-bent arm reaching cleanly toward table
+        uRect(-1.4, uY - 18 * z, 2.4, 3.6, uniform.main);
+        uRect(-0.8, uY - 14.8 * z, 5.2, 1.9, uniform.main);
+        uRect(3.8, uY - 14.7 * z, 0.8, 1.7, '#f6f7fc');
+        if (emp.activity !== 'gaming') {
+          uRect(4.4, uY - 14.6 * z, 2.4, 1.7, palette.skin);
+        }
+      } else if (isLaptopPose) {
+        dRect(2.4, baseY - 14.2 * z, 3.6, 2, uniform.dark);
+        dRect(-1.6, baseY - 18 * z, 2.4, 3.8, uniform.main);
+      } else {
+        const armSwing = -sideStride * 0.85;
+        if (Math.abs(armSwing) > 0.35) {
+          dRect(-0.8 - armSwing * 0.9, baseY - 17.8 * z, 2, 5.8, uniform.dark);
+          dRect(-0.8 - armSwing * 0.9, baseY - 12 * z, 1.8, 1.5, palette.skinShadow);
+        }
+        dRect(-1.2 + armSwing * 0.5, baseY - 18 * z, 2.3, 3.6, uniform.main);
+        dRect(-1 + armSwing, baseY - 14.5 * z, 2.1, 3.2, uniform.main);
+        dRect(-0.9 + armSwing * 1.1, baseY - 11.4 * z, 2, 1.6, palette.skin);
+      }
+    } else if (isPureBack) {
+      if (isCodingPose) {
+        rect(uX - 6.4 * z, uY - 18.2 * z, 2.2 * z, 3.4 * z, uniform.main);
+        rect(uX + 4.2 * z, uY - 18.2 * z, 2.2 * z, 3.4 * z, uniform.main);
+        rect(uX - 6.8 * z, uY - 16.4 * z + keyTapL * 0.3, 2 * z, 2.2 * z, uniform.dark);
+        rect(uX + 4.8 * z, uY - 16.4 * z + keyTapR * 0.3, 2 * z, 2.2 * z, uniform.dark);
+      } else if (seated) {
+        // Seated pure North (south-side conference chair): symmetric upper sleeves & forward-tucked elbows
+        rect(uX - 6.4 * z, uY - 18 * z, 2.1 * z, 3.8 * z, uniform.main);
+        rect(uX + 4.3 * z, uY - 18 * z, 2.1 * z, 3.8 * z, uniform.main);
+        rect(uX - 6.6 * z, uY - 15.2 * z, 1.8 * z, 2 * z, uniform.dark);
+        rect(uX + 4.8 * z, uY - 15.2 * z, 1.8 * z, 2 * z, uniform.dark);
+      } else if (isLaptopPose) {
+        rect(cx - 6.6 * z, baseY - 18.2 * z, 2.2 * z, 4 * z, uniform.main);
+        rect(cx + 4.4 * z, baseY - 18.2 * z, 2.2 * z, 4 * z, uniform.main);
+      } else {
+        const armBob = legSwing * 0.3;
+        rect(cx - 7 * z, baseY - 18 * z - armBob, 2 * z, 6.4 * z, uniform.main);
+        rect(cx + 5 * z, baseY - 18 * z + armBob, 2 * z, 6.4 * z, uniform.main);
+        rect(cx - 7 * z, baseY - 11.6 * z - armBob, 2 * z, 1.5 * z, palette.skinShadow);
+        rect(cx + 5 * z, baseY - 11.6 * z + armBob, 2 * z, 1.5 * z, palette.skinShadow);
+      }
+    } else if (isCodingPose) {
       if (isFacingAway) {
         // Extended slender forearms & dainty hands reaching forward-up onto keyboard (NE/NW)
         const farArmX = dirFlip > 0 ? uX + 3.4 * z : uX - 9.2 * z;
@@ -1825,13 +2103,20 @@ export function drawEmployeeSprite(
         rect(nearForeX, uY - 15.4 * z + keyTapR * 0.4, 8.6 * z, 1.9 * z, uniform.main);
         rect(nearHandX, uY - 15.6 * z + keyTapR, 2.8 * z, 1.8 * z, palette.skin);
 
-        // Subtle cyan/emerald keycap press sparks under striking fingers
         if (typeWaveL > 0.55) {
           rect(farHandX + (dirFlip > 0 ? 1.2 : 0) * z, uY - 15.9 * z + keyTapL, 1.5 * z, 0.9 * z, '#7ef3ff');
         }
         if (typeWaveR > 0.55) {
           rect(nearHandX + (dirFlip > 0 ? 1.2 : 0) * z, uY - 13.7 * z + keyTapR, 1.5 * z, 0.9 * z, '#3be87a');
         }
+      } else if (isPureFront) {
+        // Pure South coding: symmetric forearms typing forward
+        rect(uX - 6.4 * z, uY - 18.2 * z, 2 * z, 3.2 * z, uniform.main);
+        rect(uX + 4.4 * z, uY - 18.2 * z, 2 * z, 3.2 * z, uniform.main);
+        rect(uX - 6 * z, uY - 15 * z + keyTapL * 0.4, 4.2 * z, 1.9 * z, uniform.main);
+        rect(uX + 1.8 * z, uY - 15 * z + keyTapR * 0.4, 4.2 * z, 1.9 * z, uniform.main);
+        rect(uX - 3.6 * z, uY - 14.6 * z + keyTapL, 2.6 * z, 1.8 * z, palette.skin);
+        rect(uX + 1 * z, uY - 14.6 * z + keyTapR, 2.6 * z, 1.8 * z, palette.skin);
       } else {
         // Seated SE/SW coding: BOTH forearms & hands extend forward past torso onto keyboard home row!
         rect(uX - 6.4 * z, uY - 18.2 * z, 2 * z, 3.1 * z, uniform.main);
@@ -1852,14 +2137,23 @@ export function drawEmployeeSprite(
         }
       }
     } else if (seated) {
-      // Relaxed seated posture (meeting / lounge / gaming): bent elbows resting on chair armrests / lap
-      rect(uX - 6.4 * z, uY - 18 * z, 2 * z, 3.6 * z, uniform.main);
-      rect(uX + 4.4 * z, uY - 18 * z, 2 * z, 3.6 * z, uniform.main);
-      rect(uX - 5.8 * z, uY - 14.6 * z, 3.2 * z, 1.8 * z, uniform.main);
-      rect(uX + 2.6 * z, uY - 14.6 * z, 3.2 * z, 1.8 * z, uniform.main);
-      if (emp.activity !== 'gaming') {
-        rect(uX - 3.2 * z, uY - 14.4 * z, 2 * z, 1.6 * z, palette.skin);
-        rect(uX + 1.2 * z, uY - 14.4 * z, 2 * z, 1.6 * z, palette.skin);
+      if (isFacingAway) {
+        // Seated 3/4 rear (NE / NW conference chair): forearms reach forward toward conference table, never across spine!
+        uRect(3.2, uY - 18 * z, 2, 2.8, uniform.main);
+        uRect(3.8, uY - 16 * z, 4, 1.8, uniform.main);
+        uRect(7.4, uY - 16 * z, 2.2, 1.6, palette.skin);
+        uRect(-5.6, uY - 17.8 * z, 2.1, 3.6, uniform.dark);
+        uRect(-4.6, uY - 15 * z, 3.4, 1.8, uniform.main);
+      } else {
+        // Relaxed seated front/3/4 posture (S / SE / SW meeting / lounge / gaming)
+        rect(uX - 6.4 * z, uY - 18 * z, 2 * z, 3.6 * z, uniform.main);
+        rect(uX + 4.4 * z, uY - 18 * z, 2 * z, 3.6 * z, uniform.main);
+        rect(uX - 5.8 * z, uY - 14.6 * z, 3.2 * z, 1.8 * z, uniform.main);
+        rect(uX + 2.6 * z, uY - 14.6 * z, 3.2 * z, 1.8 * z, uniform.main);
+        if (emp.activity !== 'gaming') {
+          rect(uX - 3.2 * z, uY - 14.4 * z, 2 * z, 1.6 * z, palette.skin);
+          rect(uX + 1.2 * z, uY - 14.4 * z, 2 * z, 1.6 * z, palette.skin);
+        }
       }
     } else if (isLaptopPose) {
       // Standing laptop posture: bent upper sleeves + supporting forearm cradling the open laptop deck
@@ -1867,127 +2161,237 @@ export function drawEmployeeSprite(
       dRect(4.4, baseY - 18.2 * z, 2, 4.2, uniform.main);
       dRect(3.2, baseY - 14.2 * z, 3.4, 2.2, uniform.dark);
     } else {
-      // Standing / walking slender 2*z arms (cx - 7*z and cx + 5*z -> 14*z total span with 1*z waist daylight gap!)
-      rect(cx - 7 * z, baseY - 18 * z, 2 * z, 6.5 * z, uniform.main);
-      rect(cx + 5 * z, baseY - 18 * z, 2 * z, 6.5 * z, uniform.main);
-      rect(cx - 7 * z, baseY - 11.5 * z, 2 * z, 1.6 * z, palette.skin);
-      rect(cx + 5 * z, baseY - 11.5 * z, 2 * z, 1.6 * z, palette.skin);
+      // Standing / walking slender 2*z arms
+      const armBob = legSwing * 0.3;
+      rect(cx - 7 * z, baseY - 18 * z - armBob, 2 * z, 6.5 * z, uniform.main);
+      rect(cx + 5 * z, baseY - 18 * z + armBob, 2 * z, 6.5 * z, uniform.main);
+      rect(cx - 7 * z, baseY - 11.5 * z - armBob, 2 * z, 1.6 * z, palette.skin);
+      rect(cx + 5 * z, baseY - 11.5 * z + armBob, 2 * z, 1.6 * z, palette.skin);
     }
 
-    // Twin front collarbone cascades for 'long_locks' (when facing front SE/SW)
+    // Front collarbone cascades for 'long_locks'
     if (
-      !isFacingAway &&
       palette.femaleHairStyle === 'long_locks' &&
       !enclosingHelmet &&
       !isCostumeEvent(activeEventKind)
     ) {
-      rect(uX - 5.2 * z, uY - 22 * z, 2 * z, 3.5 * z, palette.hair);
-      rect(uX - 4.8 * z, uY - 18.5 * z, 1.2 * z, 2.5 * z, palette.hair);
-      rect(uX - 4.8 * z, uY - 21 * z, 1 * z, 2 * z, palette.hairHighlight);
-      rect(uX + 3.2 * z, uY - 22 * z, 2 * z, 3.5 * z, palette.hair);
-      rect(uX + 3.6 * z, uY - 18.5 * z, 1.2 * z, 2.5 * z, palette.hair);
-      rect(uX + 3.8 * z, uY - 21 * z, 1 * z, 2 * z, palette.hairHighlight);
+      if (isSideProfile) {
+        uRect(0.8, uY - 21.8 * z, 1.8, 4.6, palette.hair);
+        uRect(1.1, uY - 21 * z, 0.9, 2.2, palette.hairHighlight);
+      } else if (!isFacingAway) {
+        rect(uX - 5.2 * z, uY - 22 * z, 2 * z, 3.5 * z, palette.hair);
+        rect(uX - 4.8 * z, uY - 18.5 * z, 1.2 * z, 2.5 * z, palette.hair);
+        rect(uX - 4.8 * z, uY - 21 * z, 1 * z, 2 * z, palette.hairHighlight);
+        rect(uX + 3.2 * z, uY - 22 * z, 2 * z, 3.5 * z, palette.hair);
+        rect(uX + 3.6 * z, uY - 18.5 * z, 1.2 * z, 2.5 * z, palette.hair);
+        rect(uX + 3.8 * z, uY - 21 * z, 1 * z, 2 * z, palette.hairHighlight);
+      }
     }
   } else {
-    // Sturdy 5-6*z masculine neck between chiselled chin and shirt collar
-    rect(uX - 3 * z, uY - 22.4 * z, 6 * z, 2.8 * z, palette.skinShadow);
-    rect(uX - 2 * z, uY - 21.4 * z, 4 * z, 2 * z, palette.skin);
-
     const isVest = palette.maleOutfitStyle === 'vest_ensemble';
     const isHoodie = palette.maleOutfitStyle === 'tech_hoodie';
     const upperSleeveCol = isVest ? '#eef2fc' : uniform.main;
     const foreArmCol = isVest ? palette.skin : uniform.main;
 
-    if (isFacingAway) {
-      // 3/4 Rear view of athletic V-taper male torso (facing NE/NW into dual monitors)
+    if (isSideProfile) {
+      // Sturdy 4.4*z lateral neck
+      uRect(-2.4, uY - 22.4 * z, 4.4, 2.8, palette.skinShadow);
+      uRect(-1.6, uY - 21.4 * z, 3.4, 2, palette.skin);
+
       if (isHoodie) {
-        // Layered tech hoodie back + sculpted rear hood resting across upper shoulders
-        rect(uX - 6.6 * z, uY - 19.2 * z, 13.2 * z, 3.4 * z, uniform.dark);
-        rect(uX - 5.8 * z, uY - 19 * z, 11.6 * z, 3.2 * z, uniform.main);
-        rect(uX - 5.6 * z, uY - 15.8 * z, 11.2 * z, 2.6 * z, uniform.dark);
-        rect(uX - 4.8 * z, uY - 15.8 * z, 9.6 * z, 2.6 * z, uniform.main);
-        rect(uX - 4.8 * z, uY - 13.2 * z, 9.6 * z, 2 * z, uniform.dark);
-        // Sculpted hoodie hood resting on upper back
-        rect(uX - 4.6 * z, uY - 21 * z, 9.2 * z, 2.8 * z, uniform.dark);
-        rect(uX - 3.6 * z, uY - 20.6 * z, 7.2 * z, 1.8 * z, '#1b2234');
+        uRect(-5.2, uY - 21 * z, 4.4, 2.8, uniform.dark);
+        uRect(-4.6, uY - 20.4 * z, 3, 1.6, '#1b2234');
+        uRect(-4, uY - 19.2 * z, 8.2, 3.4, uniform.dark);
+        uRect(-3.2, uY - 19 * z, 6.8, 3.2, uniform.main);
+        uRect(-3.6, uY - 15.8 * z, 7.2, 2.8, uniform.dark);
+        uRect(-2.8, uY - 15.8 * z, 5.8, 2.6, uniform.main);
+        uRect(-3.4, uY - 13 * z, 6.8, 1.8, uniform.dark);
+        uRect(3.2, uY - 18.6 * z, 0.9, 6.6, '#9aa7c7');
+        uRect(2.2, uY - 18.4 * z, 0.8, 2.6, uniform.trim);
       } else if (isVest) {
-        // Crisp white dress shirt yoke + dark waistcoat back + rear cinch strap
-        rect(uX - 3.2 * z, uY - 20.4 * z, 6.4 * z, 1.4 * z, '#f6f7fc');
-        rect(uX - 6.6 * z, uY - 19.2 * z, 13.2 * z, 3.2 * z, '#eef2fc');
-        rect(uX - 5.4 * z, uY - 19 * z, 10.8 * z, 3.2 * z, uniform.dark);
-        rect(uX - 4.6 * z, uY - 18.8 * z, 9.2 * z, 3 * z, uniform.main);
-        rect(uX - 5.4 * z, uY - 15.8 * z, 10.8 * z, 2.6 * z, uniform.dark);
-        rect(uX - 4.6 * z, uY - 15.8 * z, 9.2 * z, 2.6 * z, uniform.main);
-        rect(uX - 4.8 * z, uY - 13.2 * z, 9.6 * z, 2 * z, uniform.dark);
-        rect(uX - 3.2 * z, uY - 14.2 * z, 6.4 * z, 0.9 * z, '#141926');
-        rect(uX - 0.8 * z, uY - 14.3 * z, 1.6 * z, 1.1 * z, '#ffd147');
+        uRect(-2.4, uY - 20.2 * z, 5.4, 1.4, '#f6f7fc');
+        uRect(-4, uY - 19.2 * z, 8, 3.4, uniform.dark);
+        uRect(-3.2, uY - 19 * z, 6.6, 3.2, uniform.main);
+        uRect(-3.6, uY - 15.8 * z, 7.2, 2.8, uniform.dark);
+        uRect(-2.8, uY - 15.8 * z, 5.8, 2.6, uniform.main);
+        uRect(-3.4, uY - 13 * z, 6.8, 1.8, uniform.dark);
+        uRect(2.6, uY - 19 * z, 1.4, 3.4, '#f6f7fc');
+        uRect(3.2, uY - 18.8 * z, 1.1, 3.8, uniform.trim);
       } else {
-        // Tailored classic suit jacket back + crisp white collar nape + center vent seam
-        rect(uX - 3 * z, uY - 20.5 * z, 6 * z, 1.2 * z, '#f6f7fc');
-        rect(uX - 5 * z, uY - 19.8 * z, 10 * z, 1.2 * z, uniform.dark);
-        rect(uX - 6.6 * z, uY - 19.2 * z, 13.2 * z, 3.4 * z, uniform.dark);
-        rect(uX - 5.8 * z, uY - 19 * z, 11.6 * z, 3.2 * z, uniform.main);
-        rect(uX - 5.6 * z, uY - 15.8 * z, 11.2 * z, 2.6 * z, uniform.dark);
-        rect(uX - 4.8 * z, uY - 15.8 * z, 9.6 * z, 2.6 * z, uniform.main);
-        rect(uX - 4.8 * z, uY - 13.2 * z, 9.6 * z, 2 * z, uniform.dark);
-        rect(uX - 0.5 * z, uY - 18.8 * z, 1 * z, 6.8 * z, uniform.dark);
+        uRect(-2.4, uY - 20.2 * z, 5.4, 1.4, '#f6f7fc');
+        uRect(-4, uY - 19.2 * z, 8.2, 3.4, uniform.dark);
+        uRect(-3.2, uY - 19 * z, 6.8, 3.2, uniform.main);
+        uRect(-3.6, uY - 15.8 * z, 7.2, 2.8, uniform.dark);
+        uRect(-2.8, uY - 15.8 * z, 5.8, 2.6, uniform.main);
+        uRect(-3.4, uY - 13 * z, 6.8, 1.8, uniform.dark);
+        uRect(2.4, uY - 18.8 * z, 1.6, 3.6, '#f6f7fc');
+        uRect(1.6, uY - 18.8 * z, 1.1, 3.8, uniform.dark);
+        uRect(3.2, uY - 18.6 * z, 1.1, 4.6, uniform.trim);
       }
-    } else if (isHoodie) {
-      // Athletic V-taper layered tech hoodie (14*z shoulders -> 12*z lats -> 10*z waist)
-      rect(uX - 5 * z, uY - 20.4 * z, 10 * z, 1.6 * z, uniform.dark);
-      rect(uX - 7 * z, uY - 19.2 * z, 14 * z, 3.4 * z, uniform.dark);
-      rect(uX - 6 * z, uY - 19 * z, 12 * z, 3.2 * z, uniform.main);
-      rect(uX - 6 * z, uY - 15.8 * z, 12 * z, 2.6 * z, uniform.dark);
-      rect(uX - 5 * z, uY - 15.8 * z, 10 * z, 2.6 * z, uniform.main);
-      rect(uX - 5 * z, uY - 13.2 * z, 10 * z, 2 * z, uniform.dark);
-      rect(uX - 4 * z, uY - 13.2 * z, 8 * z, 1.4 * z, uniform.main);
-      // Peeking shirt collar tips + dark crew tee + drawstrings + metallic zipper + kangaroo pockets
-      rect(uX - 2 * z, uY - 20 * z, 4 * z, 2 * z, '#1b2234');
-      rect(uX - 2.4 * z, uY - 20.2 * z, 1.2 * z, 1.2 * z, '#f4f6fc');
-      rect(uX + 1.2 * z, uY - 20.2 * z, 1.2 * z, 1.2 * z, '#f4f6fc');
-      rect(uX - 2.4 * z, uY - 18.4 * z, 0.9 * z, 2.6 * z, uniform.trim);
-      rect(uX + 1.5 * z, uY - 18.4 * z, 0.9 * z, 2.6 * z, uniform.trim);
-      rect(uX - 0.5 * z, uY - 18.4 * z, 1 * z, 7 * z, '#9aa7c7');
-      rect(uX - 0.6 * z, uY - 17 * z, 1.2 * z, 1 * z, '#ffffff');
-      rect(uX - 4.2 * z, uY - 14.4 * z, 3 * z, 2 * z, uniform.dark);
-      rect(uX + 1.2 * z, uY - 14.4 * z, 3 * z, 2 * z, uniform.dark);
-    } else if (isVest) {
-      // Buttoned waistcoat + crisp dress shirt + silk tie
-      rect(uX - 5 * z, uY - 20.2 * z, 10 * z, 1.4 * z, '#dce4f7');
-      rect(uX - 7 * z, uY - 19.2 * z, 14 * z, 3.4 * z, '#eef2fc');
-      rect(uX - 5.6 * z, uY - 19.2 * z, 11.2 * z, 3.4 * z, uniform.dark);
-      rect(uX - 4.8 * z, uY - 19 * z, 9.6 * z, 3.2 * z, uniform.main);
-      rect(uX - 6 * z, uY - 15.8 * z, 12 * z, 2.6 * z, uniform.dark);
-      rect(uX - 5 * z, uY - 15.8 * z, 10 * z, 2.6 * z, uniform.main);
-      rect(uX - 5 * z, uY - 13.2 * z, 10 * z, 2 * z, uniform.dark);
-      rect(uX - 4.2 * z, uY - 13.2 * z, 8.4 * z, 1.6 * z, uniform.main);
-      rect(uX - 2.6 * z, uY - 20.2 * z, 5.2 * z, 1.6 * z, '#f6f7fc');
-      rect(uX - 1.8 * z, uY - 18.6 * z, 3.6 * z, 2.8 * z, '#f6f7fc');
-      rect(uX - 0.9 * z, uY - 19.2 * z, 1.8 * z, 3.6 * z, uniform.trim);
-      rect(uX - 0.5 * z, uY - 15.2 * z, 1 * z, 0.8 * z, uniform.trim);
-      rect(uX - 0.5 * z, uY - 13.8 * z, 1 * z, 0.8 * z, uniform.trim);
-      rect(uX - 0.5 * z, uY - 12.4 * z, 1 * z, 0.8 * z, uniform.trim);
     } else {
-      // 'classic_suit': Tailored V-taper blazer + notched lapels + crisp shirt collar + silk tie & tie pin
-      rect(uX - 5 * z, uY - 20.2 * z, 10 * z, 1.4 * z, uniform.dark);
-      rect(uX - 7 * z, uY - 19.2 * z, 14 * z, 3.4 * z, uniform.dark);
-      rect(uX - 6 * z, uY - 19 * z, 12 * z, 3.2 * z, uniform.main);
-      rect(uX - 6 * z, uY - 15.8 * z, 12 * z, 2.6 * z, uniform.dark);
-      rect(uX - 5 * z, uY - 15.8 * z, 10 * z, 2.6 * z, uniform.main);
-      rect(uX - 5 * z, uY - 13.2 * z, 10 * z, 2 * z, uniform.dark);
-      rect(uX - 4.2 * z, uY - 13.2 * z, 8.4 * z, 1.6 * z, uniform.main);
-      rect(uX - 2.6 * z, uY - 20.2 * z, 5.2 * z, 1.6 * z, '#f6f7fc');
-      rect(uX - 1.8 * z, uY - 18.6 * z, 3.6 * z, 3.6 * z, '#f6f7fc');
-      rect(uX - 1 * z, uY - 15 * z, 2 * z, 1.6 * z, '#f6f7fc');
-      rect(uX - 3 * z, uY - 18.8 * z, 1.2 * z, 3.6 * z, uniform.dark);
-      rect(uX + 1.8 * z, uY - 18.8 * z, 1.2 * z, 3.6 * z, uniform.dark);
-      rect(uX - 0.9 * z, uY - 19.2 * z, 1.8 * z, 5.6 * z, uniform.trim);
-      rect(uX - 1 * z, uY - 16.4 * z, 2 * z, 0.8 * z, '#ffffff');
-      rect(uX + 2.4 * z, uY - 17 * z, 1.6 * z, 0.9 * z, uniform.trim);
+      // Sturdy 5-6*z masculine neck between chiselled chin and shirt collar
+      rect(uX - 3 * z, uY - 22.4 * z, 6 * z, 2.8 * z, palette.skinShadow);
+      rect(uX - 2 * z, uY - 21.4 * z, 4 * z, 2 * z, palette.skin);
+
+      if (isFacingAway) {
+        // Rear / 3/4-Rear view of athletic V-taper male torso (N / NE / NW)
+        const seamShift = isPureBack ? 0 : -dirFlip * 0.7 * z;
+        if (isHoodie) {
+          rect(uX - 6.6 * z, uY - 19.2 * z, 13.2 * z, 3.4 * z, uniform.dark);
+          rect(uX - 5.8 * z, uY - 19 * z, 11.6 * z, 3.2 * z, uniform.main);
+          rect(uX - 5.6 * z, uY - 15.8 * z, 11.2 * z, 2.6 * z, uniform.dark);
+          rect(uX - 4.8 * z, uY - 15.8 * z, 9.6 * z, 2.6 * z, uniform.main);
+          rect(uX - 4.8 * z, uY - 13.2 * z, 9.6 * z, 2 * z, uniform.dark);
+          rect(uX - 4.6 * z, uY - 21 * z, 9.2 * z, 2.8 * z, uniform.dark);
+          rect(uX - 3.6 * z, uY - 20.6 * z, 7.2 * z, 1.8 * z, '#1b2234');
+        } else if (isVest) {
+          rect(uX - 3.2 * z, uY - 20.4 * z, 6.4 * z, 1.4 * z, '#f6f7fc');
+          rect(uX - 6.6 * z, uY - 19.2 * z, 13.2 * z, 3.2 * z, '#eef2fc');
+          rect(uX - 5.4 * z, uY - 19 * z, 10.8 * z, 3.2 * z, uniform.dark);
+          rect(uX - 4.6 * z, uY - 18.8 * z, 9.2 * z, 3 * z, uniform.main);
+          rect(uX - 5.4 * z, uY - 15.8 * z, 10.8 * z, 2.6 * z, uniform.dark);
+          rect(uX - 4.6 * z, uY - 15.8 * z, 9.2 * z, 2.6 * z, uniform.main);
+          rect(uX - 4.8 * z, uY - 13.2 * z, 9.6 * z, 2 * z, uniform.dark);
+          rect(uX - 3.2 * z + seamShift * 0.5, uY - 14.2 * z, 6.4 * z, 0.9 * z, '#141926');
+          rect(uX - 0.8 * z + seamShift, uY - 14.3 * z, 1.6 * z, 1.1 * z, '#ffd147');
+        } else {
+          rect(uX - 3 * z, uY - 20.5 * z, 6 * z, 1.2 * z, '#f6f7fc');
+          rect(uX - 5 * z, uY - 19.8 * z, 10 * z, 1.2 * z, uniform.dark);
+          rect(uX - 6.6 * z, uY - 19.2 * z, 13.2 * z, 3.4 * z, uniform.dark);
+          rect(uX - 5.8 * z, uY - 19 * z, 11.6 * z, 3.2 * z, uniform.main);
+          rect(uX - 5.6 * z, uY - 15.8 * z, 11.2 * z, 2.6 * z, uniform.dark);
+          rect(uX - 4.8 * z, uY - 15.8 * z, 9.6 * z, 2.6 * z, uniform.main);
+          rect(uX - 4.8 * z, uY - 13.2 * z, 9.6 * z, 2 * z, uniform.dark);
+          rect(uX - 0.5 * z + seamShift, uY - 18.8 * z, 1 * z, 6.8 * z, uniform.dark);
+        }
+      } else if (isHoodie) {
+        const frontShift = isPureFront ? 0 : dirFlip * 0.4 * z;
+        rect(uX - 5 * z, uY - 20.4 * z, 10 * z, 1.6 * z, uniform.dark);
+        rect(uX - 7 * z, uY - 19.2 * z, 14 * z, 3.4 * z, uniform.dark);
+        rect(uX - 6 * z, uY - 19 * z, 12 * z, 3.2 * z, uniform.main);
+        rect(uX - 6 * z, uY - 15.8 * z, 12 * z, 2.6 * z, uniform.dark);
+        rect(uX - 5 * z, uY - 15.8 * z, 10 * z, 2.6 * z, uniform.main);
+        rect(uX - 5 * z, uY - 13.2 * z, 10 * z, 2 * z, uniform.dark);
+        rect(uX - 4 * z, uY - 13.2 * z, 8 * z, 1.4 * z, uniform.main);
+        rect(uX - 2 * z + frontShift, uY - 20 * z, 4 * z, 2 * z, '#1b2234');
+        rect(uX - 2.4 * z + frontShift, uY - 20.2 * z, 1.2 * z, 1.2 * z, '#f4f6fc');
+        rect(uX + 1.2 * z + frontShift, uY - 20.2 * z, 1.2 * z, 1.2 * z, '#f4f6fc');
+        rect(uX - 2.4 * z + frontShift, uY - 18.4 * z, 0.9 * z, 2.6 * z, uniform.trim);
+        rect(uX + 1.5 * z + frontShift, uY - 18.4 * z, 0.9 * z, 2.6 * z, uniform.trim);
+        rect(uX - 0.5 * z + frontShift, uY - 18.4 * z, 1 * z, 7 * z, '#9aa7c7');
+        rect(uX - 0.6 * z + frontShift, uY - 17 * z, 1.2 * z, 1 * z, '#ffffff');
+        rect(uX - 4.2 * z, uY - 14.4 * z, 3 * z, 2 * z, uniform.dark);
+        rect(uX + 1.2 * z, uY - 14.4 * z, 3 * z, 2 * z, uniform.dark);
+      } else if (isVest) {
+        const frontShift = isPureFront ? 0 : dirFlip * 0.4 * z;
+        rect(uX - 5 * z, uY - 20.2 * z, 10 * z, 1.4 * z, '#dce4f7');
+        rect(uX - 7 * z, uY - 19.2 * z, 14 * z, 3.4 * z, '#eef2fc');
+        rect(uX - 5.6 * z, uY - 19.2 * z, 11.2 * z, 3.4 * z, uniform.dark);
+        rect(uX - 4.8 * z, uY - 19 * z, 9.6 * z, 3.2 * z, uniform.main);
+        rect(uX - 6 * z, uY - 15.8 * z, 12 * z, 2.6 * z, uniform.dark);
+        rect(uX - 5 * z, uY - 15.8 * z, 10 * z, 2.6 * z, uniform.main);
+        rect(uX - 5 * z, uY - 13.2 * z, 10 * z, 2 * z, uniform.dark);
+        rect(uX - 4.2 * z, uY - 13.2 * z, 8.4 * z, 1.6 * z, uniform.main);
+        rect(uX - 2.6 * z + frontShift, uY - 20.2 * z, 5.2 * z, 1.6 * z, '#f6f7fc');
+        rect(uX - 1.8 * z + frontShift, uY - 18.6 * z, 3.6 * z, 2.8 * z, '#f6f7fc');
+        rect(uX - 0.9 * z + frontShift, uY - 19.2 * z, 1.8 * z, 3.6 * z, uniform.trim);
+        rect(uX - 0.5 * z + frontShift, uY - 15.2 * z, 1 * z, 0.8 * z, uniform.trim);
+        rect(uX - 0.5 * z + frontShift, uY - 13.8 * z, 1 * z, 0.8 * z, uniform.trim);
+        rect(uX - 0.5 * z + frontShift, uY - 12.4 * z, 1 * z, 0.8 * z, uniform.trim);
+      } else {
+        const frontShift = isPureFront ? 0 : dirFlip * 0.4 * z;
+        rect(uX - 5 * z, uY - 20.2 * z, 10 * z, 1.4 * z, uniform.dark);
+        rect(uX - 7 * z, uY - 19.2 * z, 14 * z, 3.4 * z, uniform.dark);
+        rect(uX - 6 * z, uY - 19 * z, 12 * z, 3.2 * z, uniform.main);
+        rect(uX - 6 * z, uY - 15.8 * z, 12 * z, 2.6 * z, uniform.dark);
+        rect(uX - 5 * z, uY - 15.8 * z, 10 * z, 2.6 * z, uniform.main);
+        rect(uX - 5 * z, uY - 13.2 * z, 10 * z, 2 * z, uniform.dark);
+        rect(uX - 4.2 * z, uY - 13.2 * z, 8.4 * z, 1.6 * z, uniform.main);
+        rect(uX - 2.6 * z + frontShift, uY - 20.2 * z, 5.2 * z, 1.6 * z, '#f6f7fc');
+        rect(uX - 1.8 * z + frontShift, uY - 18.6 * z, 3.6 * z, 3.6 * z, '#f6f7fc');
+        rect(uX - 1 * z + frontShift, uY - 15 * z, 2 * z, 1.6 * z, '#f6f7fc');
+        rect(uX - 3 * z + frontShift, uY - 18.8 * z, 1.2 * z, 3.6 * z, uniform.dark);
+        rect(uX + 1.8 * z + frontShift, uY - 18.8 * z, 1.2 * z, 3.6 * z, uniform.dark);
+        rect(uX - 0.9 * z + frontShift, uY - 19.2 * z, 1.8 * z, 5.6 * z, uniform.trim);
+        rect(uX - 1 * z + frontShift, uY - 16.4 * z, 2 * z, 0.8 * z, '#ffffff');
+        rect(uX + 2.4 * z + frontShift * 0.5, uY - 17 * z, 1.6 * z, 0.9 * z, uniform.trim);
+      }
     }
 
-    // Male Arms & Hands (Extended rapid typing pose vs relaxed seated armrests vs athletic standing sleeves)
-    if (isCodingPose) {
+    // Male Arms & Hands across all 8 angles
+    if (isSideProfile) {
+      if (isCodingPose) {
+        uRect(3, uY - 16.6 * z + keyTapL * 0.4, 5.2, 1.9, uniform.dark);
+        uRect(7.8, uY - 16.7 * z + keyTapL, 2.8, 1.8, palette.skinShadow);
+        uRect(-1.6, uY - 18.6 * z, 3, 3.6, upperSleeveCol);
+        if (isVest) {
+          uRect(-1.6, uY - 15.4 * z, 3, 1, '#cfd8ee');
+        }
+        uRect(-0.6, uY - 15.4 * z + keyTapR * 0.4, 7.6, 2.2, foreArmCol);
+        if (!isVest && !isHoodie) {
+          uRect(6.2, uY - 15.4 * z + keyTapR * 0.4, 0.9, 2.1, '#f6f7fc');
+        }
+        uRect(6.8, uY - 15.5 * z + keyTapR, 3.2, 2, palette.skin);
+        if (typeWaveR > 0.55) {
+          uRect(8.4, uY - 13.5 * z + keyTapR, 1.6, 0.9, '#3be87a');
+        }
+      } else if (seated) {
+        // Seated lateral profile (E / W conference chair): 90°-bent arm reaching cleanly toward table
+        uRect(-1.8, uY - 18.6 * z, 3, 3.8, upperSleeveCol);
+        if (isVest) {
+          uRect(-1.8, uY - 15.2 * z, 3, 1, '#cfd8ee');
+        }
+        uRect(-1, uY - 15.2 * z, 6, 2.2, foreArmCol);
+        if (!isVest && !isHoodie) {
+          uRect(4.4, uY - 15.1 * z, 0.9, 2, '#f6f7fc');
+        }
+        if (emp.activity !== 'gaming') {
+          uRect(5.1, uY - 15 * z, 2.8, 1.9, palette.skin);
+        }
+      } else if (isLaptopPose) {
+        dRect(3.2, baseY - 14.6 * z, 4, 2.2, uniform.dark);
+        dRect(-1.8, baseY - 18.6 * z, 3, 4, upperSleeveCol);
+      } else {
+        const armSwing = -sideStride * 0.9;
+        if (Math.abs(armSwing) > 0.35) {
+          dRect(-1 - armSwing * 0.9, baseY - 18.4 * z, 2.4, 6.2, uniform.dark);
+          dRect(-1 - armSwing * 0.9, baseY - 12.2 * z, 2, 1.6, palette.skinShadow);
+        }
+        dRect(-1.6 + armSwing * 0.5, baseY - 18.6 * z, 3, 3.6, upperSleeveCol);
+        if (isVest) {
+          dRect(-1.6 + armSwing * 0.6, baseY - 15.2 * z, 3, 1, '#cfd8ee');
+        }
+        dRect(-1.3 + armSwing, baseY - 15.2 * z, 2.5, 3.3, foreArmCol);
+        if (!isVest && !isHoodie) {
+          dRect(-1.3 + armSwing, baseY - 12.2 * z, 2.5, 0.8, '#f6f7fc');
+        }
+        dRect(-1.2 + armSwing * 1.1, baseY - 11.6 * z, 2.3, 1.8, palette.skin);
+      }
+    } else if (isPureBack) {
+      if (isCodingPose) {
+        rect(uX - 8.4 * z, uY - 18.6 * z, 2.8 * z, 3.6 * z, upperSleeveCol);
+        rect(uX + 5.6 * z, uY - 18.6 * z, 2.8 * z, 3.6 * z, upperSleeveCol);
+        rect(uX - 8.8 * z, uY - 16.6 * z + keyTapL * 0.3, 2.4 * z, 2.4 * z, foreArmCol);
+        rect(uX + 6.4 * z, uY - 16.6 * z + keyTapR * 0.3, 2.4 * z, 2.4 * z, foreArmCol);
+      } else if (seated) {
+        // Seated pure North (south-side conference chair): symmetric upper sleeves & forward-tucked elbows
+        rect(uX - 8.4 * z, uY - 18.6 * z, 2.6 * z, 3.8 * z, upperSleeveCol);
+        rect(uX + 5.8 * z, uY - 18.6 * z, 2.6 * z, 3.8 * z, upperSleeveCol);
+        rect(uX - 8.6 * z, uY - 15.4 * z, 2.2 * z, 2.2 * z, foreArmCol);
+        rect(uX + 6.4 * z, uY - 15.4 * z, 2.2 * z, 2.2 * z, foreArmCol);
+      } else if (isLaptopPose) {
+        rect(cx - 8.6 * z, baseY - 18.8 * z, 2.8 * z, 4.2 * z, upperSleeveCol);
+        rect(cx + 5.8 * z, baseY - 18.8 * z, 2.8 * z, 4.2 * z, upperSleeveCol);
+      } else {
+        const armBob = legSwing * 0.3;
+        rect(cx - 9 * z, baseY - 18.8 * z - armBob, 3 * z, 3.2 * z, upperSleeveCol);
+        rect(cx + 6 * z, baseY - 18.8 * z + armBob, 3 * z, 3.2 * z, upperSleeveCol);
+        rect(cx - 8 * z, baseY - 15.6 * z - armBob, 2 * z, 3.6 * z, foreArmCol);
+        rect(cx + 6 * z, baseY - 15.6 * z + armBob, 2 * z, 3.6 * z, foreArmCol);
+        rect(cx - 8 * z, baseY - 12 * z - armBob, 2 * z, 1.8 * z, palette.skinShadow);
+        rect(cx + 6 * z, baseY - 12 * z + armBob, 2 * z, 1.8 * z, palette.skinShadow);
+      }
+    } else if (isCodingPose) {
       if (isFacingAway) {
         // Extended forearms & hands reaching forward-up onto the mechanical keyboard (NE/NW)
         const farArmX = dirFlip > 0 ? uX + 4 * z : uX - 10.2 * z;
@@ -2031,6 +2435,13 @@ export function drawEmployeeSprite(
         if (typeWaveR > 0.55) {
           rect(nearHandX + (dirFlip > 0 ? 1.5 : 0) * z, uY - 13.5 * z + keyTapR, 1.6 * z, 0.9 * z, '#3be87a');
         }
+      } else if (isPureFront) {
+        rect(uX - 8.4 * z, uY - 18.6 * z, 2.6 * z, 3.4 * z, upperSleeveCol);
+        rect(uX + 5.8 * z, uY - 18.6 * z, 2.6 * z, 3.4 * z, upperSleeveCol);
+        rect(uX - 7.8 * z, uY - 15.2 * z + keyTapL * 0.4, 5.2 * z, 2.1 * z, foreArmCol);
+        rect(uX + 2.6 * z, uY - 15.2 * z + keyTapR * 0.4, 5.2 * z, 2.1 * z, foreArmCol);
+        rect(uX - 4.4 * z, uY - 14.8 * z + keyTapL, 3 * z, 2 * z, palette.skin);
+        rect(uX + 1.4 * z, uY - 14.8 * z + keyTapR, 3 * z, 2 * z, palette.skin);
       } else {
         // Seated SE/SW coding: BOTH forearms & hands extend forward past torso onto keyboard home row!
         rect(uX - 8.4 * z, uY - 18.6 * z, 2.6 * z, 3.4 * z, upperSleeveCol);
@@ -2071,14 +2482,23 @@ export function drawEmployeeSprite(
         }
       }
     } else if (seated) {
-      // Relaxed seated male posture (meeting / lounging / gaming): elbows bent onto armrests / lap
-      rect(uX - 8.6 * z, uY - 18.6 * z, 2.6 * z, 3.4 * z, upperSleeveCol);
-      rect(uX + 6 * z, uY - 18.6 * z, 2.6 * z, 3.4 * z, upperSleeveCol);
-      rect(uX - 7.8 * z, uY - 15.2 * z, 4.2 * z, 2 * z, foreArmCol);
-      rect(uX + 3.6 * z, uY - 15.2 * z, 4.2 * z, 2 * z, foreArmCol);
-      if (emp.activity !== 'gaming') {
-        rect(uX - 4 * z, uY - 15 * z, 2.4 * z, 1.8 * z, palette.skin);
-        rect(uX + 1.6 * z, uY - 15 * z, 2.4 * z, 1.8 * z, palette.skin);
+      if (isFacingAway) {
+        // Seated 3/4 rear (NE / NW conference chair): forearms reach forward toward conference table!
+        uRect(4.2, uY - 18.4 * z, 2.6, 3, upperSleeveCol);
+        uRect(4.8, uY - 16.2 * z, 4.6, 2.1, foreArmCol);
+        uRect(9, uY - 16.2 * z, 2.6, 1.9, palette.skin);
+        uRect(-7.4, uY - 18.2 * z, 2.6, 3.6, upperSleeveCol);
+        uRect(-6.4, uY - 15.2 * z, 4, 2, foreArmCol);
+      } else {
+        // Relaxed seated front/3/4 posture (S / SE / SW meeting / lounging / gaming)
+        rect(uX - 8.6 * z, uY - 18.6 * z, 2.6 * z, 3.4 * z, upperSleeveCol);
+        rect(uX + 6 * z, uY - 18.6 * z, 2.6 * z, 3.4 * z, upperSleeveCol);
+        rect(uX - 7.8 * z, uY - 15.2 * z, 4.2 * z, 2 * z, foreArmCol);
+        rect(uX + 3.6 * z, uY - 15.2 * z, 4.2 * z, 2 * z, foreArmCol);
+        if (emp.activity !== 'gaming') {
+          rect(uX - 4 * z, uY - 15 * z, 2.4 * z, 1.8 * z, palette.skin);
+          rect(uX + 1.6 * z, uY - 15 * z, 2.4 * z, 1.8 * z, palette.skin);
+        }
       }
     } else if (isLaptopPose) {
       // Standing laptop posture: athletic bent upper sleeves + supporting forearm under the aluminum laptop
@@ -2091,38 +2511,45 @@ export function drawEmployeeSprite(
       dRect(4.4, baseY - 14.6 * z, 4, 2.4, foreArmCol);
     } else {
       // Standing / walking athletic sleeves (18*z total span, 1*z waist daylight gap) + side hands
+      const armBob = legSwing * 0.3;
       if (isHoodie) {
-        rect(cx - 9 * z, baseY - 18.8 * z, 3 * z, 3.2 * z, uniform.main);
-        rect(cx + 6 * z, baseY - 18.8 * z, 3 * z, 3.2 * z, uniform.main);
-        rect(cx - 8 * z, baseY - 15.6 * z, 2 * z, 2.8 * z, uniform.main);
-        rect(cx + 6 * z, baseY - 15.6 * z, 2 * z, 2.8 * z, uniform.main);
-        rect(cx - 8 * z, baseY - 12.8 * z, 2 * z, 0.9 * z, uniform.dark);
-        rect(cx + 6 * z, baseY - 12.8 * z, 2 * z, 0.9 * z, uniform.dark);
+        rect(cx - 9 * z, baseY - 18.8 * z - armBob, 3 * z, 3.2 * z, uniform.main);
+        rect(cx + 6 * z, baseY - 18.8 * z + armBob, 3 * z, 3.2 * z, uniform.main);
+        rect(cx - 8 * z, baseY - 15.6 * z - armBob, 2 * z, 2.8 * z, uniform.main);
+        rect(cx + 6 * z, baseY - 15.6 * z + armBob, 2 * z, 2.8 * z, uniform.main);
+        rect(cx - 8 * z, baseY - 12.8 * z - armBob, 2 * z, 0.9 * z, uniform.dark);
+        rect(cx + 6 * z, baseY - 12.8 * z + armBob, 2 * z, 0.9 * z, uniform.dark);
       } else if (isVest) {
-        rect(cx - 9 * z, baseY - 18.8 * z, 3 * z, 3 * z, '#eef2fc');
-        rect(cx + 6 * z, baseY - 18.8 * z, 3 * z, 3 * z, '#eef2fc');
-        rect(cx - 9 * z, baseY - 16 * z, 3 * z, 1.1 * z, '#cfd8ee');
-        rect(cx + 6 * z, baseY - 16 * z, 3 * z, 1.1 * z, '#cfd8ee');
-        rect(cx - 8 * z, baseY - 14.9 * z, 2 * z, 3 * z, palette.skin);
-        rect(cx + 6 * z, baseY - 14.9 * z, 2 * z, 3 * z, palette.skin);
-        rect(cx - 8 * z, baseY - 14.9 * z, 0.8 * z, 3 * z, palette.skinShadow);
-        rect(cx + 7.2 * z, baseY - 14.9 * z, 0.8 * z, 3 * z, palette.skinShadow);
+        rect(cx - 9 * z, baseY - 18.8 * z - armBob, 3 * z, 3 * z, '#eef2fc');
+        rect(cx + 6 * z, baseY - 18.8 * z + armBob, 3 * z, 3 * z, '#eef2fc');
+        rect(cx - 9 * z, baseY - 16 * z - armBob, 3 * z, 1.1 * z, '#cfd8ee');
+        rect(cx + 6 * z, baseY - 16 * z + armBob, 3 * z, 1.1 * z, '#cfd8ee');
+        rect(cx - 8 * z, baseY - 14.9 * z - armBob, 2 * z, 3 * z, palette.skin);
+        rect(cx + 6 * z, baseY - 14.9 * z + armBob, 2 * z, 3 * z, palette.skin);
+        rect(cx - 8 * z, baseY - 14.9 * z - armBob, 0.8 * z, 3 * z, palette.skinShadow);
+        rect(cx + 7.2 * z, baseY - 14.9 * z + armBob, 0.8 * z, 3 * z, palette.skinShadow);
       } else {
-        rect(cx - 9 * z, baseY - 18.8 * z, 3 * z, 3.2 * z, uniform.main);
-        rect(cx + 6 * z, baseY - 18.8 * z, 3 * z, 3.2 * z, uniform.main);
-        rect(cx - 8 * z, baseY - 15.6 * z, 2 * z, 3 * z, uniform.main);
-        rect(cx + 6 * z, baseY - 15.6 * z, 2 * z, 3 * z, uniform.main);
-        rect(cx - 8 * z, baseY - 12.6 * z, 2 * z, 0.8 * z, '#f6f7fc');
-        rect(cx + 6 * z, baseY - 12.6 * z, 2 * z, 0.8 * z, '#f6f7fc');
+        rect(cx - 9 * z, baseY - 18.8 * z - armBob, 3 * z, 3.2 * z, uniform.main);
+        rect(cx + 6 * z, baseY - 18.8 * z + armBob, 3 * z, 3.2 * z, uniform.main);
+        rect(cx - 8 * z, baseY - 15.6 * z - armBob, 2 * z, 3 * z, uniform.main);
+        rect(cx + 6 * z, baseY - 15.6 * z + armBob, 2 * z, 3 * z, uniform.main);
+        rect(cx - 8 * z, baseY - 12.6 * z - armBob, 2 * z, 0.8 * z, '#f6f7fc');
+        rect(cx + 6 * z, baseY - 12.6 * z + armBob, 2 * z, 0.8 * z, '#f6f7fc');
       }
-      rect(cx - 8 * z, baseY - 11.9 * z, 2 * z, 1.8 * z, palette.skin);
-      rect(cx + 6 * z, baseY - 11.9 * z, 2 * z, 1.8 * z, palette.skin);
+      rect(cx - 8 * z, baseY - 11.9 * z - armBob, 2 * z, 1.8 * z, palette.skin);
+      rect(cx + 6 * z, baseY - 11.9 * z + armBob, 2 * z, 1.8 * z, palette.skin);
     }
   }
 
   // Activity props & floating coding telemetry
   if (!isWalking) {
-    const handSpanX = palette.gender === 'female' ? 5.5 : 6.4;
+    const handSpanX = isSideProfile
+      ? dirFlip > 0
+        ? 4.2
+        : -8.2
+      : palette.gender === 'female'
+        ? 5.5
+        : 6.4;
     if (isCodingPose) {
       // Floating code glyphs near monitor side
       const glyphY = ((timeSec * 10) % 10) * z;
@@ -2145,7 +2572,7 @@ export function drawEmployeeSprite(
       ctx.stroke();
       ctx.fillStyle = '#ff5666';
       ctx.fillRect(Math.round(cx - 23 * z), Math.round(baseY - 29 * z + sweep), Math.ceil(3 * z), Math.ceil(3 * z));
-    } else if (!isLaptopPose && (emp.activity === 'reading' || emp.activity === 'searching')) {
+    } else if (!isLaptopPose && !isPureBack && (emp.activity === 'reading' || emp.activity === 'searching')) {
       ctx.fillStyle = '#f5ecd7';
       ctx.fillRect(
         Math.round(uX + (dirFlip > 0 ? 3.5 : -9.5) * z),
@@ -2165,53 +2592,142 @@ export function drawEmployeeSprite(
         Math.ceil(2 * z),
       );
     } else if (emp.activity === 'watercooler') {
-      // Light-blue pixel water cup + droplet
       ctx.fillStyle = '#7ef3ff';
       ctx.fillRect(Math.round(uX + handSpanX * z), Math.round(uY - 14 * z), Math.ceil(4 * z), Math.ceil(5 * z));
       ctx.fillStyle = '#3cd8ff';
       ctx.fillRect(Math.round(uX + (handSpanX + 1) * z), Math.round(uY - 15 * z), Math.ceil(2 * z), Math.ceil(2 * z));
     } else if (emp.activity === 'pizza') {
-      // Warm triangular pepperoni pizza slice
       ctx.fillStyle = '#d98a36';
       ctx.fillRect(Math.round(uX + (handSpanX - 1) * z), Math.round(uY - 16 * z), Math.ceil(6 * z), Math.ceil(2 * z));
       ctx.fillStyle = '#ffd147';
       ctx.fillRect(Math.round(uX + handSpanX * z), Math.round(uY - 14 * z), Math.ceil(4 * z), Math.ceil(3 * z));
       ctx.fillStyle = '#d93838';
       ctx.fillRect(Math.round(uX + (handSpanX + 1) * z), Math.round(uY - 13 * z), Math.ceil(2 * z), Math.ceil(2 * z));
-    } else if (emp.activity === 'gaming') {
-      // Pixel Gamepad controller held forward with colored buttons
+    } else if (emp.activity === 'gaming' && !isPureBack) {
       const thumbJitter = Math.sin(timeSec * 16) > 0 ? 0.5 * z : 0;
+      const padX = isSideProfile ? (dirFlip > 0 ? uX + 2.5 * z : uX - 9.5 * z) : uX - 5 * z;
+      const padW = isSideProfile ? 7 * z : 10 * z;
       ctx.fillStyle = '#1b1f2b';
-      ctx.fillRect(Math.round(uX - 5 * z), Math.round(uY - 14 * z + thumbJitter), Math.ceil(10 * z), Math.ceil(5 * z));
+      ctx.fillRect(Math.round(padX), Math.round(uY - 14 * z + thumbJitter), Math.ceil(padW), Math.ceil(5 * z));
       ctx.fillStyle = '#3cd8ff';
-      ctx.fillRect(Math.round(uX - 4 * z), Math.round(uY - 13 * z + thumbJitter), Math.ceil(2 * z), Math.ceil(2 * z));
+      ctx.fillRect(Math.round(padX + 1 * z), Math.round(uY - 13 * z + thumbJitter), Math.ceil(2 * z), Math.ceil(2 * z));
       ctx.fillStyle = '#ff5666';
-      ctx.fillRect(Math.round(uX + 2 * z), Math.round(uY - 13 * z + thumbJitter), Math.ceil(2 * z), Math.ceil(2 * z));
-      ctx.fillStyle = '#ffd147';
-      ctx.fillRect(Math.round(uX), Math.round(uY - 12 * z + thumbJitter), Math.ceil(2 * z), Math.ceil(2 * z));
+      ctx.fillRect(
+        Math.round(padX + padW - 3 * z),
+        Math.round(uY - 13 * z + thumbJitter),
+        Math.ceil(2 * z),
+        Math.ceil(2 * z),
+      );
     }
   }
 
-  // 4. Head, Expressive Face & Monitor Glow Reflection
-  const fShift = dirFlip * (hasScreenGlow ? 0.9 : 0.6) * z;
+  // 4. Head, Expressive Face & Monitor Glow Reflection (True 8-Angle Anatomy: S, SE/SW, E/W, NE/NW, N)
+  const fShift = isPureFront ? 0 : dirFlip * (hasScreenGlow ? 0.9 : 0.75) * z;
   const fEyeLx = uX - 3 * z + fShift;
   const fEyeRx = uX + 1 * z + fShift;
-  const mShift = dirFlip * (hasScreenGlow ? 0.9 : 0.6) * z;
+  const mShift = isPureFront ? 0 : dirFlip * (hasScreenGlow ? 0.9 : 0.75) * z;
   const mEyeLx = uX - 3.6 * z + mShift;
   const mEyeRx = uX + 1.6 * z + mShift;
   const codeGlowCyan = Math.sin(timeSec * 5) >= 0;
 
-  if (isFacingAway) {
-    // 3/4 Over-the-Shoulder Profile Head (NE / NW): back skull + monitor-lit side-profile cheek, jaw & focused eye
+  if (isPureBack) {
+    // Pure North Rear Head (N): 100% symmetric rear skull & nape with ZERO facial features!
+    if (palette.gender === 'female') {
+      rect(uX - 5 * z, uY - 35 * z, 10 * z, 1.6 * z, palette.skinShadow);
+      rect(uX - 5.6 * z, uY - 33.8 * z, 11.2 * z, 9.4 * z, palette.skinShadow);
+      rect(uX - 4.2 * z, uY - 24.6 * z, 8.4 * z, 1.6 * z, palette.skinShadow);
+      if (!enclosingHelmet) {
+        rect(uX - 6.4 * z, uY - 27.2 * z, 0.9 * z, 1 * z, '#fff2cc');
+        rect(uX + 5.5 * z, uY - 27.2 * z, 0.9 * z, 1 * z, '#fff2cc');
+      }
+      if (isCodingPose) {
+        rect(uX - 5.6 * z, uY - 33.4 * z, 1.2 * z, 7.6 * z, 'rgba(72, 232, 255, 0.2)');
+        rect(uX + 4.4 * z, uY - 33.4 * z, 1.2 * z, 7.6 * z, 'rgba(72, 232, 255, 0.2)');
+      }
+    } else {
+      rect(uX - 5.8 * z, uY - 35.2 * z, 11.6 * z, 1.6 * z, palette.skinShadow);
+      rect(uX - 6.4 * z, uY - 33.8 * z, 12.8 * z, 8.2 * z, palette.skinShadow);
+      rect(uX - 5.2 * z, uY - 25.8 * z, 10.4 * z, 2.4 * z, palette.skinShadow);
+      rect(uX - 3.6 * z, uY - 25.2 * z, 7.2 * z, 2.4 * z, palette.skin);
+      if (!enclosingHelmet) {
+        rect(uX - 7.6 * z, uY - 29.6 * z, 1.2 * z, 2.4 * z, palette.skin);
+        rect(uX + 6.4 * z, uY - 29.6 * z, 1.2 * z, 2.4 * z, palette.skin);
+      }
+      if (isCodingPose) {
+        rect(uX - 6.4 * z, uY - 33.4 * z, 1.2 * z, 7.8 * z, 'rgba(72, 232, 255, 0.2)');
+        rect(uX + 5.2 * z, uY - 33.4 * z, 1.2 * z, 7.8 * z, 'rgba(72, 232, 255, 0.2)');
+      }
+    }
+  } else if (isSideProfile) {
+    // True 90° Lateral Profile Head (E / W): narrower front-to-back skull + projecting profile nose + single profile eye
+    if (palette.gender === 'female') {
+      uRect(-4.2, uY - 35 * z, 8.2, 1.6, palette.skinShadow);
+      uRect(-4.8, uY - 33.8 * z, 9.4, 9.4, palette.skinShadow);
+      uRect(-2.8, uY - 24.4 * z, 7, 1.6, palette.skinShadow);
+      uRect(-3.6, uY - 34.6 * z, 8, 1.6, palette.skin);
+      uRect(-3.8, uY - 33.4 * z, 8.4, 9, palette.skin);
+      uRect(-1.8, uY - 24.4 * z, 5.8, 1.5, palette.skin);
+      // Projecting dainty profile nose
+      uRect(4.4, uY - 28 * z, 1.3, 1.4, palette.skin);
+      uRect(4.4, uY - 26.8 * z, 1.1, 0.7, palette.skinShadow);
+      if (hasScreenGlow) {
+        uRect(2.2, uY - 32.6 * z, 2.6, 8, 'rgba(72, 232, 255, 0.24)');
+      }
+      // Single lateral arched brow + single expressive profile eye + winged lash
+      uRect(1.6, uY - 31.2 * z, 2.4, 0.9, palette.hair);
+      if (emp.activity === 'sleeping') {
+        uRect(1.6, uY - 28 * z, 2.4, 0.9, '#141622');
+      } else {
+        uRect(2, uY - 29.2 * z, 2, 2.9, '#161926');
+        uRect(1.6, uY - 29.7 * z, 2.4, 0.9, '#141622');
+        uRect(0.8, uY - 30.2 * z, 1, 1, '#141622');
+        uRect(3.1, uY - 29.1 * z, 0.9, 0.9, '#ffffff');
+        if (hasScreenGlow) {
+          uRect(3.1, uY - 27.3 * z, 0.9, 0.8, codeGlowCyan ? '#7ef3ff' : '#6bffb8');
+        }
+      }
+      uRect(1, uY - 26 * z, 2, 1, 'rgba(255, 130, 162, 0.44)');
+      uRect(3.2, uY - 24.4 * z, 1.4, 0.9, '#e56b88');
+    } else {
+      uRect(-4.8, uY - 35.4 * z, 9.4, 1.6, palette.skinShadow);
+      uRect(-5.4, uY - 34 * z, 10.6, 8.2, palette.skinShadow);
+      uRect(-4, uY - 25.8 * z, 9, 2.4, palette.skinShadow);
+      uRect(-1.4, uY - 23.8 * z, 6.2, 1.4, palette.skinShadow);
+      uRect(-4.2, uY - 35 * z, 8.8, 1.6, palette.skin);
+      uRect(-4.4, uY - 33.8 * z, 9.6, 8, palette.skin);
+      uRect(-3, uY - 25.8 * z, 8, 2.2, palette.skin);
+      uRect(-0.8, uY - 23.8 * z, 5.4, 1.2, palette.skin);
+      // Projecting masculine profile nose bridge
+      uRect(5, uY - 28.8 * z, 1.5, 2, palette.skin);
+      uRect(5, uY - 26.9 * z, 1.3, 0.8, palette.skinShadow);
+      if (hasScreenGlow) {
+        uRect(2.8, uY - 33 * z, 2.6, 8.6, 'rgba(72, 232, 255, 0.24)');
+      }
+      uRect(1.8, uY - 31.3 * z, 2.8, 1.1, palette.hair);
+      if (emp.activity === 'sleeping') {
+        uRect(2, uY - 28.2 * z, 2.4, 1, '#161926');
+      } else {
+        uRect(2.4, uY - 29.4 * z, 2, 2.6, '#161926');
+        uRect(3.5, uY - 29.3 * z, 0.9, 0.9, '#ffffff');
+        if (hasScreenGlow) {
+          uRect(3.5, uY - 27.8 * z, 0.9, 0.8, codeGlowCyan ? '#7ef3ff' : '#6bffb8');
+        }
+      }
+      uRect(3.4, uY - 24.8 * z, 1.6, 0.8, palette.skinShadow);
+      if (palette.maleFacialHair === 'light_stubble' && !enclosingHelmet) {
+        uRect(-1.8, uY - 25.6 * z, 6.8, 1.8, 'rgba(28, 32, 46, 0.22)');
+        uRect(3.4, uY - 25.8 * z, 1.6, 0.9, 'rgba(28, 32, 46, 0.22)');
+      }
+    }
+  } else if (isFacingAway) {
+    // 3/4 Over-the-Shoulder Rear-Profile Head (NE / NW): back skull + subtle outer rim cheek & focused outer eye
     if (palette.gender === 'female') {
       rect(uX - 5 * z, uY - 35 * z, 10 * z, 1.6 * z, palette.skinShadow);
       rect(uX - 5.6 * z, uY - 33.8 * z, 11.2 * z, 9.6 * z, palette.skinShadow);
       rect(uX - 4.4 * z, uY - 24.4 * z, 8.8 * z, 1.6 * z, palette.skinShadow);
-      // Monitor-facing soft profile cheek & delicate chin
-      const profX = dirFlip > 0 ? uX + 1 * z : uX - 6.2 * z;
-      rect(profX, uY - 33.6 * z, 5.2 * z, 9.2 * z, palette.skin);
-      rect(dirFlip > 0 ? uX + 0.6 * z : uX - 4.8 * z, uY - 24.4 * z, 4.2 * z, 1.6 * z, palette.skin);
-      // Subtle monitor glow rim-light across profile forehead, cheek & chin
+      const profX = dirFlip > 0 ? uX + 1.4 * z : uX - 6 * z;
+      rect(profX, uY - 33.6 * z, 4.6 * z, 9.2 * z, palette.skin);
+      rect(dirFlip > 0 ? uX + 1 * z : uX - 4.6 * z, uY - 24.4 * z, 3.6 * z, 1.6 * z, palette.skin);
       if (isCodingPose) {
         const rimX = dirFlip > 0 ? uX + 4.2 * z : uX - 6.2 * z;
         rect(rimX, uY - 33.2 * z, 2 * z, 8.4 * z, 'rgba(72, 232, 255, 0.28)');
@@ -2223,24 +2739,16 @@ export function drawEmployeeSprite(
           codeGlowCyan ? 'rgba(126, 243, 255, 0.55)' : 'rgba(98, 245, 168, 0.48)',
         );
       }
-      // Focused side-profile eye + winged lash + catchlight looking toward monitor
-      const pEyeX = dirFlip > 0 ? uX + 3.6 * z : uX - 5.4 * z;
-      rect(pEyeX, uY - 31.1 * z, 1.8 * z, 0.8 * z, palette.hair);
+      const pEyeX = dirFlip > 0 ? uX + 3.8 * z : uX - 5.4 * z;
+      rect(pEyeX, uY - 31.1 * z, 1.6 * z, 0.8 * z, palette.hair);
       if (emp.activity === 'sleeping') {
-        rect(pEyeX, uY - 28 * z, 1.8 * z, 0.8 * z, '#141622');
+        rect(pEyeX, uY - 28 * z, 1.6 * z, 0.8 * z, '#141622');
       } else {
-        rect(pEyeX, uY - 29.3 * z, 1.7 * z, 2.7 * z, '#161926');
-        rect(pEyeX - (dirFlip > 0 ? 0.5 : -0.4) * z, uY - 29.8 * z, 1.8 * z, 0.8 * z, '#141622');
-        rect(
-          pEyeX + (dirFlip > 0 ? 0.8 : 0) * z,
-          uY - 29.2 * z,
-          0.8 * z,
-          0.8 * z,
-          '#ffffff',
-        );
+        rect(pEyeX, uY - 29.3 * z, 1.6 * z, 2.6 * z, '#161926');
+        rect(pEyeX + (dirFlip > 0 ? 0.7 : 0) * z, uY - 29.2 * z, 0.8 * z, 0.8 * z, '#ffffff');
         if (isCodingPose) {
           rect(
-            pEyeX + (dirFlip > 0 ? 0.8 : 0) * z,
+            pEyeX + (dirFlip > 0 ? 0.7 : 0) * z,
             uY - 27.5 * z,
             0.8 * z,
             0.8 * z,
@@ -2248,18 +2756,13 @@ export function drawEmployeeSprite(
           );
         }
       }
-      // Profile blush + delicate lip corner
-      rect(dirFlip > 0 ? uX + 2.8 * z : uX - 4.6 * z, uY - 26 * z, 1.8 * z, 0.9 * z, 'rgba(255, 130, 162, 0.42)');
-      rect(dirFlip > 0 ? uX + 4.2 * z : uX - 5.4 * z, uY - 24.5 * z, 1.2 * z, 0.8 * z, '#e56b88');
     } else {
-      // Structured masculine 3/4 rear-profile head + angular jawline facing monitor
       rect(uX - 5.8 * z, uY - 35.2 * z, 11.6 * z, 1.6 * z, palette.skinShadow);
       rect(uX - 6.4 * z, uY - 33.8 * z, 12.8 * z, 8.2 * z, palette.skinShadow);
       rect(uX - 5.4 * z, uY - 25.8 * z, 10.8 * z, 2.4 * z, palette.skinShadow);
-      const profX = dirFlip > 0 ? uX + 1.2 * z : uX - 6.8 * z;
-      rect(profX, uY - 33.8 * z, 5.6 * z, 8.2 * z, palette.skin);
-      rect(dirFlip > 0 ? uX + 0.8 * z : uX - 5.6 * z, uY - 25.8 * z, 4.8 * z, 2.4 * z, palette.skin);
-      // Crisp cyan/emerald monitor glow rim-light along masculine brow, nose bridge & jaw
+      const profX = dirFlip > 0 ? uX + 1.6 * z : uX - 6.6 * z;
+      rect(profX, uY - 33.8 * z, 5 * z, 8.2 * z, palette.skin);
+      rect(dirFlip > 0 ? uX + 1.2 * z : uX - 5.4 * z, uY - 25.8 * z, 4.2 * z, 2.4 * z, palette.skin);
       if (isCodingPose) {
         const rimX = dirFlip > 0 ? uX + 4.6 * z : uX - 6.8 * z;
         rect(rimX, uY - 33.4 * z, 2.2 * z, 8.8 * z, 'rgba(72, 232, 255, 0.28)');
@@ -2271,23 +2774,16 @@ export function drawEmployeeSprite(
           codeGlowCyan ? 'rgba(126, 243, 255, 0.56)' : 'rgba(98, 245, 168, 0.48)',
         );
       }
-      // Focused masculine profile brow + eye + screen reflection glint
-      const pEyeX = dirFlip > 0 ? uX + 4.1 * z : uX - 5.9 * z;
-      rect(pEyeX - 0.2 * z, uY - 31.2 * z, 2.2 * z, 1 * z, palette.hair);
+      const pEyeX = dirFlip > 0 ? uX + 4.3 * z : uX - 5.9 * z;
+      rect(pEyeX - 0.1 * z, uY - 31.2 * z, 1.9 * z, 1 * z, palette.hair);
       if (emp.activity === 'sleeping') {
-        rect(pEyeX, uY - 28.2 * z, 1.8 * z, 0.9 * z, '#161926');
+        rect(pEyeX, uY - 28.2 * z, 1.6 * z, 0.9 * z, '#161926');
       } else {
-        rect(pEyeX, uY - 29.4 * z, 1.8 * z, 2.5 * z, '#161926');
-        rect(
-          pEyeX + (dirFlip > 0 ? 0.9 : 0) * z,
-          uY - 29.3 * z,
-          0.8 * z,
-          0.8 * z,
-          '#ffffff',
-        );
+        rect(pEyeX, uY - 29.4 * z, 1.6 * z, 2.4 * z, '#161926');
+        rect(pEyeX + (dirFlip > 0 ? 0.8 : 0) * z, uY - 29.3 * z, 0.8 * z, 0.8 * z, '#ffffff');
         if (isCodingPose) {
           rect(
-            pEyeX + (dirFlip > 0 ? 0.9 : 0) * z,
+            pEyeX + (dirFlip > 0 ? 0.8 : 0) * z,
             uY - 27.8 * z,
             0.8 * z,
             0.8 * z,
@@ -2296,11 +2792,11 @@ export function drawEmployeeSprite(
         }
       }
       if (palette.maleFacialHair === 'light_stubble' && !enclosingHelmet) {
-        rect(dirFlip > 0 ? uX + 2.4 * z : uX - 5.8 * z, uY - 25.4 * z, 3.4 * z, 1.6 * z, 'rgba(28, 32, 46, 0.22)');
+        rect(dirFlip > 0 ? uX + 2.6 * z : uX - 5.8 * z, uY - 25.4 * z, 3.2 * z, 1.6 * z, 'rgba(28, 32, 46, 0.22)');
       }
     }
   } else if (palette.gender === 'female') {
-    // Tapered oval chibi head: rounded 10*z top -> 12*z soft cheeks -> 10*z jaw -> 6*z–7*z delicate chin
+    // Tapered oval chibi head (S symmetric front vs SE/SW 3/4 front)
     rect(uX - 5 * z, uY - 35 * z, 10 * z, 1.5 * z, palette.skinShadow);
     rect(uX - 6 * z, uY - 34 * z, 12 * z, 10 * z, palette.skinShadow);
     rect(uX - 5 * z, uY - 24.2 * z, 10 * z, 1.4 * z, palette.skinShadow);
@@ -2311,26 +2807,26 @@ export function drawEmployeeSprite(
     rect(uX - 4.6 * z, uY - 24.4 * z, 9.2 * z, 1.4 * z, palette.skin);
     rect(uX - 3 * z, uY - 23.1 * z, 6 * z, 1.1 * z, palette.skin);
 
-    // Subtle cyan/emerald monitor/laptop glow reflection washing across screen-facing side of face
     if (hasScreenGlow) {
-      const glowFaceX = dirFlip > 0 ? uX + 0.4 * z : uX - 5.4 * z;
-      rect(glowFaceX, uY - 32.4 * z, 5 * z, 7.6 * z, 'rgba(72, 232, 255, 0.22)');
-      rect(
-        dirFlip > 0 ? uX + 3.2 * z : uX - 5.4 * z,
-        uY - 31.2 * z,
-        2.2 * z,
-        5.4 * z,
-        codeGlowCyan ? 'rgba(126, 243, 255, 0.28)' : 'rgba(98, 245, 168, 0.24)',
-      );
+      const glowFaceX = isPureFront ? uX - 4.2 * z : dirFlip > 0 ? uX + 0.4 * z : uX - 5.4 * z;
+      const glowFaceW = isPureFront ? 8.4 * z : 5 * z;
+      rect(glowFaceX, uY - 32.4 * z, glowFaceW, 7.6 * z, 'rgba(72, 232, 255, 0.22)');
+      if (!isPureFront) {
+        rect(
+          dirFlip > 0 ? uX + 3.2 * z : uX - 5.4 * z,
+          uY - 31.2 * z,
+          2.2 * z,
+          5.4 * z,
+          codeGlowCyan ? 'rgba(126, 243, 255, 0.28)' : 'rgba(98, 245, 168, 0.24)',
+        );
+      }
     }
 
-    // Tiny 1*z gleaming stud earrings on earlobes
     if (!enclosingHelmet) {
       rect(uX - 6.6 * z, uY - 26.8 * z, 1 * z, 1 * z, '#fff2cc');
       rect(uX + 5.6 * z, uY - 26.8 * z, 1 * z, 1 * z, '#fff2cc');
     }
 
-    // Soft arched brows + eyes + catchlights + winged lashes + blush + rose-coral lips
     rect(fEyeLx, uY - 31.2 * z, 2 * z, 0.9 * z, palette.hair);
     rect(fEyeRx, uY - 31.2 * z, 2 * z, 0.9 * z, palette.hair);
 
@@ -2338,16 +2834,13 @@ export function drawEmployeeSprite(
       rect(fEyeLx - 0.5 * z, uY - 27.8 * z, 2.5 * z, 0.9 * z, '#141622');
       rect(fEyeRx, uY - 27.8 * z, 2.5 * z, 0.9 * z, '#141622');
     } else {
-      // 2*z x 3*z dark iris (#161926)
       rect(fEyeLx, uY - 29.2 * z, 2 * z, 3 * z, '#161926');
       rect(fEyeRx, uY - 29.2 * z, 2 * z, 3 * z, '#161926');
-      // Swept winged upper eyelashes (2*z lid + 1*z upward outer wing in #141622)
       rect(fEyeLx, uY - 29.6 * z, 2 * z, 0.9 * z, '#141622');
       rect(fEyeRx, uY - 29.6 * z, 2 * z, 0.9 * z, '#141622');
       rect(fEyeLx - 1 * z, uY - 30.2 * z, 1 * z, 1 * z, '#141622');
       rect(fEyeRx + 2 * z, uY - 30.2 * z, 1 * z, 1 * z, '#141622');
-      // 1*z white sparkle catchlight (#ffffff) + lower cyan/emerald screen reflection glint
-      const catchOffset = dirFlip > 0 ? 1 * z : 0;
+      const catchOffset = isPureFront ? 0.6 * z : dirFlip > 0 ? 1 * z : 0;
       rect(fEyeLx + catchOffset, uY - 29.1 * z, 0.9 * z, 0.9 * z, '#ffffff');
       rect(fEyeRx + catchOffset, uY - 29.1 * z, 0.9 * z, 0.9 * z, '#ffffff');
       if (hasScreenGlow) {
@@ -2356,12 +2849,11 @@ export function drawEmployeeSprite(
         rect(fEyeRx + catchOffset, uY - 27.2 * z, 0.9 * z, 0.8 * z, glintCol);
       }
     }
-    // Soft coral-rose cheek blush (2*z x 1*z) + delicate 2*z x 1*z rose-coral lips (#e56b88)
     rect(fEyeLx - 1.2 * z, uY - 25.8 * z, 2 * z, 1 * z, 'rgba(255, 130, 162, 0.45)');
     rect(fEyeRx + 1.2 * z, uY - 25.8 * z, 2 * z, 1 * z, 'rgba(255, 130, 162, 0.45)');
     rect(uX - 1 * z + fShift, uY - 24.3 * z, 2 * z, 0.9 * z, '#e56b88');
   } else {
-    // Structured masculine chibi head with chiselled angular jawline (12*z top -> 14*z brow/cheek -> 12*z jaw -> 8*z square chin)
+    // Structured masculine chibi head (S symmetric front vs SE/SW 3/4 front)
     rect(uX - 6 * z, uY - 35.4 * z, 12 * z, 1.6 * z, palette.skinShadow);
     rect(uX - 7 * z, uY - 34 * z, 14 * z, 8 * z, palette.skinShadow);
     rect(uX - 6 * z, uY - 26 * z, 12 * z, 2.2 * z, palette.skinShadow);
@@ -2372,20 +2864,21 @@ export function drawEmployeeSprite(
     rect(uX - 5 * z, uY - 26.2 * z, 10 * z, 2.4 * z, palette.skin);
     rect(uX - 3 * z, uY - 23.9 * z, 6 * z, 1.5 * z, palette.skin);
 
-    // Subtle cyan/emerald monitor/laptop glow reflection across screen-facing brow, cheek & jaw
     if (hasScreenGlow) {
-      const glowFaceX = dirFlip > 0 ? uX + 0.4 * z : uX - 6 * z;
-      rect(glowFaceX, uY - 32.8 * z, 5.6 * z, 8.2 * z, 'rgba(72, 232, 255, 0.22)');
-      rect(
-        dirFlip > 0 ? uX + 3.6 * z : uX - 6 * z,
-        uY - 31.6 * z,
-        2.4 * z,
-        5.8 * z,
-        codeGlowCyan ? 'rgba(126, 243, 255, 0.28)' : 'rgba(98, 245, 168, 0.24)',
-      );
+      const glowFaceX = isPureFront ? uX - 4.8 * z : dirFlip > 0 ? uX + 0.4 * z : uX - 6 * z;
+      const glowFaceW = isPureFront ? 9.6 * z : 5.6 * z;
+      rect(glowFaceX, uY - 32.8 * z, glowFaceW, 8.2 * z, 'rgba(72, 232, 255, 0.22)');
+      if (!isPureFront) {
+        rect(
+          dirFlip > 0 ? uX + 3.6 * z : uX - 6 * z,
+          uY - 31.6 * z,
+          2.4 * z,
+          5.8 * z,
+          codeGlowCyan ? 'rgba(126, 243, 255, 0.28)' : 'rgba(98, 245, 168, 0.24)',
+        );
+      }
     }
 
-    // Masculine ears & subtle cheekbone contour shading
     if (!enclosingHelmet) {
       rect(uX - 8 * z, uY - 29.6 * z, 1 * z, 2.4 * z, palette.skinShadow);
       rect(uX + 7 * z, uY - 29.6 * z, 1 * z, 2.4 * z, palette.skinShadow);
@@ -2393,7 +2886,6 @@ export function drawEmployeeSprite(
     rect(uX - 5.6 * z, uY - 27 * z, 1 * z, 1.6 * z, palette.skinShadow);
     rect(uX + 4.6 * z, uY - 27 * z, 1 * z, 1.6 * z, palette.skinShadow);
 
-    // Determined straight/angled masculine brows (no eyelashes, no lipstick)
     rect(mEyeLx - 0.4 * z, uY - 31.2 * z, 2.8 * z, 1.1 * z, palette.hair);
     rect(mEyeRx - 0.4 * z, uY - 31.2 * z, 2.8 * z, 1.1 * z, palette.hair);
 
@@ -2401,10 +2893,9 @@ export function drawEmployeeSprite(
       rect(mEyeLx - 0.3 * z, uY - 28 * z, 2.6 * z, 1 * z, '#161926');
       rect(mEyeRx - 0.3 * z, uY - 28 * z, 2.6 * z, 1 * z, '#161926');
     } else {
-      // Focused dark iris (#161926) + 1*z upper-corner white catchlight + monitor reflection glint
       rect(mEyeLx, uY - 29.4 * z, 2 * z, 2.6 * z, '#161926');
       rect(mEyeRx, uY - 29.4 * z, 2 * z, 2.6 * z, '#161926');
-      const catchOffset = dirFlip > 0 ? 1 * z : 0;
+      const catchOffset = isPureFront ? 0.6 * z : dirFlip > 0 ? 1 * z : 0;
       rect(mEyeLx + catchOffset, uY - 29.3 * z, 0.9 * z, 0.9 * z, '#ffffff');
       rect(mEyeRx + catchOffset, uY - 29.3 * z, 0.9 * z, 0.9 * z, '#ffffff');
       if (hasScreenGlow) {
@@ -2414,11 +2905,9 @@ export function drawEmployeeSprite(
       }
     }
 
-    // Subtle nose shadow + neutral mouth line
     rect(uX - 0.5 * z + mShift, uY - 26.8 * z, 1 * z, 1 * z, palette.skinShadow);
     rect(uX - 1.1 * z + mShift, uY - 24.6 * z, 2.2 * z, 0.8 * z, palette.skinShadow);
 
-    // Translucent light_stubble along upper lip & jawline ONLY (no heavy beard or goatee)
     if (palette.maleFacialHair === 'light_stubble' && !enclosingHelmet) {
       rect(uX - 1.8 * z + mShift, uY - 25.5 * z, 3.6 * z, 0.9 * z, 'rgba(28, 32, 46, 0.22)');
       rect(uX - 5 * z, uY - 25.8 * z, 1.6 * z, 2 * z, 'rgba(28, 32, 46, 0.22)');
@@ -2427,82 +2916,208 @@ export function drawEmployeeSprite(
     }
   }
 
-  // 5. Hair (3/4 Rear-Profile Hair when NE/NW vs Front Crown/Bangs when SE/SW)
-  if (isFacingAway && !enclosingHelmet) {
-    if (palette.gender === 'female') {
-      // Sculpted crown dome + 3/4 rear skull coverage leaving monitor-facing profile cheek & ear visible
-      rect(uX - 4 * z, uY - 38 * z, 8 * z, 1.5 * z, palette.hair);
-      rect(uX - 5.5 * z, uY - 37 * z, 11 * z, 2 * z, palette.hair);
-      rect(uX - 6.2 * z, uY - 35.5 * z, 12.4 * z, 2.6 * z, palette.hair);
-      const backHairX = dirFlip > 0 ? uX - 6.2 * z : uX - 2.4 * z;
-      rect(backHairX, uY - 33.4 * z, 8.6 * z, 10.6 * z, palette.hair);
-      rect(backHairX + 1.8 * z, uY - 35.8 * z, 3.6 * z, 1.4 * z, palette.hairHighlight);
-      // Visible side ear + gleaming stud earring on profile boundary
-      const earX = dirFlip > 0 ? uX + 1.8 * z : uX - 3.2 * z;
-      rect(earX, uY - 29 * z, 1.4 * z, 2.2 * z, palette.skin);
-      rect(earX + 0.2 * z, uY - 27 * z, 1 * z, 1 * z, '#fff2cc');
+  // 5. Hair Across All 8 Angles (Pure Back N, Lateral Side E/W, 3/4 Rear NE/NW, Front S/SE/SW)
+  if (!enclosingHelmet) {
+    if (isPureBack) {
+      if (palette.gender === 'female') {
+        rect(uX - 4.2 * z, uY - 38 * z, 8.4 * z, 1.5 * z, palette.hair);
+        rect(uX - 5.6 * z, uY - 37 * z, 11.2 * z, 2 * z, palette.hair);
+        rect(uX - 6.4 * z, uY - 35.5 * z, 12.8 * z, 11.4 * z, palette.hair);
+        rect(uX - 3.2 * z, uY - 36.4 * z, 6.4 * z, 1.3 * z, palette.hairHighlight);
 
-      if (palette.femaleHairStyle === 'long_locks') {
-        // Flowing rear wavy S-curve cascades draping down over upper back
-        rect(uX - 5.4 * z, uY - 24 * z, 9.2 * z * (dirFlip > 0 ? 0.85 : 1), 5.5 * z, palette.hair);
-        const waveX = dirFlip > 0 ? uX - 6.4 * z : uX - 2 * z;
-        rect(waveX, uY - 23.5 * z, 7.8 * z, 6.2 * z, palette.hair);
-        rect(waveX + 0.8 * z, uY - 17.5 * z, 6 * z, 2.4 * z, palette.hair);
-        rect(waveX + 1.8 * z, uY - 22.5 * z, 1.4 * z, 4.8 * z, palette.hairHighlight);
-        rect(waveX + 4.4 * z, uY - 21.5 * z, 1.4 * z, 4.2 * z, palette.hairHighlight);
-      } else if (palette.femaleHairStyle === 'bob_cut') {
-        const bobX = dirFlip > 0 ? uX - 6.6 * z : uX - 2.6 * z;
-        rect(bobX, uY - 31 * z, 9.2 * z, 8.8 * z, palette.hair);
-        rect(bobX + 1.2 * z, uY - 30.5 * z, 1.2 * z, 5.5 * z, palette.hairHighlight);
-        rect(dirFlip > 0 ? uX + 0.4 * z : uX - 2.4 * z, uY - 32.8 * z, 2 * z, 1 * z, palette.accessoryColor);
-      } else if (palette.femaleHairStyle === 'ponytail' && !isLeiaCostume) {
-        const ponySway = Math.sin(timeSec * 2.5) * 0.5 * z;
-        const scX = dirFlip > 0 ? uX - 4.2 * z : uX + 2 * z;
-        rect(scX, uY - 33.2 * z, 2.4 * z, 2.2 * z, palette.accessoryColor);
-        rect(scX - 0.4 * z + ponySway * 0.5, uY - 31.2 * z, 3.2 * z, 6.2 * z, palette.hair);
-        rect(scX + 0.2 * z + ponySway, uY - 25.2 * z, 2.2 * z, 4.8 * z, palette.hair);
-        rect(scX + 0.4 * z + ponySway * 0.5, uY - 30.4 * z, 1.2 * z, 4 * z, palette.hairHighlight);
-      } else if (palette.femaleHairStyle === 'bun_updo' && !hideTopChignon) {
-        rect(uX - 3 * z, uY - 40 * z, 6 * z, 2 * z, palette.hair);
-        rect(uX - 2 * z, uY - 41.2 * z, 4 * z, 1.5 * z, palette.hair);
-        rect(uX - 3.2 * z, uY - 38.2 * z, 6.4 * z, 1.2 * z, palette.accessoryColor);
-      }
-    } else {
-      // Male 3/4 rear sculpted hair + clean nape fade + visible side ear facing monitor
-      const backHairX = dirFlip > 0 ? uX - 6.8 * z : uX - 2.4 * z;
-      rect(backHairX, uY - 34 * z, 9.2 * z, 6.8 * z, palette.hair);
-      rect(backHairX + 0.6 * z, uY - 27.4 * z, 7.6 * z, 3.2 * z, palette.hair);
-      const earX = dirFlip > 0 ? uX + 2 * z : uX - 3.4 * z;
-      rect(earX, uY - 29.6 * z, 1.4 * z, 2.4 * z, palette.skin);
-      rect(earX + (dirFlip > 0 ? 0 : 0.6) * z, uY - 29.2 * z, 0.7 * z, 1.6 * z, palette.skinShadow);
-
-      if (hideTopChignon) {
-        rect(uX - 6.2 * z, uY - 35.8 * z, 12.4 * z, 2.4 * z, palette.hair);
-      } else if (palette.maleHairStyle === 'spiky') {
-        rect(uX - 6.6 * z, uY - 36.4 * z, 13.2 * z, 2.8 * z, palette.hair);
-        rect(uX - 4.4 * z, uY - 39.8 * z, 2.8 * z, 3.4 * z, palette.hair);
-        rect(uX - 1.2 * z, uY - 40.8 * z, 3 * z, 4.4 * z, palette.hair);
-        rect(uX + 2.4 * z, uY - 39.4 * z, 2.6 * z, 3 * z, palette.hair);
-        rect(uX - 0.4 * z, uY - 40 * z, 1.4 * z, 2.2 * z, palette.hairHighlight);
-      } else if (palette.maleHairStyle === 'curly_top') {
-        rect(uX - 7.2 * z, uY - 37 * z, 14.4 * z, 3.2 * z, palette.hair);
-        rect(uX - 6 * z, uY - 39 * z, 12 * z, 2.4 * z, palette.hair);
-        rect(uX - 4 * z, uY - 40.2 * z, 8 * z, 1.6 * z, palette.hair);
-        rect(uX - 1.4 * z, uY - 39.2 * z, 2.6 * z, 1.2 * z, palette.hairHighlight);
-      } else if (palette.maleHairStyle === 'side_part') {
-        rect(uX - 6.4 * z, uY - 36.2 * z, 12.8 * z, 2.6 * z, palette.hair);
-        rect(uX - 5.2 * z, uY - 38 * z, 10.8 * z, 2 * z, palette.hair);
-        rect(uX - 1.2 * z, uY - 38.2 * z, 4.6 * z, 1.2 * z, palette.hairHighlight);
+        if (palette.femaleHairStyle === 'long_locks') {
+          rect(uX - 6 * z, uY - 24.4 * z, 12 * z, 6 * z, palette.hair);
+          rect(uX - 5 * z, uY - 18.6 * z, 10 * z, 3.6 * z, palette.hair);
+          rect(uX - 3.6 * z, uY - 23.6 * z, 1.5 * z, 6.8 * z, palette.hairHighlight);
+          rect(uX + 2.1 * z, uY - 23.6 * z, 1.5 * z, 6.8 * z, palette.hairHighlight);
+        } else if (palette.femaleHairStyle === 'bob_cut') {
+          rect(uX - 6.6 * z, uY - 31.2 * z, 13.2 * z, 8.6 * z, palette.hair);
+          rect(uX - 5.2 * z, uY - 22.8 * z, 10.4 * z, 1.2 * z, palette.hair);
+          rect(uX - 3.8 * z, uY - 30.6 * z, 1.4 * z, 5.8 * z, palette.hairHighlight);
+          rect(uX - 2 * z, uY - 32.2 * z, 4 * z, 1 * z, palette.accessoryColor);
+        } else if (palette.femaleHairStyle === 'ponytail' && !isLeiaCostume) {
+          const ponySway = Math.sin(timeSec * 2.5) * 0.5 * z;
+          rect(uX - 1.8 * z, uY - 33.4 * z, 3.6 * z, 2.2 * z, palette.accessoryColor);
+          rect(uX - 2.2 * z + ponySway * 0.5, uY - 31.2 * z, 4.4 * z, 6.4 * z, palette.hair);
+          rect(uX - 1.5 * z + ponySway, uY - 24.8 * z, 3 * z, 5 * z, palette.hair);
+          rect(uX - 0.6 * z + ponySway * 0.5, uY - 30.4 * z, 1.2 * z, 5.2 * z, palette.hairHighlight);
+        } else if (palette.femaleHairStyle === 'bun_updo' && !hideTopChignon) {
+          rect(uX - 3.2 * z, uY - 40.2 * z, 6.4 * z, 2.2 * z, palette.hair);
+          rect(uX - 2.2 * z, uY - 41.4 * z, 4.4 * z, 1.5 * z, palette.hair);
+          rect(uX - 1.2 * z, uY - 40.6 * z, 2.4 * z, 1 * z, palette.hairHighlight);
+          rect(uX - 3.4 * z, uY - 38.2 * z, 6.8 * z, 1.2 * z, palette.accessoryColor);
+        }
       } else {
-        rect(uX - 6.2 * z, uY - 35.6 * z, 12.4 * z, 2.2 * z, palette.hair);
-        rect(uX - 5.4 * z, uY - 37.2 * z, 10.8 * z, 2 * z, palette.hair);
-        rect(uX - 4 * z, uY - 38.4 * z, 8 * z, 1.4 * z, palette.hair);
-        rect(uX - 1 * z, uY - 37.6 * z, 2.4 * z, 1 * z, palette.hairHighlight);
+        // Male pure North rear hair cap + clean barbershop nape fade
+        rect(uX - 6.2 * z, uY - 34.4 * z, 12.4 * z, 6.6 * z, palette.hair);
+        rect(uX - 5.2 * z, uY - 28 * z, 10.4 * z, 2.8 * z, palette.hair);
+        rect(uX - 4.2 * z, uY - 25.2 * z, 8.4 * z, 1 * z, 'rgba(20, 24, 36, 0.32)');
+        if (hideTopChignon) {
+          rect(uX - 6.2 * z, uY - 35.8 * z, 12.4 * z, 2.2 * z, palette.hair);
+        } else if (palette.maleHairStyle === 'spiky') {
+          rect(uX - 6.6 * z, uY - 36.4 * z, 13.2 * z, 2.8 * z, palette.hair);
+          rect(uX - 4.6 * z, uY - 39.8 * z, 2.8 * z, 3.4 * z, palette.hair);
+          rect(uX - 1.4 * z, uY - 40.8 * z, 2.8 * z, 4.4 * z, palette.hair);
+          rect(uX + 1.8 * z, uY - 39.6 * z, 2.8 * z, 3.2 * z, palette.hair);
+          rect(uX - 0.6 * z, uY - 40 * z, 1.2 * z, 2.2 * z, palette.hairHighlight);
+        } else if (palette.maleHairStyle === 'curly_top') {
+          rect(uX - 7.2 * z, uY - 37 * z, 14.4 * z, 3.2 * z, palette.hair);
+          rect(uX - 6 * z, uY - 39 * z, 12 * z, 2.4 * z, palette.hair);
+          rect(uX - 4 * z, uY - 40.2 * z, 8 * z, 1.6 * z, palette.hair);
+          rect(uX - 1.4 * z, uY - 39.2 * z, 2.8 * z, 1.2 * z, palette.hairHighlight);
+        } else if (palette.maleHairStyle === 'side_part') {
+          rect(uX - 6.4 * z, uY - 36.2 * z, 12.8 * z, 2.4 * z, palette.hair);
+          rect(uX - 5.2 * z, uY - 38 * z, 10.4 * z, 2 * z, palette.hair);
+          rect(uX - 2.2 * z, uY - 38 * z, 4.4 * z, 1.1 * z, palette.hairHighlight);
+        } else {
+          rect(uX - 6.2 * z, uY - 35.6 * z, 12.4 * z, 2 * z, palette.hair);
+          rect(uX - 5.2 * z, uY - 37.2 * z, 10.4 * z, 1.8 * z, palette.hair);
+          rect(uX - 3.8 * z, uY - 38.4 * z, 7.6 * z, 1.4 * z, palette.hair);
+          rect(uX - 1.2 * z, uY - 37.6 * z, 2.4 * z, 1 * z, palette.hairHighlight);
+        }
       }
-    }
-  } else if (palette.gender === 'female') {
-    if (!enclosingHelmet) {
-      // Stepped rounded crown dome (8*z -> 11*z -> 13*z, never a square block)
+    } else if (isSideProfile) {
+      if (palette.gender === 'female') {
+        // Lateral feminine crown + swept side bangs + back-of-skull hair + visible ear & stud
+        uRect(-4.2, uY - 38 * z, 7.6, 1.5, palette.hair);
+        uRect(-5.2, uY - 37 * z, 9.6, 2, palette.hair);
+        uRect(-5.6, uY - 35.5 * z, 10.4, 2.4, palette.hair);
+        uRect(-5.8, uY - 33.5 * z, 5.2, 10.2, palette.hair);
+        uRect(1.2, uY - 33.6 * z, 3.8, 1.8, palette.hair);
+        uRect(3, uY - 32.2 * z, 1.8, 1.1, palette.hair);
+        uRect(-2.4, uY - 36.6 * z, 4.2, 1.2, palette.hairHighlight);
+        // Lateral ear + gleaming stud
+        uRect(-1, uY - 29 * z, 1.6, 2.4, palette.skin);
+        uRect(-0.8, uY - 27 * z, 1, 1, '#fff2cc');
+
+        if (palette.femaleHairStyle === 'long_locks') {
+          uRect(-6.4, uY - 23.6 * z, 5.6, 6.4, palette.hair);
+          uRect(-6.8, uY - 17.6 * z, 4.8, 3.2, palette.hair);
+          uRect(-4.6, uY - 22.8 * z, 1.4, 6.2, palette.hairHighlight);
+        } else if (palette.femaleHairStyle === 'bob_cut') {
+          uRect(-5.8, uY - 31.5 * z, 5.4, 8.6, palette.hair);
+          uRect(-2.2, uY - 25.4 * z, 3.2, 2.8, palette.hair);
+          uRect(-4.2, uY - 30.8 * z, 1.2, 5.4, palette.hairHighlight);
+          uRect(0.2, uY - 32.8 * z, 2.2, 1, palette.accessoryColor);
+        } else if (palette.femaleHairStyle === 'ponytail' && !isLeiaCostume) {
+          const ponySway = Math.sin(timeSec * 2.5) * 0.5 * z;
+          uRect(-6.4, uY - 33.8 * z, 2.2, 2.4, palette.accessoryColor);
+          uRect(-9.2, uY - 34.4 * z, 3.2, 3.2, palette.hair);
+          uRect(-10, uY - 31.6 * z + ponySway * 0.5, 3, 5.6, palette.hair);
+          uRect(-9.4, uY - 26.2 * z + ponySway, 2.2, 4.2, palette.hair);
+          uRect(-8.8, uY - 33.6 * z, 1.4, 4.6, palette.hairHighlight);
+        } else if (palette.femaleHairStyle === 'bun_updo' && !hideTopChignon) {
+          uRect(-6.8, uY - 39.2 * z, 4.8, 3.6, palette.hair);
+          uRect(-7.6, uY - 38.2 * z, 1.6, 2.2, palette.hair);
+          uRect(-4.8, uY - 38.8 * z, 1.4, 3.2, palette.accessoryColor);
+          uRect(0.8, uY - 32 * z, 1, 4, palette.hair);
+        }
+      } else {
+        // Lateral masculine fade + sideburn + ear + profile crest
+        uRect(-5.8, uY - 34.2 * z, 5.2, 6.8, palette.hair);
+        uRect(-5.4, uY - 27.6 * z, 4.2, 2.8, palette.hair);
+        uRect(0.1, uY - 32.4 * z, 1.1, 3.2, palette.hair);
+        uRect(-1.4, uY - 29.6 * z, 1.6, 2.6, palette.skin);
+        uRect(-1, uY - 29.1 * z, 0.8, 1.6, palette.skinShadow);
+
+        if (hideTopChignon) {
+          uRect(-5.4, uY - 35.8 * z, 10.4, 2.2, palette.hair);
+        } else if (palette.maleHairStyle === 'side_part') {
+          uRect(-5.4, uY - 36.2 * z, 10.6, 2.6, palette.hair);
+          uRect(-4.2, uY - 38 * z, 9.6, 2, palette.hair);
+          uRect(0.4, uY - 39.2 * z, 5.4, 1.6, palette.hair);
+          uRect(3.2, uY - 34 * z, 2.6, 1.4, palette.hair);
+          uRect(0.8, uY - 38.4 * z, 3.8, 1.2, palette.hairHighlight);
+        } else if (palette.maleHairStyle === 'spiky') {
+          uRect(-5.6, uY - 36.4 * z, 11, 2.8, palette.hair);
+          uRect(-6.6, uY - 39 * z, 2.6, 2.8, palette.hair);
+          uRect(-3.4, uY - 40.4 * z, 2.8, 4, palette.hair);
+          uRect(0.2, uY - 41 * z, 3, 4.6, palette.hair);
+          uRect(3.4, uY - 39.4 * z, 2.6, 3.2, palette.hair);
+          uRect(0.8, uY - 40.2 * z, 1.4, 2.4, palette.hairHighlight);
+        } else if (palette.maleHairStyle === 'curly_top') {
+          uRect(-6.2, uY - 37 * z, 12, 3.2, palette.hair);
+          uRect(-5, uY - 39 * z, 10.4, 2.4, palette.hair);
+          uRect(-3, uY - 40.2 * z, 7.4, 1.6, palette.hair);
+          uRect(3.4, uY - 34.2 * z, 2.4, 1.5, palette.hair);
+          uRect(-0.8, uY - 39.2 * z, 2.6, 1.2, palette.hairHighlight);
+        } else {
+          uRect(-5.4, uY - 35.6 * z, 10.4, 2.2, palette.hair);
+          uRect(-4.6, uY - 37.2 * z, 9.2, 2, palette.hair);
+          uRect(-3.2, uY - 38.4 * z, 6.8, 1.4, palette.hair);
+          uRect(3.4, uY - 33.8 * z, 1.6, 1, palette.hair);
+          uRect(-0.6, uY - 37.6 * z, 2.2, 1, palette.hairHighlight);
+        }
+      }
+    } else if (isFacingAway) {
+      if (palette.gender === 'female') {
+        rect(uX - 4 * z, uY - 38 * z, 8 * z, 1.5 * z, palette.hair);
+        rect(uX - 5.5 * z, uY - 37 * z, 11 * z, 2 * z, palette.hair);
+        rect(uX - 6.2 * z, uY - 35.5 * z, 12.4 * z, 2.6 * z, palette.hair);
+        const backHairX = dirFlip > 0 ? uX - 6.2 * z : uX - 2.4 * z;
+        rect(backHairX, uY - 33.4 * z, 8.6 * z, 10.6 * z, palette.hair);
+        rect(backHairX + 1.8 * z, uY - 35.8 * z, 3.6 * z, 1.4 * z, palette.hairHighlight);
+        const earX = dirFlip > 0 ? uX + 1.8 * z : uX - 3.2 * z;
+        rect(earX, uY - 29 * z, 1.4 * z, 2.2 * z, palette.skin);
+        rect(earX + 0.2 * z, uY - 27 * z, 1 * z, 1 * z, '#fff2cc');
+
+        if (palette.femaleHairStyle === 'long_locks') {
+          rect(uX - 5.4 * z, uY - 24 * z, 9.2 * z * (dirFlip > 0 ? 0.85 : 1), 5.5 * z, palette.hair);
+          const waveX = dirFlip > 0 ? uX - 6.4 * z : uX - 2 * z;
+          rect(waveX, uY - 23.5 * z, 7.8 * z, 6.2 * z, palette.hair);
+          rect(waveX + 0.8 * z, uY - 17.5 * z, 6 * z, 2.4 * z, palette.hair);
+          rect(waveX + 1.8 * z, uY - 22.5 * z, 1.4 * z, 4.8 * z, palette.hairHighlight);
+          rect(waveX + 4.4 * z, uY - 21.5 * z, 1.4 * z, 4.2 * z, palette.hairHighlight);
+        } else if (palette.femaleHairStyle === 'bob_cut') {
+          const bobX = dirFlip > 0 ? uX - 6.6 * z : uX - 2.6 * z;
+          rect(bobX, uY - 31 * z, 9.2 * z, 8.8 * z, palette.hair);
+          rect(bobX + 1.2 * z, uY - 30.5 * z, 1.2 * z, 5.5 * z, palette.hairHighlight);
+          rect(dirFlip > 0 ? uX + 0.4 * z : uX - 2.4 * z, uY - 32.8 * z, 2 * z, 1 * z, palette.accessoryColor);
+        } else if (palette.femaleHairStyle === 'ponytail' && !isLeiaCostume) {
+          const ponySway = Math.sin(timeSec * 2.5) * 0.5 * z;
+          const scX = dirFlip > 0 ? uX - 4.2 * z : uX + 2 * z;
+          rect(scX, uY - 33.2 * z, 2.4 * z, 2.2 * z, palette.accessoryColor);
+          rect(scX - 0.4 * z + ponySway * 0.5, uY - 31.2 * z, 3.2 * z, 6.2 * z, palette.hair);
+          rect(scX + 0.2 * z + ponySway, uY - 25.2 * z, 2.2 * z, 4.8 * z, palette.hair);
+          rect(scX + 0.4 * z + ponySway * 0.5, uY - 30.4 * z, 1.2 * z, 4 * z, palette.hairHighlight);
+        } else if (palette.femaleHairStyle === 'bun_updo' && !hideTopChignon) {
+          rect(uX - 3 * z, uY - 40 * z, 6 * z, 2 * z, palette.hair);
+          rect(uX - 2 * z, uY - 41.2 * z, 4 * z, 1.5 * z, palette.hair);
+          rect(uX - 3.2 * z, uY - 38.2 * z, 6.4 * z, 1.2 * z, palette.accessoryColor);
+        }
+      } else {
+        const backHairX = dirFlip > 0 ? uX - 6.8 * z : uX - 2.4 * z;
+        rect(backHairX, uY - 34 * z, 9.2 * z, 6.8 * z, palette.hair);
+        rect(backHairX + 0.6 * z, uY - 27.4 * z, 7.6 * z, 3.2 * z, palette.hair);
+        const earX = dirFlip > 0 ? uX + 2 * z : uX - 3.4 * z;
+        rect(earX, uY - 29.6 * z, 1.4 * z, 2.4 * z, palette.skin);
+        rect(earX + (dirFlip > 0 ? 0 : 0.6) * z, uY - 29.2 * z, 0.7 * z, 1.6 * z, palette.skinShadow);
+
+        if (hideTopChignon) {
+          rect(uX - 6.2 * z, uY - 35.8 * z, 12.4 * z, 2.4 * z, palette.hair);
+        } else if (palette.maleHairStyle === 'spiky') {
+          rect(uX - 6.6 * z, uY - 36.4 * z, 13.2 * z, 2.8 * z, palette.hair);
+          rect(uX - 4.4 * z, uY - 39.8 * z, 2.8 * z, 3.4 * z, palette.hair);
+          rect(uX - 1.2 * z, uY - 40.8 * z, 3 * z, 4.4 * z, palette.hair);
+          rect(uX + 2.4 * z, uY - 39.4 * z, 2.6 * z, 3 * z, palette.hair);
+          rect(uX - 0.4 * z, uY - 40 * z, 1.4 * z, 2.2 * z, palette.hairHighlight);
+        } else if (palette.maleHairStyle === 'curly_top') {
+          rect(uX - 7.2 * z, uY - 37 * z, 14.4 * z, 3.2 * z, palette.hair);
+          rect(uX - 6 * z, uY - 39 * z, 12 * z, 2.4 * z, palette.hair);
+          rect(uX - 4 * z, uY - 40.2 * z, 8 * z, 1.6 * z, palette.hair);
+          rect(uX - 1.4 * z, uY - 39.2 * z, 2.6 * z, 1.2 * z, palette.hairHighlight);
+        } else if (palette.maleHairStyle === 'side_part') {
+          rect(uX - 6.4 * z, uY - 36.2 * z, 12.8 * z, 2.6 * z, palette.hair);
+          rect(uX - 5.2 * z, uY - 38 * z, 10.8 * z, 2 * z, palette.hair);
+          rect(uX - 1.2 * z, uY - 38.2 * z, 4.6 * z, 1.2 * z, palette.hairHighlight);
+        } else {
+          rect(uX - 6.2 * z, uY - 35.6 * z, 12.4 * z, 2.2 * z, palette.hair);
+          rect(uX - 5.4 * z, uY - 37.2 * z, 10.8 * z, 2 * z, palette.hair);
+          rect(uX - 4 * z, uY - 38.4 * z, 8 * z, 1.4 * z, palette.hair);
+          rect(uX - 1 * z, uY - 37.6 * z, 2.4 * z, 1 * z, palette.hairHighlight);
+        }
+      }
+    } else if (palette.gender === 'female') {
       rect(uX - 4 * z, uY - 38 * z, 8 * z, 1.5 * z, palette.hair);
       rect(uX - 5.5 * z, uY - 37 * z, 11 * z, 2 * z, palette.hair);
       rect(uX - 6.4 * z, uY - 35.5 * z, 12.8 * z, 2.4 * z, palette.hair);
@@ -2510,18 +3125,15 @@ export function drawEmployeeSprite(
       rect(uX + 1.5 * z, uY - 36.2 * z, 2 * z, 1 * z, palette.hairHighlight);
 
       if (palette.femaleHairStyle === 'long_locks') {
-        // Diagonal side-swept bangs + slender temple locks (keeping earrings visible at -26.8*z)
         rect(uX - 5.5 * z, uY - 33.5 * z, 5 * z, 1.8 * z, palette.hair);
         rect(uX - 2.8 * z, uY - 32.6 * z, 2.8 * z, 1.1 * z, palette.hair);
         rect(uX + 2 * z, uY - 33.5 * z, 3.6 * z, 1.6 * z, palette.hair);
         rect(uX - 6.6 * z, uY - 33.5 * z, 1.3 * z, 6.2 * z, palette.hair);
         rect(uX + 5.3 * z, uY - 33.5 * z, 1.3 * z, 6.2 * z, palette.hair);
       } else if (palette.femaleHairStyle === 'bob_cut') {
-        // Swept bangs + inward-curving chin-tucked French bob + dainty 2*z x 1*z hairpin
         rect(uX - 5.5 * z, uY - 33.5 * z, 5.2 * z, 1.8 * z, palette.hair);
         rect(uX - 2 * z, uY - 32.6 * z, 2.4 * z, 1 * z, palette.hair);
         rect(uX + 2.2 * z, uY - 33.5 * z, 3.4 * z, 1.6 * z, palette.hair);
-        // Left & right inward-curving bob locks hugging tapered jaw (uY - 23*z..uY - 21.5*z)
         rect(uX - 6.8 * z, uY - 33.5 * z, 1.6 * z, 8.8 * z, palette.hair);
         rect(uX - 6 * z, uY - 24.8 * z, 1.8 * z, 2 * z, palette.hair);
         rect(uX - 4.8 * z, uY - 23 * z, 1.8 * z, 1.4 * z, palette.hair);
@@ -2531,7 +3143,6 @@ export function drawEmployeeSprite(
         rect(uX - 6.4 * z, uY - 31.5 * z, 1 * z, 5 * z, palette.hairHighlight);
         rect(uX + 3.2 * z, uY - 33.2 * z, 2 * z, 1 * z, palette.accessoryColor);
       } else if (palette.femaleHairStyle === 'ponytail') {
-        // Soft parted bangs + delicate 1*z cheek-framing tendrils
         rect(uX - 5.2 * z, uY - 33.5 * z, 4.4 * z, 1.7 * z, palette.hair);
         rect(uX + 1.8 * z, uY - 33.5 * z, 3.6 * z, 1.6 * z, palette.hair);
         rect(uX - 6.4 * z, uY - 33.2 * z, 1.1 * z, 5 * z, palette.hair);
@@ -2539,7 +3150,6 @@ export function drawEmployeeSprite(
         rect(uX + 5.3 * z, uY - 33.2 * z, 1.1 * z, 5 * z, palette.hair);
         rect(uX + 4.8 * z, uY - 28.5 * z, 1 * z, 1.6 * z, palette.hair);
       } else if (palette.femaleHairStyle === 'bun_updo') {
-        // Center-parted curtain bangs + delicate curved 1*z cheek tendrils
         rect(uX - 5.4 * z, uY - 33.5 * z, 3.8 * z, 1.6 * z, palette.hair);
         rect(uX + 1.6 * z, uY - 33.5 * z, 3.8 * z, 1.6 * z, palette.hair);
         rect(uX - 6.4 * z, uY - 33.2 * z, 1 * z, 4.8 * z, palette.hair);
@@ -2547,36 +3157,29 @@ export function drawEmployeeSprite(
         rect(uX + 5.4 * z, uY - 33.2 * z, 1 * z, 4.8 * z, palette.hair);
         rect(uX + 4.8 * z, uY - 28.6 * z, 1 * z, 1.5 * z, palette.hair);
       }
-    }
-  } else if (!enclosingHelmet) {
-    // 4 multi-layered sculpted masculine hairstyles (tall crests tucked cleanly under Jedi hood / Batman cowl / Wizard hat)
-    if (hideTopChignon) {
+    } else if (hideTopChignon) {
       rect(uX - 6.8 * z, uY - 34 * z, 1.2 * z, 3.8 * z, palette.hair);
       rect(uX + 5.6 * z, uY - 34 * z, 1.2 * z, 3.8 * z, palette.hair);
       rect(uX - 6.2 * z, uY - 35.8 * z, 12.4 * z, 2.4 * z, palette.hair);
       rect(uX - 4.6 * z, uY - 33.8 * z, 9.2 * z, 1.2 * z, palette.hair);
     } else if (palette.maleHairStyle === 'side_part') {
-      // Tapered gentleman side-part + lifted pompadour wave + multi-step sheen
       rect(uX - 7 * z, uY - 34 * z, 1.2 * z, 4.2 * z, palette.hair);
       rect(uX + 5.8 * z, uY - 34 * z, 1.2 * z, 4.2 * z, palette.hair);
       rect(uX - 6.6 * z, uY - 36.2 * z, 13.2 * z, 2.6 * z, palette.hair);
       rect(uX - 5.4 * z, uY - 38 * z, 11.4 * z, 2 * z, palette.hair);
       rect(uX - 2 * z, uY - 39.2 * z, 7.2 * z, 1.5 * z, palette.hair);
-      // Crisp left part notch + swept forelock wave
       rect(uX - 6 * z, uY - 34 * z, 2 * z, 1.2 * z, palette.hair);
       rect(uX - 2.6 * z, uY - 34 * z, 7.2 * z, 1.6 * z, palette.hair);
       rect(uX + 1.2 * z, uY - 32.6 * z, 3.2 * z, 1 * z, palette.hair);
       rect(uX - 1.2 * z, uY - 38.4 * z, 4.8 * z, 1.2 * z, palette.hairHighlight);
       rect(uX + 1.6 * z, uY - 36.4 * z, 3.4 * z, 1.1 * z, palette.hairHighlight);
     } else if (palette.maleHairStyle === 'spiky') {
-      // Multi-layered dynamic fanned spikes + directional highlight streaks
       rect(uX - 7 * z, uY - 34 * z, 1.2 * z, 4.4 * z, palette.hair);
       rect(uX + 5.8 * z, uY - 34 * z, 1.2 * z, 4.4 * z, palette.hair);
       rect(uX - 6.6 * z, uY - 36.4 * z, 13.2 * z, 2.8 * z, palette.hair);
       rect(uX - 4.8 * z, uY - 33.8 * z, 1.8 * z, 1.2 * z, palette.hair);
       rect(uX - 0.8 * z, uY - 33.8 * z, 1.8 * z, 1.3 * z, palette.hair);
       rect(uX + 3 * z, uY - 33.8 * z, 1.8 * z, 1.2 * z, palette.hair);
-      // 4 stepped dynamic spikes fanning upward
       rect(uX - 7.4 * z, uY - 38.2 * z, 2.4 * z, 2.2 * z, palette.hair);
       rect(uX - 7.8 * z, uY - 39.4 * z, 1.6 * z, 1.4 * z, palette.hair);
       rect(uX - 4.4 * z, uY - 39.6 * z, 2.8 * z, 3.2 * z, palette.hair);
@@ -2589,7 +3192,6 @@ export function drawEmployeeSprite(
       rect(uX - 0.4 * z, uY - 40.2 * z, 1.4 * z, 2.4 * z, palette.hairHighlight);
       rect(uX + 3.2 * z, uY - 39 * z, 1.2 * z, 1.8 * z, palette.hairHighlight);
     } else if (palette.maleHairStyle === 'curly_top') {
-      // Sculpted multi-lobed textured curl crown + fade sides + ringlet highlights
       rect(uX - 7 * z, uY - 33.8 * z, 1 * z, 3.2 * z, palette.hair);
       rect(uX + 6 * z, uY - 33.8 * z, 1 * z, 3.2 * z, palette.hair);
       rect(uX - 7.4 * z, uY - 37 * z, 14.8 * z, 3.2 * z, palette.hair);
@@ -2603,7 +3205,6 @@ export function drawEmployeeSprite(
       rect(uX + 3 * z, uY - 38.2 * z, 2.2 * z, 1.2 * z, palette.hairHighlight);
       rect(uX - 2.6 * z, uY - 36.2 * z, 2 * z, 1 * z, palette.hairHighlight);
     } else {
-      // 'short_crop': Modern skin-fade crew cut + crisp architectural lineup + textured tufts
       rect(uX - 7 * z, uY - 33.6 * z, 1 * z, 2.6 * z, palette.hair);
       rect(uX + 6 * z, uY - 33.6 * z, 1 * z, 2.6 * z, palette.hair);
       rect(uX - 6.2 * z, uY - 35.6 * z, 12.4 * z, 2.2 * z, palette.hair);
@@ -2617,7 +3218,7 @@ export function drawEmployeeSprite(
     }
   }
 
-  // 6. Model-specific headgear & accessories (with monitor code reflection on glasses & visors!)
+  // 6. Model-specific headgear & accessories across all 8 angles
   if (isCostumeEvent(activeEventKind)) {
     drawSpriteCostumeOverlay(
       rect,
@@ -2630,30 +3231,42 @@ export function drawEmployeeSprite(
       activeEventKind,
       timeSec,
       palette.gender === 'female',
+      isPureBack,
     );
   } else if (emp.modelFamily === 'argon' || emp.isCoordinator) {
-    // Gold crown (perched cleanly above chignon / spikes / curls with burnished royal band!)
+    // Gold crown (8-directional royal band & points)
     if (palette.gender === 'female') {
-      const crownBaseY = palette.femaleHairStyle === 'bun_updo' ? uY - 42.6 * z : uY - 40.4 * z;
-      rect(uX - 4 * z, crownBaseY, 8 * z, 2.4 * z, '#ffd147');
-      rect(uX - 4 * z, crownBaseY - 1.6 * z, 1.6 * z, 1.6 * z, '#ffd147');
-      rect(uX - 0.8 * z, crownBaseY - 2 * z, 1.6 * z, 2 * z, '#ffd147');
-      rect(uX + 2.4 * z, crownBaseY - 1.6 * z, 1.6 * z, 1.6 * z, '#ffd147');
+      const crownBaseY =
+        palette.femaleHairStyle === 'bun_updo' && !isSideProfile ? uY - 42.6 * z : uY - 40.4 * z;
+      const cw = isSideProfile ? 6.6 : 8;
+      uRect(-cw / 2, crownBaseY, cw, 2.4, '#ffd147');
+      uRect(-cw / 2, crownBaseY - 1.6 * z, 1.5, 1.6, '#ffd147');
+      uRect(-0.8, crownBaseY - 2 * z, 1.6, 2, '#ffd147');
+      uRect(cw / 2 - 1.5, crownBaseY - 1.6 * z, 1.5, 1.6, '#ffd147');
     } else {
       const mCrownY =
         palette.maleHairStyle === 'spiky' || palette.maleHairStyle === 'curly_top'
           ? uY - 43.6 * z
           : uY - 41.2 * z;
-      rect(uX - 4.6 * z, mCrownY + 2 * z, 9.2 * z, 0.9 * z, '#9e680d');
-      rect(uX - 4.6 * z, mCrownY, 9.2 * z, 2.2 * z, '#ffd147');
-      rect(uX - 4.6 * z, mCrownY - 1.8 * z, 1.8 * z, 1.8 * z, '#ffd147');
-      rect(uX - 0.9 * z, mCrownY - 2.2 * z, 1.8 * z, 2.2 * z, '#ffd147');
-      rect(uX + 2.8 * z, mCrownY - 1.8 * z, 1.8 * z, 1.8 * z, '#ffd147');
-      rect(uX - 0.6 * z, mCrownY + 0.6 * z, 1.2 * z, 1 * z, '#ff5666');
+      const cw = isSideProfile ? 7.6 : 9.2;
+      uRect(-cw / 2, mCrownY + 2 * z, cw, 0.9, '#9e680d');
+      uRect(-cw / 2, mCrownY, cw, 2.2, '#ffd147');
+      uRect(-cw / 2, mCrownY - 1.8 * z, 1.7, 1.8, '#ffd147');
+      uRect(-0.9, mCrownY - 2.2 * z, 1.8, 2.2, '#ffd147');
+      uRect(cw / 2 - 1.7, mCrownY - 1.8 * z, 1.7, 1.8, '#ffd147');
+      if (!isPureBack) {
+        uRect(isSideProfile ? cw / 2 - 1.4 : -0.6, mCrownY + 0.6 * z, 1.2, 1, '#ff5666');
+      }
     }
   } else if (emp.modelFamily === 'hydrogen') {
-    // Cyan headphones
-    if (palette.gender === 'female') {
+    // Cyan studio headphones
+    if (isSideProfile) {
+      const bandTopY = palette.gender === 'female' ? uY - 38.4 * z : uY - 39.4 * z;
+      uRect(-1.5, bandTopY, 2.2, 7.2, '#3cd8ff');
+      uRect(-2.6, uY - 31.8 * z, 3.8, 5.6, '#3cd8ff');
+      uRect(-1.6, uY - 30.8 * z, 1.8, 3.6, '#16263b');
+      uRect(-1, uY - 29.4 * z, 0.9, 1, '#9ef8ff');
+    } else if (palette.gender === 'female') {
       rect(uX - 5 * z, uY - 38.2 * z, 10 * z, 1 * z, '#3cd8ff');
       rect(uX - 7.4 * z, uY - 31.8 * z, 1.8 * z, 5.8 * z, '#3cd8ff');
       rect(uX + 5.6 * z, uY - 31.8 * z, 1.8 * z, 5.8 * z, '#3cd8ff');
@@ -2663,11 +3276,22 @@ export function drawEmployeeSprite(
       rect(uX + 6.4 * z, uY - 32 * z, 2 * z, 6 * z, '#3cd8ff');
     }
   } else if (emp.modelFamily === 'flash') {
-    // Emerald-yellow speed visor (side-profile wrap when NE/NW)
-    if (isFacingAway) {
+    // Emerald-yellow speed visor (rear strap on N, aerodynamic side wrap on E/W & NE/NW, full lens on S/SE/SW)
+    if (isPureBack) {
+      rect(uX - 5.8 * z, uY - 29.8 * z, 11.6 * z, 1.1 * z, '#bfa126');
+    } else if (isSideProfile) {
+      uRect(-0.6, uY - 30 * z, 6.2, 2.2, '#ffe64d');
+      uRect(2.2, uY - 29.6 * z, 2.6, 0.9, hasScreenGlow ? '#9ef8ff' : '#fffbe0');
+    } else if (isFacingAway) {
       const visX = dirFlip > 0 ? uX + 2 * z : uX - 6.6 * z;
       rect(visX, uY - 30 * z, 4.6 * z, 2.2 * z, '#ffe64d');
-      rect(visX + (dirFlip > 0 ? 1.8 : 0.4) * z, uY - 29.6 * z, 2 * z, 0.9 * z, hasScreenGlow ? '#7ef3ff' : '#fffbe0');
+      rect(
+        visX + (dirFlip > 0 ? 1.8 : 0.4) * z,
+        uY - 29.6 * z,
+        2 * z,
+        0.9 * z,
+        hasScreenGlow ? '#7ef3ff' : '#fffbe0',
+      );
     } else if (palette.gender === 'female') {
       rect(uX - 4.5 * z + fShift * 0.5, uY - 29.8 * z, 9 * z, 2.2 * z, '#ffe64d');
       rect(
@@ -2688,18 +3312,18 @@ export function drawEmployeeSprite(
       );
     }
   } else if (emp.modelFamily === 'carbon') {
-    // Crimson/white lab coat lapel + cyber glasses with bright monitor/laptop reflection
     const lensTint = hasScreenGlow ? 'rgba(126, 243, 255, 0.42)' : 'rgba(126, 243, 255, 0.24)';
-    if (isFacingAway) {
+    if (isPureBack) {
+      rect(uX - 6.8 * z, uY - 29.6 * z, 1 * z, 0.8 * z, '#7ef3ff');
+      rect(uX + 5.8 * z, uY - 29.6 * z, 1 * z, 0.8 * z, '#7ef3ff');
+    } else if (isSideProfile) {
+      uRect(1.8, uY - 18.6 * z, 1.6, 4.4, '#f2f5ff');
+      uRect(-0.8, uY - 29.8 * z, 5.6, 0.8, '#7ef3ff');
+      uRect(2, uY - 29.3 * z, 2.8, 2.2, lensTint);
+    } else if (isFacingAway) {
       const templeX = dirFlip > 0 ? uX + 1.8 * z : uX - 6.4 * z;
       rect(templeX, uY - 29.8 * z, 4.6 * z, 0.8 * z, '#7ef3ff');
-      rect(
-        dirFlip > 0 ? uX + 3.6 * z : uX - 6.4 * z,
-        uY - 29.2 * z,
-        2.8 * z,
-        2.2 * z,
-        lensTint,
-      );
+      rect(dirFlip > 0 ? uX + 3.6 * z : uX - 6.4 * z, uY - 29.2 * z, 2.8 * z, 2.2 * z, lensTint);
     } else if (palette.gender === 'female') {
       const lapelH = hasScreenGlow ? 3.5 * z : 5.8 * z;
       rect(uX - 3.8 * z, uY - 18.5 * z, 1.8 * z, lapelH, '#f2f5ff');
@@ -2720,22 +3344,24 @@ export function drawEmployeeSprite(
       rect(mEyeRx - 0.6 * z, uY - 29.4 * z, 3.2 * z, 2.2 * z, lensTint);
     }
   } else if (emp.modelFamily === 'pro') {
-    // Navy/gold executive accent + half-rim glasses with monitor/laptop syntax glow reflection!
     const proLensTint = hasScreenGlow
       ? codeGlowCyan
         ? 'rgba(118, 240, 255, 0.38)'
         : 'rgba(110, 245, 178, 0.34)'
       : 'rgba(230, 236, 255, 0.22)';
-    if (isFacingAway) {
+    if (isPureBack) {
+      rect(uX - 6.8 * z, uY - 29.6 * z, 1 * z, 0.8 * z, '#e6ecff');
+      rect(uX + 5.8 * z, uY - 29.6 * z, 1 * z, 0.8 * z, '#e6ecff');
+    } else if (isSideProfile) {
+      if (palette.gender === 'male' && palette.maleOutfitStyle !== 'tech_hoodie') {
+        uRect(3.2, uY - 18.8 * z, 1.1, 4.2, '#ffd147');
+      }
+      uRect(-0.8, uY - 29.8 * z, 5.6, 0.8, '#e6ecff');
+      uRect(2, uY - 29.3 * z, 2.8, 2.2, proLensTint);
+    } else if (isFacingAway) {
       const templeX = dirFlip > 0 ? uX + 2 * z : uX - 6.4 * z;
       rect(templeX, uY - 29.8 * z, 4.4 * z, 0.8 * z, '#e6ecff');
-      rect(
-        dirFlip > 0 ? uX + 3.6 * z : uX - 6.4 * z,
-        uY - 29.2 * z,
-        2.8 * z,
-        2.2 * z,
-        proLensTint,
-      );
+      rect(dirFlip > 0 ? uX + 3.6 * z : uX - 6.4 * z, uY - 29.2 * z, 2.8 * z, 2.2 * z, proLensTint);
     } else if (palette.gender === 'male') {
       if (palette.maleOutfitStyle !== 'tech_hoodie') {
         rect(uX - 0.9 * z, uY - 19.2 * z, 1.8 * z, hasScreenGlow ? 4 * z : 5.4 * z, '#ffd147');
@@ -2753,23 +3379,28 @@ export function drawEmployeeSprite(
       rect(fEyeRx - 0.6 * z, uY - 29.2 * z, 3.2 * z, 2.2 * z, proLensTint);
     }
   } else if (emp.modelFamily === 'claude') {
-    // Terracotta/cream beret + cozy collar
-    if (palette.gender === 'female') {
-      if (!isFacingAway) {
+    const beretW = isSideProfile ? (palette.gender === 'female' ? 8.8 : 9.8) : palette.gender === 'female' ? 10.4 : 11.6;
+    const beretY = palette.gender === 'female' ? uY - 39.8 * z : uY - 40.4 * z;
+    if (!isFacingAway) {
+      if (isSideProfile) {
+        uRect(0.2, palette.gender === 'female' ? uY - 19.4 * z : uY - 20.2 * z, 2.8, 1.5, '#fff1d6');
+      } else if (palette.gender === 'female') {
         rect(uX - 3 * z, uY - 19.2 * z, 6 * z, 1.4 * z, '#fff1d6');
-      }
-      rect(uX - 5.2 * z, uY - 39.8 * z, 10.4 * z, 3 * z, '#e07a52');
-      rect(uX - 0.8 * z, uY - 41.2 * z, 1.6 * z, 1.5 * z, '#fff1d6');
-    } else {
-      if (!isFacingAway) {
+      } else {
         rect(uX - 3.4 * z, uY - 20.2 * z, 6.8 * z, 1.6 * z, '#fff1d6');
       }
-      rect(uX - 5.8 * z, uY - 40.4 * z, 11.6 * z, 3.2 * z, '#e07a52');
-      rect(uX - 0.9 * z, uY - 42 * z, 1.8 * z, 1.6 * z, '#fff1d6');
     }
+    uRect(-beretW / 2, beretY, beretW, palette.gender === 'female' ? 3 : 3.2, '#e07a52');
+    uRect(-0.8, beretY - 1.5 * z, 1.6, 1.5, '#fff1d6');
   } else if (emp.modelFamily === 'gpt') {
-    // Teal/slate turtleneck + cyber headset with mic boom
-    if (palette.gender === 'female') {
+    if (isSideProfile) {
+      uRect(-1.8, palette.gender === 'female' ? uY - 20.6 * z : uY - 21.2 * z, 4.2, 2, '#0d4a46');
+      uRect(-1.8, uY - 31.6 * z, 2.8, 5.2, '#7efaa8');
+      uRect(0.6, uY - 25.4 * z, 4.2, 1.2, '#7efaa8');
+    } else if (isPureBack) {
+      rect(uX - 2.8 * z, uY - 20.8 * z, 5.6 * z, 2 * z, '#0d4a46');
+      rect(uX + (palette.gender === 'female' ? 5.2 : 6) * z, uY - 31.6 * z, 1.7 * z, 5.2 * z, '#7efaa8');
+    } else if (palette.gender === 'female') {
       rect(uX - 2.2 * z, uY - 20.6 * z, 4.4 * z, 2 * z, '#0d4a46');
       rect(uX + dirFlip * 5 * z - 0.8 * z, uY - 31.5 * z, 1.6 * z, 5 * z, '#7efaa8');
       rect(dirFlip > 0 ? uX + 2 * z : uX - 5.8 * z, uY - 25 * z, 3.8 * z, 1.2 * z, '#7efaa8');
@@ -2778,8 +3409,10 @@ export function drawEmployeeSprite(
       rect(uX + dirFlip * 6 * z - 0.9 * z, uY - 31.6 * z, 1.8 * z, 5.4 * z, '#7efaa8');
       rect(dirFlip > 0 ? uX + 2.4 * z : uX - 6.8 * z, uY - 25.2 * z, 4.4 * z, 1.3 * z, '#7efaa8');
     }
+  } else if (isSideProfile) {
+    uRect(1.6, uY - 18.6 * z, 1.2, 3.4, '#b7c4ff');
+    uRect(1.8, uY - 15.4 * z, 2, 2.2, '#ffd147');
   } else if (!isFacingAway) {
-    // Indigo polo + lanyard badge (front view)
     if (palette.gender === 'female') {
       rect(uX - 0.8 * z, uY - 18.5 * z, 1.6 * z, 3.5 * z, '#b7c4ff');
       rect(uX - 1.6 * z, uY - 15.5 * z, 3.2 * z, 2.2 * z, '#ffd147');
@@ -2789,86 +3422,112 @@ export function drawEmployeeSprite(
     }
   }
 
-  // 6.5 Handheld Glowing Open Aluminum Laptop & Active Typing Hand (Standing DevOps / QA at SERVER_RACK)
+  // 6.5 Handheld Glowing Open Aluminum Laptop & Active Typing Hand (Standing DevOps / QA at SERVER_RACK across 8 angles)
   if (isLaptopPose) {
     const lapWave = Math.sin(timeSec * 12);
     const lapTapY = lapWave * 0.85 * z;
     const lapTapX = Math.cos(timeSec * 6) * 0.55;
 
-    // Soft upward terminal glow cone illuminating chest & lower face
-    dRect(
-      2.6,
-      baseY - 22 * z,
-      8.6,
-      3.4,
-      codeGlowCyan ? 'rgba(92, 240, 255, 0.13)' : 'rgba(59, 232, 122, 0.12)',
-    );
-    dRect(3.8, baseY - 19.8 * z, 8.2, 6.8, 'rgba(60, 216, 255, 0.14)');
-
-    // Open 3-stepped isometric aluminum display lid (#cfd8dc silver outer rim + #e8f0f5 specular + #455a64 bezel)
-    dRect(5.2, baseY - 19.8 * z, 6.8, 2.4, '#cfd8dc');
-    dRect(5.4, baseY - 19.8 * z, 6.4, 0.7, '#eef4f8');
-    dRect(4.7, baseY - 17.5 * z, 6.9, 2.4, '#cfd8dc');
-    dRect(4.2, baseY - 15.2 * z, 6.9, 2.6, '#cfd8dc');
-    dRect(5.2, baseY - 19.1 * z, 6.1, 2.1, '#455a64');
-    dRect(4.7, baseY - 17.1 * z, 6.2, 2.2, '#455a64');
-    dRect(4.2, baseY - 15 * z, 6.2, 2.4, '#455a64');
-
-    // Glowing #0d1526 terminal screen + header bar + green (#3be87a) & cyan (#5cf0ff) CLI code lines
-    dRect(5.5, baseY - 18.7 * z, 5.4, 2, '#0d1526');
-    dRect(5, baseY - 16.8 * z, 5.4, 2, '#0d1526');
-    dRect(4.6, baseY - 14.9 * z, 5.4, 2, '#0d1526');
-    dRect(5.5, baseY - 18.7 * z, 5.4, 0.75, '#1c2d4f');
-    dRect(5.8, baseY - 18.6 * z, 0.8, 0.55, '#3be87a');
-    dRect(5.7, baseY - 17.4 * z, 3.8, 0.75, '#3be87a');
-    const cliLineW = 2.6 + (Math.floor(timeSec * 6) % 3) * 0.8;
-    dRect(5.3, baseY - 16.2 * z, cliLineW, 0.75, '#5cf0ff');
-    dRect(5, baseY - 15 * z, 1.8, 0.75, '#3be87a');
-    dRect(7.2, baseY - 15 * z, 2.2, 0.75, '#5cf0ff');
-    dRect(4.9, baseY - 13.8 * z, 2, 0.75, '#3be87a');
-    if (Math.floor(timeSec * 4) % 2 === 0) {
-      dRect(7.2, baseY - 13.85 * z, 0.9, 0.8, '#ffffff');
-    }
-
-    // Isometric 2-stepped anodized aluminum keyboard deck (#cfd8dc top + #455a64 bevel + #1b2432 chiclet keys)
-    dRect(3.8, baseY - 12.9 * z, 6.4, 0.9, '#263238');
-    dRect(1.2, baseY - 13 * z, 7.8, 1.2, '#cfd8dc');
-    dRect(-1.4, baseY - 12.3 * z, 8.8, 1.3, '#cfd8dc');
-    dRect(-1.4, baseY - 11.1 * z, 9, 0.9, '#455a64');
-    dRect(7.4, baseY - 11.9 * z, 1.8, 0.9, '#455a64');
-    dRect(1.8, baseY - 11.8 * z, 2.2, 0.65, '#90a4ae');
-    dRect(-0.5, baseY - 12.7 * z, 5.8, 1.05, '#1b2432');
-    dRect(-0.1, baseY - 12.5 * z, 1.4, 0.5, '#607d8b');
-    dRect(1.7, baseY - 12.5 * z, 1.6, 0.5, '#90a4ae');
-    dRect(3.6, baseY - 12.6 * z, 1.3, 0.5, '#607d8b');
-
-    // Supporting palm & fingers cradling the underside of the aluminum laptop chassis
-    dRect(2.6, baseY - 10.8 * z, 3.2, 1.2, palette.skin);
-    dRect(3, baseY - 11.2 * z, 2.2, 0.6, palette.skinShadow);
-
-    // Foreground cross-body forearm & active typing hand hovering over laptop keyboard
-    if (palette.gender === 'female') {
-      dRect(-6.2, baseY - 14.9 * z + lapTapY * 0.35, 7, 1.9, uniform.main);
-      dRect(0.4, baseY - 14.8 * z + lapTapY * 0.35, 0.8, 1.8, '#f6f7fc');
-      dRect(1 + lapTapX, baseY - 14.5 * z + lapTapY, 2.8, 1.8, palette.skin);
+    if (isPureBack) {
+      // Pure North laptop pose: laptop held in front of chest — glowing terminal aura + peeking silver lid edge + CLI glyph
+      rect(
+        cx - 8.6 * z,
+        baseY - 21.5 * z,
+        17.2 * z,
+        5.5 * z,
+        codeGlowCyan ? 'rgba(92, 240, 255, 0.14)' : 'rgba(59, 232, 122, 0.13)',
+      );
+      rect(cx + 4.4 * z, baseY - 19.2 * z, 4.4 * z, 3.8 * z, '#cfd8dc');
+      rect(cx + 4.8 * z, baseY - 18.6 * z, 3.6 * z, 2.6 * z, '#0d1526');
+      rect(cx + 5.2 * z, baseY - 17.8 * z, 2.4 * z, 0.75 * z, '#3be87a');
+      rect(cx + 5.2 * z, baseY - 16.7 * z, 1.8 * z, 0.75 * z, '#5cf0ff');
     } else {
-      const mIsHoodie = palette.maleOutfitStyle === 'tech_hoodie';
-      const mIsVest = palette.maleOutfitStyle === 'vest_ensemble';
-      if (mIsVest) {
-        dRect(-8.4, baseY - 15.1 * z + lapTapY * 0.25, 2, 2.1, '#eef2fc');
-        dRect(-6.6, baseY - 15.1 * z + lapTapY * 0.3, 1.1, 2.1, '#cfd8ee');
-        dRect(-5.5, baseY - 15 * z + lapTapY * 0.35, 6.3, 2, palette.skin);
-      } else {
-        dRect(-8.2, baseY - 15.1 * z + lapTapY * 0.35, 9, 2.1, uniform.main);
-        if (!mIsHoodie) {
-          dRect(0.4, baseY - 15 * z + lapTapY * 0.35, 0.9, 2, '#f6f7fc');
-        }
-      }
-      dRect(1 + lapTapX, baseY - 14.7 * z + lapTapY, 3.2, 1.9, palette.skin);
-    }
+      const lapDx = isSideProfile ? 2.4 : isFacingAway ? 1.4 : 0;
+      const lapLift = isFacingAway ? 1.2 * z : 0;
 
-    if (lapWave > 0.45) {
-      dRect(2 + lapTapX, baseY - 12.8 * z, 1.4, 0.8, codeGlowCyan ? '#5cf0ff' : '#3be87a');
+      // Soft upward terminal glow cone illuminating chest & lower face
+      dRect(
+        2.6 + lapDx,
+        baseY - 22 * z - lapLift,
+        8.6,
+        3.4,
+        codeGlowCyan ? 'rgba(92, 240, 255, 0.13)' : 'rgba(59, 232, 122, 0.12)',
+      );
+      dRect(3.8 + lapDx, baseY - 19.8 * z - lapLift, 8.2, 6.8, 'rgba(60, 216, 255, 0.14)');
+
+      // Open 3-stepped isometric aluminum display lid (#cfd8dc silver outer rim + #e8f0f5 specular + #455a64 bezel)
+      dRect(5.2 + lapDx, baseY - 19.8 * z - lapLift, 6.8, 2.4, '#cfd8dc');
+      dRect(5.4 + lapDx, baseY - 19.8 * z - lapLift, 6.4, 0.7, '#eef4f8');
+      dRect(4.7 + lapDx, baseY - 17.5 * z - lapLift, 6.9, 2.4, '#cfd8dc');
+      dRect(4.2 + lapDx, baseY - 15.2 * z - lapLift, 6.9, 2.6, '#cfd8dc');
+      dRect(5.2 + lapDx, baseY - 19.1 * z - lapLift, 6.1, 2.1, '#455a64');
+      dRect(4.7 + lapDx, baseY - 17.1 * z - lapLift, 6.2, 2.2, '#455a64');
+      dRect(4.2 + lapDx, baseY - 15 * z - lapLift, 6.2, 2.4, '#455a64');
+
+      // Glowing #0d1526 terminal screen + header bar + green (#3be87a) & cyan (#5cf0ff) CLI code lines
+      dRect(5.5 + lapDx, baseY - 18.7 * z - lapLift, 5.4, 2, '#0d1526');
+      dRect(5 + lapDx, baseY - 16.8 * z - lapLift, 5.4, 2, '#0d1526');
+      dRect(4.6 + lapDx, baseY - 14.9 * z - lapLift, 5.4, 2, '#0d1526');
+      dRect(5.5 + lapDx, baseY - 18.7 * z - lapLift, 5.4, 0.75, '#1c2d4f');
+      dRect(5.8 + lapDx, baseY - 18.6 * z - lapLift, 0.8, 0.55, '#3be87a');
+      dRect(5.7 + lapDx, baseY - 17.4 * z - lapLift, 3.8, 0.75, '#3be87a');
+      const cliLineW = 2.6 + (Math.floor(timeSec * 6) % 3) * 0.8;
+      dRect(5.3 + lapDx, baseY - 16.2 * z - lapLift, cliLineW, 0.75, '#5cf0ff');
+      dRect(5 + lapDx, baseY - 15 * z - lapLift, 1.8, 0.75, '#3be87a');
+      dRect(7.2 + lapDx, baseY - 15 * z - lapLift, 2.2, 0.75, '#5cf0ff');
+      dRect(4.9 + lapDx, baseY - 13.8 * z - lapLift, 2, 0.75, '#3be87a');
+      if (Math.floor(timeSec * 4) % 2 === 0) {
+        dRect(7.2 + lapDx, baseY - 13.85 * z - lapLift, 0.9, 0.8, '#ffffff');
+      }
+
+      // Isometric 2-stepped anodized aluminum keyboard deck (#cfd8dc top + #455a64 bevel + #1b2432 chiclet keys)
+      dRect(3.8 + lapDx, baseY - 12.9 * z - lapLift, 6.4, 0.9, '#263238');
+      dRect(1.2 + lapDx, baseY - 13 * z - lapLift, 7.8, 1.2, '#cfd8dc');
+      dRect(-1.4 + lapDx, baseY - 12.3 * z - lapLift, 8.8, 1.3, '#cfd8dc');
+      dRect(-1.4 + lapDx, baseY - 11.1 * z - lapLift, 9, 0.9, '#455a64');
+      dRect(7.4 + lapDx, baseY - 11.9 * z - lapLift, 1.8, 0.9, '#455a64');
+      dRect(1.8 + lapDx, baseY - 11.8 * z - lapLift, 2.2, 0.65, '#90a4ae');
+      dRect(-0.5 + lapDx, baseY - 12.7 * z - lapLift, 5.8, 1.05, '#1b2432');
+      dRect(-0.1 + lapDx, baseY - 12.5 * z - lapLift, 1.4, 0.5, '#607d8b');
+      dRect(1.7 + lapDx, baseY - 12.5 * z - lapLift, 1.6, 0.5, '#90a4ae');
+      dRect(3.6 + lapDx, baseY - 12.6 * z - lapLift, 1.3, 0.5, '#607d8b');
+
+      // Supporting palm & fingers cradling the underside of the aluminum laptop chassis
+      dRect(2.6 + lapDx, baseY - 10.8 * z - lapLift, 3.2, 1.2, palette.skin);
+      dRect(3 + lapDx, baseY - 11.2 * z - lapLift, 2.2, 0.6, palette.skinShadow);
+
+      // Foreground forearm & active typing hand hovering over laptop keyboard
+      const foreStartDx = isSideProfile ? -1.2 : palette.gender === 'female' ? -6.2 : -8.2;
+      const foreWidth = 1.4 + lapDx - foreStartDx;
+      if (palette.gender === 'female') {
+        dRect(foreStartDx, baseY - 14.9 * z - lapLift + lapTapY * 0.35, foreWidth, 1.9, uniform.main);
+        dRect(0.4 + lapDx, baseY - 14.8 * z - lapLift + lapTapY * 0.35, 0.8, 1.8, '#f6f7fc');
+        dRect(1 + lapDx + lapTapX, baseY - 14.5 * z - lapLift + lapTapY, 2.8, 1.8, palette.skin);
+      } else {
+        const mIsHoodie = palette.maleOutfitStyle === 'tech_hoodie';
+        const mIsVest = palette.maleOutfitStyle === 'vest_ensemble';
+        if (mIsVest) {
+          dRect(foreStartDx, baseY - 15.1 * z - lapLift + lapTapY * 0.25, 2, 2.1, '#eef2fc');
+          dRect(foreStartDx + 1.8, baseY - 15.1 * z - lapLift + lapTapY * 0.3, 1.1, 2.1, '#cfd8ee');
+          dRect(
+            foreStartDx + 2.8,
+            baseY - 15 * z - lapLift + lapTapY * 0.35,
+            Math.max(2.4, foreWidth - 2.6),
+            2,
+            palette.skin,
+          );
+        } else {
+          dRect(foreStartDx, baseY - 15.1 * z - lapLift + lapTapY * 0.35, foreWidth, 2.1, uniform.main);
+          if (!mIsHoodie) {
+            dRect(0.4 + lapDx, baseY - 15 * z - lapLift + lapTapY * 0.35, 0.9, 2, '#f6f7fc');
+          }
+        }
+        dRect(1 + lapDx + lapTapX, baseY - 14.7 * z - lapLift + lapTapY, 3.2, 1.9, palette.skin);
+      }
+
+      if (lapWave > 0.45) {
+        dRect(2 + lapDx + lapTapX, baseY - 12.8 * z - lapLift, 1.4, 0.8, codeGlowCyan ? '#5cf0ff' : '#3be87a');
+      }
     }
 
     // Floating CLI / SSH terminal glyph rising gently above the open laptop screen
@@ -3489,7 +4148,7 @@ export function drawMascotSprite(
     return;
   }
   const z = zoom;
-  const dir = facing === 'SW' || facing === 'NW' ? -1 : 1;
+  const dir = facing === 'SW' || facing === 'NW' || facing === 'W' ? -1 : 1;
   ctx.save();
 
   // Floor shadow

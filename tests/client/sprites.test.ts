@@ -11,6 +11,14 @@ import {
   type MaleHairStyle,
   type MaleOutfitStyle,
 } from '../../src/client/engine/pixelSprites';
+import type { Facing } from '../../src/client/engine/pathfinding';
+import {
+  drawChairForegroundBackrest,
+  drawEnhancedFurniture,
+  drawErgonomicOfficeChair,
+  type ChairVariant,
+  type FurnitureKind,
+} from '../../src/client/engine/officePropsSprites';
 import type { FloorEventKind, ModelFamily, OfficeEmployee } from '../../src/shared/types';
 
 interface RecordedRect {
@@ -18,13 +26,16 @@ interface RecordedRect {
   y: number;
   w: number;
   h: number;
+  fillStyle: string;
 }
 
 function createMockCanvasContext(): {
   ctx: CanvasRenderingContext2D;
   rects: RecordedRect[];
+  stats: { saves: number; restores: number; drawOps: number };
 } {
   const rects: RecordedRect[] = [];
+  const stats = { saves: 0, restores: 0, drawOps: 0 };
   const noop = () => {};
   const mock = {
     fillStyle: '#000',
@@ -35,27 +46,45 @@ function createMockCanvasContext(): {
     textBaseline: 'alphabetic',
     globalAlpha: 1,
     imageSmoothingEnabled: false,
-    save: noop,
-    restore: noop,
+    save: () => {
+      stats.saves += 1;
+    },
+    restore: () => {
+      stats.restores += 1;
+    },
     beginPath: noop,
     closePath: noop,
+    clip: noop,
+    translate: noop,
+    transform: noop,
     moveTo: noop,
     lineTo: noop,
+    quadraticCurveTo: noop,
     ellipse: noop,
     arc: noop,
-    fill: noop,
-    stroke: noop,
+    fill: () => {
+      stats.drawOps += 1;
+    },
+    stroke: () => {
+      stats.drawOps += 1;
+    },
     clearRect: noop,
-    strokeRect: noop,
-    fillText: noop,
+    strokeRect: () => {
+      stats.drawOps += 1;
+    },
+    fillText: () => {
+      stats.drawOps += 1;
+    },
     measureText: (text: string) => ({ width: text.length * 6 }),
     fillRect: (x: number, y: number, w: number, h: number) => {
-      rects.push({ x, y, w, h });
+      stats.drawOps += 1;
+      rects.push({ x, y, w, h, fillStyle: String(mock.fillStyle) });
     },
   };
   return {
     ctx: mock as unknown as CanvasRenderingContext2D,
     rects,
+    stats,
   };
 }
 
@@ -343,5 +372,159 @@ describe('pixelSprites gender, hair, outfit palettes & rendering', () => {
         }
       }
     }
+  });
+
+  it('renders true 8-directional employee sprites (S, SE, E, NE, N, NW, W, SW) across poses with distinct front/side/back anatomy', () => {
+    const allFacings: Facing[] = ['S', 'SE', 'E', 'NE', 'N', 'NW', 'W', 'SW'];
+    const families: ModelFamily[] = [
+      'argon',
+      'hydrogen',
+      'flash',
+      'carbon',
+      'pro',
+      'claude',
+      'gpt',
+      'other',
+    ];
+    const zooms = [0.75, 1.0, 2.0];
+
+    for (const gender of ['female', 'male'] as const) {
+      for (const family of families) {
+        for (const facing of allFacings) {
+          for (const scenario of [
+            { activity: 'meeting' as const, zone: 'WAR_ROOM' as const, walking: false, seated: true },
+            { activity: 'coding' as const, zone: 'DESK_CODING' as const, walking: false, seated: true },
+            { activity: 'coffee' as const, zone: 'COFFEE_LOUNGE' as const, walking: true, seated: false },
+            { activity: 'terminal' as const, zone: 'SERVER_RACK' as const, walking: false, seated: false },
+          ]) {
+            for (const zoom of zooms) {
+              const { ctx, rects } = createMockCanvasContext();
+              const emp = {
+                ...makeEmployee(`8dir-${gender}-${family}`, family, scenario.activity, gender),
+                zone: scenario.zone,
+              };
+              drawEmployeeSprite(
+                ctx,
+                emp,
+                200,
+                200,
+                zoom,
+                facing,
+                scenario.walking,
+                0.3,
+                1.25,
+                false,
+                false,
+                1,
+                false,
+                null,
+                scenario.seated,
+              );
+              assert.ok(rects.length > 15, `Expected rich rect count for ${gender}/${family}/${facing}`);
+              for (const r of rects) {
+                assert.ok(
+                  Number.isFinite(r.x) && Number.isFinite(r.y) && r.w > 0 && r.h > 0,
+                  `Invalid 8-dir rect (${gender}, ${family}, ${facing}, zoom=${zoom}): ${JSON.stringify(r)}`,
+                );
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Anatomical verification:
+    // 1. Pure North ('N') must NOT draw front rose-coral lips (#e56b88) or front yellow flash visor (#ffe64d),
+    //    whereas South ('S') and East ('E') MUST draw them!
+    const femFlash = makeEmployee('anat-fem-flash', 'flash', 'meeting', 'female');
+    const runFacing = (f: Facing, empObj = femFlash) => {
+      const { ctx, rects } = createMockCanvasContext();
+      drawEmployeeSprite(ctx, empObj, 200, 200, 1, f, false, 0, 1, false, false, 1, false, null, true);
+      return rects;
+    };
+    const southRects = runFacing('S');
+    const eastRects = runFacing('E');
+    const northRects = runFacing('N');
+
+    assert.ok(southRects.some((r) => r.fillStyle === '#e56b88'), 'Expected lips on S view');
+    assert.ok(eastRects.some((r) => r.fillStyle === '#e56b88'), 'Expected profile lips on E view');
+    assert.ok(!northRects.some((r) => r.fillStyle === '#e56b88'), 'Pure N back view must have zero lips');
+    assert.ok(southRects.some((r) => r.fillStyle === '#ffe64d'), 'Expected yellow visor lens on S view');
+    assert.ok(eastRects.some((r) => r.fillStyle === '#ffe64d'), 'Expected side-wrap visor on E view');
+    assert.ok(!northRects.some((r) => r.fillStyle === '#ffe64d'), 'Pure N back view must show strap, not front visor');
+
+    // 2. Standing side profile ('E') torso/shoulder span is slimmer than front ('S') span
+    const standMale = makeEmployee('anat-male-pro', 'pro', 'presenting', 'male');
+    const { ctx: mSouthCtx, rects: mSouthRects } = createMockCanvasContext();
+    const { ctx: mEastCtx, rects: mEastRects } = createMockCanvasContext();
+    drawEmployeeSprite(mSouthCtx, standMale, 200, 200, 1, 'S', false, 0, 0, false, false, 1, false, null, false);
+    drawEmployeeSprite(mEastCtx, standMale, 200, 200, 1, 'E', false, 0, 0, false, false, 1, false, null, false);
+    const chestSpan = (rs: RecordedRect[]) => {
+      const band = rs.filter((r) => r.y >= 180 && r.y <= 188 && r.w <= 20);
+      return Math.max(...band.map((r) => r.x + r.w)) - Math.min(...band.map((r) => r.x));
+    };
+    assert.ok(
+      chestSpan(mEastRects) < chestSpan(mSouthRects),
+      `Expected E lateral profile torso span (${chestSpan(mEastRects)}) < S front span (${chestSpan(mSouthRects)})`,
+    );
+  });
+
+  it('renders 8-directional ergonomic chairs and 2-pass foreground backrests with balanced save/restore', () => {
+    const allFacings: Facing[] = ['S', 'SE', 'E', 'NE', 'N', 'NW', 'W', 'SW'];
+    const variants: ChairVariant[] = ['task', 'meeting', 'exec', 'gaming'];
+
+    for (const variant of variants) {
+      for (const facing of allFacings) {
+        const { ctx, stats } = createMockCanvasContext();
+        drawErgonomicOfficeChair(ctx, 200, 200, 1.5, variant, facing, '#3cd8ff');
+        assert.equal(stats.saves, stats.restores, `Unbalanced save/restore for chair ${variant}/${facing}`);
+        assert.ok(stats.drawOps > 8, `Expected chair draw ops for ${variant}/${facing}`);
+
+        const { ctx: fgCtx, stats: fgStats } = createMockCanvasContext();
+        drawChairForegroundBackrest(fgCtx, 200, 200, 1.5, variant, facing, '#3cd8ff');
+        assert.equal(
+          fgStats.saves,
+          fgStats.restores,
+          `Unbalanced save/restore for foreground backrest ${variant}/${facing}`,
+        );
+        if (facing === 'S' || facing === 'SE' || facing === 'SW') {
+          assert.equal(
+            fgStats.drawOps,
+            0,
+            `Expected foreground backrest to be a no-op on ${facing}, got ${fgStats.drawOps}`,
+          );
+        } else {
+          assert.ok(
+            fgStats.drawOps > 0,
+            `Expected foreground backrest geometry on ${facing} for ${variant}`,
+          );
+        }
+      }
+    }
+  });
+
+  it('renders all 5 architectural conference tables (oval, round, rect, u, s) and treats war_table_part as a balanced no-op', () => {
+    const tableKinds: FurnitureKind[] = [
+      'war_table',
+      'war_table_oval',
+      'war_table_round',
+      'war_table_rect',
+      'war_table_u',
+      'war_table_s',
+    ];
+
+    for (const kind of tableKinds) {
+      for (const zoom of [0.75, 1.0, 2.0]) {
+        const { ctx, stats } = createMockCanvasContext();
+        drawEnhancedFurniture(ctx, kind, 300, 240, zoom, 1.8, true);
+        assert.equal(stats.saves, stats.restores, `Unbalanced save/restore for ${kind} at zoom=${zoom}`);
+        assert.ok(stats.drawOps > 25, `Expected rich architectural geometry for ${kind}, got ${stats.drawOps}`);
+      }
+    }
+
+    const { ctx: partCtx, stats: partStats } = createMockCanvasContext();
+    drawEnhancedFurniture(partCtx, 'war_table_part', 300, 240, 1.5, 1.0, true);
+    assert.equal(partStats.saves, partStats.restores, 'Unbalanced save/restore for war_table_part');
+    assert.equal(partStats.drawOps, 0, 'war_table_part must draw zero primitives');
   });
 });

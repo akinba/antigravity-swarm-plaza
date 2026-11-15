@@ -2,11 +2,14 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { GRID_H, GRID_W, type GridPoint } from '../../src/client/engine/isoMath.js';
 import {
+  ALL_FACINGS,
   buildWalkableGrid,
   buildWalkableGridForFurniture,
   facingFromDelta,
+  facingUnitGridVector,
   findPath,
   getTileZone,
+  isConferenceTableKind,
 } from '../../src/client/engine/pathfinding.js';
 
 function makeEmptyGrid(): boolean[][] {
@@ -46,13 +49,33 @@ describe('pathfinding walkability grid and helpers', () => {
     assert.equal(grid[6][0], true);
   });
 
-  it('computes isometric facing from movement deltas', () => {
+  it('computes full 8-directional isometric facing from movement/look deltas', () => {
+    assert.equal(ALL_FACINGS.length, 8);
     assert.equal(facingFromDelta(0, 0), 'SE');
     assert.equal(facingFromDelta(0, 0, 'NW'), 'NW');
+    assert.equal(facingFromDelta(0, 0, 'N'), 'N');
+    // 4 isometric grid axes
     assert.equal(facingFromDelta(1, 0), 'SE');
     assert.equal(facingFromDelta(-1, 0), 'NW');
     assert.equal(facingFromDelta(0, 1), 'SW');
     assert.equal(facingFromDelta(0, -1), 'NE');
+    // 4 screen-cardinal diagonals (front S, rear N, side profiles E & W)
+    assert.equal(facingFromDelta(1, 1), 'S');
+    assert.equal(facingFromDelta(-1, -1), 'N');
+    assert.equal(facingFromDelta(1, -1), 'E');
+    assert.equal(facingFromDelta(-1, 1), 'W');
+
+    // Every unit grid vector round-trips cleanly back to its exact Facing
+    for (const f of ALL_FACINGS) {
+      const u = facingUnitGridVector(f);
+      assert.ok(Math.abs(Math.hypot(u.dx, u.dy) - 1) < 1e-6, `non-unit vector for ${f}`);
+      assert.equal(facingFromDelta(u.dx, u.dy), f);
+    }
+
+    assert.equal(isConferenceTableKind('war_table_oval'), true);
+    assert.equal(isConferenceTableKind('war_table_u'), true);
+    assert.equal(isConferenceTableKind('war_table_part'), true);
+    assert.equal(isConferenceTableKind('meeting_chair'), false);
   });
 
   it('maps grid tiles to expected default office zones', () => {
