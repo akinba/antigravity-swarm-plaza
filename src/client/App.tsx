@@ -36,6 +36,23 @@ import { buildSidecarWsUrl, isPluginScheme, sidecarFetch } from './sidecarBridge
 import { localizeSnapshot, useI18n } from './i18n/translations';
 
 const GRAPHICS_STORAGE_KEY = 'swarm_plaza_graphics_settings_v1';
+const THEME_STORAGE_KEY = 'swarm_plaza_theme';
+
+function loadInitialThemeIsNight(): boolean {
+  try {
+    if (typeof window !== 'undefined') {
+      const searchParams = new URLSearchParams(window.location.search);
+      const themeParam = searchParams.get('theme');
+      if (themeParam === 'day') return false;
+      if (themeParam === 'night') return true;
+      const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+      if (stored === 'day') return false;
+    }
+    return true;
+  } catch {
+    return true;
+  }
+}
 
 function loadGraphicsSettings(): GraphicsSettings {
   try {
@@ -69,7 +86,17 @@ export const App: React.FC = () => {
   const [snapshot, setSnapshot] = useState<PlazaSnapshot | null>(null);
   const [selectedFloorId, setSelectedFloorId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'plaza' | 'office'>('office');
-  const [isNight, setIsNight] = useState<boolean>(true);
+  const [isNight, setIsNight] = useState<boolean>(loadInitialThemeIsNight);
+
+  const handleToggleNight = () => {
+    setIsNight((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(THEME_STORAGE_KEY, next ? 'night' : 'day');
+      } catch {}
+      return next;
+    });
+  };
   const [muted, setMutedState] = useState<boolean>(() => isMuted());
   const [notificationsEnabled, setNotificationsEnabledState] = useState<boolean>(() =>
     isNotificationsEnabled(),
@@ -622,6 +649,8 @@ function loadStickyAlerts(): StickyAlertItem[] {
         onOpenLegend={() => setLegendOpen(true)}
         onOpenCalendar={() => setCalendarOpen(true)}
         scheduledCount={activeFloor?.scheduledEvents?.length ?? 0}
+        isNight={isNight}
+        onToggleNight={handleToggleNight}
       />
 
       {topBannerAlert && (
@@ -833,7 +862,7 @@ function loadStickyAlerts(): StickyAlertItem[] {
           followCam={followCam}
           onToggleFollowCam={handleToggleFollowCam}
           isNight={isNight}
-          onToggleNight={() => setIsNight((n) => !n)}
+          onToggleNight={handleToggleNight}
           demoMode={localizedSnapshot?.demoMode ?? false}
           onToggleDemo={handleToggleDemo}
           muted={muted}

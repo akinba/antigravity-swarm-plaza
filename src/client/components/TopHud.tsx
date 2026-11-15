@@ -26,6 +26,8 @@ interface TopHudProps {
   onOpenLegend?: () => void;
   onOpenCalendar?: () => void;
   scheduledCount?: number;
+  isNight?: boolean;
+  onToggleNight?: () => void;
 }
 
 export const TopHud: React.FC<TopHudProps> = ({
@@ -50,6 +52,8 @@ export const TopHud: React.FC<TopHudProps> = ({
   onOpenLegend,
   onOpenCalendar,
   scheduledCount = 0,
+  isNight = true,
+  onToggleNight,
 }) => {
   const { t } = useI18n();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -328,6 +332,20 @@ export const TopHud: React.FC<TopHudProps> = ({
             >
               {t.hud.settings}
             </button>
+            {onToggleNight && (
+              <button
+                type="button"
+                className="pixel-btn"
+                style={{ padding: '4px 7px', fontSize: 8 }}
+                onClick={() => {
+                  playSelectBlip();
+                  setMoreOpen(false);
+                  onToggleNight();
+                }}
+              >
+                {isNight ? '🌙 Night' : '☀️ Day'}
+              </button>
+            )}
           </div>
         )}
       </header>
@@ -595,6 +613,22 @@ export const TopHud: React.FC<TopHudProps> = ({
         >
           {t.hud.settings}
         </button>
+
+        {/* Night / Day Quick Toggle */}
+        {onToggleNight && (
+          <button
+            type="button"
+            className="pixel-btn"
+            style={{ padding: '6px 9px', fontSize: 11 }}
+            title={isNight ? t.settingsModal.themeNight : t.settingsModal.themeDay}
+            onClick={() => {
+              playSelectBlip();
+              onToggleNight();
+            }}
+          >
+            {isNight ? '🌙' : '☀️'}
+          </button>
+        )}
       </div>
     </header>
   );
