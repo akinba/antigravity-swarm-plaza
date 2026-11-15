@@ -484,6 +484,12 @@ export function drawFurniture(
     ctx.fillRect(Math.round(cx - 7 * z), Math.round(cy - 20 * z), Math.ceil(14 * z), Math.ceil(11 * z));
     ctx.fillStyle = '#4be07a';
     ctx.fillRect(Math.round(cx - 4 * z), Math.round(cy - 25 * z), Math.ceil(8 * z), Math.ceil(7 * z));
+  } else if (kind === 'lounge_lamp' || kind === 'floor_lamp') {
+    drawIsoBox(ctx, cx, cy, 6, 3.5, 2, '#8a5229', '#663a1b', '#45250f', z);
+    ctx.fillStyle = '#cfa13a';
+    ctx.fillRect(Math.round(cx - 1 * z), Math.round(cy - 21 * z), Math.ceil(2 * z), Math.ceil(19 * z));
+    ctx.fillStyle = '#dfd5c3';
+    ctx.fillRect(Math.round(cx - 6 * z), Math.round(cy - 30 * z), Math.ceil(12 * z), Math.ceil(9 * z));
   } else if (kind === 'war_table_part') {
     // Multi-tile conference table collision extension: intentional no-op
   } else if (

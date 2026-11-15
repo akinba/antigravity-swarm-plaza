@@ -735,4 +735,81 @@ describe('pixelSprites gender, hair, outfit palettes & rendering', () => {
       `Expected standingGuest shoes (${lowestShoeY(standRects)}) to plant on floor below seated armchair lap (${lowestShoeY(seatRects)})`,
     );
   });
+
+  it('switches office desk lamps (dev_desk, clover_desk, qa_desk, exec_desk) and lounge_lamp OFF by day and ON with warm glow at night', () => {
+    const deskFacings: Facing[] = ['NE', 'NW', 'SE', 'SW'];
+    const deskKinds: FurnitureKind[] = ['dev_desk', 'clover_desk', 'qa_desk', 'exec_desk'];
+    const zooms = [0.75, 1.0, 2.0];
+
+    // 1. All 4 rotated desk types: unlit by day, warm glowing bulb (#fff8cc / #fff7bd) by night
+    for (const kind of deskKinds) {
+      for (const facing of deskFacings) {
+        for (const zoom of zooms) {
+          const { ctx: dayCtx, rects: dayRects, stats: dayStats } = createMockCanvasContext();
+          const { ctx: nightCtx, rects: nightRects, stats: nightStats } = createMockCanvasContext();
+
+          drawEnhancedFurniture(ctxWithMock(dayCtx), kind, 300, 240, zoom, 1.5, false, true, 'pro', false, '', 1, facing);
+          drawEnhancedFurniture(ctxWithMock(nightCtx), kind, 300, 240, zoom, 1.5, true, true, 'pro', false, '', 1, facing);
+
+          assert.equal(dayStats.saves, dayStats.restores);
+          assert.equal(nightStats.saves, nightStats.restores);
+
+          const bulbCol = kind === 'exec_desk' ? '#fff7bd' : '#fff8cc';
+          assert.ok(
+            !dayRects.some((r) => r.fillStyle === bulbCol),
+            `Expected ${kind}/${facing} desk lamp bulb (${bulbCol}) to be OFF in daytime`,
+          );
+          assert.ok(
+            nightRects.some((r) => r.fillStyle === bulbCol),
+            `Expected ${kind}/${facing} desk lamp bulb (${bulbCol}) to be ON at night`,
+          );
+          assert.ok(
+            nightStats.drawOps > dayStats.drawOps,
+            `Expected ${kind}/${facing} to emit extra warm light-cone/pool drawOps at night (${nightStats.drawOps} vs ${dayStats.drawOps})`,
+          );
+          for (const r of [...dayRects, ...nightRects]) {
+            assert.ok(r.w > 0 && r.h > 0 && Number.isFinite(r.x) && Number.isFinite(r.y));
+          }
+        }
+      }
+    }
+
+    // 2. Lounge floor lamp ('lounge_lamp'): cream unlit linen shade by day, warm illuminated bulb/shade at night
+    for (const zoom of zooms) {
+      const { ctx: dayCtx, rects: dayRects, stats: dayStats } = createMockCanvasContext();
+      const { ctx: nightCtx, rects: nightRects, stats: nightStats } = createMockCanvasContext();
+
+      drawEnhancedFurniture(dayCtx, 'lounge_lamp', 280, 240, zoom, 1.2, false, false);
+      drawEnhancedFurniture(nightCtx, 'lounge_lamp', 280, 240, zoom, 1.2, true, false);
+
+      assert.equal(dayStats.saves, dayStats.restores);
+      assert.equal(nightStats.saves, nightStats.restores);
+      assert.ok(
+        !dayRects.some((r) => r.fillStyle === '#fffbe0' || r.fillStyle === '#fff6c7'),
+        'Expected lounge_lamp bulb/aperture glow to be OFF in daytime',
+      );
+      assert.ok(
+        nightRects.some((r) => r.fillStyle === '#fffbe0') &&
+          nightRects.some((r) => r.fillStyle === '#fff6c7'),
+        'Expected lounge_lamp warm bulb & top aperture glow to be ON at night',
+      );
+      assert.ok(
+        nightStats.drawOps > dayStats.drawOps,
+        `Expected lounge_lamp night glow cones/halos (${nightStats.drawOps} > ${dayStats.drawOps})`,
+      );
+      for (const r of [...dayRects, ...nightRects]) {
+        assert.ok(r.w > 0 && r.h > 0 && Number.isFinite(r.x) && Number.isFinite(r.y));
+      }
+    }
+
+    // 3. Fallback drawFurniture supports lounge_lamp cleanly
+    const { ctx: fbCtx, rects: fbRects, stats: fbStats } = createMockCanvasContext();
+    drawFurniture(fbCtx, 'lounge_lamp', 200, 200, 1.5, 1.0, false, false, 'SWARM BOARD', 1);
+    assert.equal(fbStats.saves, fbStats.restores);
+    assert.ok(fbRects.length >= 2 && fbStats.drawOps >= 5);
+  });
 });
+
+function ctxWithMock(c: CanvasRenderingContext2D): CanvasRenderingContext2D {
+  return c;
+}

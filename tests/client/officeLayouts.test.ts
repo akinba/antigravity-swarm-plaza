@@ -758,4 +758,29 @@ describe('officeLayouts all 5 floor blueprints', () => {
       `expected >=4 blueprints to vary desk seating orientations across layoutSeeds, got ${variedBlueprints}`,
     );
   });
+
+  it('places non-colliding lounge_lamp fixtures in COFFEE_LOUNGE across all 5 blueprints while keeping 100% A* reachability', () => {
+    for (const layout of getAllFiveLayouts()) {
+      const bp = layout.blueprintIndex;
+      const lamps = layout.furniture.filter((f) => f.kind === 'lounge_lamp');
+      assert.ok(
+        lamps.length >= 2,
+        `blueprint ${bp} expected >=2 lounge_lamp fixtures in relaxation areas, got ${lamps.length}`,
+      );
+
+      const grid = buildWalkableGridForFurniture(layout.furniture);
+      for (const lamp of lamps) {
+        assert.equal(
+          layout.getTileZone(lamp.gx, lamp.gy),
+          'COFFEE_LOUNGE',
+          `blueprint ${bp} lounge_lamp at (${lamp.gx},${lamp.gy}) must sit in COFFEE_LOUNGE`,
+        );
+        assert.equal(
+          grid[lamp.gy][lamp.gx],
+          false,
+          `blueprint ${bp} lounge_lamp stand at (${lamp.gx},${lamp.gy}) should block walking through the lamp post`,
+        );
+      }
+    }
+  });
 });

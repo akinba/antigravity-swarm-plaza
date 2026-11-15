@@ -1300,6 +1300,31 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
           );
         }
 
+        // Night-only warm floor pools from office desk lamps & lounge floor lamps (0 FPS cost via staticCache)
+        if (night) {
+          for (const item of currentLayout.furniture) {
+            if (item.kind === 'lounge_lamp') {
+              drawRadialPoolOn(
+                targetCtx,
+                item.gx,
+                item.gy,
+                1.9,
+                'rgba(255, 192, 96, 0.26)',
+                'rgba(0,0,0,0)',
+              );
+            } else if (WORK_DESK_KINDS.has(item.kind)) {
+              drawRadialPoolOn(
+                targetCtx,
+                item.gx,
+                item.gy,
+                1.3,
+                'rgba(255, 208, 116, 0.15)',
+                'rgba(0,0,0,0)',
+              );
+            }
+          }
+        }
+
         // PlayStation Hobby Lounge Woven Gaming Rug & Dual Magenta + Cyan Neon Ambience
         const tvConsoleItem = currentLayout.furniture.find(
           (f) => f.kind === 'tv_console' || f.kind === 'gaming_tv',
@@ -1803,6 +1828,23 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
                   facing?: Facing,
                 ) => void
               )(ctx, p.x, p.y, cam.zoom, timeSec, itemFacing);
+            }
+            // Soft upper lampshade ambient bloom strictly at night (completely off during daytime)
+            if (item.kind === 'lounge_lamp' && night) {
+              const shadeY = p.y - 23 * cam.zoom;
+              const haloR = 25 * cam.zoom;
+              if (haloR > 0) {
+                ctx.save();
+                const grad = ctx.createRadialGradient(p.x, shadeY, 0, p.x, shadeY, haloR);
+                grad.addColorStop(0, 'rgba(255, 214, 126, 0.24)');
+                grad.addColorStop(0.55, 'rgba(255, 182, 84, 0.09)');
+                grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(p.x, shadeY, haloR, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+              }
             }
             if (
               (isConfTableAnchor && isCardGameWarRoom) ||

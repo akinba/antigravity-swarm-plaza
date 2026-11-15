@@ -58,6 +58,8 @@ export type FurnitureKind =
   | 'pizza_table'
   | 'plant'
   | 'office_plant'
+  | 'lounge_lamp'
+  | 'floor_lamp'
   | 'bookshelf'
   | 'filing_cabinet'
   | 'server_rack'
@@ -2881,27 +2883,51 @@ function drawOrientedWorkstation(
       },
     });
 
-    // 4. Right-wing Classic Emerald-Glass & Brass Banker's Lamp + Gold Porcelain Espresso Cup
+    // 4. Right-wing Classic Emerald-Glass & Brass Banker's Lamp (OFF in daytime, warm golden glow at night!)
     topItems.push({
       y: iso.floorY(5.6, 14.0),
       draw: () => {
-        // Warm golden reading pool on mahogany surface
-        iso.fillPoly(
-          iso.boxPts(2.4, 8.8, 10.6, 17.4),
-          hTop + 0.05,
-          night ? 'rgba(255, 224, 122, 0.42)' : 'rgba(255, 230, 138, 0.28)',
-        );
         const pLamp = iso.pt(5.8, 14.2, hTop);
-        ctx.fillStyle = '#d4a638';
+        if (night) {
+          // Warm golden reading pool & downward light cone on mahogany surface at night
+          iso.fillPoly(
+            iso.boxPts(2.0, 9.2, 10.2, 17.8),
+            hTop + 0.05,
+            'rgba(255, 218, 108, 0.40)',
+          );
+          const pConeL = iso.pt(2.6, 10.8, hTop + 0.08);
+          const pConeR = iso.pt(8.6, 17.2, hTop + 0.08);
+          ctx.fillStyle = 'rgba(255, 214, 102, 0.16)';
+          ctx.beginPath();
+          ctx.moveTo(pLamp.x - 3.0 * z, pLamp.y - 7.2 * z);
+          ctx.lineTo(pLamp.x + 3.0 * z, pLamp.y - 7.2 * z);
+          ctx.lineTo(pConeR.x, pConeR.y);
+          ctx.lineTo(pConeL.x, pConeL.y);
+          ctx.closePath();
+          ctx.fill();
+        }
+        // Brushed-brass stepped pedestal & stem
+        ctx.fillStyle = night ? '#d4a638' : '#b88d2c';
         pxRect(ctx, pLamp.x - 2.4 * z, pLamp.y - 1.6 * z, 4.8 * z, 1.7 * z);
-        ctx.fillStyle = '#9c761c';
+        ctx.fillStyle = night ? '#9c761c' : '#856318';
         pxRect(ctx, pLamp.x - 0.8 * z, pLamp.y - 6.8 * z, 1.6 * z, 5.4 * z);
-        ctx.fillStyle = '#fff2a6';
-        pxRect(ctx, pLamp.x - 3.2 * z, pLamp.y - 7.2 * z, 6.4 * z, 1.3 * z);
-        ctx.fillStyle = '#1b9e56';
-        pxRect(ctx, pLamp.x - 3.6 * z, pLamp.y - 9.8 * z, 7.2 * z, 2.8 * z);
-        ctx.fillStyle = '#4be08a';
-        pxRect(ctx, pLamp.x - 2.4 * z, pLamp.y - 9.3 * z, 4.8 * z, 1.2 * z);
+        if (night) {
+          // Lit warm incandescent bulb aperture + glowing emerald glass shade
+          ctx.fillStyle = '#fff7bd';
+          pxRect(ctx, pLamp.x - 3.2 * z, pLamp.y - 7.3 * z, 6.4 * z, 1.4 * z);
+          ctx.fillStyle = '#24b866';
+          pxRect(ctx, pLamp.x - 3.6 * z, pLamp.y - 9.9 * z, 7.2 * z, 2.8 * z);
+          ctx.fillStyle = '#74f7ac';
+          pxRect(ctx, pLamp.x - 2.4 * z, pLamp.y - 9.4 * z, 4.8 * z, 1.3 * z);
+        } else {
+          // Unlit daytime emerald glass shade & dark aperture (zero yellow glow)
+          ctx.fillStyle = '#203028';
+          pxRect(ctx, pLamp.x - 3.1 * z, pLamp.y - 7.2 * z, 6.2 * z, 1.2 * z);
+          ctx.fillStyle = '#145c36';
+          pxRect(ctx, pLamp.x - 3.6 * z, pLamp.y - 9.8 * z, 7.2 * z, 2.8 * z);
+          ctx.fillStyle = '#228550';
+          pxRect(ctx, pLamp.x - 2.4 * z, pLamp.y - 9.3 * z, 4.8 * z, 1.1 * z);
+        }
       },
     });
 
@@ -3141,6 +3167,93 @@ function drawOrientedWorkstation(
     },
   });
 
+  // 4-Way Articulated Architect Office Desk Lamp on right flank (+r = 12.2, OFF by day, warm amber glow by night!)
+  const drawWorkstationLamp = (glowOverlayPass: boolean) => {
+    const pBase = iso.pt(-1.6, 12.2, hTop);
+    const pElbow = iso.pt(-0.6, 13.0, hTop + 6.0);
+    const pHead = iso.pt(-3.8, 9.8, hTop + 8.8);
+
+    if (glowOverlayPass) {
+      if (!night) return;
+      // Cast warm amber-gold reading pool & downward light cone OVER the desktop & mousepad!
+      iso.fillPoly(
+        iso.boxPts(-9.4, -0.6, 2.2, 12.6),
+        hTop + 0.22,
+        'rgba(255, 204, 88, 0.34)',
+      );
+      iso.fillPoly(
+        iso.boxPts(-7.8, -2.2, 4.8, 11.2),
+        hTop + 0.24,
+        'rgba(255, 232, 142, 0.30)',
+      );
+      const cA = iso.pt(-8.4, 4.6, hTop + 0.22);
+      const cB = iso.pt(-1.2, 11.8, hTop + 0.22);
+      ctx.fillStyle = 'rgba(255, 214, 102, 0.22)';
+      ctx.beginPath();
+      ctx.moveTo(pHead.x - 2.6 * z, pHead.y + 0.9 * z);
+      ctx.lineTo(pHead.x + 2.6 * z, pHead.y + 0.9 * z);
+      ctx.lineTo(cB.x, cB.y);
+      ctx.lineTo(cA.x, cA.y);
+      ctx.closePath();
+      ctx.fill();
+
+      // Re-affirm crisp glowing bulb & warm shade rim above the light cone
+      ctx.fillStyle = '#252e42';
+      pxRect(ctx, pHead.x - 3.0 * z, pHead.y - 1.9 * z, 6.0 * z, 2.5 * z);
+      ctx.fillStyle = '#4c5e82';
+      pxRect(ctx, pHead.x - 2.0 * z, pHead.y - 2.9 * z, 4.0 * z, 1.3 * z);
+      ctx.fillStyle = '#e6ba4c';
+      pxRect(ctx, pHead.x - 0.8 * z, pHead.y - 3.6 * z, 1.6 * z, 0.9 * z);
+      ctx.fillStyle = '#ffc947';
+      pxRect(ctx, pHead.x - 2.6 * z, pHead.y + 0.4 * z, 5.2 * z, 1.2 * z);
+      ctx.fillStyle = '#fff8cc';
+      pxRect(ctx, pHead.x - 1.6 * z, pHead.y + 0.6 * z, 3.2 * z, 1.1 * z);
+      return;
+    }
+
+    // Weighted gunmetal & brushed-brass circular desk base
+    ctx.fillStyle = '#121724';
+    pxRect(ctx, pBase.x - 2.5 * z, pBase.y - 1.3 * z, 5.0 * z, 1.6 * z);
+    ctx.fillStyle = '#2d374d';
+    pxRect(ctx, pBase.x - 2.0 * z, pBase.y - 1.8 * z, 4.0 * z, 1.2 * z);
+    ctx.fillStyle = '#d4a638';
+    pxRect(ctx, pBase.x - 0.9 * z, pBase.y - 2.4 * z, 1.8 * z, 1.0 * z);
+
+    // 2-segment articulated Anglepoise swing arm + brass tension elbow joint
+    ctx.strokeStyle = night ? '#7589b0' : '#4f5e7d';
+    ctx.lineWidth = Math.max(1.2, 1.4 * z);
+    ctx.beginPath();
+    ctx.moveTo(pBase.x, pBase.y - 2.0 * z);
+    ctx.lineTo(pElbow.x, pElbow.y);
+    ctx.lineTo(pHead.x, pHead.y - 1.5 * z);
+    ctx.stroke();
+    ctx.fillStyle = '#e0b34c';
+    pxRect(ctx, pElbow.x - 0.9 * z, pElbow.y - 0.9 * z, 1.8 * z, 1.8 * z);
+
+    // Sculpted conical architect metal hood + bulb aperture (OFF in daytime, warm glowing filament at night)
+    ctx.fillStyle = '#252e42';
+    pxRect(ctx, pHead.x - 3.0 * z, pHead.y - 1.9 * z, 6.0 * z, 2.5 * z);
+    ctx.fillStyle = night ? '#4c5e82' : '#37445e';
+    pxRect(ctx, pHead.x - 2.0 * z, pHead.y - 2.9 * z, 4.0 * z, 1.3 * z);
+    ctx.fillStyle = '#d9ab42';
+    pxRect(ctx, pHead.x - 0.8 * z, pHead.y - 3.6 * z, 1.6 * z, 0.9 * z);
+
+    if (night) {
+      ctx.fillStyle = '#ffc947';
+      pxRect(ctx, pHead.x - 2.6 * z, pHead.y + 0.4 * z, 5.2 * z, 1.2 * z);
+      ctx.fillStyle = '#fff8cc';
+      pxRect(ctx, pHead.x - 1.6 * z, pHead.y + 0.6 * z, 3.2 * z, 1.1 * z);
+    } else {
+      ctx.fillStyle = '#5a667d';
+      pxRect(ctx, pHead.x - 2.3 * z, pHead.y + 0.4 * z, 4.6 * z, 1.0 * z);
+    }
+  };
+
+  topItems.push({
+    y: iso.floorY(-1.6, 12.2),
+    draw: () => drawWorkstationLamp(false),
+  });
+
   if (isQa) {
     // QA Diagnostic Widescreen Monitor + Companion Telemetry Tablet
     topItems.push({
@@ -3352,6 +3465,7 @@ function drawOrientedWorkstation(
 
   topItems.sort((a, b) => a.y - b.y);
   for (const item of topItems) item.draw();
+  drawWorkstationLamp(true);
 
   drawDeskEvolutionExtras(
     ctx,
@@ -3540,6 +3654,138 @@ export function drawEnhancedFurniture(
     drawPlushBeanbag(ctx, cx, cy, z, chairOrPropFacing, bagColor);
   } else if (kind === 'armchair') {
     drawDirectionalArmchair(ctx, cx, cy, z, facing);
+  } else if (kind === 'lounge_lamp' || kind === 'floor_lamp') {
+    // 2.5D Mid-Century Walnut & Brushed-Brass Standing Lounge Abajur (switched OFF by day, warm honey-peach glow at night!)
+    drawFloorShadow(ctx, cx, cy, 8.4, 4.6, z, night ? 0.2 : 0.3);
+
+    if (night) {
+      // Cozy warm peach-amber carpet halo & dual downward/upward lampshade light cones
+      if (typeof ctx.ellipse === 'function') {
+        ctx.fillStyle = 'rgba(255, 188, 84, 0.22)';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + 0.4 * z, 15.5 * z, 7.8 * z, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255, 216, 122, 0.18)';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, 9.2 * z, 4.6 * z, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // Downward warm light cone onto lounge floor
+      ctx.fillStyle = 'rgba(255, 198, 96, 0.15)';
+      ctx.beginPath();
+      ctx.moveTo(cx - 6.8 * z, cy - 20.6 * z);
+      ctx.lineTo(cx + 6.8 * z, cy - 20.6 * z);
+      ctx.lineTo(cx + 13.8 * z, cy - 0.5 * z);
+      ctx.lineTo(cx - 13.8 * z, cy - 0.5 * z);
+      ctx.closePath();
+      ctx.fill();
+      // Subtle upward ceiling-wash cone from top aperture
+      ctx.fillStyle = 'rgba(255, 214, 128, 0.12)';
+      ctx.beginPath();
+      ctx.moveTo(cx - 4.4 * z, cy - 30.4 * z);
+      ctx.lineTo(cx + 4.4 * z, cy - 30.4 * z);
+      ctx.lineTo(cx + 8.0 * z, cy - 36.2 * z);
+      ctx.lineTo(cx - 8.0 * z, cy - 36.2 * z);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Turned dark-walnut pedestal foot + brushed-brass collar & slender column
+    drawBox(ctx, cx, cy - 0.2 * z, 6.2, 3.6, 1.8, '#8a5229', '#663a1b', '#45250f', z);
+    ctx.fillStyle = '#d9ab42';
+    pxRect(ctx, cx - 2.2 * z, cy - 2.8 * z, 4.4 * z, 1.1 * z);
+    ctx.fillStyle = '#7a5a18';
+    pxRect(ctx, cx - 1.1 * z, cy - 21.2 * z, 2.2 * z, 18.6 * z);
+    ctx.fillStyle = night ? '#f0c356' : '#cfa13a';
+    pxRect(ctx, cx - 0.7 * z, cy - 21.2 * z, 1.3 * z, 18.6 * z);
+    // Delicate pull-chain switch & brass acorn bead hanging under shade
+    ctx.fillStyle = '#b88d2c';
+    pxRect(ctx, cx + 2.3 * z, cy - 20.6 * z, 0.7 * z, 3.2 * z);
+    ctx.fillStyle = night ? '#ffe596' : '#d9ab42';
+    pxRect(ctx, cx + 2.0 * z, cy - 17.6 * z, 1.3 * z, 1.3 * z);
+
+    // Tapered pleated fabric drum-cone lampshade (cy - 30.4*z .. cy - 20.6*z)
+    const shTopY = cy - 30.4 * z;
+    const shBotY = cy - 20.6 * z;
+    const topHW = 4.6 * z;
+    const botHW = 7.4 * z;
+
+    if (night) {
+      // Glowing warm incandescent bulb peeking just below shade rim
+      ctx.fillStyle = '#ffbe42';
+      pxRect(ctx, cx - 2.2 * z, shBotY - 0.3 * z, 4.4 * z, 1.4 * z);
+      ctx.fillStyle = '#fffbe0';
+      pxRect(ctx, cx - 1.3 * z, shBotY - 0.1 * z, 2.6 * z, 1.0 * z);
+
+      // Internally illuminated honey-peach & warm amber linen shade
+      ctx.fillStyle = '#ffc966';
+      ctx.beginPath();
+      ctx.moveTo(cx - topHW, shTopY);
+      ctx.lineTo(cx + topHW, shTopY);
+      ctx.lineTo(cx + botHW, shBotY);
+      ctx.lineTo(cx - botHW, shBotY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#5c3310';
+      ctx.lineWidth = Math.max(0.9, 1.0 * z);
+      ctx.stroke();
+
+      // Radiant center core panel (warm bulb transmission through linen)
+      ctx.fillStyle = '#ffe5a3';
+      ctx.beginPath();
+      ctx.moveTo(cx - topHW * 0.48, shTopY + 0.7 * z);
+      ctx.lineTo(cx + topHW * 0.48, shTopY + 0.7 * z);
+      ctx.lineTo(cx + botHW * 0.48, shBotY - 0.7 * z);
+      ctx.lineTo(cx - botHW * 0.48, shBotY - 0.7 * z);
+      ctx.closePath();
+      ctx.fill();
+
+      // Warm toasted-amber top & bottom fabric binding trims + glowing top ring
+      ctx.fillStyle = '#e69535';
+      pxRect(ctx, cx - topHW, shTopY, topHW * 2, 1.0 * z);
+      pxRect(ctx, cx - botHW + 0.4 * z, shBotY - 1.0 * z, (botHW - 0.4 * z) * 2, 1.0 * z);
+      ctx.fillStyle = '#fff6c7';
+      pxRect(ctx, cx - topHW * 0.62, shTopY - 0.6 * z, topHW * 1.24, 0.9 * z);
+    } else {
+      // Daytime switched-OFF natural oatmeal/cream woven linen shade (zero glow)
+      ctx.fillStyle = '#cbc0ac';
+      ctx.beginPath();
+      ctx.moveTo(cx - topHW, shTopY);
+      ctx.lineTo(cx + topHW, shTopY);
+      ctx.lineTo(cx + botHW, shBotY);
+      ctx.lineTo(cx - botHW, shBotY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#332c24';
+      ctx.lineWidth = Math.max(0.9, 1.0 * z);
+      ctx.stroke();
+
+      // Left daylight sheen & right shaded fabric pleat
+      ctx.fillStyle = '#dfd5c3';
+      ctx.beginPath();
+      ctx.moveTo(cx - topHW + 0.5 * z, shTopY + 0.7 * z);
+      ctx.lineTo(cx - 0.4 * z, shTopY + 0.7 * z);
+      ctx.lineTo(cx - 0.6 * z, shBotY - 0.7 * z);
+      ctx.lineTo(cx - botHW + 0.7 * z, shBotY - 0.7 * z);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = '#afa38e';
+      ctx.beginPath();
+      ctx.moveTo(cx + 1.2 * z, shTopY + 0.7 * z);
+      ctx.lineTo(cx + topHW - 0.5 * z, shTopY + 0.7 * z);
+      ctx.lineTo(cx + botHW - 0.7 * z, shBotY - 0.7 * z);
+      ctx.lineTo(cx + 1.6 * z, shBotY - 0.7 * z);
+      ctx.closePath();
+      ctx.fill();
+
+      // Muted taupe fabric binding trims & dark unlit top ring
+      ctx.fillStyle = '#8c7d68';
+      pxRect(ctx, cx - topHW, shTopY, topHW * 2, 1.0 * z);
+      pxRect(ctx, cx - botHW + 0.4 * z, shBotY - 1.0 * z, (botHW - 0.4 * z) * 2, 1.0 * z);
+      ctx.fillStyle = '#52483c';
+      pxRect(ctx, cx - topHW * 0.6, shTopY - 0.4 * z, topHW * 1.2, 0.8 * z);
+    }
   } else if (kind === 'sofa' || kind === 'sofa_l' || kind === 'sofa_r') {
     const w = 20.5;
     const d = 11;
