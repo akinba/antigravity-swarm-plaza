@@ -895,6 +895,9 @@ describe('pixelSprites gender, hair, outfit palettes & rendering', () => {
       'bookshelf',
       'library_table',
       'prop_arcade',
+      'coffee_machine',
+      'water_cooler',
+      'prop_hologram',
     ];
     for (const kind of propKinds) {
       for (const facing of ['SW', 'SE', 'NE'] as const) {
@@ -925,6 +928,22 @@ describe('pixelSprites gender, hair, outfit palettes & rendering', () => {
     const { ctx: bksCtx, fills: bksFills } = createMockCanvasContext();
     drawEnhancedFurniture(bksCtx, 'bookshelf', 300, 250, 2.0, 1.2, false, false, 'pro', false, '', 1, 'SW');
     assert.ok(bksFills.includes('#f5ebd6') && bksFills.includes('#c93b4b'), 'Expected 2.5D hardcover spines & cream pages on bookshelf');
+
+    // Verify coffee_machine bean hopper/crema, water_cooler hot/cold paddles + 19L carboy, and prop_hologram conical beam + 3D globe
+    const { ctx: cofCtx, fills: cofFills } = createMockCanvasContext();
+    drawEnhancedFurniture(cofCtx, 'coffee_machine', 300, 250, 2.0, 1.2, false, true, 'pro', false, '', 1, 'SW');
+    assert.ok(cofFills.includes('#593219') && cofFills.includes('#c97a34'), 'Expected roasted coffee beans & espresso crema on coffee_machine');
+
+    const { ctx: wtrCtx, fills: wtrFills } = createMockCanvasContext();
+    drawEnhancedFurniture(wtrCtx, 'water_cooler', 300, 250, 2.0, 1.2, false, true, 'pro', false, '', 1, 'SW');
+    assert.ok(wtrFills.includes('#ff4d5e') && wtrFills.includes('#00c8ff') && wtrFills.includes('#9ef3ff'), 'Expected hot/cold paddles & 19L water carboy on water_cooler');
+
+    const { ctx: holCtx, fills: holFills } = createMockCanvasContext();
+    drawEnhancedFurniture(holCtx, 'prop_hologram', 300, 250, 2.0, 1.2, false, true, 'pro', false, '', 1, 'SW');
+    assert.ok(
+      holFills.includes('rgba(0, 229, 255, 0.14)') && holFills.includes('rgba(0, 195, 255, 0.26)'),
+      'Expected conical hologram beam & translucent 3D globe core on prop_hologram',
+    );
 
     // 2. Break character poses across all 8 directions (even when status === 'waiting' on break!)
     const directions: Facing[] = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];

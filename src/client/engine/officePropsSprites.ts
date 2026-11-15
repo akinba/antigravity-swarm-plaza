@@ -4916,36 +4916,243 @@ export function drawEnhancedFurniture(
     ctx.fillStyle = '#00e5ff';
     pxRect(ctx, psX - 6.0 * z, psY - 2.2 * z, 1.2 * z, 0.7 * z);
   } else if (kind === 'coffee_machine') {
-    drawFloorShadow(ctx, cx, cy, 18, 11, z, 0.28);
-    // Walnut espresso bar cabinet + chrome commercial dual-group espresso machine
-    drawBox(ctx, cx, cy, 16, 10, 14, '#805840', '#5c3d2b', '#3d281c', z);
-    drawBox(ctx, cx, cy - 14 * z, 10, 7, 14, '#d4dceb', '#9aa4b8', '#687185', z);
-    // Pressure gauge, group head, white espresso cup & rising steam
-    ctx.fillStyle = '#181e2e';
-    pxRect(ctx, cx - 5 * z, cy - 20 * z, 10 * z, 4 * z);
-    ctx.fillStyle = '#ffd147';
-    pxRect(ctx, cx - 1 * z, cy - 25 * z, 2.5 * z, 2.5 * z);
-    ctx.fillStyle = '#ff5666';
-    pxRect(ctx, cx - 5 * z, cy - 25 * z, 2.5 * z, 2 * z);
-    ctx.fillStyle = '#3be87a';
-    pxRect(ctx, cx + 3 * z, cy - 25 * z, 2.5 * z, 2 * z);
+    const frontFace = resolveFrontDisplayFacing(facing, 'SW');
+    const iso = createCardIsoPainter(ctx, cx, cy, z, frontFace);
+    const slab = (
+      f0: number,
+      f1: number,
+      r0: number,
+      r1: number,
+      h0: number,
+      h1: number,
+      top: string,
+      sideLit: string,
+      sideDark: string,
+    ) => {
+      iso.drawSlab(iso.boxPts(f0, f1, r0, r1), h0, h1, {
+        top,
+        sideLit,
+        sideMid: sideLit,
+        sideDark,
+      });
+    };
+    drawFloorShadow(ctx, cx, cy, 18.5, 10.6, z, 0.3);
+
+    // 1. Dark walnut barista cabinet + twin doors with brushed steel handles + anthracite quartz countertop
+    slab(-6.8, 6.8, -9.8, 9.8, 0, 12.2, '#6e452b', '#56341f', '#382011');
+    iso.fillVertQuad(6.88, -8.8, 6.88, -0.5, 1.2, 11.1, '#5d3922');
+    iso.fillVertQuad(6.88, 0.5, 6.88, 8.8, 1.2, 11.1, '#5d3922');
+    iso.fillVertQuad(6.95, -8.1, 6.95, -1.2, 1.8, 10.4, '#472a18');
+    iso.fillVertQuad(6.95, 1.2, 6.95, 8.1, 1.8, 10.4, '#472a18');
+    // Brushed steel vertical door pulls
+    iso.fillVertQuad(7.02, -1.7, 7.02, -1.1, 4.4, 8.8, '#dce6f5');
+    iso.fillVertQuad(7.02, 1.1, 7.02, 1.7, 4.4, 8.8, '#dce6f5');
+    // Overhanging dark anthracite quartz countertop
+    slab(-7.3, 7.3, -10.4, 10.4, 12.2, 13.8, '#3b4456', '#2a3140', '#181d28');
+
+    // 2. Side Barista Caddy (stacked takeaway paper cups with kraft sleeves + black napkin/stirrer organizer)
+    slab(-5.0, -0.6, 5.8, 9.2, 13.8, 16.0, '#1e2536', '#161b28', '#0d111a');
+    slab(-4.4, -1.6, 6.3, 8.7, 16.0, 17.6, '#f8fafc', '#dce4f0', '#b4c2d8');
+    const pStirrers = iso.pt(-1.6, 7.6, 17.2);
+    ctx.fillStyle = '#d9a05b';
+    pxRect(ctx, pStirrers.x - 0.8 * z, pStirrers.y - 1.8 * z, 0.6 * z, 2.2 * z);
+    pxRect(ctx, pStirrers.x + 0.2 * z, pStirrers.y - 2.1 * z, 0.6 * z, 2.5 * z);
+    // Stacked takeaway cups neatly to the right of the espresso chassis so brew group & cup stay 100% unobstructed
+    slab(0.2, 3.4, 6.0, 9.0, 13.8, 17.4, '#ffffff', '#e2ebf7', '#b8c6dc');
+    slab(0.3, 3.3, 6.1, 8.9, 15.0, 16.4, '#c78c52', '#a8713c', '#7d5026');
+    slab(0.4, 3.2, 6.2, 8.8, 17.4, 19.2, '#ffffff', '#e6eef9', '#bdcade');
+
+    // 3. Commercial Matte-Black & Brushed-Stainless Espresso Machine Chassis (r = -9.2..5.0)
+    slab(-5.8, 4.6, -9.2, 5.0, 13.8, 24.4, '#283040', '#1d2330', '#11151f');
+    // Brushed stainless-steel upper fascia & top cup-warming rail
+    slab(-5.9, 5.2, -9.3, 5.1, 24.4, 26.8, '#e4ecf7', '#b8c6db', '#7e8da6');
+    // Deep recessed dark brew bay (f = 4.68)
+    iso.fillVertQuad(4.68, -8.2, 4.68, 4.0, 15.2, 23.6, '#0b0e17');
+    iso.fillVertQuad(4.74, -7.6, 4.74, 3.4, 16.0, 22.8, '#171e2e');
+
+    // Protruding perforated stainless-steel drip tray + slotted grate lines
+    slab(1.6, 6.3, -8.6, 4.4, 13.8, 15.4, '#d4deed', '#9fb0c7', '#64738a');
+    iso.fillPoly(iso.boxPts(2.4, 5.7, -7.8, 3.6), 15.46, '#232b3b');
+    for (let gr = -6.8; gr <= 2.8; gr += 1.6) {
+      const g0 = iso.pt(2.8, gr, 15.52);
+      const g1 = iso.pt(5.4, gr, 15.52);
+      ctx.strokeStyle = '#cad5e6';
+      ctx.lineWidth = Math.max(1, 0.75 * z);
+      ctx.beginPath();
+      ctx.moveTo(g0.x, g0.y);
+      ctx.lineTo(g1.x, g1.y);
+      ctx.stroke();
+    }
+
+    // Chrome dual brew group head + angled black portafilter handle + stainless steam wand
+    slab(2.6, 5.5, -4.6, 0.6, 20.6, 22.8, '#eef4fc', '#bdcade', '#7d8ca3');
+    slab(3.2, 5.3, -3.6, -0.4, 19.4, 20.6, '#232a3b', '#181d29', '#0e111a');
+    const pfStart = iso.pt(5.2, -1.8, 20.0);
+    const pfEnd = iso.pt(7.6, 0.8, 19.3);
+    ctx.strokeStyle = '#cfd9e8';
+    ctx.lineWidth = Math.max(1.2, 1.5 * z);
+    ctx.beginPath();
+    ctx.moveTo(pfStart.x, pfStart.y);
+    ctx.lineTo(pfEnd.x, pfEnd.y);
+    ctx.stroke();
+    ctx.fillStyle = '#111520';
+    pxRect(ctx, pfEnd.x - 1.1 * z, pfEnd.y - 0.8 * z, 2.4 * z, 1.6 * z);
+
+    // Chrome steam wand on left side of brew bay
+    const swTop = iso.pt(4.8, -6.4, 21.8);
+    const swBot = iso.pt(5.3, -6.8, 17.2);
+    ctx.strokeStyle = '#dce6f5';
+    ctx.lineWidth = Math.max(1, 1.2 * z);
+    ctx.beginPath();
+    ctx.moveTo(swTop.x, swTop.y);
+    ctx.lineTo(swBot.x, swBot.y);
+    ctx.stroke();
+
+    // White ceramic espresso cup with golden-amber crema & rising warm aroma steam
+    slab(3.1, 5.3, -3.3, -0.7, 15.5, 18.3, '#c97a34', '#ffffff', '#cfd9e8');
+    const pCupHandle = iso.pt(4.4, -0.4, 16.9);
     ctx.fillStyle = '#ffffff';
-    pxRect(ctx, cx - 1.5 * z, cy - 18 * z, 3 * z, 2.8 * z);
-    const steamY = cy - (29.5 + ((timeSec * 4) % 4)) * z;
-    ctx.fillStyle = 'rgba(232, 245, 255, 0.7)';
-    pxRect(ctx, cx - 1 * z, steamY, 2 * z, 2 * z);
+    pxRect(ctx, pCupHandle.x - 0.3 * z, pCupHandle.y - 0.8 * z, 1.1 * z, 1.5 * z);
+    const steamDrift = (timeSec * 3.6) % 3.4;
+    const pSteam1 = iso.pt(4.5, -2.0, 19.2 + steamDrift);
+    const pSteam2 = iso.pt(4.5, -1.2, 20.8 + ((steamDrift + 1.6) % 3.4));
+    ctx.fillStyle = 'rgba(240, 248, 255, 0.68)';
+    pxRect(ctx, pSteam1.x - 0.6 * z, pSteam1.y - 0.9 * z, 1.2 * z, 1.6 * z);
+    pxRect(ctx, pSteam2.x - 0.5 * z, pSteam2.y - 0.8 * z, 1.0 * z, 1.4 * z);
+
+    // Front digital OLED barista display & illuminated tactile shot buttons on upper fascia (f = 5.28)
+    iso.fillVertQuad(5.28, -8.2, 5.28, -2.8, 24.7, 26.4, '#0c1322');
+    iso.fillVertQuad(5.34, -7.7, 5.34, -4.6, 25.0, 26.1, '#00e5ff');
+    iso.fillVertQuad(5.34, -4.2, 5.34, -3.2, 25.0, 26.1, '#ffd147');
+    iso.fillVertQuad(5.28, 0.4, 5.28, 1.4, 25.1, 26.0, '#3be87a');
+    iso.fillVertQuad(5.28, 1.9, 5.28, 2.9, 25.1, 26.0, '#ff9f1c');
+    iso.fillVertQuad(5.28, 3.3, 5.28, 4.3, 25.1, 26.0, '#3cd8ff');
+
+    // 4. Top Translucent Smoked Bean Hopper with Visible Dark-Roasted Espresso Beans!
+    slab(-3.4, 1.8, -6.2, -0.4, 26.8, 29.8, '#593219', '#452510', '#2e1709');
+    for (const [bf, br] of [
+      [-1.8, -4.8],
+      [-0.4, -2.6],
+      [-2.2, -1.8],
+      [0.6, -4.0],
+    ] as const) {
+      const pb = iso.pt(bf, br, 29.9);
+      ctx.fillStyle = '#7a4726';
+      pxRect(ctx, pb.x - 0.65 * z, pb.y - 0.45 * z, 1.3 * z, 0.9 * z);
+    }
+    iso.drawSlab(iso.boxPts(-4.0, 2.4, -6.8, 0.2), 26.8, 31.2, {
+      top: 'rgba(205, 230, 250, 0.34)',
+      sideLit: 'rgba(165, 198, 228, 0.32)',
+      sideMid: 'rgba(130, 164, 196, 0.30)',
+      sideDark: 'rgba(84, 112, 144, 0.36)',
+      outline: '#273244',
+    });
+    slab(-4.2, 2.6, -7.0, 0.4, 31.2, 32.0, '#232a3b', '#181e2b', '#0e121b');
+    slab(-2.4, 1.2, 1.4, 4.2, 26.8, 28.6, '#ffffff', '#e6eef9', '#b8c6dc');
   } else if (kind === 'watercooler' || kind === 'water_cooler') {
-    drawFloorShadow(ctx, cx, cy, 11, 7, z, 0.25);
-    drawBox(ctx, cx, cy, 9.5, 6.2, 16, '#e1eaf5', '#aab7cc', '#7b8799', z);
-    drawBox(ctx, cx, cy - 16 * z, 6.2, 4.2, 11.5, '#70d8ff', '#3eb7f0', '#2287bd', z);
-    // Hot & cold taps + rising water bubble inside bottle
-    ctx.fillStyle = '#ff5666';
-    pxRect(ctx, cx - 4 * z, cy - 13 * z, 2 * z, 2 * z);
-    ctx.fillStyle = '#3cd8ff';
-    pxRect(ctx, cx - 1 * z, cy - 13 * z, 2 * z, 2 * z);
-    const bubY = cy - (19 + ((timeSec * 6) % 7)) * z;
-    ctx.fillStyle = '#e6fbff';
-    pxRect(ctx, cx - 1 * z, bubY, 1.8 * z, 1.8 * z);
+    const frontFace = resolveFrontDisplayFacing(facing, 'SW');
+    const iso = createCardIsoPainter(ctx, cx, cy, z, frontFace);
+    const visSign = frontFace === 'SW' ? 1 : -1;
+    const slab = (
+      f0: number,
+      f1: number,
+      r0: number,
+      r1: number,
+      h0: number,
+      h1: number,
+      top: string,
+      sideLit: string,
+      sideDark: string,
+    ) => {
+      iso.drawSlab(iso.boxPts(f0, f1, r0, r1), h0, h1, {
+        top,
+        sideLit,
+        sideMid: sideLit,
+        sideDark,
+      });
+    };
+    drawFloorShadow(ctx, cx, cy, 12.6, 7.6, z, 0.28);
+
+    // 1. Dark graphite kick-plate plinth + Pearl-Silver & Glacial-White Dispenser Tower (h = 0..18.8)
+    slab(-5.4, 5.4, -6.4, 6.4, 0, 1.8, '#2b364a', '#202938', '#141a24');
+    iso.drawSlab(iso.boxPts(-5.2, 5.2, -6.2, 6.2), 1.8, 18.8, {
+      top: '#f2f7ff',
+      sideLit: '#e1ebf8',
+      sideMid: '#c8d6eb',
+      sideDark: '#96a8c4',
+      outline: '#2b374d',
+    });
+    iso.fillVertQuad(5.28, -4.8, 5.28, 4.8, 2.6, 9.2, '#cfdced', '#8fa2bf', 0.65);
+
+    // 2. Recessed Dispensing Niche + Stainless Drip Grate + Red (Hot) & Blue (Cold) Paddle Taps!
+    iso.fillVertQuad(5.28, -4.6, 5.28, 4.6, 10.2, 16.8, '#1a2333', '#607391', 0.7);
+    iso.fillVertQuad(5.32, -4.0, 5.32, 4.0, 10.8, 16.2, '#26334a');
+    slab(3.6, 6.0, -4.8, 4.8, 9.8, 10.9, '#9fb1cc', '#d4e0f2', '#6d7e99');
+    iso.fillPoly(iso.boxPts(4.0, 5.6, -4.1, 4.1), 10.95, '#313f57');
+    iso.fillVertQuad(5.38, -3.1, 5.38, -0.9, 13.8, 15.9, '#ff4d5e');
+    iso.fillVertQuad(5.38, 0.9, 5.38, 3.1, 13.8, 15.9, '#00c8ff');
+    iso.fillVertQuad(5.42, -2.4, 5.42, -1.6, 13.0, 13.9, '#e6eef9');
+    iso.fillVertQuad(5.42, 1.6, 5.42, 2.4, 13.0, 13.9, '#e6eef9');
+    iso.fillVertQuad(5.32, -2.4, 5.32, -1.4, 17.3, 18.0, '#ff5666');
+    iso.fillVertQuad(5.32, 1.4, 5.32, 2.4, 17.3, 18.0, '#3be87a');
+    if (isOccupied) {
+      slab(4.1, 5.5, 0.9, 2.9, 11.0, 13.1, '#9ef9ff', '#e8fbff', '#62cbe8');
+    }
+
+    // 3. Side-Mounted Clear Paper-Cup Dispenser Tube on Camera-Visible Wall
+    const rCup0 = visSign > 0 ? 6.2 : -7.9;
+    const rCup1 = visSign > 0 ? 7.9 : -6.2;
+    iso.drawSlab(iso.boxPts(-1.4, 1.8, rCup0, rCup1), 9.2, 16.8, {
+      top: 'rgba(220, 240, 255, 0.68)',
+      sideLit: 'rgba(235, 247, 255, 0.65)',
+      sideMid: 'rgba(195, 220, 245, 0.58)',
+      sideDark: 'rgba(145, 175, 210, 0.62)',
+      outline: '#4a5c78',
+    });
+    slab(-1.0, 1.4, rCup0 + 0.25, rCup1 - 0.25, 9.8, 15.6, '#ffffff', '#f2f7ff', '#cbd8eb');
+    slab(-1.5, 1.9, rCup0 - 0.05, rCup1 + 0.05, 16.8, 17.6, '#35435c', '#263145', '#171e2b');
+
+    // 4. Top 19L Shoulder-Necked Translucent Water Carboy (Collar + Neck + Tapered Shoulder + Ribbed Water Body + Air Headspace)
+    slab(-3.3, 3.3, -3.6, 3.6, 18.8, 19.9, '#eef5ff', '#d4e2f4', '#9ab0cc');
+    slab(-1.8, 1.8, -2.0, 2.0, 19.8, 21.3, '#5cd6ff', '#32b2eb', '#1b82b5');
+    slab(-3.3, 3.3, -3.6, 3.6, 21.1, 22.5, '#70e0ff', '#40bef5', '#218ec4');
+    iso.drawSlab(iso.boxPts(-4.2, 4.2, -4.6, 4.6), 22.5, 28.8, {
+      top: '#9ef3ff',
+      sideLit: '#48c8fa',
+      sideMid: '#29aae0',
+      sideDark: '#177fb0',
+      outline: '#125c85',
+    });
+    iso.fillVertQuad(4.28, -4.3, 4.28, 4.3, 24.4, 24.9, 'rgba(218, 250, 255, 0.48)');
+    iso.fillVertQuad(4.28, -4.3, 4.28, 4.3, 26.6, 27.1, 'rgba(218, 250, 255, 0.48)');
+    iso.fillVertQuad(4.3, -4.4, 4.3, 4.4, 28.4, 28.9, '#d6fbff');
+    iso.drawSlab(iso.boxPts(-4.2, 4.2, -4.6, 4.6), 28.8, 30.8, {
+      top: 'rgba(224, 250, 255, 0.78)',
+      sideLit: 'rgba(182, 236, 255, 0.56)',
+      sideMid: 'rgba(142, 214, 245, 0.50)',
+      sideDark: 'rgba(98, 174, 214, 0.52)',
+      outline: '#277ba3',
+    });
+    // Tapered upper bottle shoulder + molded carry-cap crown
+    iso.drawSlab(iso.boxPts(-3.0, 3.0, -3.3, 3.3), 30.8, 32.1, {
+      top: '#e8fcff',
+      sideLit: 'rgba(200, 244, 255, 0.78)',
+      sideMid: 'rgba(160, 224, 248, 0.70)',
+      sideDark: 'rgba(110, 184, 218, 0.70)',
+      outline: '#277ba3',
+    });
+    iso.drawSlab(iso.boxPts(-1.5, 1.5, -1.7, 1.7), 32.1, 33.1, {
+      top: '#ffffff',
+      sideLit: '#bfefff',
+      sideMid: '#8adcf7',
+      sideDark: '#52b2d6',
+      outline: '#277ba3',
+    });
+    iso.fillVertQuad(4.34, -3.2, 4.34, -2.3, 23.2, 30.6, 'rgba(255, 255, 255, 0.65)');
+    const bubH = 23.0 + ((timeSec * 5.2) % 5.0);
+    const pBub = iso.pt(4.36, 1.1, bubH);
+    ctx.fillStyle = '#ffffff';
+    pxRect(ctx, pBub.x - 0.75 * z, pBub.y - 0.75 * z, 1.5 * z, 1.5 * z);
   } else if (kind === 'plant' || kind === 'office_plant' || kind === 'prop_plant') {
     drawFloorShadow(ctx, cx, cy, 10, 6, z, 0.24);
     // Glazed ceramic pot + terracotta rim + layered Monstera/Ficus foliage
@@ -5260,13 +5467,182 @@ export function drawEnhancedFurniture(
   } else if (kind === 'prop_arcade') {
     drawCustomOrPartitionProp(ctx, 'arcade_cabinet', cx, cy, z, timeSec, isOccupied, night, facing);
   } else if (kind === 'prop_hologram') {
-    drawFloorShadow(ctx, cx, cy, 18, 10, z, 0.28);
-    drawBox(ctx, cx, cy, 16, 9, 10, '#314863', '#1f2f42', '#121c29', z);
-    const pulse = Math.sin(timeSec * 4) * 2 * z;
-    ctx.fillStyle = 'rgba(60, 216, 255, 0.72)';
-    pxRect(ctx, cx - 6 * z, cy - 26 * z + pulse, 12 * z, 10 * z);
-    ctx.fillStyle = '#c4f6ff';
-    pxRect(ctx, cx - 3 * z, cy - 23 * z + pulse, 6 * z, 4 * z);
+    const iso = createCardIsoPainter(ctx, cx, cy, z, 'SW');
+    drawFloorShadow(ctx, cx, cy, 19.5, 10.8, z, 0.32);
+
+    // Ambient neon cyan floor light pool around the projector plinth
+    iso.fillPoly(iso.boxPts(-11.4, 11.4, -11.4, 11.4), 0.05, night ? 'rgba(0, 229, 255, 0.22)' : 'rgba(0, 229, 255, 0.12)');
+
+    // 1. Stepped Beveled Sci-Fi Metallic Projector Pedestal + Cooling Louvers + Telemetry LEDs
+    iso.drawSlab(iso.boxPts(-9.6, 9.6, -9.6, 9.6), 0, 3.4, {
+      top: '#2e3c56',
+      sideLit: '#232f45',
+      sideMid: '#1b2436',
+      sideDark: '#101624',
+      outline: '#090d17',
+    });
+    // Glowing cyan accent strips along lower plinth edges
+    iso.fillVertQuad(9.68, -7.8, 9.68, 7.8, 1.1, 2.0, '#00e5ff');
+    iso.fillVertQuad(-7.8, 9.68, 7.8, 9.68, 1.1, 2.0, '#00b8d4');
+
+    // Mid-tier vented projector core (h = 3.4..8.4)
+    iso.drawSlab(iso.boxPts(-8.0, 8.0, -8.0, 8.0), 3.4, 8.4, {
+      top: '#3d4f70',
+      sideLit: '#2d3c57',
+      sideMid: '#212d42',
+      sideDark: '#141c2b',
+      outline: '#0b0f1a',
+    });
+    // Cooling louver vents + status LEDs on both visible isometric faces
+    for (let lv = 0; lv < 3; lv++) {
+      const vh = 4.3 + lv * 1.15;
+      iso.fillVertQuad(8.08, -6.2, 8.08, 1.8, vh, vh + 0.6, '#0d1320');
+      iso.fillVertQuad(-6.2, 8.08, 1.8, 8.08, vh, vh + 0.6, '#0d1320');
+    }
+    iso.fillVertQuad(8.1, 3.4, 8.1, 4.6, 5.4, 6.5, '#3be87a');
+    iso.fillVertQuad(8.1, 5.2, 8.1, 6.4, 5.4, 6.5, Math.sin(timeSec * 6) > 0 ? '#00e5ff' : '#e040fb');
+    iso.fillVertQuad(3.4, 8.1, 4.6, 8.1, 5.4, 6.5, '#00e5ff');
+
+    // Upper beveled emitter deck + glowing optical projection lens & neon emitter ring (h = 8.4..10.8)
+    iso.drawSlab(iso.boxPts(-6.8, 6.8, -6.8, 6.8), 8.4, 10.4, {
+      top: '#4e658c',
+      sideLit: '#384a69',
+      sideMid: '#293750',
+      sideDark: '#1a2336',
+      outline: '#0b101c',
+    });
+    iso.fillPoly(iso.boxPts(-5.0, 5.0, -5.0, 5.0), 10.48, '#0c1526', '#00e5ff', 0.9);
+    iso.fillPoly(iso.boxPts(-3.5, 3.5, -3.5, 3.5), 10.55, '#00e5ff');
+    iso.fillPoly(iso.boxPts(-1.8, 1.8, -1.8, 1.8), 10.62, '#e8ffff');
+
+    // 2. Translucent Conical Hologram Light Beam + Rising Scanlines
+    const lensPt = iso.pt(0, 0, 10.6);
+    const hoverBob = Math.sin(timeSec * 3.0) * 1.4 * z;
+    const holoX = lensPt.x;
+    const holoY = lensPt.y - 14.2 * z + hoverBob;
+
+    // Outer & inner upward-flaring conical projection beams + crisp laser edge rays
+    ctx.beginPath();
+    ctx.moveTo(lensPt.x - 3.2 * z, lensPt.y);
+    ctx.lineTo(lensPt.x + 3.2 * z, lensPt.y);
+    ctx.lineTo(holoX + 11.2 * z, holoY - 3.5 * z);
+    ctx.lineTo(holoX - 11.2 * z, holoY - 3.5 * z);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(0, 229, 255, 0.14)';
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(lensPt.x - 1.8 * z, lensPt.y);
+    ctx.lineTo(lensPt.x + 1.8 * z, lensPt.y);
+    ctx.lineTo(holoX + 6.8 * z, holoY - 5.2 * z);
+    ctx.lineTo(holoX - 6.8 * z, holoY - 5.2 * z);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(130, 248, 255, 0.22)';
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(92, 245, 255, 0.46)';
+    ctx.lineWidth = Math.max(1, 0.9 * z);
+    ctx.beginPath();
+    ctx.moveTo(lensPt.x - 3.0 * z, lensPt.y);
+    ctx.lineTo(holoX - 10.6 * z, holoY - 2.5 * z);
+    ctx.moveTo(lensPt.x + 3.0 * z, lensPt.y);
+    ctx.lineTo(holoX + 10.6 * z, holoY - 2.5 * z);
+    ctx.stroke();
+
+    // Animated rising hologram scanline bars inside the cone
+    for (let sc = 0; sc < 3; sc++) {
+      const prog = ((timeSec * 0.75 + sc / 3) % 1);
+      const syLine = lensPt.y - prog * (lensPt.y - (holoY - 2 * z));
+      const halfSpan = (2.8 + prog * 7.2) * z;
+      ctx.fillStyle = 'rgba(158, 250, 255, 0.36)';
+      pxRect(ctx, holoX - halfSpan, syLine, halfSpan * 2, 0.85 * z);
+    }
+
+    // Helper to stroke/fill multi-segment tilted ellipses (works on all canvas & test mocks)
+    const traceTiltedRing = (
+      rx: number,
+      ry: number,
+      tiltRad: number,
+      startAng: number,
+      endAng: number,
+      steps: number,
+    ) => {
+      const cosT = Math.cos(tiltRad);
+      const sinT = Math.sin(tiltRad);
+      ctx.beginPath();
+      for (let i = 0; i <= steps; i++) {
+        const a = startAng + ((endAng - startAng) * i) / steps;
+        const ex = Math.cos(a) * rx;
+        const ey = Math.sin(a) * ry;
+        const px = holoX + ex * cosT - ey * sinT;
+        const py = holoY + ex * sinT + ey * cosT;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+    };
+
+    const ringTilt = -0.32;
+    const ringRx = 11.6 * z;
+    const ringRy = 4.1 * z;
+
+    // 3. Back Half of Tilted Orbital Data Ring
+    traceTiltedRing(ringRx, ringRy, ringTilt, Math.PI, Math.PI * 2, 14);
+    ctx.strokeStyle = 'rgba(0, 212, 255, 0.55)';
+    ctx.lineWidth = Math.max(1, 1.15 * z);
+    ctx.stroke();
+
+    // 4. Floating 3D Wireframe Planetary Hologram Sphere (translucent core + rotating meridians + latitude bands)
+    const globeR = 6.8 * z;
+    traceTiltedRing(globeR, globeR, 0, 0, Math.PI * 2, 20);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(0, 195, 255, 0.26)';
+    ctx.fill();
+    ctx.strokeStyle = '#64f5ff';
+    ctx.lineWidth = Math.max(1, 1.2 * z);
+    ctx.stroke();
+
+    // Equatorial & tropic latitude wireframe rings
+    traceTiltedRing(globeR * 0.98, globeR * 0.34, 0.12, 0, Math.PI * 2, 16);
+    ctx.strokeStyle = 'rgba(166, 251, 255, 0.78)';
+    ctx.lineWidth = Math.max(1, 0.9 * z);
+    ctx.stroke();
+
+    // Rotating 3D longitude meridians
+    const spin = (timeSec * 1.1) % Math.PI;
+    const merRx1 = Math.max(1.2 * z, Math.abs(Math.cos(spin)) * globeR);
+    const merRx2 = Math.max(1.2 * z, Math.abs(Math.sin(spin)) * globeR);
+    traceTiltedRing(merRx1, globeR * 0.98, 0.12, 0, Math.PI * 2, 16);
+    ctx.strokeStyle = 'rgba(130, 246, 255, 0.72)';
+    ctx.stroke();
+    traceTiltedRing(merRx2, globeR * 0.98, 0.12, 0, Math.PI * 2, 16);
+    ctx.stroke();
+
+    // Glowing inner holographic core + continental data cluster patches
+    ctx.fillStyle = 'rgba(59, 232, 122, 0.52)';
+    pxRect(ctx, holoX - 3.4 * z, holoY - 2.6 * z, 2.8 * z, 2.0 * z);
+    pxRect(ctx, holoX + 1.1 * z, holoY + 0.4 * z, 2.6 * z, 1.9 * z);
+    ctx.fillStyle = '#ffffff';
+    pxRect(ctx, holoX - 1.2 * z, holoY - 1.2 * z, 2.4 * z, 2.4 * z);
+
+    // 5. Front Half of Tilted Orbital Data Ring + Orbiting Telemetry Satellite Nodes!
+    traceTiltedRing(ringRx, ringRy, ringTilt, 0, Math.PI, 14);
+    ctx.strokeStyle = '#c4fcff';
+    ctx.lineWidth = Math.max(1.1, 1.35 * z);
+    ctx.stroke();
+
+    const cosT = Math.cos(ringTilt);
+    const sinT = Math.sin(ringTilt);
+    for (const [angOff, nodeCol] of [
+      [timeSec * 2.2, '#ffd147'],
+      [timeSec * 2.2 + Math.PI, '#ff5cf4'],
+    ] as const) {
+      const ex = Math.cos(angOff) * ringRx;
+      const ey = Math.sin(angOff) * ringRy;
+      const nx = holoX + ex * cosT - ey * sinT;
+      const ny = holoY + ex * sinT + ey * cosT;
+      ctx.fillStyle = nodeCol;
+      pxRect(ctx, nx - 1.1 * z, ny - 1.1 * z, 2.2 * z, 2.2 * z);
+    }
   }
 
   ctx.restore();
