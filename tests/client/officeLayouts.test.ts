@@ -564,7 +564,7 @@ describe('officeLayouts all 5 floor blueprints', () => {
     }
   });
 
-  it('equips every blueprint with a face-visible Executive Boss Suite, coffee table, and 2 facing guest armchairs', () => {
+  it('equips every blueprint with a tightened Executive Boss Suite, 2 facing guest armchairs, and standing overflow slots', () => {
     for (const layout of getAllFiveLayouts()) {
       const bp = layout.blueprintIndex;
       const execDesks = layout.furniture.filter((f) => f.kind === 'exec_desk');
@@ -580,7 +580,10 @@ describe('officeLayouts all 5 floor blueprints', () => {
       const table = execTables[0];
       const archSlots = layout.zoneSlots.DESK_ARCHITECT;
 
-      assert.ok(archSlots.length >= 3, `blueprint ${bp} DESK_ARCHITECT should include boss + 2 guest slots`);
+      assert.ok(
+        archSlots.length >= 6,
+        `blueprint ${bp} DESK_ARCHITECT should include boss [0], 2 seated guest armchairs [1..2], and >=3 standing overflow slots [3..5]`,
+      );
       assert.equal(archSlots[0].gx, chair.gx);
       assert.equal(archSlots[0].gy, chair.gy);
       assert.equal(desk.facing, chair.facing, `blueprint ${bp} exec_desk.facing !== exec_chair.facing`);
@@ -597,7 +600,13 @@ describe('officeLayouts all 5 floor blueprints', () => {
         `blueprint ${bp} boss chair (${chair.gx},${chair.gy}) must sit behind exec_desk (${desk.gx},${desk.gy})`,
       );
 
-      // Coffee table must sit in front of exec_desk along the Boss's line of sight
+      // Tightened distance: exec_coffee_table must sit immediately adjacent (distance === 1) in front of exec_desk
+      const deskToTableDist = Math.hypot(table.gx - desk.gx, table.gy - desk.gy);
+      assert.equal(
+        deskToTableDist,
+        1,
+        `blueprint ${bp} exec_coffee_table (${table.gx},${table.gy}) must sit 1 tile directly in front of exec_desk (${desk.gx},${desk.gy}), got ${deskToTableDist}`,
+      );
       const frontVec = facingUnitGridVector(desk.facing!);
       const tableFrontDot = (table.gx - desk.gx) * frontVec.dx + (table.gy - desk.gy) * frontVec.dy;
       assert.ok(
@@ -627,6 +636,22 @@ describe('officeLayouts all 5 floor blueprints', () => {
         vecA.dx * vecB.dx + vecA.dy * vecB.dy < -0.8,
         `blueprint ${bp} guest armchairs (${guestA.facing} vs ${guestB.facing}) must face opposite each other`,
       );
+
+      // Standing overflow slots [3..5] must be walkable, inside DESK_ARCHITECT, and free of furniture
+      for (let si = 3; si < archSlots.length; si++) {
+        const st = archSlots[si];
+        assert.equal(
+          layout.getTileZone(st.gx, st.gy),
+          'DESK_ARCHITECT',
+          `blueprint ${bp} standing guest slot [${si}] (${st.gx},${st.gy}) must be inside DESK_ARCHITECT`,
+        );
+        const blockingFurniture = layout.furniture.find((f) => f.gx === st.gx && f.gy === st.gy);
+        assert.equal(
+          blockingFurniture,
+          undefined,
+          `blueprint ${bp} standing guest slot [${si}] (${st.gx},${st.gy}) must not sit on furniture (${blockingFurniture?.kind})`,
+        );
+      }
     }
   });
 

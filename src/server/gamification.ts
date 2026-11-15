@@ -23,7 +23,11 @@ import type {
   SwarmTaskStatus,
   ToolActivityStatus,
 } from '../shared/types.js';
-import { getActiveFloorEvent, getFloorLayoutSeed } from './officeEvents.js';
+import {
+  getFloorLayoutSeed,
+  resolveCardGameTargetZone,
+  tickScheduledFloorEvents,
+} from './officeEvents.js';
 import { applyOfficeInteractions } from './officeInteractions.js';
 import {
   buildSwarmMentionEdges,
@@ -800,13 +804,21 @@ export function determineZoneAndActivity(params: {
     });
 
   if (recentBoardMatch || MEETING_TOOLS.has(latestTool)) {
-    return {
-      zone: 'WAR_ROOM',
-      activity: 'meeting',
-      speechBubble: truncateBubble(
-        recentBoardMatch?.text || transcript?.latestThoughtSnippet,
-      ),
-    };
+    const hasAllBroadcast = Boolean(recentBoardMatch?.text.toLowerCase().includes('@all'));
+    const coordUsingWorkTool =
+      isCoordinator &&
+      (CODING_TOOLS.has(latestTool) ||
+        READING_TOOLS.has(latestTool) ||
+        SEARCHING_TOOLS.has(latestTool));
+    if (!isCoordinator || (hasAllBroadcast && !coordUsingWorkTool)) {
+      return {
+        zone: 'WAR_ROOM',
+        activity: 'meeting',
+        speechBubble: truncateBubble(
+          recentBoardMatch?.text || transcript?.latestThoughtSnippet,
+        ),
+      };
+    }
   }
 
   if (TERMINAL_TOOLS.has(latestTool)) {
@@ -881,6 +893,12 @@ const HALLOWEEN_BUBBLES = [
   '🎃 Balkabağı kostümüm nasıl?',
 ];
 
+const CARD_GAME_BUBBLES = [
+  '🃏 As bende, hamleni yap!',
+  '🃏 Güzel el geldi!',
+  '🃏 Masa kızışıyor!',
+];
+
 /**
  * Post-process COFFEE_LOUNGE (idle/waiting) employees on a floor to assign paired 2-player
  * console gaming, ambient micro-activities (lounging, coffee, watercooler, pizza), and
@@ -898,6 +916,23 @@ export function applyLoungeActivities(
         emp.speechBubble = '🎉 Harika gidiyoruz!';
       }
     }
+  }
+
+  if (activeEvent?.kind === 'CARD_GAME') {
+    const cardZone = activeEvent.targetZone ?? resolveCardGameTargetZone(employees);
+    const cardPlayers = employees
+      .filter((e) => e.status !== 'working' && e.activity !== 'going_home')
+      .slice(0, 6);
+    cardPlayers.forEach((emp, i) => {
+      emp.zone = cardZone;
+      emp.activity = 'card_game';
+      emp.partnerId = undefined;
+      emp.partnerName = undefined;
+      emp.playerSlot = undefined;
+      emp.standingGuest = undefined;
+      emp.speechBubble = CARD_GAME_BUBBLES[i % CARD_GAME_BUBBLES.length];
+    });
+    return;
   }
 
   const loungeEmployees = employees.filter(
@@ -1055,9 +1090,14 @@ export function applyWarRoomPresentation(
       }
     }
 
+    const isAllBroadcast = participantNames.has('all');
+    const isLargeMeeting = participantNames.size >= 3;
     for (const emp of employees) {
       if (emp.status !== 'working') continue;
-      if (participantNames.has(emp.name.toLowerCase()) || participantNames.has('all')) {
+      if (emp.isCoordinator && emp.zone === 'DESK_ARCHITECT' && !isAllBroadcast && !isLargeMeeting) {
+        continue;
+      }
+      if (participantNames.has(emp.name.toLowerCase()) || isAllBroadcast) {
         emp.zone = 'WAR_ROOM';
         emp.activity = 'meeting';
       }
@@ -1650,8 +1690,10 @@ export function buildPlazaSnapshot(
 
   for (const floor of floors) {
     floor.layoutSeed = getFloorLayoutSeed(floor.id);
-    floor.activeEvent = getActiveFloorEvent(floor.id, nowMs);
     applyWarRoomPresentation(floor.employees, floor.boardMessages, nowMs);
+    const { activeEvent, scheduledEvents } = tickScheduledFloorEvents(floor, nowMs);
+    floor.activeEvent = activeEvent;
+    floor.scheduledEvents = scheduledEvents;
     applyLoungeActivities(floor.employees, floor.floorNumber, nowMs, floor.activeEvent);
     floor.activeCelebration = applyOfficeInteractions(floor, nowMs);
   }

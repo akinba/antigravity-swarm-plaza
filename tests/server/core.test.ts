@@ -33,12 +33,14 @@ import {
 } from '../../src/server/gamification.js';
 import type { OfficeEmployee } from '../../src/shared/types.js';
 import {
+  BOSS_MEETING_COOLDOWN_MS,
   CELEBRATION_CHEER_BUBBLES,
   CELEBRATION_DURATION_MS,
   CELEBRATION_HERO_BUBBLES,
   COFFEE_GIFT_BUBBLES,
   COFFEE_VISIT_COOLDOWN_MS,
   COFFEE_VISIT_DURATION_MS,
+  applyBossSuiteMeeting,
   applyOfficeInteractions,
   resetOfficeInteractionsState,
 } from '../../src/server/officeInteractions.js';
@@ -49,9 +51,13 @@ import {
   countOnBreakOrWaitingAgents,
   getActiveFloorEvent,
   getFloorLayoutSeed,
+  getScheduledFloorEvents,
   isSocialFloorEvent,
   rerollFloorLayout,
   resetOfficeEventsState,
+  resolveCardGameTargetZone,
+  scheduleFloorEvent,
+  tickScheduledFloorEvents,
   triggerFloorEvent,
   tryTriggerAutoFloorEvent,
 } from '../../src/server/officeEvents.js';
@@ -731,7 +737,7 @@ describe('Hex-Weather floor recovery, idle lock guard, and WAR_ROOM presentation
 });
 
 describe('Per-floor layout reroll, random events, and real-work integrity', () => {
-  it('increments layoutSeed and cycles through all 8 floor event kinds', () => {
+  it('increments layoutSeed and cycles through all 9 floor event kinds including CARD_GAME', () => {
     resetOfficeEventsState();
     const floorId = 'test-floor-1';
 
@@ -741,15 +747,16 @@ describe('Per-floor layout reroll, random events, and real-work integrity', () =
     assert.equal(getFloorLayoutSeed(floorId), 2);
 
     const seenKinds = new Set<string>();
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 9; i++) {
       const ev = triggerFloorEvent(floorId, undefined, 1000 + i);
       seenKinds.add(ev.kind);
       assert.ok(getActiveFloorEvent(floorId, 1000 + i));
     }
-    assert.equal(seenKinds.size, 8);
+    assert.equal(seenKinds.size, 9);
     assert.ok(seenKinds.has('STAR_WARS_PARTY'));
     assert.ok(seenKinds.has('SUPERHERO_PARTY'));
     assert.ok(seenKinds.has('HALLOWEEN_PARTY'));
+    assert.ok(seenKinds.has('CARD_GAME'));
     assert.equal(getActiveFloorEvent(floorId, 20_000), null);
   });
 
@@ -1082,5 +1089,112 @@ describe('Office interactions: hard-task celebration & coffee delivery', () => {
     applyOfficeInteractions({ id: 'x', employees: [lonely] }, t0);
     applyOfficeInteractions({ id: 'x', employees: [lonely] }, t0 + COFFEE_VISIT_COOLDOWN_MS + 1000);
     assert.equal(lonely.visitTargetId, undefined);
+  });
+
+  it('keeps Coordinator coding at DESK_ARCHITECT, hosts Boss Suite mini-meetings with 3rd+ standing guest, schedules events, and routes CARD_GAME by WAR_ROOM occupancy', () => {
+    resetOfficeEventsState();
+    resetOfficeInteractionsState();
+    const t0 = 12_000_000;
+
+    // 1. Coordinator coding stays in DESK_ARCHITECT even with recent board message
+    const coordPlacement = determineZoneAndActivity({
+      agentName: 'coordinator',
+      isCoordinator: true,
+      roleTitle: 'Swarm Coordinator',
+      status: 'working',
+      transcript: {
+        inputTokens: 0,
+        cacheReadTokens: 0,
+        outputTokens: 0,
+        latestToolName: 'write_file',
+        latestTargetSummary: 'types.ts',
+      },
+      recentBoardMessages: [
+        {
+          seq: 1,
+          agent: 'coordinator',
+          kind: 'post_message',
+          text: '@coder-core check this',
+          time: new Date(t0 - 5000).toISOString(),
+          mentions: ['coder-core'],
+        },
+      ],
+      nowMs: t0,
+    });
+    assert.equal(coordPlacement.zone, 'DESK_ARCHITECT');
+    assert.equal(coordPlacement.activity, 'coding');
+
+    // 2. Boss Suite mini-meeting with 3 guests: first 2 sit (standingGuest false), 3rd stands (standingGuest true) & proposes scheduled event
+    const boss = makeEmp('boss', 'working', 'DESK_ARCHITECT', 'coding', {
+      name: 'coordinator',
+      isCoordinator: true,
+    });
+    const g1 = makeEmp('g1', 'idle', 'COFFEE_LOUNGE', 'lounging');
+    const g2 = makeEmp('g2', 'waiting', 'COFFEE_LOUNGE', 'coffee');
+    const g3 = makeEmp('g3', 'idle', 'COFFEE_LOUNGE', 'lounging');
+    const worker = makeEmp('w1', 'working', 'DESK_CODING', 'coding');
+    const roster = [boss, g1, g2, g3, worker];
+
+    applyBossSuiteMeeting('boss-floor', roster, t0, false);
+    assert.equal(getScheduledFloorEvents('boss-floor').length, 0); // baseline first
+
+    const tMeet = t0 + BOSS_MEETING_COOLDOWN_MS + 1000;
+    applyBossSuiteMeeting('boss-floor', roster, tMeet, false);
+    assert.equal(g1.zone, 'DESK_ARCHITECT');
+    assert.equal(g1.standingGuest, false);
+    assert.equal(g2.zone, 'DESK_ARCHITECT');
+    assert.equal(g2.standingGuest, false);
+    assert.equal(g3.zone, 'DESK_ARCHITECT');
+    assert.equal(g3.standingGuest, true);
+    assert.equal(worker.zone, 'DESK_CODING');
+    assert.equal(worker.activity, 'coding');
+
+    const sched = getScheduledFloorEvents('boss-floor');
+    assert.equal(sched.length, 1);
+
+    // 3. Scheduled event triggers when scheduledFor <= nowMs
+    const dueMs = sched[0].scheduledFor + 100;
+    const { activeEvent, scheduledEvents } = tickScheduledFloorEvents(
+      { id: 'boss-floor', employees: roster, activeEvent: null },
+      dueMs,
+    );
+    assert.ok(activeEvent);
+    assert.equal(scheduledEvents.length, 0);
+
+    // 4. CARD_GAME location rule: WAR_ROOM when free, COFFEE_LOUNGE when WAR_ROOM is busy
+    resetOfficeEventsState();
+    const freeRoomEmps = [
+      makeEmp('a1', 'idle', 'COFFEE_LOUNGE', 'lounging'),
+      makeEmp('a2', 'waiting', 'COFFEE_LOUNGE', 'coffee'),
+      makeEmp('c1', 'working', 'DESK_CODING', 'coding'),
+    ];
+    assert.equal(resolveCardGameTargetZone(freeRoomEmps), 'WAR_ROOM');
+    const cardEv1 = triggerFloorEvent('cg-1', 'CARD_GAME', t0, freeRoomEmps);
+    assert.equal(cardEv1.targetZone, 'WAR_ROOM');
+    applyLoungeActivities(freeRoomEmps, 1, t0, cardEv1);
+    assert.equal(freeRoomEmps[0].zone, 'WAR_ROOM');
+    assert.equal(freeRoomEmps[0].activity, 'card_game');
+    assert.equal(freeRoomEmps[2].zone, 'DESK_CODING');
+    assert.equal(freeRoomEmps[2].activity, 'coding');
+
+    const busyRoomEmps = [
+      makeEmp('b1', 'idle', 'COFFEE_LOUNGE', 'lounging'),
+      makeEmp('b2', 'waiting', 'COFFEE_LOUNGE', 'coffee'),
+      makeEmp('m1', 'working', 'WAR_ROOM', 'presenting'),
+    ];
+    assert.equal(resolveCardGameTargetZone(busyRoomEmps), 'COFFEE_LOUNGE');
+    const cardEv2 = triggerFloorEvent('cg-2', 'CARD_GAME', t0, busyRoomEmps);
+    assert.equal(cardEv2.targetZone, 'COFFEE_LOUNGE');
+
+    // Manual scheduleFloorEvent creates an upcoming entry
+    const manualSched = scheduleFloorEvent({
+      floorId: 'cg-2',
+      kind: 'CARD_GAME',
+      delaySec: 30,
+      proposedByName: 'coordinator',
+      nowMs: t0,
+    });
+    assert.equal(manualSched.kind, 'CARD_GAME');
+    assert.equal(getScheduledFloorEvents('cg-2').length, 1);
   });
 });

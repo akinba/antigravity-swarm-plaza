@@ -50,6 +50,7 @@ export interface Translations {
     historyAlertsBadge: string;
     legend: string;
     legendShort: string;
+    calendar: string;
   };
   blueprints: string[];
   events: Record<FloorEventKind, string>;
@@ -262,6 +263,24 @@ export interface Translations {
       { title: string; desc: string }
     >;
   };
+  calendarModal: {
+    title: string;
+    close: string;
+    activeEventLabel: string;
+    noActiveEvent: string;
+    scheduledTitle: string;
+    noScheduled: string;
+    startsInSec: string;
+    startsNow: string;
+    proposedBy: string;
+    triggerNowTitle: string;
+    scheduleLaterTitle: string;
+    delay30s: string;
+    delay1m: string;
+    delay5m: string;
+    locationWarRoom: string;
+    locationLounge: string;
+  };
   notifications: {
     agentAlertTitle: string;
     agentStallOrError: string;
@@ -348,6 +367,7 @@ const TR: Translations = {
     pizza: 'Pizza Molası 🍕',
     lounging: 'Koltukta Dinleniyor',
     gaming: 'Konsol Oyunu Oynuyor 🎮',
+    card_game: 'Kart Oyunu Oynuyor 🃏',
     going_home: 'Mesai Bitti, Eve Gidiyor 🏠',
     error: 'Hata / Müdahale',
   },
@@ -390,6 +410,7 @@ const TR: Translations = {
     historyAlertsBadge: 'Geçmiş Uyarılar',
     legend: '❓ İkonlar',
     legendShort: '❓ Rehber',
+    calendar: '📅 Takvim',
   },
   blueprints: [
     'Klasik Köşe Stüdyo',
@@ -407,6 +428,7 @@ const TR: Translations = {
     SPRINT_CELEBRATION: '🎉 SPRİNT KUTLAMASI!',
     MASCOT_ZOOMIES: '🐾 MASKOT ÇILGINLIĞI!',
     COFFEE_BREW: '☕ TAZE ESPRESSO SERVİSİ!',
+    CARD_GAME: '🃏 KART OYUNU!',
   },
   elevator: {
     title: 'ASANSÖR',
@@ -617,6 +639,24 @@ const TR: Translations = {
       speechBubble: { title: 'Canlı Konuşma Balonu', desc: 'Krem balon — anlık ajan düşüncesi, hedef dosya veya kutlama sözü' },
     },
   },
+  calendarModal: {
+    title: '📅 OFİS ETKİNLİK TAKVİMİ',
+    close: 'KAPAT',
+    activeEventLabel: 'Şu An Aktif Etkinlik',
+    noActiveEvent: 'Şu an aktif etkinlik yok.',
+    scheduledTitle: 'Planlanan Etkinlikler',
+    noScheduled: 'Henüz takvime eklenmiş etkinlik yok — Patron Odası sohbetlerinden veya aşağıdan planlayabilirsin.',
+    startsInSec: '{n} sn içinde',
+    startsNow: 'Başlıyor!',
+    proposedBy: 'Öneren',
+    triggerNowTitle: 'Hemen Başlat',
+    scheduleLaterTitle: 'Takvime Ekle (Gecikmeli)',
+    delay30s: '+30 sn',
+    delay1m: '+1 dk',
+    delay5m: '+5 dk',
+    locationWarRoom: 'Toplantı Odası',
+    locationLounge: 'Mola Salonu',
+  },
   notifications: {
     agentAlertTitle: 'Swarm Plaza Ajan Uyarısı',
     agentStallOrError: 'hata verdi veya beklemede takıldı.',
@@ -703,6 +743,7 @@ const EN: Translations = {
     pizza: 'Pizza Break 🍕',
     lounging: 'Relaxing on Sofa',
     gaming: 'Playing Console Game 🎮',
+    card_game: 'Playing Card Game 🃏',
     going_home: 'Off-Duty, Going Home 🏠',
     error: 'Error / Attention',
   },
@@ -745,6 +786,7 @@ const EN: Translations = {
     historyAlertsBadge: 'Alert History',
     legend: '❓ Legend',
     legendShort: '❓ Legend',
+    calendar: '📅 Calendar',
   },
   blueprints: [
     'Classic Corner Studio',
@@ -762,6 +804,7 @@ const EN: Translations = {
     SPRINT_CELEBRATION: '🎉 SPRINT CELEBRATION!',
     MASCOT_ZOOMIES: '🐾 MASCOT ZOOMIES!',
     COFFEE_BREW: '☕ FRESH ESPRESSO BREW!',
+    CARD_GAME: '🃏 CARD GAME!',
   },
   elevator: {
     title: 'ELEVATOR',
@@ -972,6 +1015,24 @@ const EN: Translations = {
       speechBubble: { title: 'Live Speech Bubble', desc: 'Cream bubble — current thought, target file, or celebration' },
     },
   },
+  calendarModal: {
+    title: '📅 OFFICE EVENT CALENDAR',
+    close: 'CLOSE',
+    activeEventLabel: 'Active Event Now',
+    noActiveEvent: 'No active event right now.',
+    scheduledTitle: 'Scheduled Events',
+    noScheduled: 'No scheduled events yet — proposed from Boss Suite chats or schedule one below.',
+    startsInSec: 'in {n}s',
+    startsNow: 'Starting!',
+    proposedBy: 'Proposed by',
+    triggerNowTitle: 'Start Now',
+    scheduleLaterTitle: 'Add to Calendar',
+    delay30s: '+30s',
+    delay1m: '+1m',
+    delay5m: '+5m',
+    locationWarRoom: 'War Room',
+    locationLounge: 'Coffee Lounge',
+  },
   notifications: {
     agentAlertTitle: 'Swarm Plaza Agent Alert',
     agentStallOrError: 'encountered an error or stalled.',
@@ -1035,6 +1096,20 @@ export const SERVER_TR_TO_EN: Record<string, string> = {
   '⚡ Taze espresso takviyesi!': '⚡ Fresh espresso boost!',
   '❤️ Çok teşekkürler, ilaç gibi geldi!': '❤️ Thanks so much, just what I needed!',
   '☕ Süpersin, sağ ol!': '☕ You rock, thanks!',
+
+  // officeInteractions.ts / officeEvents.ts / demoSimulator.ts: boss suite, card game & calendar
+  '🃏 As bende, hamleni yap!': '🃏 I hold the ace, make your move!',
+  '🃏 Güzel el geldi!': '🃏 Got a great hand!',
+  '🃏 Masa kızışıyor!': '🃏 The table is heating up!',
+  '💻 Patron masasında mimari kodluyor...': '💻 Coding architecture at the boss desk...',
+  '📅 1 dk sonra Kart Oyunu yapalım, takvime ekledim!': "📅 Let's play a Card Game in 1m, added to calendar!",
+  '🃏 Süper fikir, geliyorum!': "🃏 Great idea, I'm coming!",
+  '📅 Birazdan Pizza Partisi veriyoruz, takvime yazdım!': "📅 We're having a Pizza Party soon, put it on the calendar!",
+  '🍕 Harika, takvime baktım!': '🍕 Awesome, checked the calendar!',
+  '📅 Az sonra Kostüm Partisi var, hazırlanın!': '📅 Costume Party coming up soon, get ready!',
+  '🎃 Kostümüm hazır!': '🎃 My costume is ready!',
+  '📅 Birazdan Kahve Molası buluşması takvimde!': '📅 Coffee Break meetup is on the calendar soon!',
+  '☕ Tam zamanıydı!': '☕ Right on time!',
 
   // gamification.ts: gaming chats
   '🎮 Pas at, boşum!': "🎮 Pass it, I'm open!",

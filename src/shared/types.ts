@@ -14,6 +14,7 @@ export type AgentActivityKind =
   | 'pizza'
   | 'lounging'
   | 'gaming'
+  | 'card_game'
   | 'going_home'
   | 'error';
 export type CompanyTier = 1 | 2 | 3 | 4;
@@ -30,13 +31,27 @@ export type FloorEventKind =
   | 'WATERCOOLER_GOSSIP'
   | 'SPRINT_CELEBRATION'
   | 'MASCOT_ZOOMIES'
-  | 'COFFEE_BREW';
+  | 'COFFEE_BREW'
+  | 'CARD_GAME';
 
 export interface FloorRandomEvent {
   id: string;
   kind: FloorEventKind;
   startedAt: number;
   expiresAt: number;
+  targetZone?: 'WAR_ROOM' | 'COFFEE_LOUNGE';
+  participantIds?: string[];
+}
+
+export interface ScheduledOfficeEvent {
+  id: string;
+  kind: FloorEventKind;
+  scheduledFor: number;
+  createdAt: number;
+  proposedById?: string;
+  proposedByName: string;
+  participantNames?: string[];
+  announcementText?: string;
 }
 
 export type SocialReactionKind = 'cheering' | 'coffee_gift' | 'coffee_thanks';
@@ -179,6 +194,7 @@ export interface OfficeEmployee {
   health?: AgentHealthMetrics;
   leftAt?: string;
   visitTargetId?: string;
+  standingGuest?: boolean;
   socialReaction?: SocialReactionKind;
   contextUsedTokens?: number;
   contextLimitTokens?: number;
@@ -229,6 +245,7 @@ export interface PlazaFloor {
   taskNodes?: SwarmTaskNode[];
   layoutSeed?: number;
   activeEvent?: FloorRandomEvent | null;
+  scheduledEvents?: ScheduledOfficeEvent[];
   recentlyLeftEmployees?: OfficeEmployee[];
   activeCelebration?: FloorCelebration | null;
   analytics?: FloorAnalytics;

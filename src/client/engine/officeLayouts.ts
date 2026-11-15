@@ -182,12 +182,12 @@ const BLUEPRINT_0: BlueprintBase = {
   deskStyle: 'clover_desk',
   furniture: [
     { gx: 0, gy: 6, kind: 'elevator_doors' },
-    // Exec NW (0..4, 0..4) — Boss facing SW toward room + 2 facing guest armchairs & coffee table
+    // Exec NW (0..4, 0..4) — Boss facing SW toward room + intimate guest armchairs & coffee table right in front
     { gx: 2, gy: 0, kind: 'exec_chair', facing: 'SW' },
     { gx: 2, gy: 1, kind: 'exec_desk', facing: 'SW' },
-    { gx: 1, gy: 3, kind: 'armchair', facing: 'SE' },
-    { gx: 2, gy: 3, kind: 'exec_coffee_table' },
-    { gx: 3, gy: 3, kind: 'armchair', facing: 'NW' },
+    { gx: 1, gy: 2, kind: 'armchair', facing: 'SE' },
+    { gx: 2, gy: 2, kind: 'exec_coffee_table' },
+    { gx: 3, gy: 2, kind: 'armchair', facing: 'NW' },
     { gx: 0, gy: 0, kind: 'bookshelf' },
     { gx: 3, gy: 0, kind: 'filing_cabinet' },
     { gx: 4, gy: 0, kind: 'wood_partition' },
@@ -285,7 +285,10 @@ const BLUEPRINT_0: BlueprintBase = {
     ELEVATOR: [ELEVATOR_SLOT],
     DESK_ARCHITECT: [
       { gx: 2, gy: 0, facing: 'SW' },
-      { gx: 1, gy: 3, facing: 'SE' },
+      { gx: 1, gy: 2, facing: 'SE' },
+      { gx: 3, gy: 2, facing: 'NW' },
+      { gx: 1, gy: 3, facing: 'NE' },
+      { gx: 2, gy: 3, facing: 'NE' },
       { gx: 3, gy: 3, facing: 'NW' },
     ],
     DESK_CODING: [
@@ -475,6 +478,9 @@ const BLUEPRINT_1: BlueprintBase = {
       { gx: 13, gy: 1, facing: 'SW' },
       { gx: 12, gy: 3, facing: 'SE' },
       { gx: 14, gy: 3, facing: 'NW' },
+      { gx: 12, gy: 4, facing: 'NE' },
+      { gx: 13, gy: 4, facing: 'NE' },
+      { gx: 11, gy: 3, facing: 'SE' },
     ],
     DESK_CODING: [
       { gx: 2, gy: 7, facing: 'SW' },
@@ -570,12 +576,12 @@ const BLUEPRINT_2: BlueprintBase = {
     { gx: 4, gy: 4, kind: 'armchair' },
     { gx: 2, gy: 3, kind: 'lounge_table' },
     { gx: 8, gy: 4, kind: 'ping_pong' },
-    // Exec SW (0..4, 9..13) — Boss facing SE toward room + 2 facing guest armchairs & coffee table
+    // Exec SW (0..4, 9..13) — Boss facing SE toward room + intimate guest armchairs & coffee table right in front
     { gx: 0, gy: 11, kind: 'exec_chair', facing: 'SE' },
     { gx: 1, gy: 11, kind: 'exec_desk', facing: 'SE' },
-    { gx: 3, gy: 10, kind: 'armchair', facing: 'SW' },
-    { gx: 3, gy: 11, kind: 'exec_coffee_table' },
-    { gx: 3, gy: 12, kind: 'armchair', facing: 'NE' },
+    { gx: 2, gy: 10, kind: 'armchair', facing: 'SW' },
+    { gx: 2, gy: 11, kind: 'exec_coffee_table' },
+    { gx: 2, gy: 12, kind: 'armchair', facing: 'NE' },
     { gx: 0, gy: 13, kind: 'bookshelf' },
     { gx: 1, gy: 13, kind: 'filing_cabinet' },
     { gx: 4, gy: 11, kind: 'wood_partition' },
@@ -661,8 +667,11 @@ const BLUEPRINT_2: BlueprintBase = {
     ELEVATOR: [ELEVATOR_SLOT],
     DESK_ARCHITECT: [
       { gx: 0, gy: 11, facing: 'SE' },
-      { gx: 3, gy: 10, facing: 'SW' },
-      { gx: 3, gy: 12, facing: 'NE' },
+      { gx: 2, gy: 10, facing: 'SW' },
+      { gx: 2, gy: 12, facing: 'NE' },
+      { gx: 3, gy: 10, facing: 'NW' },
+      { gx: 3, gy: 11, facing: 'NW' },
+      { gx: 3, gy: 12, facing: 'NW' },
     ],
     DESK_CODING: [
       { gx: 5, gy: 5, facing: 'SW' },
@@ -741,12 +750,12 @@ const BLUEPRINT_3: BlueprintBase = {
   deskStyle: 'u_pod_desk',
   furniture: [
     { gx: 0, gy: 6, kind: 'elevator_doors' },
-    // Executive Boss Suite NW (0..5, 0..4) — Boss faces SE (face visible) with guest armchairs + coffee table in front
+    // Executive Boss Suite NW (0..5, 0..4) — Boss faces SE (face visible) with intimate guest armchairs + coffee table right in front
     { gx: 1, gy: 2, kind: 'exec_chair', facing: 'SE' },
     { gx: 2, gy: 2, kind: 'exec_desk', facing: 'SE' },
-    { gx: 4, gy: 1, kind: 'armchair', facing: 'SW' },
-    { gx: 4, gy: 2, kind: 'exec_coffee_table' },
-    { gx: 4, gy: 3, kind: 'armchair', facing: 'NE' },
+    { gx: 3, gy: 1, kind: 'armchair', facing: 'SW' },
+    { gx: 3, gy: 2, kind: 'exec_coffee_table' },
+    { gx: 3, gy: 3, kind: 'armchair', facing: 'NE' },
     { gx: 0, gy: 0, kind: 'bookshelf' },
     { gx: 2, gy: 0, kind: 'filing_cabinet' },
     { gx: 6, gy: 0, kind: 'glass_partition' },
@@ -853,8 +862,11 @@ const BLUEPRINT_3: BlueprintBase = {
     ELEVATOR: [ELEVATOR_SLOT],
     DESK_ARCHITECT: [
       { gx: 1, gy: 2, facing: 'SE' },
-      { gx: 4, gy: 1, facing: 'SW' },
-      { gx: 4, gy: 3, facing: 'NE' },
+      { gx: 3, gy: 1, facing: 'SW' },
+      { gx: 3, gy: 3, facing: 'NE' },
+      { gx: 4, gy: 1, facing: 'NW' },
+      { gx: 4, gy: 2, facing: 'NW' },
+      { gx: 4, gy: 3, facing: 'NW' },
     ],
     DESK_CODING: [
       { gx: 2, gy: 8, facing: 'SE' },
@@ -1032,6 +1044,9 @@ const BLUEPRINT_4: BlueprintBase = {
       { gx: 14, gy: 7, facing: 'SW' },
       { gx: 13, gy: 9, facing: 'SE' },
       { gx: 15, gy: 9, facing: 'NW' },
+      { gx: 13, gy: 10, facing: 'NE' },
+      { gx: 14, gy: 10, facing: 'NE' },
+      { gx: 15, gy: 10, facing: 'NW' },
     ],
     DESK_CODING: [
       { gx: 7, gy: 2, facing: 'SE' },

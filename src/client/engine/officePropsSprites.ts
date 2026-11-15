@@ -5123,9 +5123,190 @@ export function drawAgentHealthBadge(
   if (hasErrorLoop) {
     const wx = bx - 4 * z;
     ctx.fillStyle = 'rgba(12, 16, 28, 0.92)';
-    pxRect(ctx, wx - 0.6 * z, by - 1 * z, 3.6 * z, 4 * z);
+    pxRect(ctx, vxOrWx(wx - 0.6 * z), by - 1 * z, 3.6 * z, 4 * z);
     ctx.fillStyle = Math.sin(timeSec * 4.5) > 0 ? '#ff5666' : '#ffbe3b';
     pxRect(ctx, wx, by - 0.4 * z, 2.4 * z, 2.8 * z);
+  }
+
+  ctx.restore();
+}
+
+function vxOrWx(v: number): number {
+  return v;
+}
+
+/**
+ * Draws an isometric royal-emerald casino felt mat, 3D draw deck, face-up discard pile,
+ * poker chip stacks, 4 directional fanned mini-hands, and an animated dealt card
+ * directly onto a War Room conference table or Coffee Lounge table surface.
+ */
+export function drawCardGameTableOverlay(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  zoom: number,
+  timeSec: number,
+  tableKind?: string,
+): void {
+  const z = zoom;
+  const isWarTable = Boolean(tableKind && tableKind.startsWith('war_table'));
+  // OfficeCanvas passes `y = tableScreenY - 6 * zoom`; subtracting ~4.2*z lands flush on both war_table (~9.2*z) & lounge_table (~11.2*z)
+  const topY = y - (isWarTable ? 3.8 : 4.2) * z;
+  const hw = (isWarTable ? 14.8 : 11.4) * z;
+  const hh = (isWarTable ? 6.4 : 4.2) * z;
+  const scale = isWarTable ? 1.18 : 0.94;
+
+  const drawCardMini = (
+    cx: number,
+    cy: number,
+    cw: number,
+    ch: number,
+    faceUp: boolean,
+    isRedPip: boolean,
+  ) => {
+    ctx.fillStyle = '#121826';
+    pxRect(ctx, cx - 0.5 * z, cy - 0.5 * z, cw + 1 * z, ch + 1 * z);
+    ctx.fillStyle = '#fffdf7';
+    pxRect(ctx, cx, cy, cw, ch);
+    if (faceUp) {
+      ctx.fillStyle = isRedPip ? '#e63946' : '#182030';
+      pxRect(
+        ctx,
+        cx + cw * 0.34,
+        cy + ch * 0.28,
+        Math.max(0.9 * z, cw * 0.32),
+        Math.max(0.9 * z, ch * 0.42),
+      );
+    } else {
+      ctx.fillStyle = '#c92a3e';
+      pxRect(
+        ctx,
+        cx + 0.45 * z,
+        cy + 0.45 * z,
+        Math.max(0.8 * z, cw - 0.9 * z),
+        Math.max(0.8 * z, ch - 0.9 * z),
+      );
+      ctx.fillStyle = '#ffd147';
+      pxRect(ctx, cx + cw * 0.38, cy + ch * 0.35, 0.8 * z, 0.8 * z);
+    }
+  };
+
+  const drawChipStack = (sx: number, sy: number, layers: string[]) => {
+    ctx.fillStyle = 'rgba(8, 12, 20, 0.42)';
+    pxRect(ctx, sx - 0.3 * z, sy + 0.5 * z, 2.6 * z, 1.4 * z);
+    for (let i = 0; i < layers.length; i++) {
+      const ly = sy - i * 0.75 * z;
+      ctx.fillStyle = '#141a29';
+      pxRect(ctx, sx - 0.35 * z, ly - 0.35 * z, 2.7 * z, 1.7 * z);
+      ctx.fillStyle = layers[i];
+      pxRect(ctx, sx, ly, 2.0 * z, 1.1 * z);
+      ctx.fillStyle = '#fffdf7';
+      pxRect(ctx, sx + 0.65 * z, ly + 0.25 * z, 0.7 * z, 0.55 * z);
+    }
+  };
+
+  ctx.save();
+
+  // 1. Subtle tabletop drop shadow beneath felt mat
+  ctx.fillStyle = 'rgba(6, 12, 18, 0.34)';
+  ctx.beginPath();
+  ctx.moveTo(x, topY - hh - 0.6 * z);
+  ctx.lineTo(x + hw + 1.4 * z, topY + 0.4 * z);
+  ctx.lineTo(x, topY + hh + 1.4 * z);
+  ctx.lineTo(x - hw - 1.4 * z, topY + 0.4 * z);
+  ctx.closePath();
+  ctx.fill();
+
+  // 2. Beveled brass/gold outer frame + royal-emerald casino felt diamond
+  ctx.fillStyle = '#b98d32';
+  ctx.beginPath();
+  ctx.moveTo(x, topY - hh - 0.7 * z);
+  ctx.lineTo(x + hw + 1.0 * z, topY);
+  ctx.lineTo(x, topY + hh + 0.7 * z);
+  ctx.lineTo(x - hw - 1.0 * z, topY);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = '#135c3b';
+  ctx.beginPath();
+  ctx.moveTo(x, topY - hh);
+  ctx.lineTo(x + hw, topY);
+  ctx.lineTo(x, topY + hh);
+  ctx.lineTo(x - hw, topY);
+  ctx.closePath();
+  ctx.fill();
+
+  // Lit inner felt sheen + gold pin-line diamond
+  ctx.fillStyle = '#1b7a4f';
+  ctx.beginPath();
+  ctx.moveTo(x, topY - hh * 0.78);
+  ctx.lineTo(x + hw * 0.78, topY);
+  ctx.lineTo(x, topY + hh * 0.78);
+  ctx.lineTo(x - hw * 0.78, topY);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = 'rgba(255, 214, 102, 0.55)';
+  ctx.lineWidth = Math.max(1, 0.75 * z);
+  ctx.beginPath();
+  ctx.moveTo(x, topY - hh * 0.84);
+  ctx.lineTo(x + hw * 0.84, topY);
+  ctx.lineTo(x, topY + hh * 0.84);
+  ctx.lineTo(x - hw * 0.84, topY);
+  ctx.closePath();
+  ctx.stroke();
+
+  // 3. Central 3D Draw Deck Stack (left-center)
+  const deckX = x - 3.4 * scale * z;
+  const deckY = topY - 1.2 * scale * z;
+  const cardW = 3.2 * scale * z;
+  const cardH = 2.2 * scale * z;
+  ctx.fillStyle = '#0e1422';
+  pxRect(ctx, deckX - 0.5 * z, deckY - 0.4 * z, cardW + 1 * z, cardH + 2.1 * z);
+  // Crisp white/silver stacked deck thickness
+  ctx.fillStyle = '#cfd8ea';
+  pxRect(ctx, deckX, deckY + 0.9 * z, cardW, cardH + 0.3 * z);
+  ctx.fillStyle = '#eef3fc';
+  pxRect(ctx, deckX, deckY + 0.45 * z, cardW, cardH);
+  // Top crimson-and-gold card back
+  drawCardMini(deckX, deckY - 0.35 * z, cardW, cardH, false, true);
+
+  // 4. Face-Up Discard Pile (right-center, alternating suit color over time)
+  const discX = x + 0.9 * scale * z;
+  const discY = topY - 0.9 * scale * z;
+  drawCardMini(discX - 0.45 * z, discY + 0.35 * z, cardW, cardH, true, false);
+  const topDiscardRed = Math.floor(timeSec * 0.6) % 2 === 0;
+  drawCardMini(discX + 0.25 * z, discY - 0.25 * z, cardW, cardH, true, topDiscardRed);
+
+  // 5. Four directional mini fanned hands near NW, NE, SE, SW edges
+  const handW = 2.3 * scale * z;
+  const handH = 1.65 * scale * z;
+  const seatHands: Array<{ dx: number; dy: number; faceUp: boolean; red: boolean }> = [
+    { dx: -hw * 0.46, dy: -hh * 0.38, faceUp: false, red: true },
+    { dx: hw * 0.34, dy: -hh * 0.4, faceUp: false, red: false },
+    { dx: hw * 0.32, dy: hh * 0.26, faceUp: true, red: true },
+    { dx: -hw * 0.48, dy: hh * 0.24, faceUp: true, red: false },
+  ];
+  for (const h of seatHands) {
+    drawCardMini(x + h.dx - 0.7 * z, topY + h.dy + 0.2 * z, handW, handH, h.faceUp, !h.red);
+    drawCardMini(x + h.dx + 0.6 * z, topY + h.dy - 0.2 * z, handW, handH, h.faceUp, h.red);
+  }
+
+  // 6. Stacked Poker Chips (crimson, cyan, gold)
+  drawChipStack(x - hw * 0.56, topY - 0.3 * z, ['#e63946', '#e63946', '#ffd147']);
+  drawChipStack(x + hw * 0.42, topY - 0.5 * z, ['#3cd8ff', '#ffd147']);
+
+  // 7. Animated dealt card gliding smoothly from draw deck toward active player quadrant
+  const dealCycle = ((timeSec * 0.85) % 4 + 4) % 4;
+  const targetIdx = Math.floor(dealCycle);
+  const frac = dealCycle - targetIdx;
+  if (frac < 0.68) {
+    const t = frac / 0.68;
+    const ease = 1 - (1 - t) * (1 - t);
+    const target = seatHands[targetIdx];
+    const flyX = deckX + (x + target.dx - deckX) * ease;
+    const flyY = deckY + (topY + target.dy - deckY) * ease - Math.sin(t * Math.PI) * 1.8 * z;
+    drawCardMini(flyX, flyY, handW, handH, false, true);
   }
 
   ctx.restore();

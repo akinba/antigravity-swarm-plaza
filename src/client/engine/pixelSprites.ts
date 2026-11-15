@@ -1427,10 +1427,12 @@ export function drawEmployeeSprite(
     act === 'testing' ||
     act === 'writing' ||
     act === 'researching';
+  const isStandingGuest = Boolean(emp.standingGuest);
   const autoSeated =
     !isWalking &&
     !isPresenting &&
     !isStandingWorkZone &&
+    !isStandingGuest &&
     (isCodingLikeActivity ||
       act === 'reading' ||
       act === 'searching' ||
@@ -1439,8 +1441,12 @@ export function drawEmployeeSprite(
       act === 'lounging' ||
       act === 'sleeping' ||
       act === 'gaming' ||
+      act === 'card_game' ||
       (isDeskZone && act !== 'going_home'));
-  const seated = isSeatedOverride !== undefined ? !isWalking && isSeatedOverride : autoSeated;
+  const seated =
+    !isWalking &&
+    !isStandingGuest &&
+    (isSeatedOverride !== undefined ? isSeatedOverride : autoSeated);
   const isCodingPose =
     seated &&
     !isWalking &&
@@ -1450,6 +1456,7 @@ export function drawEmployeeSprite(
     !seated &&
     !isWalking &&
     !isPresenting &&
+    !isStandingGuest &&
     (isCodingLikeActivity ||
       toolAct === 'terminal' ||
       toolAct === 'coding' ||
@@ -2622,6 +2629,69 @@ export function drawEmployeeSprite(
         Math.ceil(2 * z),
         Math.ceil(2 * z),
       );
+    } else if (emp.activity === 'card_game') {
+      // Handheld 3-card pixel fan across all 8 angles (front/side show crisp suit pips, rear shows crimson/gold backs)
+      const cardSeed = hashString(emp.id);
+      const cardBob = Math.sin(timeSec * 4.5 + (cardSeed & 7)) * 0.6 * z;
+      const pickLift = Math.sin(timeSec * 3.2 + (cardSeed & 3)) > 0.55 ? -0.9 * z : 0;
+      const drawSingleCard = (
+        cxCard: number,
+        cyCard: number,
+        cw: number,
+        ch: number,
+        showFace: boolean,
+        redSuit: boolean,
+      ) => {
+        rect(cxCard - 0.5 * z, cyCard - 0.5 * z, cw + 1 * z, ch + 1 * z, '#121826');
+        rect(cxCard, cyCard, cw, ch, '#fffdf7');
+        if (showFace) {
+          rect(
+            cxCard + 0.7 * z,
+            cyCard + 0.8 * z,
+            Math.max(1 * z, cw * 0.36),
+            Math.max(1 * z, ch * 0.36),
+            redSuit ? '#ff3b5c' : '#182030',
+          );
+          rect(
+            cxCard + cw * 0.45,
+            cyCard + ch * 0.52,
+            Math.max(0.9 * z, cw * 0.32),
+            Math.max(0.9 * z, ch * 0.3),
+            redSuit ? '#ff3b5c' : '#182030',
+          );
+        } else {
+          rect(cxCard + 0.5 * z, cyCard + 0.5 * z, Math.max(1 * z, cw - 1 * z), Math.max(1 * z, ch - 1 * z), '#c92a3e');
+          rect(cxCard + cw * 0.36, cyCard + ch * 0.36, 0.9 * z, 0.9 * z, '#ffd147');
+        }
+      };
+
+      if (isPureBack) {
+        // Pure North ('N'): cards peek forward past right shoulder/elbow, never clipping through the spine
+        drawSingleCard(uX + 5.6 * z, uY - 17.8 * z + cardBob, 2.8 * z, 3.8 * z, false, true);
+        drawSingleCard(uX + 7.2 * z, uY - 17.2 * z + cardBob + pickLift, 2.8 * z, 3.8 * z, false, false);
+      } else if (isFacingAway) {
+        // 3/4 Rear ('NE' / 'NW'): crimson-and-gold card backs held in forward hand toward tabletop
+        const baseX = dirFlip > 0 ? uX + 6.4 * z : uX - 12.6 * z;
+        const baseYCard = uY - 18.6 * z + cardBob;
+        drawSingleCard(baseX, baseYCard + 0.6 * z, 3.0 * z, 4.2 * z, false, true);
+        drawSingleCard(baseX + 1.5 * z, baseYCard + pickLift, 3.0 * z, 4.2 * z, false, false);
+        drawSingleCard(baseX + 3.0 * z, baseYCard + 0.5 * z, 3.0 * z, 4.2 * z, true, true);
+      } else if (isSideProfile) {
+        // Side profile ('E' / 'W'): stepped 3-card fan held out at 90°-bent table hand
+        const baseX = dirFlip > 0 ? uX + 4.8 * z : uX - 11.4 * z;
+        const baseYCard = uY - 17.6 * z + cardBob;
+        drawSingleCard(baseX, baseYCard + 0.5 * z, 3.0 * z, 4.2 * z, true, false);
+        drawSingleCard(baseX + 1.6 * z, baseYCard + pickLift, 3.0 * z, 4.2 * z, true, true);
+        drawSingleCard(baseX + 3.2 * z, baseYCard + 0.6 * z, 3.0 * z, 4.2 * z, true, false);
+      } else {
+        // Front / 3/4 Front ('S' / 'SE' / 'SW'): clear 3-card ivory fan with red heart/diamond & dark spade pips
+        const shiftX = isPureFront ? -3.4 * z : dirFlip > 0 ? 1.2 * z : -8.2 * z;
+        const baseX = uX + shiftX;
+        const baseYCard = uY - 17.2 * z + cardBob;
+        drawSingleCard(baseX, baseYCard + 0.6 * z, 3.1 * z, 4.3 * z, true, true);
+        drawSingleCard(baseX + 1.9 * z, baseYCard + pickLift, 3.1 * z, 4.3 * z, true, false);
+        drawSingleCard(baseX + 3.8 * z, baseYCard + 0.6 * z, 3.1 * z, 4.3 * z, true, true);
+      }
     }
   }
 
@@ -3546,13 +3616,27 @@ export function drawEmployeeSprite(
     );
   }
 
-  // Floating Zzz, ♪ lounging sparkle, gaming excitement ★, or Error !
+  // Floating Zzz, ♪ lounging sparkle, gaming excitement ★, card suit ♠♥♦♣, or Error !
   if (emp.activity === 'gaming') {
     const bounce = Math.abs(Math.sin(timeSec * 6)) * 5 * z;
     ctx.font = `bold ${Math.max(8, Math.round(8 * z))}px "Press Start 2P", monospace`;
     ctx.fillStyle = Math.sin(timeSec * 8) > 0 ? '#ffd147' : '#3cd8ff';
     ctx.textAlign = 'center';
     ctx.fillText('★', uX + 11 * z, uY - 37 * z - bounce);
+  } else if (emp.activity === 'card_game') {
+    const suitSeed = hashString(emp.id);
+    const bounce = Math.abs(Math.sin(timeSec * 4.2 + (suitSeed & 3))) * 4 * z;
+    const suitIdx = (Math.floor(timeSec * 1.4) + (suitSeed & 3)) & 3;
+    const suits = ['♠', '♥', '♣', '♦'] as const;
+    const isRedSuit = suitIdx === 1 || suitIdx === 3;
+    const badgeX = uX + 9.5 * z;
+    const badgeY = uY - 43 * z - bounce;
+    rect(badgeX - 3.6 * z, badgeY - 4.6 * z, 7.2 * z, 8.6 * z, '#121826');
+    rect(badgeX - 3.0 * z, badgeY - 4.0 * z, 6.0 * z, 7.4 * z, '#fffdf7');
+    ctx.font = `bold ${Math.max(7, Math.round(7 * z))}px "JetBrains Mono", monospace`;
+    ctx.fillStyle = isRedSuit ? '#e63946' : '#182030';
+    ctx.textAlign = 'center';
+    ctx.fillText(suits[suitIdx], badgeX, badgeY + 2 * z);
   } else if (emp.activity === 'lounging') {
     const floatY = ((timeSec * 10) % 8) * z;
     ctx.font = `bold ${Math.max(9, Math.round(9 * z))}px "Press Start 2P", monospace`;

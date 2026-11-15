@@ -18,7 +18,14 @@ import {
   computeAgentResources,
   computeModelBreakdown,
 } from './gamification.js';
-import { getActiveFloorEvent, getFloorLayoutSeed } from './officeEvents.js';
+import {
+  getActiveFloorEvent,
+  getFloorLayoutSeed,
+  getScheduledFloorEvents,
+  resolveCardGameTargetZone,
+  scheduleFloorEvent,
+  tickScheduledFloorEvents,
+} from './officeEvents.js';
 import { applyOfficeInteractions } from './officeInteractions.js';
 
 interface DemoEmployeeTemplate {
@@ -109,12 +116,12 @@ interface PhaseStep {
 const DEMO_CYCLES: Record<string, PhaseStep[]> = {
   'demo-chief-architect': [
     {
-      zone: 'WAR_ROOM',
-      activity: 'meeting',
+      zone: 'DESK_ARCHITECT',
+      activity: 'coding',
       status: 'working',
-      speechBubble: '@coder-core API kontratı hazır!',
-      currentTool: 'post_message',
-      currentTarget: 'board.jsonl',
+      speechBubble: '💻 Patron masasında mimari kodluyor...',
+      currentTool: 'write_file',
+      currentTarget: 'types.ts',
     },
     {
       zone: 'DESK_ARCHITECT',
@@ -576,13 +583,54 @@ export function getDemoFloor(
   const swarmEdges = buildSwarmMentionEdges(boardMessages);
 
   const layoutSeed = getFloorLayoutSeed('demo-penthouse');
-  const activeEvent = getActiveFloorEvent('demo-penthouse', nowMs);
+  if (
+    getScheduledFloorEvents('demo-penthouse').length === 0 &&
+    !getActiveFloorEvent('demo-penthouse', nowMs)
+  ) {
+    scheduleFloorEvent({
+      floorId: 'demo-penthouse',
+      kind: 'CARD_GAME',
+      delaySec: 45,
+      proposedById: 'demo-chief-architect',
+      proposedByName: 'Chief-Architect',
+      participantNames: ['coder-core', 'verifier-qa'],
+      announcementText: '📅 1 dk sonra Kart Oyunu yapalım, takvime ekledim!',
+      nowMs,
+    });
+    scheduleFloorEvent({
+      floorId: 'demo-penthouse',
+      kind: 'PIZZA_PARTY',
+      delaySec: 120,
+      proposedById: 'demo-chief-architect',
+      proposedByName: 'Chief-Architect',
+      announcementText: '📅 Birazdan Pizza Partisi veriyoruz, takvime yazdım!',
+      nowMs,
+    });
+  }
+  const { activeEvent, scheduledEvents } = tickScheduledFloorEvents(
+    { id: 'demo-penthouse', employees, activeEvent: null },
+    nowMs,
+  );
 
   if (activeEvent) {
     const loungeEmps = employees.filter(
       (e) => e.zone === 'COFFEE_LOUNGE' && (e.status === 'idle' || e.status === 'waiting'),
     );
-    if (activeEvent.kind === 'PIZZA_PARTY') {
+    if (activeEvent.kind === 'CARD_GAME') {
+      const cardZone = activeEvent.targetZone ?? resolveCardGameTargetZone(employees);
+      employees
+        .filter((e) => e.status !== 'working' && e.activity !== 'going_home')
+        .slice(0, 6)
+        .forEach((emp, i) => {
+          emp.zone = cardZone;
+          emp.activity = 'card_game';
+          emp.partnerId = undefined;
+          emp.partnerName = undefined;
+          emp.playerSlot = undefined;
+          emp.standingGuest = undefined;
+          emp.speechBubble = ['🃏 As bende, hamleni yap!', '🃏 Güzel el geldi!', '🃏 Masa kızışıyor!'][i % 3];
+        });
+    } else if (activeEvent.kind === 'PIZZA_PARTY') {
       loungeEmps.slice(0, 4).forEach((emp, i) => {
         emp.activity = 'pizza';
         emp.partnerId = undefined;
@@ -768,6 +816,7 @@ export function getDemoFloor(
     isDemo: true,
     layoutSeed,
     activeEvent,
+    scheduledEvents,
     tier: 4,
     companyXp: 4600 + effectiveTick * 125,
     nextTierXp: 25000,

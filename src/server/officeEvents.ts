@@ -1,6 +1,12 @@
-import type { FloorEventKind, FloorRandomEvent, OfficeEmployee, PlazaFloor } from '../shared/types.js';
+import type {
+  FloorEventKind,
+  FloorRandomEvent,
+  OfficeEmployee,
+  PlazaFloor,
+  ScheduledOfficeEvent,
+} from '../shared/types.js';
 
-const EVENT_KINDS: FloorEventKind[] = [
+export const EVENT_KINDS: FloorEventKind[] = [
   'STAR_WARS_PARTY',
   'SUPERHERO_PARTY',
   'HALLOWEEN_PARTY',
@@ -9,6 +15,7 @@ const EVENT_KINDS: FloorEventKind[] = [
   'SPRINT_CELEBRATION',
   'MASCOT_ZOOMIES',
   'COFFEE_BREW',
+  'CARD_GAME',
 ];
 
 const SOCIAL_EVENT_KINDS = new Set<FloorEventKind>([
@@ -18,6 +25,7 @@ const SOCIAL_EVENT_KINDS = new Set<FloorEventKind>([
   'PIZZA_PARTY',
   'WATERCOOLER_GOSSIP',
   'COFFEE_BREW',
+  'CARD_GAME',
 ]);
 
 const NON_SOCIAL_EVENT_KINDS: FloorEventKind[] = [
@@ -33,6 +41,8 @@ const layoutSeeds = new Map<string, number>();
 const floorEvents = new Map<string, FloorRandomEvent>();
 const lastEventIndex = new Map<string, number>();
 const lastEventTriggeredAt = new Map<string, number>();
+const scheduledEventsByFloor = new Map<string, ScheduledOfficeEvent[]>();
+const nextScheduleIndex = new Map<string, number>();
 
 export function isSocialFloorEvent(kind: FloorEventKind): boolean {
   return SOCIAL_EVENT_KINDS.has(kind);
@@ -82,10 +92,22 @@ export function getActiveFloorEvent(
   return existing;
 }
 
+export function resolveCardGameTargetZone(
+  employees: OfficeEmployee[],
+): 'WAR_ROOM' | 'COFFEE_LOUNGE' {
+  const warRoomBusy = employees.some(
+    (emp) =>
+      emp.zone === 'WAR_ROOM' &&
+      (emp.status === 'working' || emp.activity === 'meeting' || emp.activity === 'presenting'),
+  );
+  return warRoomBusy ? 'COFFEE_LOUNGE' : 'WAR_ROOM';
+}
+
 export function triggerFloorEvent(
   floorId: string,
   preferredKind?: FloorEventKind,
   nowMs = Date.now(),
+  employees?: OfficeEmployee[],
 ): FloorRandomEvent {
   let kind: FloorEventKind;
   if (preferredKind) {
@@ -99,11 +121,24 @@ export function triggerFloorEvent(
     kind = EVENT_KINDS[nextIdx];
   }
 
+  let targetZone: FloorRandomEvent['targetZone'];
+  let participantIds: string[] | undefined;
+  if (kind === 'CARD_GAME') {
+    const list = employees ?? [];
+    targetZone = resolveCardGameTargetZone(list);
+    participantIds = list
+      .filter((e) => e.status !== 'working' && e.activity !== 'going_home')
+      .slice(0, 6)
+      .map((e) => e.id);
+  }
+
   const event: FloorRandomEvent = {
     id: `${floorId}-${nowMs}-${Math.random().toString(36).slice(2, 7)}`,
     kind,
     startedAt: nowMs,
     expiresAt: nowMs + EVENT_DURATION_MS,
+    targetZone,
+    participantIds,
   };
   floorEvents.set(floorId, event);
   lastEventTriggeredAt.set(floorId, nowMs);
@@ -145,7 +180,88 @@ export function tryTriggerAutoFloorEvent(
     }
   }
 
-  return triggerFloorEvent(floor.id, pickedKind, nowMs);
+  return triggerFloorEvent(floor.id, pickedKind, nowMs, floor.employees);
+}
+
+const SCHEDULE_POOL: FloorEventKind[] = [
+  'CARD_GAME',
+  'PIZZA_PARTY',
+  'STAR_WARS_PARTY',
+  'SUPERHERO_PARTY',
+  'HALLOWEEN_PARTY',
+  'COFFEE_BREW',
+];
+
+export function getScheduledFloorEvents(floorId: string): ScheduledOfficeEvent[] {
+  return [...(scheduledEventsByFloor.get(floorId) ?? [])].sort(
+    (a, b) => a.scheduledFor - b.scheduledFor,
+  );
+}
+
+export function scheduleFloorEvent(params: {
+  floorId: string;
+  kind?: FloorEventKind;
+  delaySec?: number;
+  proposedById?: string;
+  proposedByName: string;
+  participantNames?: string[];
+  announcementText?: string;
+  nowMs?: number;
+}): ScheduledOfficeEvent {
+  const nowMs = params.nowMs ?? Date.now();
+  const delaySec = Math.max(5, Math.min(3600, Math.round(params.delaySec ?? 60)));
+  let kind = params.kind;
+  if (!kind) {
+    const idx = nextScheduleIndex.get(params.floorId) ?? 0;
+    kind = SCHEDULE_POOL[idx % SCHEDULE_POOL.length];
+    nextScheduleIndex.set(params.floorId, idx + 1);
+  }
+  const entry: ScheduledOfficeEvent = {
+    id: `${params.floorId}-sched-${nowMs}-${Math.random().toString(36).slice(2, 6)}`,
+    kind,
+    scheduledFor: nowMs + delaySec * 1000,
+    createdAt: nowMs,
+    proposedById: params.proposedById,
+    proposedByName: params.proposedByName,
+    participantNames: params.participantNames,
+    announcementText: params.announcementText,
+  };
+  const list = [...(scheduledEventsByFloor.get(params.floorId) ?? []), entry]
+    .sort((a, b) => a.scheduledFor - b.scheduledFor)
+    .slice(0, 8);
+  scheduledEventsByFloor.set(params.floorId, list);
+  return entry;
+}
+
+export function tickScheduledFloorEvents(
+  floor: Pick<PlazaFloor, 'id' | 'employees' | 'activeEvent'>,
+  nowMs = Date.now(),
+): { activeEvent: FloorRandomEvent | null; scheduledEvents: ScheduledOfficeEvent[] } {
+  const list = scheduledEventsByFloor.get(floor.id) ?? [];
+  let active = floor.activeEvent ?? getActiveFloorEvent(floor.id, nowMs);
+
+  if (!active && list.length > 0) {
+    list.sort((a, b) => a.scheduledFor - b.scheduledFor);
+    const due = list[0];
+    if (due.scheduledFor <= nowMs) {
+      if (
+        isSocialFloorEvent(due.kind) &&
+        countOnBreakOrWaitingAgents(floor.employees) < MIN_BREAK_AGENTS_FOR_SOCIAL_EVENT
+      ) {
+        // Not enough idle/break agents yet — defer slightly instead of firing in an empty room.
+        due.scheduledFor = nowMs + 30_000;
+      } else {
+        list.shift();
+        active = triggerFloorEvent(floor.id, due.kind, nowMs, floor.employees);
+      }
+      scheduledEventsByFloor.set(floor.id, list);
+    }
+  }
+
+  return {
+    activeEvent: active,
+    scheduledEvents: getScheduledFloorEvents(floor.id),
+  };
 }
 
 export function resetOfficeEventsState(): void {
@@ -153,4 +269,6 @@ export function resetOfficeEventsState(): void {
   floorEvents.clear();
   lastEventIndex.clear();
   lastEventTriggeredAt.clear();
+  scheduledEventsByFloor.clear();
+  nextScheduleIndex.clear();
 }

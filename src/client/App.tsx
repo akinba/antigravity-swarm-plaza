@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   DEFAULT_GRAPHICS_SETTINGS,
+  type FloorEventKind,
   type GraphicsSettings,
   type OfficeEmployee,
   type PlazaFloor,
@@ -24,6 +25,7 @@ import { AgentRpgModal } from './components/AgentRpgModal';
 import { AlertHistoryModal, type AlertHistoryEntry } from './components/AlertHistoryModal';
 import { AnalyticsModal } from './components/AnalyticsModal';
 import { ElevatorPanel } from './components/ElevatorPanel';
+import { EventCalendarModal } from './components/EventCalendarModal';
 import { IconLegendModal } from './components/IconLegendModal';
 import { SettingsModal } from './components/SettingsModal';
 import { TopHud } from './components/TopHud';
@@ -94,6 +96,7 @@ export const App: React.FC = () => {
   const [whiteboardOpen, setWhiteboardOpen] = useState<boolean>(false);
   const [alertsOpen, setAlertsOpen] = useState<boolean>(false);
   const [legendOpen, setLegendOpen] = useState<boolean>(false);
+  const [calendarOpen, setCalendarOpen] = useState<boolean>(false);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -388,12 +391,31 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleTriggerEvent = async () => {
+  const handleTriggerEvent = async (kind?: FloorEventKind) => {
     if (!activeFloor) return;
     playEventJingle();
     try {
       const res = await sidecarFetch(`/api/floors/${encodeURIComponent(activeFloor.id)}/event`, {
         method: 'POST',
+        headers: kind ? { 'Content-Type': 'application/json' } : undefined,
+        body: kind ? JSON.stringify({ kind }) : undefined,
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as PlazaSnapshot | { snapshot?: PlazaSnapshot };
+      const snap = 'floors' in data ? data : data.snapshot;
+      if (snap) applySnapshot(snap);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleScheduleEvent = async (kind: FloorEventKind, delaySec: number) => {
+    if (!activeFloor) return;
+    try {
+      const res = await sidecarFetch(`/api/floors/${encodeURIComponent(activeFloor.id)}/schedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind, delaySec }),
       });
       if (!res.ok) return;
       const data = (await res.json()) as PlazaSnapshot | { snapshot?: PlazaSnapshot };
@@ -567,7 +589,13 @@ function loadStickyAlerts(): StickyAlertItem[] {
   const topBannerAlert = bannerAlerts[0] ?? null;
 
   const isModalOpen = Boolean(
-    whiteboardOpen || analyticsOpen || settingsOpen || alertsOpen || legendOpen || selectedEmployee,
+    whiteboardOpen ||
+      analyticsOpen ||
+      settingsOpen ||
+      alertsOpen ||
+      legendOpen ||
+      calendarOpen ||
+      selectedEmployee,
   );
 
   return (
@@ -583,7 +611,7 @@ function loadStickyAlerts(): StickyAlertItem[] {
         onOpenSettings={() => setSettingsOpen(true)}
         onExportPng={handleExportPng}
         onRerollLayout={handleRerollLayout}
-        onTriggerEvent={handleTriggerEvent}
+        onTriggerEvent={() => handleTriggerEvent()}
         wsConnected={wsConnected}
         isCompactPane={isCompactPane}
         isElevatorOpen={isElevatorOpen}
@@ -592,6 +620,8 @@ function loadStickyAlerts(): StickyAlertItem[] {
         historyAlertCount={stickyAlerts.length}
         onOpenAlerts={() => setAlertsOpen(true)}
         onOpenLegend={() => setLegendOpen(true)}
+        onOpenCalendar={() => setCalendarOpen(true)}
+        scheduledCount={activeFloor?.scheduledEvents?.length ?? 0}
       />
 
       {topBannerAlert && (
@@ -852,6 +882,15 @@ function loadStickyAlerts(): StickyAlertItem[] {
       )}
 
       {legendOpen && <IconLegendModal onClose={() => setLegendOpen(false)} />}
+
+      {calendarOpen && activeFloor && (
+        <EventCalendarModal
+          floor={activeFloor}
+          onTriggerEvent={(kind) => handleTriggerEvent(kind)}
+          onScheduleEvent={handleScheduleEvent}
+          onClose={() => setCalendarOpen(false)}
+        />
+      )}
     </div>
   );
 };

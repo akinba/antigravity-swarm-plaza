@@ -1,8 +1,10 @@
 import type {
   FloorCelebration,
+  FloorEventKind,
   OfficeEmployee,
   SocialReactionKind,
 } from '../shared/types.js';
+import { getScheduledFloorEvents, scheduleFloorEvent } from './officeEvents.js';
 
 export const CELEBRATION_COOLDOWN_MS = 45_000;
 export const CELEBRATION_DURATION_MS = 9_000;
@@ -10,6 +12,9 @@ export const HARD_TASK_MIN_STEPS = 8;
 export const COFFEE_VISIT_COOLDOWN_MS = 75_000;
 export const COFFEE_VISIT_COOLDOWN_DEMO_MS = 32_000;
 export const COFFEE_VISIT_DURATION_MS = 10_000;
+export const BOSS_MEETING_COOLDOWN_MS = 65_000;
+export const BOSS_MEETING_COOLDOWN_DEMO_MS = 28_000;
+export const BOSS_MEETING_DURATION_MS = 12_000;
 export const DEMO_CELEBRATION_PERIOD_MS = 120_000;
 export const MAX_CELEBRATING_WORKERS = 2;
 
@@ -30,9 +35,44 @@ export const COFFEE_THANKS_BUBBLES = [
   '☕ Süpersin, sağ ol!',
 ] as const;
 
+export const BOSS_MEETING_PROPOSALS: ReadonlyArray<{
+  kind: FloorEventKind;
+  bossBubble: string;
+  guestBubble: string;
+}> = [
+  {
+    kind: 'CARD_GAME',
+    bossBubble: '📅 1 dk sonra Kart Oyunu yapalım, takvime ekledim!',
+    guestBubble: '🃏 Süper fikir, geliyorum!',
+  },
+  {
+    kind: 'PIZZA_PARTY',
+    bossBubble: '📅 Birazdan Pizza Partisi veriyoruz, takvime yazdım!',
+    guestBubble: '🍕 Harika, takvime baktım!',
+  },
+  {
+    kind: 'HALLOWEEN_PARTY',
+    bossBubble: '📅 Az sonra Kostüm Partisi var, hazırlanın!',
+    guestBubble: '🎃 Kostümüm hazır!',
+  },
+  {
+    kind: 'COFFEE_BREW',
+    bossBubble: '📅 Birazdan Kahve Molası buluşması takvimde!',
+    guestBubble: '☕ Tam zamanıydı!',
+  },
+];
+
 interface CoffeeVisit {
   visitorId: string;
   targetId: string;
+  startedAt: number;
+  expiresAt: number;
+}
+
+interface BossSuiteMeeting {
+  bossId: string;
+  guestIds: string[];
+  proposalIdx: number;
   startedAt: number;
   expiresAt: number;
 }
@@ -44,6 +84,9 @@ const baselined = new Set<string>();
 const coffeeVisits = new Map<string, CoffeeVisit>();
 const lastCoffeeVisitAt = new Map<string, number>();
 const coffeeCounters = new Map<string, number>();
+const bossMeetings = new Map<string, BossSuiteMeeting>();
+const lastBossMeetingAt = new Map<string, number>();
+const bossMeetingCounters = new Map<string, number>();
 
 function hashString(value: string): number {
   let h = 0;
@@ -255,10 +298,98 @@ function applyCoffeeVisit(
   }
 }
 
+function isBossGuestEligible(emp: OfficeEmployee): boolean {
+  return (
+    !emp.isCoordinator &&
+    (emp.status === 'idle' || emp.status === 'waiting') &&
+    emp.activity !== 'going_home' &&
+    emp.activity !== 'gaming' &&
+    !emp.partnerId &&
+    !emp.visitTargetId
+  );
+}
+
+export function applyBossSuiteMeeting(
+  floorId: string,
+  employees: OfficeEmployee[],
+  nowMs: number,
+  demo: boolean,
+): void {
+  const byId = new Map(employees.map((e) => [e.id, e]));
+  const boss = employees.find(
+    (e) => e.isCoordinator && e.zone === 'DESK_ARCHITECT' && e.activity !== 'going_home',
+  );
+  if (!boss) {
+    bossMeetings.delete(floorId);
+    return;
+  }
+
+  let meeting = bossMeetings.get(floorId);
+  if (meeting) {
+    if (meeting.expiresAt <= nowMs || meeting.bossId !== boss.id) {
+      bossMeetings.delete(floorId);
+      meeting = undefined;
+    }
+  }
+
+  if (!meeting) {
+    const cooldown = demo ? BOSS_MEETING_COOLDOWN_DEMO_MS : BOSS_MEETING_COOLDOWN_MS;
+    const lastAt = lastBossMeetingAt.get(floorId);
+    if (lastAt === undefined) {
+      lastBossMeetingAt.set(floorId, nowMs);
+      return;
+    }
+    if (nowMs - lastAt < cooldown) return;
+
+    const guests = employees.filter(isBossGuestEligible).slice(0, 3);
+    if (guests.length === 0) return;
+
+    const counter = bossMeetingCounters.get(floorId) ?? 0;
+    bossMeetingCounters.set(floorId, counter + 1);
+    const proposalIdx = counter % BOSS_MEETING_PROPOSALS.length;
+    const proposal = BOSS_MEETING_PROPOSALS[proposalIdx];
+
+    meeting = {
+      bossId: boss.id,
+      guestIds: guests.map((g) => g.id),
+      proposalIdx,
+      startedAt: nowMs,
+      expiresAt: nowMs + BOSS_MEETING_DURATION_MS,
+    };
+    bossMeetings.set(floorId, meeting);
+    lastBossMeetingAt.set(floorId, nowMs);
+
+    if (getScheduledFloorEvents(floorId).length < 4) {
+      scheduleFloorEvent({
+        floorId,
+        kind: proposal.kind,
+        delaySec: demo ? 45 : 60,
+        proposedById: boss.id,
+        proposedByName: boss.name,
+        participantNames: guests.map((g) => g.name),
+        announcementText: proposal.bossBubble,
+        nowMs,
+      });
+    }
+  }
+
+  const proposal = BOSS_MEETING_PROPOSALS[meeting.proposalIdx];
+  boss.speechBubble = proposal.bossBubble;
+
+  meeting.guestIds.forEach((gid, idx) => {
+    const guest = byId.get(gid);
+    if (!guest || guest.status === 'working' || guest.activity === 'going_home') return;
+    guest.zone = 'DESK_ARCHITECT';
+    guest.activity = 'meeting';
+    guest.standingGuest = idx >= 2;
+    guest.speechBubble = proposal.guestBubble;
+  });
+}
+
 /**
- * Hard-task celebration + coffee-delivery motivation for one floor.
- * Mutates only speechBubble / socialReaction / visitTargetId (and the visitor's own
- * lounge activity); never changes status, zone or activity of working agents.
+ * Hard-task celebration + coffee-delivery motivation + Boss Suite mini-meetings for one floor.
+ * Mutates only speechBubble / socialReaction / visitTargetId (and idle/lounge guests' own
+ * activity); never changes status, zone or activity of working coders.
  */
 export function applyOfficeInteractions(
   floor: { id: string; employees: OfficeEmployee[] },
@@ -277,6 +408,7 @@ export function applyOfficeInteractions(
   if (celebration) {
     applyCelebrationReactions(floor.employees, celebration);
   } else {
+    applyBossSuiteMeeting(floor.id, floor.employees, nowMs, demo);
     applyCoffeeVisit(floor.id, floor.employees, nowMs, demo);
   }
   return celebration;
@@ -290,4 +422,7 @@ export function resetOfficeInteractionsState(): void {
   coffeeVisits.clear();
   lastCoffeeVisitAt.clear();
   coffeeCounters.clear();
+  bossMeetings.clear();
+  lastBossMeetingAt.clear();
+  bossMeetingCounters.clear();
 }

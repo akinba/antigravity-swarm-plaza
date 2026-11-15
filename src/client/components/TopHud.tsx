@@ -24,6 +24,8 @@ interface TopHudProps {
   historyAlertCount?: number;
   onOpenAlerts?: () => void;
   onOpenLegend?: () => void;
+  onOpenCalendar?: () => void;
+  scheduledCount?: number;
 }
 
 export const TopHud: React.FC<TopHudProps> = ({
@@ -46,6 +48,8 @@ export const TopHud: React.FC<TopHudProps> = ({
   historyAlertCount = 0,
   onOpenAlerts,
   onOpenLegend,
+  onOpenCalendar,
+  scheduledCount = 0,
 }) => {
   const { t } = useI18n();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -281,6 +285,21 @@ export const TopHud: React.FC<TopHudProps> = ({
                 >
                   {t.hud.triggerEvent}
                 </button>
+                {onOpenCalendar && (
+                  <button
+                    type="button"
+                    className="pixel-btn"
+                    style={{ padding: '4px 7px', fontSize: 8 }}
+                    onClick={() => {
+                      playSelectBlip();
+                      setMoreOpen(false);
+                      onOpenCalendar();
+                    }}
+                  >
+                    {t.hud.calendar}
+                    {scheduledCount > 0 ? ` (${scheduledCount})` : ''}
+                  </button>
+                )}
               </>
             )}
             {onOpenLegend && (
@@ -535,6 +554,19 @@ export const TopHud: React.FC<TopHudProps> = ({
             >
               {t.hud.triggerEvent}
             </button>
+            {onOpenCalendar && (
+              <button
+                type="button"
+                className="pixel-btn"
+                onClick={() => {
+                  playSelectBlip();
+                  onOpenCalendar();
+                }}
+              >
+                {t.hud.calendar}
+                {scheduledCount > 0 ? ` (${scheduledCount})` : ''}
+              </button>
+            )}
           </>
         )}
 

@@ -19,6 +19,7 @@ import { buildPlazaSnapshot } from './gamification.js';
 import {
   canTriggerAutoFloorEvent,
   rerollFloorLayout,
+  scheduleFloorEvent,
   triggerFloorEvent,
   tryTriggerAutoFloorEvent,
 } from './officeEvents.js';
@@ -231,9 +232,33 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
   });
 
   app.post('/api/floors/:floorId/event', (req, res) => {
-    const activeEvent = triggerFloorEvent(req.params.floorId);
+    const body = (req.body ?? {}) as { kind?: import('../shared/types.js').FloorEventKind };
+    const snap = getSnapshot();
+    const floor = snap.floors.find((f) => f.id === req.params.floorId);
+    const activeEvent = triggerFloorEvent(
+      req.params.floorId,
+      body.kind,
+      Date.now(),
+      floor?.employees,
+    );
     const snapshot = broadcastSnapshot();
     res.json({ activeEvent, snapshot });
+  });
+
+  app.post('/api/floors/:floorId/schedule', (req, res) => {
+    const body = (req.body ?? {}) as {
+      kind?: import('../shared/types.js').FloorEventKind;
+      delaySec?: number;
+      proposedByName?: string;
+    };
+    const scheduledEvent = scheduleFloorEvent({
+      floorId: req.params.floorId,
+      kind: body.kind,
+      delaySec: body.delaySec,
+      proposedByName: body.proposedByName || 'Chief-Architect',
+    });
+    const snapshot = broadcastSnapshot();
+    res.json({ scheduledEvent, snapshot });
   });
 
   // Serve built frontend if dist/client/index.html exists

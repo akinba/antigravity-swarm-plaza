@@ -28,6 +28,7 @@ import {
   resolvePartitionSeam,
   type FloorLayout,
 } from './officeLayouts';
+import * as officePropsSprites from './officePropsSprites';
 import {
   drawAgentHealthBadge,
   drawChairForegroundBackrest,
@@ -156,11 +157,13 @@ interface LayoutSeatAlignments {
   deskFacingMap: Map<string, Facing>;
   meetingSeatMap: Map<string, DeskSeatAlignment>;
   chairFacingMap: Map<string, Facing>;
+  furnitureRenderOffsetMap: Map<string, { dGx: number; dGy: number }>;
   explicitChairVariantMap: Map<string, ChairVariant>;
   explicitWorkChairKeys: Set<string>;
   armchairKeys: Set<string>;
   beanbagKeys: Set<string>;
   confTableDepth: number | null;
+  confTableCenter: { gx: number; gy: number } | null;
 }
 
 function buildLayoutSeatAlignments(layout: FloorLayout): LayoutSeatAlignments {
@@ -169,6 +172,7 @@ function buildLayoutSeatAlignments(layout: FloorLayout): LayoutSeatAlignments {
   const deskFacingMap = new Map<string, Facing>();
   const meetingSeatMap = new Map<string, DeskSeatAlignment>();
   const chairFacingMap = new Map<string, Facing>();
+  const furnitureRenderOffsetMap = new Map<string, { dGx: number; dGy: number }>();
   const explicitChairVariantMap = new Map<string, ChairVariant>();
   const explicitWorkChairKeys = new Set<string>();
   const armchairKeys = new Set<string>();
@@ -187,9 +191,19 @@ function buildLayoutSeatAlignments(layout: FloorLayout): LayoutSeatAlignments {
   }
 
   const warTables = layout.furniture.filter((f) => isConferenceTableKind(f.kind));
+  const confTableParts = layout.furniture.filter(
+    (f) => isConferenceTableKind(f.kind) || f.kind === 'war_table_part',
+  );
   const confTableDepth =
     warTables.length > 0
       ? warTables.reduce((sum, t) => sum + t.gx + t.gy, 0) / warTables.length
+      : null;
+  const confTableCenter =
+    confTableParts.length > 0
+      ? {
+          gx: confTableParts.reduce((sum, t) => sum + t.gx, 0) / confTableParts.length,
+          gy: confTableParts.reduce((sum, t) => sum + t.gy, 0) / confTableParts.length,
+        }
       : null;
   const confCenterGx =
     warTables.length > 0 ? warTables.reduce((sum, t) => sum + t.gx, 0) / warTables.length : 0;
@@ -247,7 +261,7 @@ function buildLayoutSeatAlignments(layout: FloorLayout): LayoutSeatAlignments {
     pushCandidate(ch.gx, ch.gy);
   }
   for (const slot of [
-    ...layout.zoneSlots.DESK_ARCHITECT,
+    ...layout.zoneSlots.DESK_ARCHITECT.slice(0, 1),
     ...layout.zoneSlots.DESK_CODING,
     ...layout.zoneSlots.DESK_QA,
   ]) {
@@ -413,17 +427,42 @@ function buildLayoutSeatAlignments(layout: FloorLayout): LayoutSeatAlignments {
     }
   }
 
+  // Sub-tile intimacy pull for Boss Suite coffee table & 2 facing guest armchairs toward exec_desk
+  const execDesk = layout.furniture.find((f) => f.kind === 'exec_desk');
+  const execCoffeeTable = layout.furniture.find((f) => f.kind === 'exec_coffee_table');
+  if (execDesk && execDesk.facing && execCoffeeTable) {
+    const front = facingUnitGridVector(execDesk.facing);
+    const pullGx = -front.dx * 0.22;
+    const pullGy = -front.dy * 0.22;
+    furnitureRenderOffsetMap.set(`${execCoffeeTable.gx},${execCoffeeTable.gy}`, {
+      dGx: pullGx,
+      dGy: pullGy,
+    });
+    for (const guestSlot of layout.zoneSlots.DESK_ARCHITECT.slice(1, 3)) {
+      const guestKey = `${guestSlot.gx},${guestSlot.gy}`;
+      if (armchairKeys.has(guestKey)) {
+        const inward = facingUnitGridVector(guestSlot.facing);
+        furnitureRenderOffsetMap.set(guestKey, {
+          dGx: pullGx + inward.dx * 0.14,
+          dGy: pullGy + inward.dy * 0.14,
+        });
+      }
+    }
+  }
+
   return {
     deskSeatMap,
     deskToSeatMap,
     deskFacingMap,
     meetingSeatMap,
     chairFacingMap,
+    furnitureRenderOffsetMap,
     explicitChairVariantMap,
     explicitWorkChairKeys,
     armchairKeys,
     beanbagKeys,
     confTableDepth,
+    confTableCenter,
   };
 }
 
@@ -699,9 +738,19 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
     let watercoolerIdx = 0;
     let pizzaIdx = 0;
     let coffeeIdx = 0;
+    let cardLoungeIdx = 0;
+    let archGuestSeatedCount = 0;
+    let archGuestStandingCount = 0;
     let nextGamingFallback = 0;
     const usedGamingIndices = new Set<number>();
     const gamingIds: string[] = [];
+    const seenCardLoungeKeys = new Set<string>();
+    const cardLoungeSlots = [...layout.pizzaSlots, ...layout.loungeSeatSlots].filter((s) => {
+      const k = `${s.gx},${s.gy}`;
+      if (seenCardLoungeKeys.has(k)) return false;
+      seenCardLoungeKeys.add(k);
+      return true;
+    });
 
     floor.employees.forEach((emp) => {
       let slot = layout.zoneSlots.DESK_CODING[0];
@@ -744,6 +793,31 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
         slot = visitSlot;
       } else if (emp.activity === 'going_home' || emp.zone === 'ELEVATOR') {
         slot = ELEVATOR_SLOT;
+      } else if (emp.activity === 'card_game') {
+        if (emp.zone === 'WAR_ROOM') {
+          slot = layout.meetingChairSlots[meetingChairIdx % layout.meetingChairSlots.length];
+          meetingChairIdx += 1;
+        } else {
+          const fallbackPool = cardLoungeSlots.length > 0 ? cardLoungeSlots : layout.loungeSeatSlots;
+          slot = fallbackPool[cardLoungeIdx % fallbackPool.length];
+          cardLoungeIdx += 1;
+        }
+      } else if (emp.zone === 'DESK_ARCHITECT') {
+        const archSlots = layout.zoneSlots.DESK_ARCHITECT;
+        if (emp.isCoordinator) {
+          slot = archSlots[0];
+        } else if (!emp.standingGuest && archGuestSeatedCount < 2 && archSlots.length >= 3) {
+          slot = archSlots[1 + archGuestSeatedCount];
+          archGuestSeatedCount += 1;
+        } else if (archSlots.length > 3) {
+          const standingPool = archSlots.slice(3);
+          slot = standingPool[archGuestStandingCount % standingPool.length];
+          archGuestStandingCount += 1;
+        } else {
+          const idx = zoneCounters.DESK_ARCHITECT ?? 0;
+          zoneCounters.DESK_ARCHITECT = idx + 1;
+          slot = archSlots[idx % archSlots.length];
+        }
       } else if (emp.activity === 'gaming') {
         const nSlots = Math.max(1, layout.gamingSlots.length);
         const prefIdx = emp.playerSlot && emp.playerSlot >= 1 ? (emp.playerSlot - 1) % nSlots : 0;
@@ -959,6 +1033,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
           eventKind === 'STAR_WARS_PARTY' ||
           eventKind === 'SUPERHERO_PARTY' ||
           eventKind === 'HALLOWEEN_PARTY' ||
+          eventKind === 'CARD_GAME' ||
           eventKind === 'MASCOT_ZOOMIES' ||
           Boolean(currentFloor.activeCelebration) ||
           currentFloor.employees.some((e) => Boolean(e.socialReaction));
@@ -1524,16 +1599,17 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
         const partitionSeam = isPartition
           ? resolvePartitionSeam(item, currentLayout.getTileZone)
           : null;
+        const itemNudge = currentAlignments.furnitureRenderOffsetMap.get(itemKey);
         const renderItemGx = chairDeskAlign
           ? chairDeskAlign.seatGx
           : partitionSeam
             ? partitionSeam.gx
-            : item.gx;
+            : item.gx + (itemNudge?.dGx ?? 0);
         const renderItemGy = chairDeskAlign
           ? chairDeskAlign.seatGy
           : partitionSeam
             ? partitionSeam.gy
-            : item.gy;
+            : item.gy + (itemNudge?.dGy ?? 0);
         const itemDepth = chairDeskAlign
           ? chairDeskAlign.chairDepth
           : isConfTableAnchor && currentAlignments.confTableDepth !== null
@@ -1617,10 +1693,24 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
               }
             }
 
+            const activeEv = currentFloor.activeEvent;
+            const isCardGameActive =
+              activeEv?.kind === 'CARD_GAME' ||
+              currentFloor.employees.some((e) => e.activity === 'card_game');
+            const isCardGameWarRoom =
+              isCardGameActive &&
+              (activeEv?.targetZone === 'WAR_ROOM' ||
+                (!activeEv?.targetZone &&
+                  currentFloor.employees.some(
+                    (e) => e.activity === 'card_game' && e.zone === 'WAR_ROOM',
+                  )));
+            const isCardGameLounge = isCardGameActive && !isCardGameWarRoom;
+
             const isTvItem = item.kind === 'tv_console' || item.kind === 'gaming_tv';
             const isWarRoomActive =
               occupiedZones.has('WAR_ROOM') ||
               isPresenterActive ||
+              isCardGameWarRoom ||
               currentFloor.employees.some((e) => e.zone === 'WAR_ROOM' || e.activity === 'meeting');
             const occupied =
               (WORK_DESK_KINDS.has(item.kind) &&
@@ -1632,7 +1722,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
                   (item.kind === 'exec_desk' && occupiedZones.has('DESK_ARCHITECT')))) ||
               (isConfTableAnchor && isWarRoomActive) ||
               (isTvItem && isGamingOccupied) ||
-              (item.kind === 'lounge_table' && isPizzaActive) ||
+              (item.kind === 'lounge_table' && (isPizzaActive || isCardGameLounge)) ||
               ((item.kind === 'coffee_table' || item.kind === 'gaming_table') && isPizzaPartyEvent) ||
               (item.kind === 'elevator_doors' && isElevatorBusy) ||
               (isWb && isPresenterActive);
@@ -1714,6 +1804,52 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
                 ) => void
               )(ctx, p.x, p.y, cam.zoom, timeSec, itemFacing);
             }
+            if (
+              (isConfTableAnchor && isCardGameWarRoom) ||
+              (item.kind === 'lounge_table' && isCardGameLounge)
+            ) {
+              const cardPos =
+                isConfTableAnchor && currentAlignments.confTableCenter
+                  ? gridToScreen(
+                      currentAlignments.confTableCenter.gx,
+                      currentAlignments.confTableCenter.gy,
+                      cam,
+                    )
+                  : p;
+              const overlayFn = (
+                officePropsSprites as {
+                  drawCardGameTableOverlay?: (
+                    ctx: CanvasRenderingContext2D,
+                    x: number,
+                    y: number,
+                    zoom: number,
+                    timeSec: number,
+                  ) => void;
+                }
+              ).drawCardGameTableOverlay;
+              if (overlayFn) {
+                overlayFn(ctx, cardPos.x, cardPos.y - 6 * cam.zoom, cam.zoom, timeSec);
+              } else {
+                const z = cam.zoom;
+                const cx = cardPos.x;
+                const cy = cardPos.y - 7 * z;
+                ctx.save();
+                ctx.fillStyle = '#0d6847';
+                ctx.beginPath();
+                ctx.ellipse(cx, cy, 11 * z, 5.5 * z, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#ffd147';
+                ctx.lineWidth = Math.max(1, 0.9 * z);
+                ctx.stroke();
+                for (let ci = -1; ci <= 1; ci++) {
+                  ctx.fillStyle = '#f8fafc';
+                  ctx.fillRect(Math.round(cx + ci * 4 * z - 1.5 * z), Math.round(cy - 2 * z), Math.max(2, Math.round(3 * z)), Math.max(3, Math.round(4 * z)));
+                  ctx.fillStyle = ci === 0 ? '#ef4444' : '#0f172a';
+                  ctx.fillRect(Math.round(cx + ci * 4 * z - 0.5 * z), Math.round(cy - 0.8 * z), Math.max(1, Math.round(1.2 * z)), Math.max(1, Math.round(1.2 * z)));
+                }
+                ctx.restore();
+              }
+            }
           },
         });
       }
@@ -1781,9 +1917,10 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
 
         const isPresenting =
           !actor.isWalking && (emp.activity === 'presenting' || Boolean(emp.isPresenter));
+        const isStandingGuest = Boolean(emp.standingGuest);
         const slotKey = `${Math.round(actor.gx)},${Math.round(actor.gy)}`;
         const isSeatedStationary =
-          !actor.isWalking && !isPresenting && emp.activity !== 'going_home';
+          !actor.isWalking && !isPresenting && !isStandingGuest && emp.activity !== 'going_home';
         const isDeskZoneOrActivity =
           emp.zone === 'DESK_CODING' ||
           emp.zone === 'DESK_QA' ||
@@ -1797,7 +1934,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
         const meetingSeatAlign =
           isSeatedStationary &&
           !deskSeatAlign &&
-          (emp.zone === 'WAR_ROOM' || emp.activity === 'meeting')
+          (emp.zone === 'WAR_ROOM' || emp.activity === 'meeting' || emp.activity === 'card_game')
             ? currentAlignments.meetingSeatMap.get(slotKey)
             : undefined;
         const activeSeatAlign = deskSeatAlign ?? meetingSeatAlign;
@@ -1808,9 +1945,20 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
         const alignedChairFacing = isSeatedStationary
           ? currentAlignments.chairFacingMap.get(slotKey)
           : undefined;
+        const armNudge = isSeatedOnArmchair
+          ? currentAlignments.furnitureRenderOffsetMap.get(slotKey)
+          : undefined;
 
-        const renderGx = activeSeatAlign ? activeSeatAlign.seatGx : actor.gx;
-        const renderGy = activeSeatAlign ? activeSeatAlign.seatGy : actor.gy;
+        const renderGx = activeSeatAlign
+          ? activeSeatAlign.seatGx
+          : armNudge
+            ? actor.gx + armNudge.dGx
+            : actor.gx;
+        const renderGy = activeSeatAlign
+          ? activeSeatAlign.seatGy
+          : armNudge
+            ? actor.gy + armNudge.dGy
+            : actor.gy;
         const celebrationHeroActor = currentFloor.activeCelebration
           ? actors.get(currentFloor.activeCelebration.heroAgentId)
           : undefined;
@@ -1898,7 +2046,11 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
           y: empScreenY - 20 * cam.zoom,
           r: 22 * cam.zoom,
         });
-        const isSeatedOverride = activeSeatAlign || isSeatedOnArmchair ? true : undefined;
+        const isSeatedOverride = isStandingGuest
+          ? false
+          : activeSeatAlign || isSeatedOnArmchair || (isSeatedStationary && emp.activity === 'card_game')
+            ? true
+            : undefined;
         renderables.push({
           depth: empDepth,
           draw: () => {
@@ -1957,6 +2109,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
               const seated =
                 !actor.isWalking &&
                 !isPresenting &&
+                !isStandingGuest &&
                 (Boolean(activeSeatAlign) ||
                   isSeatedOnBeanbag ||
                   isSeatedOnArmchair ||
@@ -1966,6 +2119,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
                   renderEmp.activity === 'searching' ||
                   renderEmp.activity === 'thinking' ||
                   renderEmp.activity === 'meeting' ||
+                  renderEmp.activity === 'card_game' ||
                   renderEmp.activity === 'lounging' ||
                   renderEmp.activity === 'sleeping' ||
                   renderEmp.activity === 'gaming');
@@ -2142,6 +2296,24 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
           } else {
             ctx.fillStyle = i % 3 === 0 ? '#b07cff' : '#ff7b1c';
             ctx.fillRect(Math.round(bx), Math.round(by), 4, 4);
+          }
+        }
+      } else if (eventKind === 'CARD_GAME') {
+        for (let i = 0; i < 14; i++) {
+          const cx = ((i * 119 + Math.sin(timeSec * 1.9 + i) * 20) % Math.max(1, viewW));
+          const cy =
+            Math.max(1, viewH) -
+            ((i * 61 + timeSec * (36 + (i % 3) * 14)) % Math.max(1, viewH));
+          if (i % 2 === 0) {
+            // Mini fluttering pixel playing card
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillRect(Math.round(cx), Math.round(cy), 4, 5);
+            ctx.fillStyle = i % 4 === 0 ? '#ef4444' : '#0f172a';
+            ctx.fillRect(Math.round(cx + 1), Math.round(cy + 2), 2, 2);
+          } else {
+            // Gold / emerald poker chip sparkle
+            ctx.fillStyle = i % 3 === 0 ? '#ffd147' : '#34d399';
+            ctx.fillRect(Math.round(cx), Math.round(cy), 3, 3);
           }
         }
       }

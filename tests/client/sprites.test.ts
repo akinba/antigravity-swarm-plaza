@@ -14,6 +14,7 @@ import {
 } from '../../src/client/engine/pixelSprites';
 import type { Facing } from '../../src/client/engine/pathfinding';
 import {
+  drawCardGameTableOverlay,
   drawChairForegroundBackrest,
   drawDeskVerifiedTrophy,
   drawEnhancedFurniture,
@@ -635,5 +636,103 @@ describe('pixelSprites gender, hair, outfit palettes & rendering', () => {
       assert.equal(stats.saves, stats.restores);
       assert.ok(rects.length > 0);
     }
+  });
+
+  it('renders drawCardGameTableOverlay, 8-directional card_game handheld cards, and standingGuest Boss Suite posture', () => {
+    const allFacings: Facing[] = ['S', 'SE', 'E', 'NE', 'N', 'NW', 'W', 'SW'];
+    const zooms = [0.75, 1.0, 2.0];
+
+    // 1. Tabletop overlay across 5-arg default + War Room + Coffee Lounge table variants
+    for (const tableKind of [undefined, 'war_table_oval', 'lounge_table'] as const) {
+      for (const zoom of zooms) {
+        for (const timeSec of [0.2, 1.45, 3.1]) {
+          const { ctx, rects, stats } = createMockCanvasContext();
+          drawCardGameTableOverlay(ctx, 280, 220, zoom, timeSec, tableKind);
+          assert.equal(
+            stats.saves,
+            stats.restores,
+            `Unbalanced save/restore for drawCardGameTableOverlay (${String(tableKind)}, zoom=${zoom})`,
+          );
+          assert.ok(stats.drawOps >= 25, `Expected rich card game table geometry, got ${stats.drawOps}`);
+          assert.ok(
+            rects.some((r) => r.fillStyle === '#fffdf7'),
+            'Expected ivory playing card faces on card game table overlay',
+          );
+          assert.ok(
+            rects.some((r) => r.fillStyle === '#c92a3e'),
+            'Expected crimson deck card backs on card game table overlay',
+          );
+          for (const r of rects) {
+            assert.ok(
+              Number.isFinite(r.x) && Number.isFinite(r.y) && r.w > 0 && r.h > 0,
+              `Invalid fillRect in drawCardGameTableOverlay: ${JSON.stringify(r)}`,
+            );
+          }
+        }
+      }
+    }
+
+    // 2. 8-directional card_game employee sprites (seated & standing, female & male)
+    for (const gender of ['female', 'male'] as const) {
+      for (const facing of allFacings) {
+        for (const zoom of zooms) {
+          const { ctx, rects, stats } = createMockCanvasContext();
+          const cardPlayer: OfficeEmployee = {
+            ...makeEmployee(`card-${gender}-${facing}`, 'pro', 'card_game', gender),
+            zone: 'WAR_ROOM',
+          };
+          drawEmployeeSprite(
+            ctx,
+            cardPlayer,
+            200,
+            200,
+            zoom,
+            facing,
+            false,
+            0,
+            1.6,
+            false,
+            false,
+            1,
+            false,
+            'CARD_GAME',
+          );
+          assert.equal(stats.saves, stats.restores);
+          assert.ok(
+            rects.some((r) => r.fillStyle === '#fffdf7'),
+            `Expected handheld card ivory rect for ${gender}/${facing}`,
+          );
+          for (const r of rects) {
+            assert.ok(
+              Number.isFinite(r.x) && Number.isFinite(r.y) && r.w > 0 && r.h > 0,
+              `Invalid card_game sprite rect (${gender}/${facing}/zoom=${zoom}): ${JSON.stringify(r)}`,
+            );
+          }
+        }
+      }
+    }
+
+    // 3. Standing overflow Boss Suite guest (standingGuest: true) stands upright vs seated armchair guest
+    const seatedGuest: OfficeEmployee = {
+      ...makeEmployee('boss-guest-1', 'claude', 'meeting', 'female'),
+      zone: 'DESK_ARCHITECT',
+      standingGuest: false,
+    };
+    const standingGuest: OfficeEmployee = {
+      ...makeEmployee('boss-guest-3', 'claude', 'meeting', 'female'),
+      zone: 'DESK_ARCHITECT',
+      standingGuest: true,
+    };
+    const { ctx: seatCtx, rects: seatRects } = createMockCanvasContext();
+    const { ctx: standCtx, rects: standRects } = createMockCanvasContext();
+    // Even if caller omits isSeatedOverride (or passes true), standingGuest: true forces standing posture
+    drawEmployeeSprite(seatCtx, seatedGuest, 200, 200, 1.5, 'NW', false, 0, 1.0, false, false, 1, false);
+    drawEmployeeSprite(standCtx, standingGuest, 200, 200, 1.5, 'NW', false, 0, 1.0, false, false, 1, false, null, true);
+
+    const lowestShoeY = (rs: RecordedRect[]) => Math.max(...rs.map((r) => r.y + r.h));
+    assert.ok(
+      lowestShoeY(standRects) > lowestShoeY(seatRects) + 4,
+      `Expected standingGuest shoes (${lowestShoeY(standRects)}) to plant on floor below seated armchair lap (${lowestShoeY(seatRects)})`,
+    );
   });
 });
