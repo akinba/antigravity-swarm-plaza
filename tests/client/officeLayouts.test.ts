@@ -143,6 +143,9 @@ describe('officeLayouts all 5 floor blueprints', () => {
         ...layout.meetingChairSlots.map((s) => ['meetingChairSlots', s] as [string, ZoneSlot]),
         ...layout.gamingSlots.map((s) => ['gamingSlots', s] as [string, ZoneSlot]),
         ...layout.loungeSeatSlots.map((s) => ['loungeSeatSlots', s] as [string, ZoneSlot]),
+        ...layout.readingSlots.map((s) => ['readingSlots', s] as [string, ZoneSlot]),
+        ...layout.arcadeSlots.map((s) => ['arcadeSlots', s] as [string, ZoneSlot]),
+        ...layout.vendingSlots.map((s) => ['vendingSlots', s] as [string, ZoneSlot]),
         ...layout.coffeeSlots.map((s) => ['coffeeSlots', s] as [string, ZoneSlot]),
         ...layout.watercoolerSlots.map((s) => ['watercoolerSlots', s] as [string, ZoneSlot]),
         ...layout.pizzaSlots.map((s) => ['pizzaSlots', s] as [string, ZoneSlot]),
@@ -845,5 +848,61 @@ describe('officeLayouts all 5 floor blueprints', () => {
     }
     assert.equal(sofaColorsSeen.size, 6, 'sofas must cycle across all 6 upholstery color palettes (0..5)');
     assert.equal(armchairColorsSeen.size, 6, 'lounge armchairs must cycle across all 6 color palettes (0..5)');
+  });
+
+  it('exposes walkable, reachable readingSlots, arcadeSlots, and vendingSlots on all 5 blueprints with multi-bookshelf reading corners', () => {
+    for (let seed = 0; seed < 25; seed++) {
+      const layout = getFloorLayout('plaza-floor', 1, seed);
+      const bp = layout.blueprintIndex;
+      const grid = buildWalkableGridForFurniture(layout.furniture);
+
+      assert.ok(layout.readingSlots.length >= 2, `bp=${bp} expected >=2 readingSlots`);
+      assert.ok(layout.arcadeSlots.length >= 2, `bp=${bp} expected >=2 arcadeSlots`);
+      assert.ok(layout.vendingSlots.length >= 1, `bp=${bp} expected >=1 vendingSlots`);
+
+      const bookshelves = layout.furniture.filter((f) => f.kind === 'bookshelf');
+      assert.ok(bookshelves.length >= 3, `bp=${bp} expected >=3 bookshelves on floor, got ${bookshelves.length}`);
+
+      if (bp === 3) {
+        const neBookshelves = bookshelves.filter((b) => b.gx >= 13 && b.gx <= 15 && b.gy === 0);
+        assert.equal(neBookshelves.length, 3, 'BP3 NE corner should feature a 3-bookshelf reading wall');
+        assert.equal(layout.getTileZone(14, 2), 'COFFEE_LOUNGE', 'BP3 NE reading corner must be COFFEE_LOUNGE');
+      }
+
+      for (const slot of layout.readingSlots) {
+        assert.equal(grid[slot.gy][slot.gx], true, `bp=${bp} readingSlot (${slot.gx},${slot.gy}) blocked`);
+        assert.equal(
+          layout.getTileZone(slot.gx, slot.gy),
+          'COFFEE_LOUNGE',
+          `bp=${bp} readingSlot (${slot.gx},${slot.gy}) must sit in COFFEE_LOUNGE`,
+        );
+        const chair = layout.furniture.find(
+          (f) => f.kind === 'armchair' && f.gx === slot.gx && f.gy === slot.gy,
+        );
+        assert.ok(chair, `bp=${bp} readingSlot (${slot.gx},${slot.gy}) must have a reading armchair`);
+        const path = findPath(grid, { gx: 0, gy: 6 }, slot);
+        assert.deepEqual(path[path.length - 1], { gx: slot.gx, gy: slot.gy });
+      }
+
+      for (const slot of layout.arcadeSlots) {
+        assert.equal(grid[slot.gy][slot.gx], true, `bp=${bp} arcadeSlot (${slot.gx},${slot.gy}) blocked`);
+        const nearArcade = layout.furniture.some(
+          (f) => f.kind === 'arcade_cabinet' && Math.abs(f.gx - slot.gx) + Math.abs(f.gy - slot.gy) === 1,
+        );
+        assert.equal(nearArcade, true, `bp=${bp} arcadeSlot (${slot.gx},${slot.gy}) must border an arcade_cabinet`);
+        const path = findPath(grid, { gx: 0, gy: 6 }, slot);
+        assert.deepEqual(path[path.length - 1], { gx: slot.gx, gy: slot.gy });
+      }
+
+      for (const slot of layout.vendingSlots) {
+        assert.equal(grid[slot.gy][slot.gx], true, `bp=${bp} vendingSlot (${slot.gx},${slot.gy}) blocked`);
+        const nearVending = layout.furniture.some(
+          (f) => f.kind === 'snack_vending' && Math.abs(f.gx - slot.gx) + Math.abs(f.gy - slot.gy) === 1,
+        );
+        assert.equal(nearVending, true, `bp=${bp} vendingSlot (${slot.gx},${slot.gy}) must border a snack_vending`);
+        const path = findPath(grid, { gx: 0, gy: 6 }, slot);
+        assert.deepEqual(path[path.length - 1], { gx: slot.gx, gy: slot.gy });
+      }
+    }
   });
 });

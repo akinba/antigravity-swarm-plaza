@@ -359,5 +359,23 @@ describe('i18n browser locale & server snapshot localization', () => {
       assert.ok(DICTIONARIES.tr.legendModal.items[key].desc.length > 0, `tr.legend.${key}.desc`);
       assert.ok(DICTIONARIES.en.legendModal.items[key].desc.length > 0, `en.legend.${key}.desc`);
     }
+
+    // Arcade, vending & reading corner break translations
+    assert.equal(DICTIONARIES.tr.activities.arcade, 'Atari Oynuyor 🕹️');
+    assert.equal(DICTIONARIES.en.activities.arcade, 'Playing Arcade 🕹️');
+    assert.equal(DICTIONARIES.tr.activities.vending, 'Otomattan İçecek Alıyor 🥤');
+    assert.equal(DICTIONARIES.en.activities.vending, 'Grabbing a Drink 🥤');
+    assert.equal(
+      localizeServerText('📚 Kitap köşesinde okuma keyfi', 'en'),
+      '📚 Enjoying a book in the reading corner',
+    );
+    assert.equal(
+      localizeServerText("🕹️ Atari'de yüksek skor denemesi!", 'en'),
+      '🕹️ Going for a high score on the arcade!',
+    );
+    assert.equal(
+      localizeServerText('🥤 Otomattan soğuk içecek aldı', 'en'),
+      '🥤 Grabbed a cold drink from the vending machine',
+    );
   });
 });

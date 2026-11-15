@@ -106,6 +106,9 @@ export interface FloorLayout {
   meetingChairSlots: ZoneSlot[];
   gamingSlots: ZoneSlot[];
   loungeSeatSlots: ZoneSlot[];
+  readingSlots: ZoneSlot[];
+  arcadeSlots: ZoneSlot[];
+  vendingSlots: ZoneSlot[];
   coffeeSlots: ZoneSlot[];
   watercoolerSlots: ZoneSlot[];
   pizzaSlots: ZoneSlot[];
@@ -259,10 +262,11 @@ const BLUEPRINT_0: BlueprintBase = {
     { gx: 0, gy: 11, kind: 'phone_booth' },
     { gx: 0, gy: 12, kind: 'office_plant' },
     { gx: 0, gy: 13, kind: 'bookshelf' },
-    { gx: 1, gy: 12, kind: 'armchair' },
+    { gx: 1, gy: 12, kind: 'armchair', facing: 'SE' },
     { gx: 2, gy: 12, kind: 'library_table' },
-    { gx: 3, gy: 12, kind: 'armchair' },
+    { gx: 3, gy: 12, kind: 'armchair', facing: 'NW' },
     { gx: 1, gy: 13, kind: 'lounge_lamp' },
+    { gx: 2, gy: 13, kind: 'bookshelf' },
     { gx: 3, gy: 13, kind: 'bonsai' },
     // East Retro Arcade, Snack & Maker 3D-Print Nook (gx:13..15, gy:5..8)
     { gx: 15, gy: 5, kind: 'bonsai' },
@@ -346,6 +350,18 @@ const BLUEPRINT_0: BlueprintBase = {
     { gx: 10, gy: 11, facing: 'NW' },
     { gx: 13, gy: 12, facing: 'NE' },
     { gx: 14, gy: 11, facing: 'NW' },
+  ],
+  readingSlots: [
+    { gx: 1, gy: 12, facing: 'SE' },
+    { gx: 3, gy: 12, facing: 'NW' },
+  ],
+  arcadeSlots: [
+    { gx: 11, gy: 11, facing: 'NE' },
+    { gx: 14, gy: 7, facing: 'SE' },
+  ],
+  vendingSlots: [
+    { gx: 14, gy: 8, facing: 'SE' },
+    { gx: 15, gy: 9, facing: 'NE' },
   ],
   coffeeSlots: [{ gx: 14, gy: 10, facing: 'NE' }],
   watercoolerSlots: [
@@ -444,10 +460,10 @@ const BLUEPRINT_1: BlueprintBase = {
     { gx: 0, gy: 0, kind: 'bookshelf' },
     { gx: 1, gy: 0, kind: 'phone_booth' },
     { gx: 2, gy: 0, kind: 'lounge_lamp' },
-    { gx: 3, gy: 0, kind: 'bonsai' },
-    { gx: 0, gy: 2, kind: 'armchair' },
+    { gx: 3, gy: 0, kind: 'bookshelf' },
+    { gx: 0, gy: 2, kind: 'armchair', facing: 'SE' },
     { gx: 1, gy: 2, kind: 'library_table' },
-    { gx: 2, gy: 2, kind: 'armchair' },
+    { gx: 2, gy: 2, kind: 'armchair', facing: 'NW' },
     { gx: 0, gy: 3, kind: 'wood_partition_x' },
     // East Corridor Retro Arcade, Snack & Quiet Pod Nook (gx:13..15, gy:5..9)
     { gx: 13, gy: 5, kind: 'glass_partition_x' },
@@ -542,6 +558,16 @@ const BLUEPRINT_1: BlueprintBase = {
     { gx: 13, gy: 13, facing: 'NE' },
     { gx: 14, gy: 12, facing: 'NW' },
   ],
+  readingSlots: [
+    { gx: 0, gy: 2, facing: 'SE' },
+    { gx: 2, gy: 2, facing: 'NW' },
+    { gx: 10, gy: 12, facing: 'NW' },
+  ],
+  arcadeSlots: [
+    { gx: 11, gy: 12, facing: 'NE' },
+    { gx: 14, gy: 6, facing: 'SE' },
+  ],
+  vendingSlots: [{ gx: 14, gy: 7, facing: 'SE' }],
   coffeeSlots: [{ gx: 14, gy: 11, facing: 'NE' }],
   watercoolerSlots: [
     { gx: 11, gy: 9, facing: 'SE' },
@@ -642,21 +668,22 @@ const BLUEPRINT_2: BlueprintBase = {
     // East Corridor Acoustic Phone Pod & Retro Arcade/Snack Nook (gx:14..15, gy:4..7)
     { gx: 13, gy: 6, kind: 'glass_partition' },
     { gx: 13, gy: 7, kind: 'glass_partition' },
+    { gx: 14, gy: 4, kind: 'armchair', facing: 'SW' },
     { gx: 15, gy: 4, kind: 'bonsai' },
     { gx: 15, gy: 5, kind: 'phone_booth' },
-    { gx: 14, gy: 6, kind: 'armchair' },
     { gx: 15, gy: 6, kind: 'snack_vending' },
     { gx: 15, gy: 7, kind: 'arcade_cabinet' },
     // Mid-South Reading Library & Maker 3D-Print Studio (gx:5..8, gy:11..13)
     { gx: 5, gy: 11, kind: 'glass_partition_x' },
     { gx: 8, gy: 11, kind: 'glass_partition_x' },
-    { gx: 5, gy: 12, kind: 'armchair' },
-    { gx: 6, gy: 12, kind: 'library_table' },
-    { gx: 7, gy: 12, kind: 'armchair' },
-    { gx: 8, gy: 12, kind: 'office_plant' },
+    { gx: 5, gy: 12, kind: 'bookshelf' },
     { gx: 5, gy: 13, kind: 'bookshelf' },
+    { gx: 6, gy: 12, kind: 'armchair', facing: 'SE' },
+    { gx: 7, gy: 12, kind: 'armchair', facing: 'SW' },
     { gx: 6, gy: 13, kind: 'lounge_lamp' },
-    { gx: 8, gy: 13, kind: '3d_printer' },
+    { gx: 7, gy: 13, kind: 'library_table' },
+    { gx: 8, gy: 12, kind: '3d_printer' },
+    { gx: 8, gy: 13, kind: 'office_plant' },
   ],
   getTileZone: (gx, gy) => {
     if (gx <= 1 && gy >= 5 && gy <= 7) return 'ELEVATOR';
@@ -734,6 +761,15 @@ const BLUEPRINT_2: BlueprintBase = {
     { gx: 7, gy: 3, facing: 'NE' },
     { gx: 8, gy: 2, facing: 'NW' },
   ],
+  readingSlots: [
+    { gx: 6, gy: 12, facing: 'SE' },
+    { gx: 7, gy: 12, facing: 'SW' },
+  ],
+  arcadeSlots: [
+    { gx: 5, gy: 2, facing: 'NE' },
+    { gx: 14, gy: 7, facing: 'SE' },
+  ],
+  vendingSlots: [{ gx: 14, gy: 6, facing: 'SE' }],
   coffeeSlots: [{ gx: 1, gy: 2, facing: 'NE' }],
   watercoolerSlots: [
     { gx: 3, gy: 2, facing: 'NE' },
@@ -823,41 +859,45 @@ const BLUEPRINT_3: BlueprintBase = {
     { gx: 9, gy: 13, kind: 'lounge_lamp' },
     { gx: 10, gy: 12, kind: 'armchair', facing: 'NW' },
     { gx: 7, gy: 12, kind: 'lounge_table' },
-    { gx: 0, gy: 12, kind: 'office_plant' },
-    { gx: 14, gy: 1, kind: 'office_plant' },
-    // NE Acoustic Dual Phone Pod Suite (gx:12..15, gy:0..4)
+    // NE Bookshelf & Quiet Reading Library Corner (gx:12..15, gy:0..4)
     { gx: 12, gy: 0, kind: 'wood_partition' },
     { gx: 12, gy: 1, kind: 'wood_partition' },
     { gx: 12, gy: 2, kind: 'wood_partition' },
-    { gx: 13, gy: 0, kind: 'phone_booth' },
-    { gx: 15, gy: 0, kind: 'phone_booth' },
-    { gx: 14, gy: 2, kind: 'bonsai' },
-    { gx: 15, gy: 2, kind: 'armchair' },
+    { gx: 13, gy: 0, kind: 'bookshelf' },
+    { gx: 14, gy: 0, kind: 'bookshelf' },
+    { gx: 15, gy: 0, kind: 'bookshelf' },
+    { gx: 13, gy: 2, kind: 'armchair', facing: 'SE' },
+    { gx: 14, gy: 2, kind: 'library_table' },
+    { gx: 15, gy: 2, kind: 'armchair', facing: 'NW' },
+    { gx: 12, gy: 3, kind: 'lounge_lamp' },
+    { gx: 15, gy: 3, kind: 'office_plant' },
     // SW Mini Library & Reading Nook (gx:0..3, gy:11..13)
     { gx: 0, gy: 11, kind: 'wood_partition_x' },
     { gx: 1, gy: 11, kind: 'wood_partition_x' },
-    { gx: 1, gy: 12, kind: 'armchair' },
-    { gx: 2, gy: 12, kind: 'library_table' },
-    { gx: 3, gy: 12, kind: 'armchair' },
+    { gx: 0, gy: 12, kind: 'bookshelf' },
     { gx: 0, gy: 13, kind: 'bookshelf' },
+    { gx: 1, gy: 12, kind: 'armchair', facing: 'SW' },
+    { gx: 2, gy: 12, kind: 'armchair', facing: 'SW' },
+    { gx: 1, gy: 13, kind: 'library_table' },
     { gx: 2, gy: 13, kind: 'lounge_lamp' },
     { gx: 3, gy: 13, kind: 'wood_partition' },
-    // SE Retro Arcade, Snack & Maker 3D-Print Corner (gx:11..15, gy:11..13)
+    // SE Retro Arcade, Snack, Phone Pod & Maker 3D-Print Corner (gx:11..15, gy:11..13)
     { gx: 11, gy: 11, kind: 'glass_partition' },
     { gx: 11, gy: 12, kind: 'glass_partition' },
     { gx: 11, gy: 13, kind: 'glass_partition' },
     { gx: 14, gy: 11, kind: 'glass_partition_x' },
     { gx: 15, gy: 11, kind: 'glass_partition_x' },
-    { gx: 12, gy: 12, kind: 'armchair' },
+    { gx: 12, gy: 12, kind: 'armchair', facing: 'SE' },
+    { gx: 12, gy: 13, kind: 'phone_booth' },
+    { gx: 13, gy: 13, kind: 'snack_vending' },
+    { gx: 14, gy: 13, kind: '3d_printer' },
     { gx: 15, gy: 12, kind: 'arcade_cabinet' },
-    { gx: 13, gy: 13, kind: '3d_printer' },
-    { gx: 14, gy: 13, kind: 'snack_vending' },
     { gx: 15, gy: 13, kind: 'bonsai' },
   ],
   getTileZone: (gx, gy) => {
     if (gx <= 1 && gy >= 5 && gy <= 7) return 'ELEVATOR';
     if (gx <= 5 && gy <= 4) return 'DESK_ARCHITECT';
-    if (gx >= 12 && gy <= 4) return 'DESK_ARCHITECT';
+    if (gx >= 12 && gy <= 4) return 'COFFEE_LOUNGE';
     if (gx >= 6 && gy <= 4) return 'WAR_ROOM';
     if (gx <= 3 && gy >= 11) return 'COFFEE_LOUNGE';
     if (gx <= 5 && gy >= 5) return 'DESK_CODING';
@@ -931,6 +971,17 @@ const BLUEPRINT_3: BlueprintBase = {
     { gx: 8, gy: 10, facing: 'NE' },
     { gx: 9, gy: 9, facing: 'NW' },
   ],
+  readingSlots: [
+    { gx: 13, gy: 2, facing: 'SE' },
+    { gx: 15, gy: 2, facing: 'NW' },
+    { gx: 1, gy: 12, facing: 'SW' },
+    { gx: 2, gy: 12, facing: 'SW' },
+  ],
+  arcadeSlots: [
+    { gx: 6, gy: 9, facing: 'NE' },
+    { gx: 14, gy: 12, facing: 'SE' },
+  ],
+  vendingSlots: [{ gx: 13, gy: 12, facing: 'SW' }],
   coffeeSlots: [{ gx: 6, gy: 7, facing: 'NE' }],
   watercoolerSlots: [
     { gx: 9, gy: 7, facing: 'NE' },
@@ -1018,13 +1069,14 @@ const BLUEPRINT_4: BlueprintBase = {
     { gx: 0, gy: 12, kind: 'lounge_lamp' },
     { gx: 4, gy: 12, kind: 'lounge_lamp' },
     { gx: 1, gy: 11, kind: 'armchair' },
-    { gx: 5, gy: 12, kind: 'armchair' },
+    { gx: 5, gy: 12, kind: 'armchair', facing: 'SE' },
     { gx: 3, gy: 11, kind: 'lounge_table' },
     { gx: 14, gy: 12, kind: 'office_plant' },
     // Mid-South Reading Library & Retro Arcade/Snack Nook (gx:5..9, gy:12..13)
     { gx: 6, gy: 12, kind: 'library_table' },
     { gx: 5, gy: 13, kind: 'bookshelf' },
-    { gx: 8, gy: 12, kind: 'armchair' },
+    { gx: 6, gy: 13, kind: 'bookshelf' },
+    { gx: 7, gy: 12, kind: 'armchair', facing: 'NW' },
     { gx: 7, gy: 13, kind: 'bonsai' },
     { gx: 8, gy: 13, kind: 'arcade_cabinet' },
     { gx: 9, gy: 13, kind: 'snack_vending' },
@@ -1086,7 +1138,7 @@ const BLUEPRINT_4: BlueprintBase = {
       { gx: 2, gy: 12, facing: 'NE' },
       { gx: 3, gy: 12, facing: 'NE' },
       { gx: 1, gy: 11, facing: 'SE' },
-      { gx: 5, gy: 12, facing: 'NW' },
+      { gx: 5, gy: 12, facing: 'SE' },
       { gx: 8, gy: 11, facing: 'NE' },
       { gx: 9, gy: 10, facing: 'NW' },
     ],
@@ -1110,10 +1162,18 @@ const BLUEPRINT_4: BlueprintBase = {
     { gx: 2, gy: 12, facing: 'NE' },
     { gx: 3, gy: 12, facing: 'NE' },
     { gx: 1, gy: 11, facing: 'SE' },
-    { gx: 5, gy: 12, facing: 'NW' },
     { gx: 8, gy: 11, facing: 'NE' },
     { gx: 9, gy: 10, facing: 'NW' },
   ],
+  readingSlots: [
+    { gx: 5, gy: 12, facing: 'SE' },
+    { gx: 7, gy: 12, facing: 'NW' },
+  ],
+  arcadeSlots: [
+    { gx: 6, gy: 10, facing: 'NE' },
+    { gx: 8, gy: 12, facing: 'SW' },
+  ],
+  vendingSlots: [{ gx: 9, gy: 12, facing: 'SW' }],
   coffeeSlots: [{ gx: 1, gy: 10, facing: 'NE' }],
   watercoolerSlots: [
     { gx: 10, gy: 9, facing: 'NE' },
@@ -1181,6 +1241,9 @@ function applySeededDeskOrientationVariety(bp: BlueprintBase, variantSeed: numbe
     bp.meetingChairSlots,
     bp.gamingSlots,
     bp.loungeSeatSlots,
+    bp.readingSlots,
+    bp.arcadeSlots,
+    bp.vendingSlots,
     bp.coffeeSlots,
     bp.watercoolerSlots,
     bp.pizzaSlots,

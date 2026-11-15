@@ -138,6 +138,12 @@ const DEMO_CYCLES: Record<string, PhaseStep[]> = {
       speechBubble: '🛋️ Koltukta dinleniyor (0 token)',
     },
     {
+      zone: 'COFFEE_LOUNGE',
+      activity: 'reading',
+      status: 'idle',
+      speechBubble: '📚 Kitap köşesinde okuma keyfi',
+    },
+    {
       zone: 'WAR_ROOM',
       activity: 'meeting',
       status: 'working',
@@ -177,6 +183,12 @@ const DEMO_CYCLES: Record<string, PhaseStep[]> = {
       status: 'idle',
       speechBubble: 'Kısa kahve molası',
     },
+    {
+      zone: 'COFFEE_LOUNGE',
+      activity: 'arcade',
+      status: 'idle',
+      speechBubble: "🕹️ Atari'de yüksek skor denemesi!",
+    },
   ],
   'demo-coder-ui': [
     {
@@ -200,6 +212,12 @@ const DEMO_CYCLES: Record<string, PhaseStep[]> = {
       activity: 'lounging',
       status: 'waiting',
       speechBubble: '🛋️ Koltukta dinleniyor (0 token)',
+    },
+    {
+      zone: 'COFFEE_LOUNGE',
+      activity: 'reading',
+      status: 'idle',
+      speechBubble: '📚 Kitap köşesinde okuma keyfi',
     },
     {
       zone: 'WAR_ROOM',
@@ -241,6 +259,12 @@ const DEMO_CYCLES: Record<string, PhaseStep[]> = {
       status: 'waiting',
       speechBubble: '🛋️ Koltukta dinleniyor (0 token)',
     },
+    {
+      zone: 'COFFEE_LOUNGE',
+      activity: 'vending',
+      status: 'idle',
+      speechBubble: '🥤 Otomattan soğuk içecek aldı',
+    },
   ],
   'demo-verifier-qa': [
     {
@@ -276,7 +300,7 @@ const DEMO_CYCLES: Record<string, PhaseStep[]> = {
   ],
 };
 
-export const DEMO_STEP_INTERVAL_MS = 16_000;
+export const DEMO_STEP_INTERVAL_MS = 20_000;
 
 let demoTick = 0;
 let lastDemoAdvanceMs: number | null = null;

@@ -368,6 +368,8 @@ const TR: Translations = {
     lounging: 'Koltukta Dinleniyor',
     gaming: 'Konsol Oyunu Oynuyor 🎮',
     card_game: 'Kart Oyunu Oynuyor 🃏',
+    arcade: 'Atari Oynuyor 🕹️',
+    vending: 'Otomattan İçecek Alıyor 🥤',
     going_home: 'Mesai Bitti, Eve Gidiyor 🏠',
     error: 'Hata / Müdahale',
   },
@@ -744,6 +746,8 @@ const EN: Translations = {
     lounging: 'Relaxing on Sofa',
     gaming: 'Playing Console Game 🎮',
     card_game: 'Playing Card Game 🃏',
+    arcade: 'Playing Arcade 🕹️',
+    vending: 'Grabbing a Drink 🥤',
     going_home: 'Off-Duty, Going Home 🏠',
     error: 'Error / Attention',
   },
@@ -1096,6 +1100,11 @@ export const SERVER_TR_TO_EN: Record<string, string> = {
   '⚡ Taze espresso takviyesi!': '⚡ Fresh espresso boost!',
   '❤️ Çok teşekkürler, ilaç gibi geldi!': '❤️ Thanks so much, just what I needed!',
   '☕ Süpersin, sağ ol!': '☕ You rock, thanks!',
+
+  // gamification.ts / demoSimulator.ts: reading corner, arcade & vending break bubbles
+  '📚 Kitap köşesinde okuma keyfi': '📚 Enjoying a book in the reading corner',
+  "🕹️ Atari'de yüksek skor denemesi!": '🕹️ Going for a high score on the arcade!',
+  '🥤 Otomattan soğuk içecek aldı': '🥤 Grabbed a cold drink from the vending machine',
 
   // officeInteractions.ts / officeEvents.ts / demoSimulator.ts: boss suite, card game & calendar
   '🃏 As bende, hamleni yap!': '🃏 I hold the ace, make your move!',

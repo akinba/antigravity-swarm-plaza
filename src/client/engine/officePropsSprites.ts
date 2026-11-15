@@ -772,6 +772,17 @@ export function drawEnhancedBackWalls(
   ctx.restore();
 }
 
+function resolveFrontDisplayFacing(
+  facing: ChairFacing | undefined,
+  fallbackFront: 'SW' | 'SE' = 'SW',
+): 'SW' | 'SE' {
+  if (!facing) return fallbackFront;
+  const up = String(facing).toUpperCase();
+  if (up === 'SE' || up === 'E' || up === 'S') return 'SE';
+  if (up === 'SW' || up === 'W' || up === 'NW') return 'SW';
+  return fallbackFront;
+}
+
 function drawCustomOrPartitionProp(
   ctx: CanvasRenderingContext2D,
   kind: string,
@@ -781,6 +792,7 @@ function drawCustomOrPartitionProp(
   timeSec: number,
   isOccupied: boolean,
   night = false,
+  facing?: ChairFacing,
 ): boolean {
   if (kind === 'aquarium') {
     drawFloorShadow(ctx, cx, cy, 20, 10, z, 0.28);
@@ -1118,248 +1130,545 @@ function drawCustomOrPartitionProp(
   }
 
   if (kind === 'snack_vending') {
-    drawFloorShadow(ctx, cx, cy, 18, 11, z, 0.3);
-    drawBox(ctx, cx, cy, 16, 10, 36, '#3d4b6e', '#27324a', '#181f30', z);
+    const dir = resolveFrontDisplayFacing(facing, 'SW');
+    const iso = createCardIsoPainter(ctx, cx, cy, z, dir);
+    const sideSign = dir === 'SW' ? -1 : 1;
+
+    // Soft floor contact shadow + leveling rubber feet
+    iso.fillPoly(iso.boxPts(-7.6, 8.2, -10.2, 10.2), 0, 'rgba(7, 10, 20, 0.30)');
+    for (const [lf, lr] of [
+      [-5.8, -8.2],
+      [-5.8, 8.2],
+      [5.8, -8.2],
+      [5.8, 8.2],
+    ] as const) {
+      const pf = iso.pt(lf, lr, 0);
+      ctx.fillStyle = '#0e131f';
+      pxRect(ctx, pf.x - 1.2 * z, pf.y - 1.4 * z, 2.4 * z, 1.4 * z);
+    }
 
     if (night) {
-      ctx.fillStyle = 'rgba(255, 138, 76, 0.14)';
-      pxRect(ctx, cx - 12 * z, cy - 35 * z, 24 * z, 26 * z);
+      iso.fillPoly(iso.boxPts(6.6, 13.4, -9.2, 9.2), 0.05, 'rgba(92, 226, 255, 0.14)');
     }
 
-    // Illuminated retro marquee header
-    ctx.fillStyle = '#121726';
-    pxRect(ctx, cx - 11 * z, cy - 34 * z, 22 * z, 5 * z);
-    ctx.fillStyle = '#ff6b4a';
-    pxRect(ctx, cx - 10 * z, cy - 33 * z, 20 * z, 3 * z);
-    ctx.fillStyle = '#ffd147';
-    pxRect(ctx, cx - 8 * z, cy - 32.5 * z, 5 * z, 2 * z);
-    ctx.fillStyle = '#fff5d6';
-    pxRect(ctx, cx - 1 * z, cy - 32.5 * z, 7 * z, 2 * z);
+    // Main brushed-graphite & anodized-slate refrigerated vending chassis
+    iso.drawSlab(iso.boxPts(-6.8, 6.8, -9.6, 9.6), 1.0, 35.6, {
+      top: '#3b4a6b',
+      sideLit: '#2c3854',
+      sideMid: '#212b42',
+      sideDark: '#151c2d',
+      rim: 'rgba(196, 220, 255, 0.22)',
+      outline: '#0b101c',
+    });
 
-    // Backlit glass display window + 3 stocked snack/soda rows
-    const wx = cx - 11 * z;
-    const wy = cy - 28 * z;
-    const ww = 15 * z;
-    const wh = 18 * z;
-    ctx.fillStyle = '#162942';
-    pxRect(ctx, wx, wy, ww, wh);
-    ctx.fillStyle = '#244166';
-    pxRect(ctx, wx + 1 * z, wy + 1 * z, ww - 2 * z, wh - 2 * z);
+    // Side sheet-metal compressor louvers on the camera-visible lateral wall
+    const rSide = sideSign * 9.66;
+    for (let lv = 0; lv < 4; lv++) {
+      const lh = 4.2 + lv * 2.0;
+      iso.fillVertQuad(-4.6, rSide, 3.8, rSide, lh, lh + 0.9, '#101624');
+    }
 
-    const snackColors = ['#ff5666', '#3cd8ff', '#ffd147', '#3be87a', '#b07cff', '#ff8a3d'];
-    for (let row = 0; row < 3; row++) {
-      const sy = cy - (26.5 - row * 5.3) * z;
-      for (let col = 0; col < 4; col++) {
-        ctx.fillStyle = snackColors[(row * 2 + col) % snackColors.length];
-        pxRect(ctx, cx - (9.5 - col * 3.1) * z, sy, 2.2 * z, 3.4 * z);
+    const fFront = 6.88;
+
+    // 1. Top backlit coral-amber & cyan "COLD DRINKS • SNACKS" LED marquee (2:1 isometric front quad)
+    iso.fillVertQuad(fFront, -8.6, fFront, 8.6, 30.8, 34.4, '#101726', '#090d16', 0.7);
+    iso.fillVertQuad(fFront + 0.04, -8.0, fFront + 0.04, 3.0, 31.4, 33.8, '#ff6b4a');
+    iso.fillVertQuad(fFront + 0.08, -7.2, fFront + 0.08, -2.4, 32.0, 33.2, '#ffe380');
+    iso.fillVertQuad(fFront + 0.08, -1.4, fFront + 0.08, 2.2, 32.0, 33.2, '#fff7e6');
+    iso.fillVertQuad(fFront + 0.04, 3.6, fFront + 0.04, 8.0, 31.4, 33.8, '#00b4d8');
+    iso.fillVertQuad(fFront + 0.08, 4.4, fFront + 0.08, 7.2, 32.1, 33.1, '#d6f8ff');
+
+    // 2. Left refrigerated tempered-glass showcase window (4 illuminated shelves of cans & snacks)
+    iso.fillVertQuad(fFront, -8.6, fFront, 3.4, 9.2, 29.8, '#0d1726', '#5ec8f8', 0.85);
+    iso.fillVertQuad(
+      fFront + 0.04,
+      -8.0,
+      fFront + 0.04,
+      2.8,
+      9.8,
+      29.2,
+      night ? '#284f78' : '#214266',
+    );
+    iso.fillVertQuad(fFront + 0.07, -7.6, fFront + 0.07, 2.4, 28.4, 29.1, '#e6fbff');
+
+    const shelfHeights = [10.2, 14.8, 19.4, 24.0];
+    const drinkAndSnackRows: ReadonlyArray<ReadonlyArray<string>> = [
+      ['#e63946', '#00e5ff', '#3be87a', '#ff9f1c'],
+      ['#00b4d8', '#ff4d6d', '#ffd166', '#9b5de5'],
+      ['#ffbe3b', '#3be87a', '#ff5666', '#4cc9f0'],
+      ['#f77f00', '#e040fb', '#ffd147', '#06d6a0'],
+    ];
+
+    for (let sIdx = 0; sIdx < shelfHeights.length; sIdx++) {
+      const sh = shelfHeights[sIdx];
+      const isCanRow = sIdx < 2;
+      const rowCols = drinkAndSnackRows[sIdx];
+      for (let c = 0; c < 4; c++) {
+        const r0 = -7.4 + c * 2.55;
+        const r1 = r0 + 1.85;
+        const itemTop = sh + (isCanRow ? 3.3 : 3.0);
+        iso.fillVertQuad(fFront + 0.09, r0, fFront + 0.09, r1, sh + 0.55, itemTop, rowCols[c]);
+        if (isCanRow) {
+          iso.fillVertQuad(fFront + 0.12, r0 + 0.15, fFront + 0.12, r1 - 0.15, itemTop - 0.55, itemTop, '#e8f1ff');
+          const pLabel = iso.pt(fFront + 0.14, (r0 + r1) * 0.5, sh + 1.9);
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.78)';
+          pxRect(ctx, pLabel.x - 0.45 * z, pLabel.y - 0.8 * z, 0.9 * z, 1.4 * z);
+        } else {
+          iso.fillVertQuad(fFront + 0.12, r0, fFront + 0.12, r1, itemTop - 0.45, itemTop, '#fff3cf');
+        }
       }
-      ctx.fillStyle = '#8496b5';
-      pxRect(ctx, cx - 10 * z, sy + 3.4 * z, 13 * z, 1.2 * z);
+      iso.fillVertQuad(fFront + 0.14, -7.8, fFront + 0.14, 2.6, sh, sh + 0.58, '#8fa3c4');
     }
 
-    // Diagonal glass reflection on vending window
-    ctx.strokeStyle = 'rgba(220, 246, 255, 0.55)';
-    ctx.lineWidth = Math.max(1, z);
+    // Tempered glass cyan tint + crisp diagonal specular reflection streaks
+    iso.fillVertQuad(fFront + 0.16, -8.0, fFront + 0.16, 2.8, 9.8, 29.2, 'rgba(165, 236, 255, 0.14)');
+    const gA1 = iso.pt(fFront + 0.18, -6.4, 11.2);
+    const gB1 = iso.pt(fFront + 0.18, -1.2, 27.6);
+    const gA2 = iso.pt(fFront + 0.18, -3.4, 11.2);
+    const gB2 = iso.pt(fFront + 0.18, 1.4, 26.2);
+    ctx.strokeStyle = 'rgba(232, 251, 255, 0.62)';
+    ctx.lineWidth = Math.max(1, 1.05 * z);
     ctx.beginPath();
-    ctx.moveTo(wx + 2 * z, wy + wh - 2 * z);
-    ctx.lineTo(wx + 8 * z, wy + 2 * z);
+    ctx.moveTo(gA1.x, gA1.y);
+    ctx.lineTo(gB1.x, gB1.y);
+    ctx.moveTo(gA2.x, gA2.y);
+    ctx.lineTo(gB2.x, gB2.y);
     ctx.stroke();
 
-    ctx.strokeStyle = '#7cd7ff';
-    ctx.lineWidth = Math.max(1, 1.2 * z);
-    pxStrokeRect(ctx, wx, wy, ww, wh);
+    // 3. Right smart touchscreen, selection keypad & contactless NFC tap-to-pay panel
+    iso.fillVertQuad(fFront, 4.1, fFront, 8.6, 9.2, 29.8, '#0e1422', '#26334d', 0.75);
+    iso.fillVertQuad(
+      fFront + 0.06,
+      4.7,
+      fFront + 0.06,
+      8.0,
+      23.6,
+      28.6,
+      isOccupied ? '#5cf0ff' : '#28bce8',
+    );
+    iso.fillVertQuad(fFront + 0.1, 5.0, fFront + 0.1, 7.6, 26.8, 28.0, '#e8fbff');
+    for (let kr = 0; kr < 3; kr++) {
+      for (let kc = 0; kc < 2; kc++) {
+        const pKey = iso.pt(fFront + 0.1, 5.2 + kc * 1.9, 21.8 - kr * 1.8);
+        ctx.fillStyle = kr === 0 && kc === 0 && isOccupied ? '#3be87a' : '#9eb4d6';
+        pxRect(ctx, pKey.x - 0.55 * z, pKey.y - 0.55 * z, 1.1 * z, 1.1 * z);
+      }
+    }
+    iso.fillVertQuad(fFront + 0.08, 4.8, fFront + 0.08, 7.9, 13.0, 16.4, '#ffd147');
+    const pNfcLed = iso.pt(fFront + 0.12, 6.35, 14.8);
+    ctx.fillStyle = isOccupied ? '#3be87a' : '#00b4d8';
+    pxRect(ctx, pNfcLed.x - 0.8 * z, pNfcLed.y - 0.8 * z, 1.6 * z, 1.6 * z);
 
-    // Contactless card reader & keypad column
-    ctx.fillStyle = '#111624';
-    pxRect(ctx, cx + 5 * z, cy - 28 * z, 6 * z, 18 * z);
-    ctx.fillStyle = '#3cd8ff';
-    pxRect(ctx, cx + 6.5 * z, cy - 26 * z, 3 * z, 3 * z);
-    ctx.fillStyle = '#ffd147';
-    pxRect(ctx, cx + 6.5 * z, cy - 21.5 * z, 3 * z, 1.5 * z);
-    ctx.fillStyle = '#3be87a';
-    pxRect(ctx, cx + 6.5 * z, cy - 19 * z, 3 * z, 1.5 * z);
-    ctx.fillStyle = '#ff7b3b';
-    pxRect(ctx, cx + 6.5 * z, cy - 15.5 * z, 3 * z, 2 * z);
-
-    // Dispenser flap tray
-    ctx.fillStyle = '#0d111c';
-    pxRect(ctx, cx - 10 * z, cy - 8.5 * z, 16 * z, 5 * z);
-    ctx.fillStyle = '#7a8bab';
-    pxRect(ctx, cx - 9 * z, cy - 8 * z, 14 * z, 1.5 * z);
+    // 4. Deep recessed bottom push-flap drink pickup bin
+    iso.fillVertQuad(fFront, -8.4, fFront, 3.4, 2.4, 7.8, '#080c14', '#2a3752', 0.75);
+    iso.fillVertQuad(fFront + 0.06, -7.8, fFront + 0.06, 2.8, 5.8, 7.3, '#7b8eab');
+    if (isOccupied) {
+      const pCan = iso.pt(fFront + 0.12, -2.4, 3.9);
+      ctx.fillStyle = '#e63946';
+      pxRect(ctx, pCan.x - 1.4 * z, pCan.y - 1.1 * z, 2.8 * z, 2.1 * z);
+      ctx.fillStyle = '#edf4ff';
+      pxRect(ctx, pCan.x + 0.8 * z, pCan.y - 1.0 * z, 0.7 * z, 1.9 * z);
+    }
     return true;
   }
 
   if (kind === 'arcade_cabinet' || kind === 'arcade') {
+    const dir = resolveFrontDisplayFacing(facing, 'SW');
+    const iso = createCardIsoPainter(ctx, cx, cy, z, dir);
+    const rightGoesFront = dir === 'SE';
     const pulse = 0.5 + 0.5 * Math.sin(timeSec * 5.5);
-    drawFloorShadow(ctx, cx, cy, 17.5, 11.2, z, 0.32);
 
-    // Ambient magenta + cyan neon wall/floor bloom behind cabinet
-    ctx.fillStyle = `rgba(224, 64, 251, ${((night ? 0.22 : 0.12) + pulse * 0.08).toFixed(3)})`;
-    pxRect(ctx, cx - 14 * z, cy - 36 * z, 13 * z, 33 * z);
-    ctx.fillStyle = `rgba(0, 229, 255, ${((night ? 0.22 : 0.12) + pulse * 0.08).toFixed(3)})`;
-    pxRect(ctx, cx + 1 * z, cy - 36 * z, 13 * z, 33 * z);
+    // 1. Ground shadow + dual Magenta/Cyan neon floor wash
+    iso.fillPoly(iso.boxPts(-8.2, 10.6, -9.4, 9.4), 0, 'rgba(7, 10, 20, 0.32)');
+    if (night || isOccupied) {
+      iso.fillPoly(
+        iso.boxPts(5.2, 13.0, -9.6, 9.6),
+        0.04,
+        `rgba(0, 229, 255, ${((night ? 0.18 : 0.10) + pulse * 0.06).toFixed(3)})`,
+      );
+      iso.fillPoly(
+        iso.boxPts(-8.8, 4.0, -10.4, 10.4),
+        0.03,
+        `rgba(224, 64, 251, ${((night ? 0.15 : 0.08) + pulse * 0.05).toFixed(3)})`,
+      );
+    }
 
-    // Lower matte-indigo cabinet base + coin door + pixel-art side game poster decal
-    drawBox(ctx, cx, cy, 15, 10, 17, '#32245c', '#221842', '#150e2b', z);
-    // Framed pixel-art side poster on left cabinet flank
-    ctx.fillStyle = '#0d101c';
-    pxRect(ctx, cx - 12.2 * z, cy - 14.2 * z, 6.2 * z, 10 * z);
-    ctx.fillStyle = '#1b1d42';
-    pxRect(ctx, cx - 11.4 * z, cy - 13.4 * z, 4.6 * z, 8.4 * z);
-    ctx.fillStyle = '#e040fb';
-    pxRect(ctx, cx - 11.4 * z, cy - 8.2 * z, 4.6 * z, 2 * z);
+    const cabBasePal: IsoSlabPalette = {
+      top: '#2f2259',
+      sideLit: '#251a47',
+      sideMid: '#1b1236',
+      sideDark: '#120b24',
+      rim: 'rgba(186, 148, 255, 0.20)',
+      outline: '#090614',
+    };
+    const cabWingPal: IsoSlabPalette = {
+      top: '#3f2c75',
+      sideLit: '#32225e',
+      sideMid: '#241845',
+      sideDark: '#170f2e',
+      rim: 'rgba(224, 64, 251, 0.28)',
+      outline: '#090614',
+    };
+
+    // 2. Solid Lower Cabinet Pedestal (h = 0..14.6) + Welded Console Support Apron (h = 10.6..14.6 — ZERO floating panel!)
+    iso.drawSlab(iso.boxPts(-7.6, 6.0, -8.4, 8.4), 0, 14.6, cabBasePal);
+    iso.drawSlab(iso.boxPts(2.4, 9.4, -8.2, 8.2), 10.6, 14.6, {
+      top: '#261b4a',
+      sideLit: '#1f153d',
+      sideMid: '#170f2e',
+      sideDark: '#0f0921',
+      outline: '#090614',
+    });
+
+    // Illuminated dual coin-op service door on lower front pedestal face
+    iso.fillVertQuad(6.08, -4.4, 6.08, 4.4, 2.0, 10.2, '#0d111f', '#252f4a', 0.75);
+    const pCoin1 = iso.pt(6.14, -1.8, 7.2);
+    const pCoin2 = iso.pt(6.14, 1.8, 7.2);
+    ctx.fillStyle = '#ff9238';
+    pxRect(ctx, pCoin1.x - 0.9 * z, pCoin1.y - 1.2 * z, 1.8 * z, 2.2 * z);
+    pxRect(ctx, pCoin2.x - 0.9 * z, pCoin2.y - 1.2 * z, 1.8 * z, 2.2 * z);
+    ctx.fillStyle = '#ffe28a';
+    pxRect(ctx, pCoin1.x - 0.5 * z, pCoin1.y - 0.8 * z, 1.0 * z, 1.0 * z);
+    pxRect(ctx, pCoin2.x - 0.5 * z, pCoin2.y - 0.8 * z, 1.0 * z, 1.0 * z);
+
+    // Isometric side-art space decal on the camera-visible lower flank
+    const visSideR = (rightGoesFront ? 1 : -1) * 8.48;
+    iso.fillVertQuad(-5.2, visSideR, 3.8, visSideR, 3.0, 12.6, '#141936', '#00e5ff', 0.7);
+    iso.fillVertQuad(-3.6, visSideR, 2.2, visSideR, 7.6, 9.8, '#e040fb');
+    iso.fillVertQuad(-2.2, visSideR, 1.0, visSideR, 5.0, 6.6, '#ffd147');
+
+    // 3. Upper CRT Housing + Sculpted Side Cheeks + Recessed Angled CRT Screen (h = 17.2..31.4)
+    const drawSideWing = (r0: number, r1: number, neonCol: string) => {
+      iso.drawSlab(iso.boxPts(-7.6, 6.4, r0, r1), 17.2, 31.4, cabWingPal);
+      iso.fillVertQuad(6.46, r0 + 0.15, 6.46, r1 - 0.15, 17.4, 31.2, neonCol);
+    };
+    const farWing: [number, number, string] = rightGoesFront
+      ? [-8.6, -7.0, '#e040fb']
+      : [7.0, 8.6, '#00e5ff'];
+    const nearWing: [number, number, string] = rightGoesFront
+      ? [7.0, 8.6, '#00e5ff']
+      : [-8.6, -7.0, '#e040fb'];
+
+    drawSideWing(farWing[0], farWing[1], farWing[2]);
+
+    iso.drawSlab(iso.boxPts(-7.6, 3.8, -7.0, 7.0), 17.2, 31.0, {
+      top: '#1f163d',
+      sideLit: '#16102e',
+      sideMid: '#100b22',
+      sideDark: '#0a0717',
+      outline: '#070510',
+    });
+    const fScreen = 3.88;
+    iso.fillVertQuad(fScreen, -6.5, fScreen, 6.5, 18.4, 29.8, '#090d1a', '#263457', 0.8);
+    iso.fillVertQuad(
+      fScreen + 0.05,
+      -5.8,
+      fScreen + 0.05,
+      5.8,
+      19.2,
+      29.0,
+      pulse > 0.5 ? '#152f5e' : '#10244a',
+    );
+    const shipR = Math.sin(timeSec * 4.2) * 3.4;
+    const laserH = 21.8 + ((timeSec * 11) % 5.2);
+    iso.fillVertQuad(fScreen + 0.1, -2.2, fScreen + 0.1, 2.2, 26.2, 28.0, '#e040fb');
+    iso.fillVertQuad(fScreen + 0.1, shipR - 1.3, fScreen + 0.1, shipR + 1.3, 20.0, 21.5, '#00e5ff');
+    const pLaser = iso.pt(fScreen + 0.12, shipR, laserH);
     ctx.fillStyle = '#ffd147';
-    pxRect(ctx, cx - 10.2 * z, cy - 12.2 * z, 2.2 * z, 2.2 * z);
-    ctx.fillStyle = '#00e5ff';
-    pxRect(ctx, cx - 10.8 * z, cy - 6.6 * z, 3.4 * z, 1.2 * z);
+    pxRect(ctx, pLaser.x - 0.7 * z, pLaser.y - 1.2 * z, 1.4 * z, 2.2 * z);
+    const pGlint = iso.pt(fScreen + 0.12, -4.2, 27.6);
+    ctx.fillStyle = 'rgba(220, 248, 255, 0.55)';
+    pxRect(ctx, pGlint.x - 1.4 * z, pGlint.y - 0.6 * z, 2.8 * z, 1.1 * z);
 
-    // Coin-op door with glowing amber coin slots
-    ctx.fillStyle = '#101421';
-    pxRect(ctx, cx - 3.2 * z, cy - 11 * z, 8 * z, 7 * z);
-    ctx.fillStyle = '#ff8a3d';
-    pxRect(ctx, cx - 1.8 * z, cy - 9 * z, 1.8 * z, 2.5 * z);
-    pxRect(ctx, cx + 1.4 * z, cy - 9 * z, 1.8 * z, 2.5 * z);
+    // 4. Unified Integrated Control Deck (h = 14.6..17.2) resting solidly on pedestal + apron!
+    iso.drawSlab(iso.boxPts(-7.6, 9.8, -8.6, 8.6), 14.6, 17.2, {
+      top: '#243156',
+      sideLit: '#1b2542',
+      sideMid: '#141c33',
+      sideDark: '#0d1224',
+      rim: 'rgba(0, 229, 255, 0.34)',
+      outline: '#080b17',
+    });
+    iso.fillVertQuad(9.86, -8.3, 9.86, 8.3, 15.6, 16.5, '#00e5ff');
+    iso.fillPoly(iso.boxPts(4.0, 9.1, -7.4, 7.4), 17.26, '#13192e', '#384973', 0.7);
 
-    // Upper CRT housing + backlit marquee
-    drawBox(ctx, cx - 1 * z, cy - 17 * z, 14, 9, 17, '#463080', '#2d1f57', '#1c1338', z);
-    ctx.fillStyle = '#e040fb';
-    pxRect(ctx, cx - 10 * z, cy - 35.2 * z, 18 * z, 4.2 * z);
-    ctx.fillStyle = '#00e5ff';
-    pxRect(ctx, cx - 9.2 * z, cy - 34.6 * z, 16.4 * z, 1 * z);
-    ctx.fillStyle = '#ffe14d';
-    pxRect(ctx, cx - 7 * z, cy - 33.4 * z, 12 * z, 1.8 * z);
+    // 1P (Red) & 2P (Cyan) ball-top joysticks + 6 RGB arcade microswitch buttons
+    const joyTilt = isOccupied ? Math.sin(timeSec * 14) * 0.9 : 0;
+    for (const [rJoy, ballCol, tiltMul] of [
+      [-4.2, '#ff3b6b', 1],
+      [1.8, '#00e5ff', -0.7],
+    ] as const) {
+      const pBase = iso.pt(6.6, rJoy, 17.3);
+      const pBall = iso.pt(6.6 + joyTilt * 0.4 * tiltMul, rJoy + joyTilt * tiltMul, 19.6);
+      ctx.fillStyle = '#0a0d17';
+      pxRect(ctx, pBase.x - 1.4 * z, pBase.y - 0.7 * z, 2.8 * z, 1.4 * z);
+      ctx.strokeStyle = '#dce6fa';
+      ctx.lineWidth = Math.max(1, 1.25 * z);
+      ctx.beginPath();
+      ctx.moveTo(pBase.x, pBase.y - 0.2 * z);
+      ctx.lineTo(pBall.x, pBall.y + 0.5 * z);
+      ctx.stroke();
+      ctx.fillStyle = ballCol;
+      pxRect(ctx, pBall.x - 1.35 * z, pBall.y - 1.35 * z, 2.7 * z, 2.5 * z);
+    }
+    const btnSpecs: ReadonlyArray<[number, number, string]> = [
+      [6.1, -1.6, '#ffd147'],
+      [7.3, -1.6, '#00e5ff'],
+      [6.7, -0.3, '#3be87a'],
+      [6.1, 4.4, '#e040fb'],
+      [7.3, 4.4, '#ffd147'],
+      [6.7, 5.7, '#ff5666'],
+    ];
+    for (let bi = 0; bi < btnSpecs.length; bi++) {
+      const [bf, br, bCol] = btnSpecs[bi];
+      const press = isOccupied && ((Math.floor(timeSec * 12) + bi) % 3 === 0) ? -0.35 : 0;
+      const pb = iso.pt(bf, br, 17.55 + press);
+      ctx.fillStyle = bCol;
+      pxRect(ctx, pb.x - 0.9 * z, pb.y - 0.65 * z, 1.8 * z, 1.3 * z);
+    }
 
-    // Vertical Magenta (#e040fb) & Cyan (#00e5ff) neon LED edge T-molding strips
-    ctx.fillStyle = '#e040fb';
-    pxRect(ctx, cx - 11.8 * z, cy - 34.5 * z, 1.6 * z, 29.5 * z);
-    ctx.fillStyle = '#ffb8ff';
-    pxRect(ctx, cx - 11.3 * z, cy - 33.5 * z, 0.8 * z, 27.5 * z);
-    ctx.fillStyle = '#00e5ff';
-    pxRect(ctx, cx + 7.6 * z, cy - 34.5 * z, 1.6 * z, 18 * z);
-    ctx.fillStyle = '#d4fcff';
-    pxRect(ctx, cx + 8.0 * z, cy - 33.5 * z, 0.8 * z, 16 * z);
+    drawSideWing(nearWing[0], nearWing[1], nearWing[2]);
 
-    // CRT screen & animated space shooter
-    ctx.fillStyle = `rgba(0, 229, 255, ${((night ? 0.26 : 0.16) + pulse * 0.14).toFixed(3)})`;
-    pxRect(ctx, cx - 10 * z, cy - 31 * z, 17.5 * z, 13.5 * z);
-    ctx.fillStyle = '#0c101d';
-    pxRect(ctx, cx - 9 * z, cy - 30 * z, 16 * z, 11 * z);
-    ctx.fillStyle = pulse > 0.5 ? '#193869' : '#12284d';
-    pxRect(ctx, cx - 7.5 * z, cy - 28.5 * z, 13 * z, 8 * z);
-
-    const shipX = cx + (-5.5 + (Math.sin(timeSec * 3.8) * 0.5 + 0.5) * 7.5) * z;
-    const laserY = cy - (23.5 + ((timeSec * 9) % 4)) * z;
-    ctx.fillStyle = '#e040fb';
-    pxRect(ctx, cx - 2.5 * z, cy - 27.2 * z, 3.2 * z, 2 * z);
-    ctx.fillStyle = '#ffd147';
-    pxRect(ctx, shipX + 1 * z, laserY, 1.5 * z, 2 * z);
-    ctx.fillStyle = '#00e5ff';
-    pxRect(ctx, shipX, cy - 22.5 * z, 3.5 * z, 2 * z);
-    // CRT corner glint
-    ctx.fillStyle = 'rgba(220, 248, 255, 0.45)';
-    pxRect(ctx, cx - 6.8 * z, cy - 28 * z, 2.5 * z, 1.2 * z);
-
-    // Control deck with ball-top joystick & RGB arcade buttons
-    drawBox(ctx, cx + 1.5 * z, cy - 16 * z, 13, 8, 3, '#232e52', '#171f38', '#0e1426', z);
-    ctx.fillStyle = '#dce5f7';
-    pxRect(ctx, cx - 5 * z, cy - 20.5 * z, 1.5 * z, 2.5 * z);
-    ctx.fillStyle = '#ff3b6b';
-    pxRect(ctx, cx - 5.8 * z, cy - 22.2 * z, 3 * z, 2.2 * z);
-    ctx.fillStyle = '#00e5ff';
-    pxRect(ctx, cx + 0.5 * z, cy - 20 * z, 2 * z, 1.5 * z);
-    ctx.fillStyle = '#e040fb';
-    pxRect(ctx, cx + 3.2 * z, cy - 20.5 * z, 2 * z, 1.5 * z);
-    ctx.fillStyle = '#3be87a';
-    pxRect(ctx, cx + 5.8 * z, cy - 19.5 * z, 2 * z, 1.5 * z);
+    // 5. Overhanging Backlit Retro Marquee Canopy (h = 30.8..36.4)
+    iso.drawSlab(iso.boxPts(-7.6, 8.0, -8.6, 8.6), 30.8, 36.4, cabWingPal);
+    iso.fillVertQuad(8.08, -8.0, 8.08, 8.0, 31.3, 35.9, '#140b29', '#00e5ff', 0.75);
+    iso.fillVertQuad(8.12, -7.3, 8.12, 7.3, 31.8, 35.4, '#e040fb');
+    iso.fillVertQuad(8.16, -6.2, 8.16, 6.2, 32.3, 34.9, '#ffd147');
+    iso.fillVertQuad(8.2, -3.8, 8.2, 3.8, 32.8, 34.4, '#fffef0');
     return true;
   }
 
   if (kind === 'library_table') {
-    drawFloorShadow(ctx, cx, cy, 22, 12, z, 0.28);
-    drawBox(ctx, cx, cy, 14, 8, 6, '#5e3b22', '#452a17', '#2e1b0e', z);
-    drawBox(ctx, cx, cy - 6 * z, 21, 11, 4, '#ab7042', '#80522d', '#59371d', z);
+    const dir = resolveFrontDisplayFacing(facing, 'SE');
+    const iso = createCardIsoPainter(ctx, cx, cy, z, dir);
 
-    // Stacked colorful hardcovers
-    ctx.fillStyle = '#3cd8ff';
-    pxRect(ctx, cx - 12 * z, cy - 13 * z, 8 * z, 2.2 * z);
-    ctx.fillStyle = '#f7f2e4';
-    pxRect(ctx, cx - 11 * z, cy - 12.5 * z, 6 * z, 1.2 * z);
-    ctx.fillStyle = '#ff5666';
-    pxRect(ctx, cx - 11.5 * z, cy - 15.2 * z, 7.5 * z, 2.2 * z);
-    ctx.fillStyle = '#ffd147';
-    pxRect(ctx, cx - 11 * z, cy - 17.2 * z, 6.5 * z, 2 * z);
+    iso.fillPoly(iso.boxPts(-8.8, 8.8, -12.2, 12.2), 0, 'rgba(7, 10, 20, 0.28)');
+    iso.drawSlab(iso.boxPts(-5.2, 5.2, -7.8, 7.8), 0, 6.2, {
+      top: '#6e4527',
+      sideLit: '#5c381e',
+      sideMid: '#472a15',
+      sideDark: '#331d0d',
+      outline: '#1a0d05',
+    });
+    iso.drawSlab(iso.boxPts(-7.8, 7.8, -11.4, 11.4), 6.2, 9.8, {
+      top: '#b37746',
+      sideLit: '#8f5c33',
+      sideMid: '#704625',
+      sideDark: '#523118',
+      rim: 'rgba(255, 228, 196, 0.26)',
+      outline: '#211107',
+    });
 
-    // Open reading book
-    ctx.fillStyle = '#6b3fa0';
-    pxRect(ctx, cx - 3 * z, cy - 12 * z, 8 * z, 3.5 * z);
-    ctx.fillStyle = '#fffdf2';
-    pxRect(ctx, cx - 2.3 * z, cy - 11.5 * z, 3 * z, 2.5 * z);
-    pxRect(ctx, cx + 1.2 * z, cy - 11.5 * z, 3 * z, 2.5 * z);
+    // Stacked colorful hardcover volumes on left side of reading table
+    iso.drawSlab(iso.boxPts(-4.4, 1.8, -9.8, -4.4), 9.8, 11.5, {
+      top: '#2e5ea6',
+      sideLit: '#f5efe0',
+      sideMid: '#234982',
+      sideDark: '#17325c',
+      outline: '#0d1b33',
+    });
+    iso.drawSlab(iso.boxPts(-3.8, 1.4, -9.2, -4.6), 11.5, 13.1, {
+      top: '#c93b4b',
+      sideLit: '#f7f2e4',
+      sideMid: '#9e2b38',
+      sideDark: '#731d27',
+      outline: '#2b090e',
+    });
 
-    // Ceramic coffee mug + steam
-    ctx.fillStyle = '#f4f6fc';
-    pxRect(ctx, cx + 7 * z, cy - 13.5 * z, 3.8 * z, 3.8 * z);
-    ctx.fillStyle = '#6e381d';
-    pxRect(ctx, cx + 7.8 * z, cy - 13.5 * z, 2.2 * z, 1.2 * z);
-    const steamY = cy - (15.5 + ((timeSec * 3.2) % 3.5)) * z;
-    ctx.fillStyle = 'rgba(230, 244, 255, 0.65)';
-    pxRect(ctx, cx + 8.2 * z, steamY, 1.6 * z, 1.8 * z);
+    // Open hardcover book with cream pages in center
+    iso.drawSlab(iso.boxPts(-1.8, 4.6, -2.8, 3.6), 9.8, 10.9, {
+      top: '#247d58',
+      sideLit: '#1c6345',
+      sideMid: '#154d35',
+      sideDark: '#0e3625',
+      outline: '#081f15',
+    });
+    iso.fillPoly(iso.boxPts(-1.3, 4.1, -2.4, 0.3), 11.05, '#fffdf2', '#cbbda2', 0.65);
+    iso.fillPoly(iso.boxPts(-1.3, 4.1, 0.5, 3.2), 11.05, '#f5ecd7', '#cbbda2', 0.65);
 
-    // Classic brass & emerald banker lamp + warm reading pool
-    ctx.fillStyle = night ? 'rgba(255, 226, 128, 0.46)' : 'rgba(255, 230, 138, 0.34)';
-    pxRect(ctx, cx + 0.5 * z, cy - 15.5 * z, 10 * z, 4.5 * z);
-    ctx.fillStyle = '#d4a638';
-    pxRect(ctx, cx + 3.5 * z, cy - 13 * z, 4.5 * z, 1.8 * z);
-    ctx.fillStyle = '#9c761c';
-    pxRect(ctx, cx + 5 * z, cy - 20.5 * z, 1.8 * z, 7.5 * z);
-    ctx.fillStyle = '#fff2a6';
-    pxRect(ctx, cx + 2.5 * z, cy - 21 * z, 6.8 * z, 1.5 * z);
+    // Classic brass & emerald green library banker's lamp
+    if (night) {
+      iso.fillPoly(iso.boxPts(-3.6, 5.8, 2.2, 10.4), 9.9, 'rgba(255, 220, 122, 0.28)');
+    }
+    const pLamp = iso.pt(-2.6, 7.2, 9.9);
+    ctx.fillStyle = '#d9ab42';
+    pxRect(ctx, pLamp.x - 2.0 * z, pLamp.y - 1.4 * z, 4.0 * z, 1.4 * z);
+    ctx.fillStyle = '#9e781e';
+    pxRect(ctx, pLamp.x - 0.8 * z, pLamp.y - 7.8 * z, 1.6 * z, 6.5 * z);
+    if (night) {
+      ctx.fillStyle = '#fff5b8';
+      pxRect(ctx, pLamp.x - 2.6 * z, pLamp.y - 8.2 * z, 5.2 * z, 1.3 * z);
+    }
     ctx.fillStyle = '#1b9e56';
-    pxRect(ctx, cx + 2 * z, cy - 24.2 * z, 7.8 * z, 3.5 * z);
-    ctx.fillStyle = '#4be08a';
-    pxRect(ctx, cx + 3 * z, cy - 23.6 * z, 5.5 * z, 1.5 * z);
+    pxRect(ctx, pLamp.x - 3.4 * z, pLamp.y - 10.8 * z, 6.8 * z, 2.8 * z);
+    ctx.fillStyle = night ? '#57eba1' : '#35bd73';
+    pxRect(ctx, pLamp.x - 2.4 * z, pLamp.y - 10.2 * z, 4.8 * z, 1.2 * z);
     return true;
   }
 
   if (kind === '3d_printer') {
-    drawFloorShadow(ctx, cx, cy, 18, 11, z, 0.3);
-    drawBox(ctx, cx, cy, 16, 10, 12, '#38435c', '#252c3d', '#171c28', z);
-    ctx.fillStyle = '#192030';
-    pxRect(ctx, cx - 8 * z, cy - 8 * z, 7 * z, 4 * z);
-    ctx.fillStyle = '#3be87a';
-    pxRect(ctx, cx - 7 * z, cy - 6.5 * z, 2 * z, 1.5 * z);
-    ctx.fillStyle = '#3cd8ff';
-    pxRect(ctx, cx - 4 * z, cy - 6.5 * z, 2 * z, 1.5 * z);
+    const dir = resolveFrontDisplayFacing(facing, 'SW');
+    const iso = createCardIsoPainter(ctx, cx, cy, z, dir);
+    const rightGoesFront = dir === 'SE';
 
-    drawBox(ctx, cx, cy - 12 * z, 13, 8, 3, '#576785', '#3b465c', '#272f3d', z);
-    ctx.fillStyle = '#3cd8ff';
-    pxRect(ctx, cx - 6.5 * z, cy - 16.5 * z, 13 * z, 1.8 * z);
-    ctx.fillStyle = night ? 'rgba(84, 214, 255, 0.24)' : 'rgba(84, 214, 255, 0.16)';
-    pxRect(ctx, cx - 9 * z, cy - 31 * z, 18 * z, 15 * z);
+    // 1. Floor shadow + CNC gunmetal-aluminum lower electronics base (h = 0..11.2)
+    iso.fillPoly(iso.boxPts(-8.4, 8.6, -8.8, 8.8), 0, 'rgba(7, 10, 20, 0.30)');
+    iso.drawSlab(iso.boxPts(-7.4, 7.4, -8.2, 8.2), 0, 11.2, {
+      top: '#3c4863',
+      sideLit: '#2d374d',
+      sideMid: '#21293b',
+      sideDark: '#151b28',
+      rim: 'rgba(196, 216, 248, 0.22)',
+      outline: '#0b0f1a',
+    });
 
-    // Holo-cube geometric print inside enclosure
-    drawBox(ctx, cx, cy - 16 * z, 4.5, 3, 5.5, '#7ef3ff', '#3cd8ff', '#1e8eb8', z);
-
-    // Gantry frame, top bridge & filament spool
-    ctx.fillStyle = '#92a3c2';
-    pxRect(ctx, cx - 9.5 * z, cy - 32 * z, 2.2 * z, 16.5 * z);
-    pxRect(ctx, cx + 7.3 * z, cy - 32 * z, 2.2 * z, 16.5 * z);
-    ctx.fillStyle = '#6f809e';
-    pxRect(ctx, cx - 10 * z, cy - 33.5 * z, 20 * z, 2.5 * z);
+    const fBase = 7.48;
+    iso.fillVertQuad(fBase, -6.4, fBase, 2.2, 3.0, 8.8, '#0d1321', '#4a5c80', 0.75);
+    iso.fillVertQuad(fBase + 0.05, -5.8, fBase + 0.05, 1.6, 3.8, 8.1, '#162c4a');
+    iso.fillVertQuad(fBase + 0.09, -5.2, fBase + 0.09, -0.6, 4.4, 5.3, '#3be87a');
+    const pTemp = iso.pt(fBase + 0.12, 0.4, 6.8);
     ctx.fillStyle = '#ff853d';
-    pxRect(ctx, cx - 3 * z, cy - 38 * z, 6 * z, 4.5 * z);
-    ctx.fillStyle = '#1a2030';
-    pxRect(ctx, cx - 1.5 * z, cy - 36.8 * z, 3 * z, 2 * z);
+    pxRect(ctx, pTemp.x - 0.8 * z, pTemp.y - 0.8 * z, 1.6 * z, 1.4 * z);
+    const pStatus = iso.pt(fBase + 0.12, 5.2, 6.0);
+    ctx.fillStyle = '#3cd8ff';
+    pxRect(ctx, pStatus.x - 1.1 * z, pStatus.y - 0.7 * z, 2.2 * z, 1.4 * z);
 
-    // Animated X-axis crossbar & glowing nozzle
-    const travelX = Math.sin(timeSec * 4.2) * 4.5 * z;
-    const barY = cy - (24 + Math.sin(timeSec * 1.8) * 1.5) * z;
-    ctx.fillStyle = '#4c5973';
-    pxRect(ctx, cx - 8 * z, barY, 16 * z, 1.8 * z);
-    ctx.fillStyle = '#1e2536';
-    pxRect(ctx, cx + travelX - 2 * z, barY - 1 * z, 4 * z, 3.8 * z);
-    ctx.fillStyle = Math.sin(timeSec * 12) > 0 ? '#ffd147' : '#5cf0ff';
-    pxRect(ctx, cx + travelX - 1 * z, barY + 2.5 * z, 2 * z, 2 * z);
+    // 2. Enclosed CoreXY Chamber Rear Backplate & Heated PEI Plate (h = 11.2..29.0)
+    iso.drawSlab(iso.boxPts(-7.2, -5.8, -8.0, 8.0), 11.2, 29.0, {
+      top: '#283247',
+      sideLit: '#1e2638',
+      sideMid: '#161c2b',
+      sideDark: '#101420',
+      outline: '#090d16',
+    });
+
+    iso.drawSlab(iso.boxPts(-4.8, 4.8, -5.8, 5.8), 12.6, 13.9, {
+      top: '#d49b35',
+      sideLit: '#ad7b22',
+      sideMid: '#875e16',
+      sideDark: '#61420d',
+      outline: '#2b1c04',
+    });
+
+    iso.drawSlab(iso.boxPts(-2.4, 2.4, -2.6, 2.6), 13.9, 20.2, {
+      top: '#9ef9ff',
+      sideLit: '#3cd8ff',
+      sideMid: '#1ca3cc',
+      sideDark: '#126e8f',
+      outline: '#083b4f',
+    });
+
+    // Animated CoreXY carbon-rod X/Y gantry + direct-drive toolhead + hotend nozzle glow
+    const headR = Math.sin(timeSec * 4.4) * 3.0;
+    const headF = Math.cos(timeSec * 2.9) * 1.8;
+    const gantryA = iso.pt(headF, -6.8, 23.6);
+    const gantryB = iso.pt(headF, 6.8, 23.6);
+    ctx.strokeStyle = '#92a4c4';
+    ctx.lineWidth = Math.max(1.1, 1.5 * z);
+    ctx.beginPath();
+    ctx.moveTo(gantryA.x, gantryA.y);
+    ctx.lineTo(gantryB.x, gantryB.y);
+    ctx.stroke();
+
+    iso.drawSlab(iso.boxPts(headF - 1.5, headF + 1.5, headR - 1.6, headR + 1.6), 21.4, 25.8, {
+      top: '#2b354d',
+      sideLit: '#ff7b3b',
+      sideMid: '#1e2638',
+      sideDark: '#121724',
+      outline: '#080b12',
+    });
+    const pNozzle = iso.pt(headF + 0.4, headR, 20.8);
+    ctx.fillStyle = Math.sin(timeSec * 14) > 0 ? '#ffd147' : '#5cf0ff';
+    pxRect(ctx, pNozzle.x - 0.95 * z, pNozzle.y - 0.95 * z, 1.9 * z, 1.9 * z);
+
+    // Corner anodized-silver CoreXY frame extrusions
+    const pillarPal: IsoSlabPalette = {
+      top: '#90a2c2',
+      sideLit: '#798ba8',
+      sideMid: '#5c6c87',
+      sideDark: '#3f4c63',
+      outline: '#121826',
+    };
+    const pillarCorners: Array<[number, number]> = [
+      [-7.2, rightGoesFront ? -8.0 : 6.6],
+      [5.8, rightGoesFront ? -8.0 : 6.6],
+      [-7.2, rightGoesFront ? 6.6 : -8.0],
+      [5.8, rightGoesFront ? 6.6 : -8.0],
+    ];
+    for (const [pf0, pr0] of pillarCorners) {
+      iso.drawSlab(iso.boxPts(pf0, pf0 + 1.4, pr0, pr0 + 1.4), 11.2, 29.0, pillarPal);
+    }
+
+    // Translucent smoked-acrylic front chamber door + handle + side glass window
+    const visR = (rightGoesFront ? 1 : -1) * 8.04;
+    iso.fillVertQuad(-5.6, visR, 5.6, visR, 12.2, 28.4, 'rgba(130, 216, 255, 0.16)', '#4b5d7d', 0.7);
+    const fDoor = 7.26;
+    iso.fillVertQuad(
+      fDoor,
+      -6.6,
+      fDoor,
+      6.6,
+      11.8,
+      28.6,
+      night ? 'rgba(116, 220, 255, 0.22)' : 'rgba(156, 232, 255, 0.20)',
+      '#586b8f',
+      0.85,
+    );
+    const pHandle = iso.pt(fDoor + 0.08, 4.8, 20.2);
+    ctx.fillStyle = '#121826';
+    pxRect(ctx, pHandle.x - 0.7 * z, pHandle.y - 2.6 * z, 1.4 * z, 5.2 * z);
+    const dRefA = iso.pt(fDoor + 0.06, -4.4, 13.6);
+    const dRefB = iso.pt(fDoor + 0.06, 1.8, 27.0);
+    ctx.strokeStyle = 'rgba(235, 252, 255, 0.58)';
+    ctx.lineWidth = Math.max(1, z);
+    ctx.beginPath();
+    ctx.moveTo(dRefA.x, dRefA.y);
+    ctx.lineTo(dRefB.x, dRefB.y);
+    ctx.stroke();
+
+    // Upper CoreXY belt gantry crown
+    iso.drawSlab(iso.boxPts(-7.4, 7.4, -8.2, 8.2), 29.0, 31.2, {
+      top: '#526280',
+      sideLit: '#3e4c66',
+      sideMid: '#2e394f',
+      sideDark: '#1d2536',
+      outline: '#0b0f1a',
+    });
+
+    // 3. Top-mounted rotary PLA filament spool + PTFE Bowden feed tube (h = 31.4..37.0)
+    iso.drawSlab(iso.boxPts(-3.6, 3.6, -1.7, -1.0), 31.4, 37.0, {
+      top: '#232b3d',
+      sideLit: '#1a2030',
+      sideMid: '#131824',
+      sideDark: '#0c0f17',
+      outline: '#07090f',
+    });
+    iso.drawSlab(iso.boxPts(-3.1, 3.1, -1.0, 1.0), 31.9, 36.5, {
+      top: '#ffa45c',
+      sideLit: '#ff7b29',
+      sideMid: '#d95d14',
+      sideDark: '#9e3f08',
+      outline: '#361402',
+    });
+    iso.drawSlab(iso.boxPts(-3.6, 3.6, 1.0, 1.7), 31.4, 37.0, {
+      top: '#232b3d',
+      sideLit: '#1a2030',
+      sideMid: '#131824',
+      sideDark: '#0c0f17',
+      outline: '#07090f',
+    });
+    const pHub = iso.pt(0, 1.85, 34.2);
+    ctx.fillStyle = '#92a4c4';
+    pxRect(ctx, pHub.x - 0.9 * z, pHub.y - 0.9 * z, 1.8 * z, 1.8 * z);
+    const pTubeStart = iso.pt(2.2, 0.2, 36.2);
+    const pTubeEnd = iso.pt(headF, headR, 30.8);
+    ctx.strokeStyle = 'rgba(240, 248, 255, 0.85)';
+    ctx.lineWidth = Math.max(1, 1.15 * z);
+    ctx.beginPath();
+    ctx.moveTo(pTubeStart.x, pTubeStart.y);
+    ctx.lineTo((pTubeStart.x + pTubeEnd.x) * 0.5, Math.min(pTubeStart.y, pTubeEnd.y) - 3.2 * z);
+    ctx.lineTo(pTubeEnd.x, pTubeEnd.y);
+    ctx.stroke();
     return true;
   }
 
@@ -1442,8 +1751,9 @@ export function drawExtraFurnitureProp(
   zoom: number,
   timeSec: number,
   isOccupied: boolean,
+  facing?: ChairFacing,
 ): boolean {
-  return drawCustomOrPartitionProp(ctx, kind, cx, cy, zoom, timeSec, isOccupied, false);
+  return drawCustomOrPartitionProp(ctx, kind, cx, cy, zoom, timeSec, isOccupied, false, facing);
 }
 
 export type ChairFacing =
@@ -3986,7 +4296,7 @@ export function drawEnhancedFurniture(
 
   ctx.save();
 
-  if (drawCustomOrPartitionProp(ctx, kind, cx, cy, z, timeSec, isOccupied, night)) {
+  if (drawCustomOrPartitionProp(ctx, kind, cx, cy, z, timeSec, isOccupied, night, facing)) {
     ctx.restore();
     return;
   }
@@ -4774,15 +5084,164 @@ export function drawEnhancedFurniture(
   ) {
     drawArchitecturalConferenceTable(ctx, kind, cx, cy, z, timeSec, night, isOccupied, modelAccent);
   } else if (kind === 'bookshelf') {
-    drawFloorShadow(ctx, cx, cy, 18, 9.5, z, 0.28);
-    drawBox(ctx, cx, cy, 16, 8, 30, '#946037', '#6b4322', '#472b14', z);
-    const bookColors = ['#ff5666', '#3cd8ff', '#ffd147', '#3be87a', '#b07cff'];
-    for (let r = 0; r < 3; r++) {
-      const syRow = cy - (24.5 - r * 7) * z;
-      for (let b = 0; b < 4; b++) {
-        ctx.fillStyle = bookColors[(r + b) % bookColors.length];
-        pxRect(ctx, cx - (10 - b * 4) * z, syRow, 3 * z, 5 * z);
-      }
+    const frontFace = resolveFrontDisplayFacing(facing, 'SW');
+    const iso = createCardIsoPainter(ctx, cx, cy, z, frontFace);
+    const slab = (
+      f0: number,
+      f1: number,
+      r0: number,
+      r1: number,
+      h0: number,
+      h1: number,
+      top: string,
+      sideLit: string,
+      sideDark: string,
+    ) => {
+      iso.drawSlab(iso.boxPts(f0, f1, r0, r1), h0, h1, {
+        top,
+        sideLit,
+        sideMid: sideLit,
+        sideDark,
+      });
+    };
+    drawFloorShadow(ctx, cx, cy, 21.5, 10.6, z, 0.3);
+
+    // 1. Lower enclosed walnut credenza base + twin paneled cabinet doors & brass knobs
+    slab(-3.8, 3.8, -13.2, 13.2, 0, 7.2, '#7d4d2b', '#5e381d', '#3e2310');
+    iso.fillVertQuad(3.9, -11.8, 3.9, -0.6, 1.0, 6.2, '#6c4123');
+    iso.fillVertQuad(3.9, 0.6, 3.9, 11.8, 1.0, 6.2, '#6c4123');
+    iso.fillVertQuad(3.98, -10.9, 3.98, -1.4, 1.6, 5.6, '#523018');
+    iso.fillVertQuad(3.98, 1.4, 3.98, 10.9, 1.6, 5.6, '#523018');
+    // Polished brass cabinet knobs
+    const knobL = iso.pt(4.06, -2.1, 3.8);
+    const knobR = iso.pt(4.06, 2.1, 3.8);
+    ctx.fillStyle = '#ffd147';
+    pxRect(ctx, knobL.x - 0.5 * z, knobL.y - 0.5 * z, 1.0 * z, 1.0 * z);
+    pxRect(ctx, knobR.x - 0.5 * z, knobR.y - 0.5 * z, 1.0 * z, 1.0 * z);
+
+    // 2. Recessed dark espresso bookcase back cavity + outer walnut stiles
+    slab(-3.8, 2.5, -12.0, 12.0, 7.2, 29.6, '#26150b', '#1d1008', '#150b05');
+    slab(-3.8, 3.8, -13.2, -11.8, 7.2, 29.6, '#875430', '#633b1f', '#422612');
+    slab(-3.8, 3.8, 11.8, 13.2, 7.2, 29.6, '#875430', '#633b1f', '#422612');
+
+    // 3. Shelf 0 (h = 7.2..12.6): Heavy reference encyclopedias + horizontal folio stack
+    const jacketPalette = [
+      ['#c93b4b', '#942432'], // crimson leather
+      ['#2b6cb0', '#1c4878'], // oxford blue
+      ['#247d58', '#165239'], // emerald cloth
+      ['#d49a2a', '#9c6e18'], // ochre buckram
+      ['#7b3f8c', '#532761'], // plum folio
+      ['#e8dcc4', '#bfb197'], // vellum cream
+      ['#1f7a8c', '#134e59'], // slate teal
+      ['#b85d28', '#823e17'], // russet calfskin
+    ] as const;
+
+    const drawShelfBook = (
+      r0: number,
+      r1: number,
+      baseH: number,
+      bookH: number,
+      colorIdx: number,
+      pulledOut = false,
+    ) => {
+      const [mainCol, darkCol] = jacketPalette[colorIdx % jacketPalette.length];
+      const fFront = pulledOut ? 3.55 : 3.2;
+      slab(0.2, fFront, r0, r1, baseH, baseH + bookH, '#f5ebd6', mainCol, darkCol);
+      // Gold foil spine band near top
+      iso.fillVertQuad(
+        fFront + 0.06,
+        r0 + 0.15,
+        fFront + 0.06,
+        r1 - 0.15,
+        baseH + bookH - 1.1,
+        baseH + bookH - 0.65,
+        '#ffd147',
+      );
+    };
+
+    // Shelf 0 books (left encyclopedia set + right horizontal art-book stack)
+    drawShelfBook(-11.4, -9.6, 7.2, 4.9, 0);
+    drawShelfBook(-9.5, -7.7, 7.2, 5.0, 1);
+    drawShelfBook(-7.6, -5.8, 7.2, 4.7, 2);
+    drawShelfBook(-5.7, -3.9, 7.2, 5.1, 5);
+    drawShelfBook(-3.8, -2.0, 7.2, 4.8, 4);
+    drawShelfBook(-1.9, -0.1, 7.2, 4.5, 7);
+    // Horizontal stacked quarto volumes on right of Shelf 0
+    slab(0.4, 3.3, 1.4, 10.6, 7.2, 8.7, '#2b6cb0', '#f5ebd6', '#1c4878');
+    slab(0.6, 3.2, 2.2, 9.8, 8.7, 10.1, '#c93b4b', '#f5ebd6', '#942432');
+    slab(0.8, 3.1, 3.0, 9.0, 10.1, 11.3, '#d49a2a', '#fff7e2', '#9c6e18');
+
+    // Shelf plank 1 (h = 12.6..13.5)
+    slab(-3.4, 3.65, -11.9, 11.9, 12.6, 13.5, '#915b34', '#6b4123', '#472a14');
+
+    // 4. Shelf 1 (h = 13.5..18.2): Varied-height novels + angled leaning book & brass bookend
+    drawShelfBook(-11.4, -9.7, 13.5, 4.2, 3);
+    drawShelfBook(-9.6, -7.9, 13.5, 4.5, 4);
+    drawShelfBook(-7.8, -6.1, 13.5, 3.9, 6);
+    drawShelfBook(-6.0, -4.3, 13.5, 4.4, 0, isOccupied);
+    drawShelfBook(-4.2, -2.5, 13.5, 4.1, 5);
+    drawShelfBook(-2.4, -0.8, 13.5, 4.4, 2);
+    // Angled leaning book resting toward right brass bookend
+    const lb0 = iso.pt(3.25, -0.4, 13.5);
+    const lb1 = iso.pt(3.25, 1.3, 13.5);
+    const lb2 = iso.pt(3.25, 3.2, 17.5);
+    const lb3 = iso.pt(3.25, 1.5, 17.7);
+    ctx.beginPath();
+    ctx.moveTo(lb0.x, lb0.y);
+    ctx.lineTo(lb1.x, lb1.y);
+    ctx.lineTo(lb2.x, lb2.y);
+    ctx.lineTo(lb3.x, lb3.y);
+    ctx.closePath();
+    ctx.fillStyle = '#247d58';
+    ctx.fill();
+    slab(0.6, 3.2, 3.4, 4.5, 13.5, 15.8, '#ffe074', '#d49a2a', '#8c6214');
+    drawShelfBook(5.8, 7.6, 13.5, 4.3, 1);
+    drawShelfBook(7.7, 9.5, 13.5, 4.0, 7);
+    drawShelfBook(9.6, 11.3, 13.5, 4.4, 3);
+
+    // Shelf plank 2 (h = 18.2..19.1)
+    slab(-3.4, 3.65, -11.9, 11.9, 18.2, 19.1, '#915b34', '#6b4123', '#472a14');
+
+    // 5. Shelf 2 (h = 19.1..23.8): Dense colorful library row with center walnut divider
+    drawShelfBook(-11.4, -9.7, 19.1, 4.3, 1);
+    drawShelfBook(-9.6, -7.9, 19.1, 3.8, 5);
+    drawShelfBook(-7.8, -6.1, 19.1, 4.4, 2);
+    drawShelfBook(-6.0, -4.3, 19.1, 4.1, 7);
+    drawShelfBook(-4.2, -2.5, 19.1, 4.5, 0);
+    drawShelfBook(-2.4, -0.7, 19.1, 4.0, 3);
+    slab(-2.8, 3.4, -0.5, 0.5, 19.1, 23.8, '#875430', '#633b1f', '#422612');
+    drawShelfBook(0.8, 2.5, 19.1, 4.2, 6);
+    drawShelfBook(2.6, 4.3, 19.1, 4.5, 3);
+    drawShelfBook(4.4, 6.1, 19.1, 3.9, 4);
+    drawShelfBook(6.2, 7.9, 19.1, 4.3, 1);
+    drawShelfBook(8.0, 9.7, 19.1, 4.1, 2);
+    drawShelfBook(9.8, 11.4, 19.1, 4.4, 5);
+
+    // Shelf plank 3 (h = 23.8..24.7)
+    slab(-3.4, 3.65, -11.9, 11.9, 23.8, 24.7, '#915b34', '#6b4123', '#472a14');
+
+    // 6. Top Shelf 3 (h = 24.7..29.5): Curated leather editions + mini brass globe & succulent planter
+    drawShelfBook(-11.3, -9.5, 24.7, 4.2, 4);
+    drawShelfBook(-9.4, -7.6, 24.7, 4.5, 0);
+    drawShelfBook(-7.5, -5.8, 24.7, 3.9, 3);
+    drawShelfBook(-5.7, -3.9, 24.7, 4.3, 6);
+    drawShelfBook(-3.8, -2.1, 24.7, 4.1, 1);
+    // Mini brass stand + cyan-emerald globe on center-right
+    slab(0.8, 2.8, 0.8, 3.6, 24.7, 25.5, '#ffd147', '#c48f24', '#7d5810');
+    slab(0.9, 2.9, 1.0, 3.4, 25.5, 28.2, '#5cf0ff', '#249ea8', '#155d66');
+    // Ceramic planter + lush green succulent on top right
+    slab(0.8, 2.8, 6.8, 10.0, 24.7, 26.5, '#f2ead9', '#d4c8b2', '#9e927d');
+    slab(0.9, 2.7, 7.2, 9.6, 26.5, 28.4, '#4ae88a', '#28b562', '#17753d');
+
+    // 7. Overhanging architectural walnut crown cornice + warm brass trim fillet
+    slab(-3.9, 4.05, -13.5, 13.5, 29.5, 30.0, '#ffd147', '#c48f24', '#855d12');
+    slab(-4.2, 4.4, -13.9, 13.9, 30.0, 31.8, '#945d36', '#6e4324', '#472a15');
+
+    if (isOccupied || night) {
+      // Subtle warm library picture-light wash across upper cornice
+      const washPt = iso.pt(4.45, 0, 29.8);
+      ctx.fillStyle = isOccupied ? 'rgba(255, 218, 128, 0.34)' : 'rgba(255, 209, 112, 0.2)';
+      pxRect(ctx, washPt.x - 5.5 * z, washPt.y - 0.6 * z, 11 * z, 1.4 * z);
     }
   } else if (kind === 'filing_cabinet') {
     drawFloorShadow(ctx, cx, cy, 14, 9, z, 0.26);
@@ -4799,7 +5258,7 @@ export function drawEnhancedFurniture(
     ctx.fillStyle = '#fff5b8';
     pxRect(ctx, cx - 3 * z, cy - 22.5 * z, 3 * z, 3 * z);
   } else if (kind === 'prop_arcade') {
-    drawCustomOrPartitionProp(ctx, 'arcade_cabinet', cx, cy, z, timeSec, isOccupied, night);
+    drawCustomOrPartitionProp(ctx, 'arcade_cabinet', cx, cy, z, timeSec, isOccupied, night, facing);
   } else if (kind === 'prop_hologram') {
     drawFloorShadow(ctx, cx, cy, 18, 10, z, 0.28);
     drawBox(ctx, cx, cy, 16, 9, 10, '#314863', '#1f2f42', '#121c29', z);

@@ -46,6 +46,7 @@ import {
   findPath,
   isConferenceTableKind,
   type Facing,
+  type ZoneSlot,
 } from './pathfinding';
 import {
   drawEmployeeSprite,
@@ -95,6 +96,7 @@ interface ActorState {
   targetFacing: Facing;
   walkPhase: number;
   isWalking: boolean;
+  isBreakStroll?: boolean;
 }
 
 interface TeleportEffect {
@@ -109,6 +111,7 @@ interface TeleportEffect {
 }
 
 const WALK_SPEED_TILES_PER_SEC = 3.2;
+const BREAK_WALK_SPEED_TILES_PER_SEC = 2.25;
 const WORK_DESK_KINDS = new Set(['dev_desk', 'qa_desk', 'exec_desk', 'clover_desk', 'desk']);
 const WORK_CHAIR_KINDS = new Set(['desk_chair', 'exec_chair', 'swivel_chair', 'chair']);
 const DESK_SEAT_DISTANCE = 0.72;
@@ -739,16 +742,9 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
       ELEVATOR: 0,
     };
 
-    let loungeSeatIdx = 0;
     let meetingChairIdx = 0;
-    let watercoolerIdx = 0;
-    let pizzaIdx = 0;
-    let coffeeIdx = 0;
-    let cardLoungeIdx = 0;
     let archGuestSeatedCount = 0;
     let archGuestStandingCount = 0;
-    let nextGamingFallback = 0;
-    const usedGamingIndices = new Set<number>();
     const gamingIds: string[] = [];
     const seenCardLoungeKeys = new Set<string>();
     const cardLoungeSlots = [...layout.pizzaSlots, ...layout.loungeSeatSlots].filter((s) => {
@@ -758,8 +754,118 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
       return true;
     });
 
+    const getPreferredBreakPool = (emp: OfficeEmployee): ZoneSlot[] | null => {
+      if (emp.visitTargetId && emp.socialReaction === 'coffee_gift') return null;
+      if (emp.activity === 'going_home' || emp.zone === 'ELEVATOR') return null;
+      if (emp.activity === 'card_game') {
+        if (emp.zone === 'WAR_ROOM') return null;
+        return cardLoungeSlots.length > 0 ? cardLoungeSlots : layout.loungeSeatSlots;
+      }
+      if (emp.zone === 'DESK_ARCHITECT') return null;
+      if (emp.activity === 'gaming') return layout.gamingSlots;
+      if (emp.activity === 'watercooler') return layout.watercoolerSlots;
+      if (emp.activity === 'pizza') return layout.pizzaSlots;
+      if (emp.activity === 'arcade') return layout.arcadeSlots;
+      if (emp.activity === 'vending') return layout.vendingSlots;
+      if (emp.zone === 'WAR_ROOM') return null;
+      if (emp.zone === 'COFFEE_LOUNGE') {
+        if (emp.activity === 'reading' && layout.readingSlots.length > 0) {
+          return layout.readingSlots;
+        }
+        if (emp.activity === 'coffee' && layout.coffeeSlots.length > 0) {
+          return layout.coffeeSlots;
+        }
+        return layout.loungeSeatSlots;
+      }
+      return null;
+    };
+
+    // Pass 1: Keep already-seated (or already-en-route) break agents on their current valid slot
+    // so newly arriving agents never displace or stack onto an occupied chair/spot.
+    const claimedBreakTileKeys = new Set<string>();
+    const preReservedBreakSlots = new Map<string, ZoneSlot>();
+    const breakCandidates = floor.employees
+      .map((emp) => ({ emp, existing: actors.get(emp.id), pool: getPreferredBreakPool(emp) }))
+      .filter(
+        (c): c is { emp: OfficeEmployee; existing: ActorState; pool: ZoneSlot[] } =>
+          Boolean(c.existing && c.pool && c.pool.length > 0),
+      )
+      // Already-stationary seated/standing break agents get first keep-seat priority over walkers
+      .sort((a, b) => Number(a.existing.isWalking) - Number(b.existing.isWalking));
+
+    for (const { emp, existing, pool } of breakCandidates) {
+      const targetKey = `${Math.round(existing.targetSlotGx)},${Math.round(existing.targetSlotGy)}`;
+      if (claimedBreakTileKeys.has(targetKey)) continue;
+      const matched = pool.find((s) => `${s.gx},${s.gy}` === targetKey);
+      if (matched) {
+        claimedBreakTileKeys.add(targetKey);
+        preReservedBreakSlots.set(emp.id, matched);
+      }
+    }
+
+    const allBreakFallbackPools: ZoneSlot[][] = [
+      layout.loungeSeatSlots,
+      layout.readingSlots,
+      layout.gamingSlots,
+      layout.coffeeSlots,
+      layout.arcadeSlots,
+      layout.vendingSlots,
+      layout.watercoolerSlots,
+      layout.pizzaSlots,
+    ];
+
+    const claimFreeBreakSlot = (emp: OfficeEmployee, preferredPool: ZoneSlot[]): ZoneSlot => {
+      const reserved = preReservedBreakSlots.get(emp.id);
+      if (reserved) return reserved;
+
+      // Respect preferred playerSlot index for PlayStation gamers if that beanbag is free
+      if (emp.activity === 'gaming' && preferredPool.length > 0 && emp.playerSlot && emp.playerSlot >= 1) {
+        const prefSlot = preferredPool[(emp.playerSlot - 1) % preferredPool.length];
+        const prefKey = `${prefSlot.gx},${prefSlot.gy}`;
+        if (!claimedBreakTileKeys.has(prefKey)) {
+          claimedBreakTileKeys.add(prefKey);
+          return prefSlot;
+        }
+      }
+
+      for (const pool of [preferredPool, ...allBreakFallbackPools]) {
+        for (const candidate of pool) {
+          const key = `${candidate.gx},${candidate.gy}`;
+          if (!claimedBreakTileKeys.has(key)) {
+            claimedBreakTileKeys.add(key);
+            return candidate;
+          }
+        }
+      }
+
+      // Extreme overflow (>20 simultaneous break agents): pick an unclaimed walkable lounge tile
+      for (let gy = 0; gy < GRID_H; gy++) {
+        for (let gx = 0; gx < GRID_W; gx++) {
+          const key = `${gx},${gy}`;
+          if (
+            walkableGrid[gy][gx] &&
+            layout.getTileZone(gx, gy) === 'COFFEE_LOUNGE' &&
+            !claimedBreakTileKeys.has(key)
+          ) {
+            claimedBreakTileKeys.add(key);
+            return { gx, gy, facing: 'SE' };
+          }
+        }
+      }
+
+      return preferredPool[0] ?? layout.loungeSeatSlots[0];
+    };
+
     floor.employees.forEach((emp) => {
       let slot = layout.zoneSlots.DESK_CODING[0];
+      const isBreakStroll =
+        emp.zone === 'COFFEE_LOUNGE' ||
+        emp.status === 'waiting' ||
+        emp.status === 'idle' ||
+        emp.activity === 'arcade' ||
+        emp.activity === 'vending' ||
+        emp.activity === 'watercooler' ||
+        emp.activity === 'pizza';
 
       let visitSlot: typeof slot | null = null;
       if (emp.visitTargetId && emp.socialReaction === 'coffee_gift') {
@@ -795,19 +901,20 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
         }
       }
 
+      const preferredBreakPool = visitSlot ? null : getPreferredBreakPool(emp);
+
       if (visitSlot) {
         slot = visitSlot;
+      } else if (preferredBreakPool && preferredBreakPool.length > 0) {
+        slot = claimFreeBreakSlot(emp, preferredBreakPool);
+        if (emp.activity === 'gaming') {
+          gamingIds.push(emp.id);
+        }
       } else if (emp.activity === 'going_home' || emp.zone === 'ELEVATOR') {
         slot = ELEVATOR_SLOT;
-      } else if (emp.activity === 'card_game') {
-        if (emp.zone === 'WAR_ROOM') {
-          slot = layout.meetingChairSlots[meetingChairIdx % layout.meetingChairSlots.length];
-          meetingChairIdx += 1;
-        } else {
-          const fallbackPool = cardLoungeSlots.length > 0 ? cardLoungeSlots : layout.loungeSeatSlots;
-          slot = fallbackPool[cardLoungeIdx % fallbackPool.length];
-          cardLoungeIdx += 1;
-        }
+      } else if (emp.activity === 'card_game' && emp.zone === 'WAR_ROOM') {
+        slot = layout.meetingChairSlots[meetingChairIdx % layout.meetingChairSlots.length];
+        meetingChairIdx += 1;
       } else if (emp.zone === 'DESK_ARCHITECT') {
         const archSlots = layout.zoneSlots.DESK_ARCHITECT;
         if (emp.isCoordinator) {
@@ -824,39 +931,12 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
           zoneCounters.DESK_ARCHITECT = idx + 1;
           slot = archSlots[idx % archSlots.length];
         }
-      } else if (emp.activity === 'gaming') {
-        const nSlots = Math.max(1, layout.gamingSlots.length);
-        const prefIdx = emp.playerSlot && emp.playerSlot >= 1 ? (emp.playerSlot - 1) % nSlots : 0;
-        let chosenIdx = prefIdx;
-        if (usedGamingIndices.has(chosenIdx)) {
-          while (nextGamingFallback < nSlots && usedGamingIndices.has(nextGamingFallback)) {
-            nextGamingFallback += 1;
-          }
-          chosenIdx = nextGamingFallback < nSlots ? nextGamingFallback : prefIdx;
-        }
-        usedGamingIndices.add(chosenIdx);
-        slot = layout.gamingSlots[chosenIdx];
-        gamingIds.push(emp.id);
-      } else if (emp.activity === 'watercooler') {
-        slot = layout.watercoolerSlots[watercoolerIdx % layout.watercoolerSlots.length];
-        watercoolerIdx += 1;
-      } else if (emp.activity === 'pizza') {
-        slot = layout.pizzaSlots[pizzaIdx % layout.pizzaSlots.length];
-        pizzaIdx += 1;
       } else if (emp.zone === 'WAR_ROOM') {
         if (emp.activity === 'presenting' || emp.isPresenter) {
           slot = layout.presenterSlot;
         } else {
           slot = layout.meetingChairSlots[meetingChairIdx % layout.meetingChairSlots.length];
           meetingChairIdx += 1;
-        }
-      } else if (emp.zone === 'COFFEE_LOUNGE') {
-        if (emp.activity === 'coffee' && coffeeIdx < layout.coffeeSlots.length) {
-          slot = layout.coffeeSlots[coffeeIdx];
-          coffeeIdx += 1;
-        } else {
-          slot = layout.loungeSeatSlots[loungeSeatIdx % layout.loungeSeatSlots.length];
-          loungeSeatIdx += 1;
         }
       } else {
         const idx = zoneCounters[emp.zone] ?? 0;
@@ -885,6 +965,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
             targetFacing: slot.facing,
             walkPhase: 0,
             isWalking: arrivalPath.length > 0,
+            isBreakStroll,
           });
         } else {
           actors.set(emp.id, {
@@ -898,67 +979,71 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
             targetFacing: slot.facing,
             walkPhase: 0,
             isWalking: false,
+            isBreakStroll,
           });
         }
-      } else if (
-        existing.targetZone !== emp.zone ||
-        existing.targetSlotGx !== slot.gx ||
-        existing.targetSlotGy !== slot.gy
-      ) {
-        const startGx = Math.round(existing.gx);
-        const startGy = Math.round(existing.gy);
-        const manhattan = Math.abs(startGx - slot.gx) + Math.abs(startGy - slot.gy);
-        const enteringWarRoom = existing.targetZone !== 'WAR_ROOM' && emp.zone === 'WAR_ROOM';
-        const nowSec = Math.floor(Date.now() / 1000);
-        const empHash = hashString(emp.id);
-        const ruleTeleport =
-          enteringWarRoom &&
-          (Boolean(emp.teleported) || (manhattan >= 6 && (empHash + Math.floor(nowSec / 8)) % 5 < 2));
+      } else {
+        existing.isBreakStroll = isBreakStroll;
+        if (
+          existing.targetZone !== emp.zone ||
+          existing.targetSlotGx !== slot.gx ||
+          existing.targetSlotGy !== slot.gy
+        ) {
+          const startGx = Math.round(existing.gx);
+          const startGy = Math.round(existing.gy);
+          const manhattan = Math.abs(startGx - slot.gx) + Math.abs(startGy - slot.gy);
+          const enteringWarRoom = existing.targetZone !== 'WAR_ROOM' && emp.zone === 'WAR_ROOM';
+          const nowSec = Math.floor(Date.now() / 1000);
+          const empHash = hashString(emp.id);
+          const ruleTeleport =
+            enteringWarRoom &&
+            (Boolean(emp.teleported) || (manhattan >= 6 && (empHash + Math.floor(nowSec / 8)) % 5 < 2));
 
-        const path = ruleTeleport
-          ? []
-          : findPath(walkableGrid, { gx: startGx, gy: startGy }, { gx: slot.gx, gy: slot.gy });
+          const path = ruleTeleport
+            ? []
+            : findPath(walkableGrid, { gx: startGx, gy: startGy }, { gx: slot.gx, gy: slot.gy });
 
-        const pathBlockedForWarRoom =
-          enteringWarRoom &&
-          !ruleTeleport &&
-          path.length === 0 &&
-          (startGx !== slot.gx || startGy !== slot.gy);
+          const pathBlockedForWarRoom =
+            enteringWarRoom &&
+            !ruleTeleport &&
+            path.length === 0 &&
+            (startGx !== slot.gx || startGy !== slot.gy);
 
-        if (ruleTeleport || pathBlockedForWarRoom) {
-          const fromGx = existing.gx;
-          const fromGy = existing.gy;
-          existing.gx = slot.gx;
-          existing.gy = slot.gy;
-          existing.path = [];
-          existing.isWalking = false;
-          existing.facing = slot.facing;
-          existing.targetFacing = slot.facing;
-          existing.targetZone = emp.zone;
-          existing.targetSlotGx = slot.gx;
-          existing.targetSlotGy = slot.gy;
+          if (ruleTeleport || pathBlockedForWarRoom) {
+            const fromGx = existing.gx;
+            const fromGy = existing.gy;
+            existing.gx = slot.gx;
+            existing.gy = slot.gy;
+            existing.path = [];
+            existing.isWalking = false;
+            existing.facing = slot.facing;
+            existing.targetFacing = slot.facing;
+            existing.targetZone = emp.zone;
+            existing.targetSlotGx = slot.gx;
+            existing.targetSlotGy = slot.gy;
 
-          const nowMs = performance.now();
-          teleportEffectsRef.current.push({
-            fromGx,
-            fromGy,
-            toGx: slot.gx,
-            toGy: slot.gy,
-            inviterGx: layout.presenterSlot.gx,
-            inviterGy: layout.presenterSlot.gy,
-            startMs: nowMs,
-            durationMs: 850,
-          });
-          if (nowMs - lastTeleportSfxMsRef.current >= 500) {
-            lastTeleportSfxMsRef.current = nowMs;
-            playTeleportZap();
+            const nowMs = performance.now();
+            teleportEffectsRef.current.push({
+              fromGx,
+              fromGy,
+              toGx: slot.gx,
+              toGy: slot.gy,
+              inviterGx: layout.presenterSlot.gx,
+              inviterGy: layout.presenterSlot.gy,
+              startMs: nowMs,
+              durationMs: 850,
+            });
+            if (nowMs - lastTeleportSfxMsRef.current >= 500) {
+              lastTeleportSfxMsRef.current = nowMs;
+              playTeleportZap();
+            }
+          } else {
+            existing.path = path;
+            existing.targetZone = emp.zone;
+            existing.targetSlotGx = slot.gx;
+            existing.targetSlotGy = slot.gy;
+            existing.targetFacing = slot.facing;
           }
-        } else {
-          existing.path = path;
-          existing.targetZone = emp.zone;
-          existing.targetSlotGx = slot.gx;
-          existing.targetSlotGy = slot.gy;
-          existing.targetFacing = slot.facing;
         }
       }
     });
@@ -1106,7 +1191,10 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
           const dx = next.gx - actor.gx;
           const dy = next.gy - actor.gy;
           const dist = Math.hypot(dx, dy);
-          const step = WALK_SPEED_TILES_PER_SEC * dt;
+          const walkSpeed = actor.isBreakStroll
+            ? BREAK_WALK_SPEED_TILES_PER_SEC
+            : WALK_SPEED_TILES_PER_SEC;
+          const step = walkSpeed * dt;
 
           if (dist <= step) {
             actor.gx = next.gx;
@@ -1128,7 +1216,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
               actor.facing = facingFromDelta(dx, dy, actor.facing);
             }
             actor.isWalking = true;
-            actor.walkPhase = (actor.walkPhase + dt * 3.5) % 1;
+            actor.walkPhase = (actor.walkPhase + dt * (actor.isBreakStroll ? 2.5 : 3.5)) % 1;
           }
         } else {
           actor.isWalking = false;
@@ -1738,6 +1826,21 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
             const isCardGameLounge = isCardGameActive && !isCardGameWarRoom;
 
             const isTvItem = item.kind === 'tv_console' || item.kind === 'gaming_tv';
+            const isArcadeItem = item.kind === 'arcade_cabinet' || item.kind === 'arcade';
+            const isArcadeOccupied =
+              isArcadeItem &&
+              currentFloor.employees.some((e) => {
+                if (e.activity !== 'arcade') return false;
+                const a = actors.get(e.id);
+                return a ? !a.isWalking && Math.hypot(a.gx - item.gx, a.gy - item.gy) <= 1.65 : true;
+              });
+            const isVendingOccupied =
+              item.kind === 'snack_vending' &&
+              currentFloor.employees.some((e) => {
+                if (e.activity !== 'vending') return false;
+                const a = actors.get(e.id);
+                return a ? !a.isWalking && Math.hypot(a.gx - item.gx, a.gy - item.gy) <= 1.65 : true;
+              });
             const isWarRoomActive =
               occupiedZones.has('WAR_ROOM') ||
               isPresenterActive ||
@@ -1753,6 +1856,10 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
                   (item.kind === 'exec_desk' && occupiedZones.has('DESK_ARCHITECT')))) ||
               (isConfTableAnchor && isWarRoomActive) ||
               (isTvItem && isGamingOccupied) ||
+              isArcadeOccupied ||
+              isVendingOccupied ||
+              (item.kind === '3d_printer' &&
+                (occupiedZones.has('COFFEE_LOUNGE') || occupiedZones.has('SERVER_RACK'))) ||
               (item.kind === 'lounge_table' && (isPizzaActive || isCardGameLounge)) ||
               ((item.kind === 'coffee_table' || item.kind === 'gaming_table') && isPizzaPartyEvent) ||
               (item.kind === 'elevator_doors' && isElevatorBusy) ||
@@ -1966,9 +2073,14 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
         const isPresenting =
           !actor.isWalking && (emp.activity === 'presenting' || Boolean(emp.isPresenter));
         const isStandingGuest = Boolean(emp.standingGuest);
+        const isStandingBreak = emp.activity === 'arcade' || emp.activity === 'vending';
         const slotKey = `${Math.round(actor.gx)},${Math.round(actor.gy)}`;
         const isSeatedStationary =
-          !actor.isWalking && !isPresenting && !isStandingGuest && emp.activity !== 'going_home';
+          !actor.isWalking &&
+          !isPresenting &&
+          !isStandingGuest &&
+          !isStandingBreak &&
+          emp.activity !== 'going_home';
         const isDeskZoneOrActivity =
           emp.zone === 'DESK_CODING' ||
           emp.zone === 'DESK_QA' ||
@@ -2094,7 +2206,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
           y: empScreenY - 20 * cam.zoom,
           r: 22 * cam.zoom,
         });
-        const isSeatedOverride = isStandingGuest
+        const isSeatedOverride = isStandingGuest || isStandingBreak
           ? false
           : activeSeatAlign || isSeatedOnArmchair || (isSeatedStationary && emp.activity === 'card_game')
             ? true
@@ -2158,6 +2270,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
                 !actor.isWalking &&
                 !isPresenting &&
                 !isStandingGuest &&
+                !isStandingBreak &&
                 (Boolean(activeSeatAlign) ||
                   isSeatedOnBeanbag ||
                   isSeatedOnArmchair ||

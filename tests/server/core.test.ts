@@ -12,6 +12,7 @@ import {
   type ConversationSummaryRow,
 } from '../../src/server/dbReader.js';
 import {
+  DEMO_STEP_INTERVAL_MS,
   getDemoAgentLogs,
   getDemoFloor,
   resetDemoTick,
@@ -29,11 +30,13 @@ import {
   determineZoneAndActivity,
   GO_HOME_GONE_MS,
   GO_HOME_START_MS,
+  LOUNGE_ROTATION_MS,
   WHITEBOARD_RETENTION_MS,
 } from '../../src/server/gamification.js';
 import type { OfficeEmployee } from '../../src/shared/types.js';
 import {
   BOSS_MEETING_COOLDOWN_MS,
+  BOSS_MEETING_DURATION_MS,
   CELEBRATION_CHEER_BUBBLES,
   CELEBRATION_DURATION_MS,
   CELEBRATION_HERO_BUBBLES,
@@ -47,6 +50,7 @@ import {
 import { createPlazaApp } from '../../src/server/index.js';
 import {
   AUTO_EVENT_COOLDOWN_MS,
+  EVENT_DURATION_MS,
   MIN_BREAK_AGENTS_FOR_SOCIAL_EVENT,
   countOnBreakOrWaitingAgents,
   getActiveFloorEvent,
@@ -318,7 +322,7 @@ describe('Lounge relaxation & paired console gaming', () => {
       makeLoungeEmp('e3', 'Charlie', 'waiting'),
       makeLoungeEmp('e4', 'Dana', 'idle'),
     ];
-    applyLoungeActivities(emps, 1, 18000 * 5);
+    applyLoungeActivities(emps, 1, LOUNGE_ROTATION_MS * 9);
 
     const gamers = emps.filter((e) => e.activity === 'gaming');
     assert.equal(gamers.length, 2);
@@ -335,7 +339,9 @@ describe('Lounge relaxation & paired console gaming', () => {
     assert.equal(others.length, 2);
     assert.ok(
       others.every((o) =>
-        ['lounging', 'coffee', 'watercooler', 'pizza'].includes(o.activity),
+        ['lounging', 'coffee', 'watercooler', 'pizza', 'reading', 'arcade', 'vending'].includes(
+          o.activity,
+        ),
       ),
     );
     assert.ok(others.some((o) => o.activity === 'lounging'));
@@ -757,7 +763,8 @@ describe('Per-floor layout reroll, random events, and real-work integrity', () =
     assert.ok(seenKinds.has('SUPERHERO_PARTY'));
     assert.ok(seenKinds.has('HALLOWEEN_PARTY'));
     assert.ok(seenKinds.has('CARD_GAME'));
-    assert.equal(getActiveFloorEvent(floorId, 20_000), null);
+    assert.ok(getActiveFloorEvent(floorId, 20_000));
+    assert.equal(getActiveFloorEvent(floorId, 1008 + EVENT_DURATION_MS), null);
   });
 
   it('reacts idle/waiting agents to PIZZA_PARTY / WATERCOOLER_GOSSIP while keeping working coders at desks', () => {
@@ -1196,5 +1203,61 @@ describe('Office interactions: hard-task celebration & coffee delivery', () => {
     });
     assert.equal(manualSched.kind, 'CARD_GAME');
     assert.equal(getScheduledFloorEvents('cg-2').length, 1);
+  });
+
+  it('supports reading/arcade/vending lounge activities and +25% break durations without touching working agents', () => {
+    assert.equal(LOUNGE_ROTATION_MS, 22_500);
+    assert.equal(EVENT_DURATION_MS, 20_000);
+    assert.equal(COFFEE_VISIT_DURATION_MS, 12_500);
+    assert.equal(BOSS_MEETING_DURATION_MS, 15_000);
+    assert.equal(CELEBRATION_DURATION_MS, 11_250);
+    assert.equal(DEMO_STEP_INTERVAL_MS, 20_000);
+
+    const makeLoungeTestEmp = (
+      id: string,
+      status: OfficeEmployee['status'],
+      zone: OfficeEmployee['zone'],
+      activity: OfficeEmployee['activity'],
+    ): OfficeEmployee => ({
+      id,
+      name: id,
+      roleTitle: 'Dev',
+      gender: 'female',
+      modelId: 'gemini-2.5-pro',
+      modelFamily: 'pro',
+      isCoordinator: false,
+      workspaceMode: 'inherit',
+      status,
+      zone,
+      activity,
+      speechBubble: 'working',
+      stepCount: 5,
+      xp: 50,
+      level: 1,
+      inputTokens: 0,
+      cacheReadTokens: 0,
+      outputTokens: 0,
+      lastActiveAt: new Date(1_000_000).toISOString(),
+    });
+
+    const seenActivities = new Set<string>();
+    for (let b = 0; b < 9; b++) {
+      const idleEmp = makeLoungeTestEmp('lounge-idle', 'idle', 'COFFEE_LOUNGE', 'lounging');
+      const workingEmp = makeLoungeTestEmp('desk-worker', 'working', 'DESK_CODING', 'coding');
+      applyLoungeActivities([idleEmp, workingEmp], 0, b * LOUNGE_ROTATION_MS + 100);
+      seenActivities.add(idleEmp.activity);
+      assert.equal(workingEmp.activity, 'coding');
+      assert.equal(workingEmp.zone, 'DESK_CODING');
+      assert.equal(workingEmp.speechBubble, 'working');
+    }
+
+    assert.ok(seenActivities.has('reading'));
+    assert.ok(seenActivities.has('arcade'));
+    assert.ok(seenActivities.has('vending'));
+
+    const arcadeEmp = makeLoungeTestEmp('a', 'idle', 'COFFEE_LOUNGE', 'arcade');
+    const vendingEmp = makeLoungeTestEmp('v', 'idle', 'COFFEE_LOUNGE', 'vending');
+    const codingEmp = makeLoungeTestEmp('c', 'working', 'DESK_CODING', 'coding');
+    assert.equal(countOnBreakOrWaitingAgents([arcadeEmp, vendingEmp, codingEmp]), 2);
   });
 });

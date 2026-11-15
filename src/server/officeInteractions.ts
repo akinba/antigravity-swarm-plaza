@@ -7,14 +7,14 @@ import type {
 import { getScheduledFloorEvents, scheduleFloorEvent } from './officeEvents.js';
 
 export const CELEBRATION_COOLDOWN_MS = 45_000;
-export const CELEBRATION_DURATION_MS = 9_000;
+export const CELEBRATION_DURATION_MS = 11_250;
 export const HARD_TASK_MIN_STEPS = 8;
 export const COFFEE_VISIT_COOLDOWN_MS = 75_000;
 export const COFFEE_VISIT_COOLDOWN_DEMO_MS = 32_000;
-export const COFFEE_VISIT_DURATION_MS = 10_000;
+export const COFFEE_VISIT_DURATION_MS = 12_500;
 export const BOSS_MEETING_COOLDOWN_MS = 65_000;
 export const BOSS_MEETING_COOLDOWN_DEMO_MS = 28_000;
-export const BOSS_MEETING_DURATION_MS = 12_000;
+export const BOSS_MEETING_DURATION_MS = 15_000;
 export const DEMO_CELEBRATION_PERIOD_MS = 120_000;
 export const MAX_CELEBRATING_WORKERS = 2;
 

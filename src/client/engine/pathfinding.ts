@@ -110,6 +110,12 @@ export const FURNITURE_BLOCKS: ReadonlyArray<FurnitureItem> = [
   { gx: 14, gy: 12, kind: 'armchair' },
   { gx: 9, gy: 11, kind: 'lounge_table' },
   { gx: 7, gy: 12, kind: 'lounge_lamp' },
+  { gx: 0, gy: 13, kind: 'bookshelf' },
+  { gx: 1, gy: 12, kind: 'armchair', facing: 'SE' },
+  { gx: 2, gy: 12, kind: 'library_table' },
+  { gx: 3, gy: 12, kind: 'armchair', facing: 'NW' },
+  { gx: 11, gy: 10, kind: 'arcade_cabinet' },
+  { gx: 15, gy: 8, kind: 'snack_vending' },
 ];
 
 export const PRESENTER_SLOT: ZoneSlot = { gx: 6, gy: 2, facing: 'SE' };

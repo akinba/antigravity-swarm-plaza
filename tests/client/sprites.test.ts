@@ -37,10 +37,12 @@ function createMockCanvasContext(): {
   ctx: CanvasRenderingContext2D;
   rects: RecordedRect[];
   fills: string[];
+  texts: string[];
   stats: { saves: number; restores: number; drawOps: number };
 } {
   const rects: RecordedRect[] = [];
   const fills: string[] = [];
+  const texts: string[] = [];
   const stats = { saves: 0, restores: 0, drawOps: 0 };
   const noop = () => {};
   const mock = {
@@ -79,8 +81,9 @@ function createMockCanvasContext(): {
     strokeRect: () => {
       stats.drawOps += 1;
     },
-    fillText: () => {
+    fillText: (text: string) => {
       stats.drawOps += 1;
+      texts.push(String(text));
     },
     measureText: (text: string) => ({ width: text.length * 6 }),
     fillRect: (x: number, y: number, w: number, h: number) => {
@@ -92,6 +95,7 @@ function createMockCanvasContext(): {
     ctx: mock as unknown as CanvasRenderingContext2D,
     rects,
     fills,
+    texts,
     stats,
   };
 }
@@ -880,6 +884,97 @@ describe('pixelSprites gender, hair, outfit palettes & rendering', () => {
     }
     assert.ok((fbOps.get('sofa_m') ?? 0) < (fbOps.get('sofa_l') ?? 0));
     assert.ok((fbOps.get('sofa_m') ?? 0) < (fbOps.get('sofa_r') ?? 0));
+  });
+
+  it('renders modernized 2.5D props (3d_printer, snack_vending, arcade_cabinet, bookshelf, library_table) and 8-directional arcade, vending, and book-reading break poses without Zzz', () => {
+    // 1. Modernized 2.5D props across SW/SE facings, occupied/idle states, and zoom levels
+    const propKinds: FurnitureKind[] = [
+      '3d_printer',
+      'snack_vending',
+      'arcade_cabinet',
+      'bookshelf',
+      'library_table',
+      'prop_arcade',
+    ];
+    for (const kind of propKinds) {
+      for (const facing of ['SW', 'SE', 'NE'] as const) {
+        for (const isOccupied of [false, true]) {
+          const { ctx, rects, fills, stats } = createMockCanvasContext();
+          drawEnhancedFurniture(ctx, kind, 320, 260, 2.0, 1.4, true, isOccupied, 'pro', false, '', 1, facing);
+          assert.equal(stats.saves, stats.restores, `Unbalanced save/restore for ${kind}`);
+          assert.ok(fills.length >= 12, `Expected rich 2.5D isometric polygon planes for ${kind}, got ${fills.length}`);
+          assert.ok(rects.length > 0, `Expected positive crisp pixel details for ${kind}`);
+          assert.ok(
+            rects.every((r) => r.w >= 1 && r.h >= 1),
+            `Sub-pixel rect found in ${kind}`,
+          );
+        }
+      }
+    }
+
+    // Verify signature material accents on CoreXY 3D printer, snack vending display, arcade cabinet, and walnut bookshelf
+    const { ctx: prnCtx, fills: prnFills } = createMockCanvasContext();
+    drawEnhancedFurniture(prnCtx, '3d_printer', 300, 250, 2.0, 1.2, false, true, 'pro', false, '', 1, 'SW');
+    assert.ok(prnFills.includes('#d49b35'), 'Expected 3d_printer gold PEI build plate');
+    assert.ok(prnFills.includes('#ffa45c'), 'Expected 3d_printer top PLA filament spool');
+
+    const { ctx: vndCtx, fills: vndFills } = createMockCanvasContext();
+    drawEnhancedFurniture(vndCtx, 'snack_vending', 300, 250, 2.0, 1.2, false, true, 'pro', false, '', 1, 'SW');
+    assert.ok(vndFills.includes('#e63946') && vndFills.includes('#00b4d8'), 'Expected recognizable soda cans inside snack_vending');
+
+    const { ctx: bksCtx, fills: bksFills } = createMockCanvasContext();
+    drawEnhancedFurniture(bksCtx, 'bookshelf', 300, 250, 2.0, 1.2, false, false, 'pro', false, '', 1, 'SW');
+    assert.ok(bksFills.includes('#f5ebd6') && bksFills.includes('#c93b4b'), 'Expected 2.5D hardcover spines & cream pages on bookshelf');
+
+    // 2. Break character poses across all 8 directions (even when status === 'waiting' on break!)
+    const directions: Facing[] = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+    for (const dir of directions) {
+      // Standing arcade player: upright standing shoe baseline + 1UP/★ popup + NO Zzz
+      const arcadeEmp: OfficeEmployee = {
+        ...makeEmployee('arc-1', 'pro', 'arcade', 'male'),
+        status: 'waiting',
+        zone: 'COFFEE_LOUNGE',
+      };
+      const { ctx: arcCtx, rects: arcRects, texts: arcTexts } = createMockCanvasContext();
+      drawEmployeeSprite(arcCtx, arcadeEmp, 200, 200, 2.0, dir, false, 0, 1.0, false, false);
+      assert.ok(!arcTexts.includes('Zzz'), `Arcade break agent (${dir}) must not show Zzz`);
+      assert.ok(arcTexts.includes('1UP') || arcTexts.includes('★'), `Expected 1UP/★ popup on arcade agent (${dir})`);
+      // Standing shoes reach down to baseY (y + h === 200), unlike seated shoes which shift up
+      assert.ok(
+        arcRects.some((r) => r.y + r.h >= 199 && r.y <= 200),
+        `Expected arcade agent (${dir}) to remain standing upright at baseY=200`,
+      );
+
+      // Standing vending drink break: upright + brushed aluminum soda can top (#e8f1ff) + fizz ✦ + NO Zzz
+      const vendEmp: OfficeEmployee = {
+        ...makeEmployee('vnd-2', 'flash', 'vending', 'female'),
+        status: 'waiting',
+        zone: 'COFFEE_LOUNGE',
+      };
+      const { ctx: vCtx, rects: vRects, texts: vTexts } = createMockCanvasContext();
+      drawEmployeeSprite(vCtx, vendEmp, 200, 200, 2.0, dir, false, 0, 1.2, false, false);
+      assert.ok(!vTexts.includes('Zzz'), `Vending break agent (${dir}) must not show Zzz`);
+      assert.ok(vTexts.includes('✦'), `Expected chilled fizz sparkle ✦ on vending agent (${dir})`);
+      assert.ok(
+        vRects.some((r) => r.fillStyle === '#e8f1ff'),
+        `Expected brushed aluminum soda can pull-tab rim (#e8f1ff) on vending agent (${dir})`,
+      );
+
+      // Seated lounge book reader: open hardcover book cream pages (#fffdf2) + literary ✦ + NO Zzz
+      const readEmp: OfficeEmployee = {
+        ...makeEmployee('read-3', 'argon', 'reading', 'female'),
+        status: 'waiting',
+        zone: 'COFFEE_LOUNGE',
+      };
+      const { ctx: rCtx, rects: rRects, texts: rTexts } = createMockCanvasContext();
+      drawEmployeeSprite(rCtx, readEmp, 200, 200, 2.0, dir, false, 0, 1.5, false, false, 1, true, null, true);
+      assert.ok(!rTexts.includes('Zzz'), `Reading armchair agent (${dir}) must not show Zzz`);
+      assert.ok(rTexts.includes('✦'), `Expected literary sparkle ✦ on reading agent (${dir})`);
+      assert.ok(
+        rRects.some((r) => r.fillStyle === '#fffdf2'),
+        `Expected open hardcover book cream pages (#fffdf2) on reading agent (${dir})`,
+      );
+    }
   });
 });
 

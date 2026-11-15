@@ -458,12 +458,21 @@ export function drawFurniture(
     drawIsoBox(ctx, cx - 2 * z, cy - 5 * z, 7, 3, 8, '#4a6eb8', '#2e4a85', '#1d315c', z);
   } else if (kind === 'bookshelf') {
     drawIsoBox(ctx, cx, cy, 16, 8, 30, '#8c5a32', '#663f20', '#472b14', z);
-    const bookColors = ['#ff5666', '#3cd8ff', '#ffd147', '#3be87a', '#b07cff'];
+    drawIsoBox(ctx, cx, cy - 28 * z, 17, 8.6, 2.2, '#99643a', '#704624', '#4d2e16', z);
+    const bookColors = ['#c93b4b', '#2b6cb0', '#d49a2a', '#247d58', '#7b3f8c', '#e8dcc4'];
     for (let r = 0; r < 3; r++) {
-      const sy = cy - (24 - r * 7) * z;
-      for (let b = 0; b < 4; b++) {
-        ctx.fillStyle = bookColors[(r + b) % bookColors.length];
-        ctx.fillRect(Math.round(cx - (10 - b * 4) * z), Math.round(sy), Math.ceil(3 * z), Math.ceil(5 * z));
+      const shelfBaseY = cy - (20 - r * 6.5) * z;
+      ctx.fillStyle = '#3d2310';
+      ctx.fillRect(Math.round(cx - 11 * z), Math.round(shelfBaseY), Math.ceil(18 * z), Math.ceil(1.2 * z));
+      for (let b = 0; b < 5; b++) {
+        const bh = (3.8 + ((r + b * 2) % 3) * 0.7) * z;
+        ctx.fillStyle = bookColors[(r * 2 + b) % bookColors.length];
+        ctx.fillRect(
+          Math.round(cx - (10.5 - b * 3.5) * z),
+          Math.round(shelfBaseY - bh),
+          Math.ceil(2.7 * z),
+          Math.ceil(bh),
+        );
       }
     }
   } else if (kind === 'filing_cabinet') {
@@ -1477,7 +1486,11 @@ export function drawEmployeeSprite(
       toolAct === 'writing' ||
       (emp.zone === 'SERVER_RACK' &&
         (act === 'reading' || act === 'searching' || act === 'thinking' || act === 'error')));
-  const hasScreenGlow = isCodingPose || isLaptopPose;
+  const isArcadePose = !seated && !isWalking && !isStandingGuest && act === 'arcade';
+  const isVendingPose = !seated && !isWalking && !isStandingGuest && act === 'vending';
+  const isBookReadingPose =
+    !isWalking && !isCodingPose && !isLaptopPose && (act === 'reading' || act === 'searching');
+  const hasScreenGlow = isCodingPose || isLaptopPose || isArcadePose;
 
   // True 8-directional anatomical orientation (S, SE, E, NE, N, NW, W, SW) — zero forced front-flips!
   const effectiveFacing: Facing = facing;
@@ -1999,6 +2012,14 @@ export function drawEmployeeSprite(
   const typeWaveR = Math.sin(timeSec * 14 + Math.PI);
   const keyTapL = isCodingPose ? (typeWaveL > 0 ? 1.1 : -0.5) * z : 0;
   const keyTapR = isCodingPose ? (typeWaveR > 0 ? 1.1 : -0.5) * z : 0;
+  const propSeed = hashString(emp.id);
+  const arcJoyWave = Math.sin(timeSec * 13 + (propSeed & 7));
+  const arcBtnWave = Math.sin(timeSec * 19 + (propSeed & 3));
+  const arcJoyShift = isArcadePose ? arcJoyWave * 0.9 * z : 0;
+  const arcBtnTap = isArcadePose ? (arcBtnWave > 0 ? 0.9 : -0.5) * z : 0;
+  const vendSipLift = isVendingPose
+    ? Math.max(0, Math.sin(timeSec * 2.6 + (propSeed & 7))) * 2.2 * z
+    : 0;
 
   if (palette.gender === 'female') {
     if (isSideProfile) {
@@ -2072,12 +2093,24 @@ export function drawEmployeeSprite(
         uRect(-1.4, uY - 18 * z, 2.4, 3.6, uniform.main);
         uRect(-0.8, uY - 14.8 * z, 5.2, 1.9, uniform.main);
         uRect(3.8, uY - 14.7 * z, 0.8, 1.7, '#f6f7fc');
-        if (emp.activity !== 'gaming') {
+        if (emp.activity !== 'gaming' && !isBookReadingPose) {
           uRect(4.4, uY - 14.6 * z, 2.4, 1.7, palette.skin);
         }
       } else if (isLaptopPose) {
         dRect(2.4, baseY - 14.2 * z, 3.6, 2, uniform.dark);
         dRect(-1.6, baseY - 18 * z, 2.4, 3.8, uniform.main);
+      } else if (isArcadePose) {
+        // Standing lateral arcade player: both arms extended forward onto joystick & arcade buttons
+        dRect(2.0, baseY - 15.8 * z + arcJoyShift * 0.4, 4.6, 1.7, uniform.dark);
+        dRect(6.2, baseY - 15.9 * z + arcJoyShift, 2.4, 1.7, palette.skinShadow);
+        dRect(-1.4, baseY - 18 * z, 2.4, 3.3, uniform.main);
+        dRect(-0.4, baseY - 14.8 * z + arcBtnTap * 0.4, 6.2, 1.8, uniform.main);
+        dRect(5.5, baseY - 14.9 * z + arcBtnTap, 2.6, 1.8, palette.skin);
+      } else if (isVendingPose) {
+        // Standing lateral soda sip: forward forearm raised to hold chilled aluminum can
+        dRect(-1.4, baseY - 18 * z, 2.3, 3.6, uniform.main);
+        dRect(-0.4, baseY - 14.8 * z - vendSipLift * 0.6, 4.8, 1.8, uniform.main);
+        dRect(4.0, baseY - 14.9 * z - vendSipLift, 2.2, 1.7, palette.skin);
       } else {
         const armSwing = -sideStride * 0.85;
         if (Math.abs(armSwing) > 0.35) {
@@ -2089,11 +2122,13 @@ export function drawEmployeeSprite(
         dRect(-0.9 + armSwing * 1.1, baseY - 11.4 * z, 2, 1.6, palette.skin);
       }
     } else if (isPureBack) {
-      if (isCodingPose) {
+      if (isCodingPose || isArcadePose) {
+        const tapL = isArcadePose ? arcJoyShift : keyTapL * 0.3;
+        const tapR = isArcadePose ? arcBtnTap : keyTapR * 0.3;
         rect(uX - 6.4 * z, uY - 18.2 * z, 2.2 * z, 3.4 * z, uniform.main);
         rect(uX + 4.2 * z, uY - 18.2 * z, 2.2 * z, 3.4 * z, uniform.main);
-        rect(uX - 6.8 * z, uY - 16.4 * z + keyTapL * 0.3, 2 * z, 2.2 * z, uniform.dark);
-        rect(uX + 4.8 * z, uY - 16.4 * z + keyTapR * 0.3, 2 * z, 2.2 * z, uniform.dark);
+        rect(uX - 6.8 * z, uY - 16.4 * z + tapL, 2 * z, 2.2 * z, uniform.dark);
+        rect(uX + 4.8 * z, uY - 16.4 * z + tapR, 2 * z, 2.2 * z, uniform.dark);
       } else if (seated) {
         // Seated pure North (south-side conference chair): symmetric upper sleeves & forward-tucked elbows
         rect(uX - 6.4 * z, uY - 18 * z, 2.1 * z, 3.8 * z, uniform.main);
@@ -2174,7 +2209,7 @@ export function drawEmployeeSprite(
         rect(uX + 4.4 * z, uY - 18 * z, 2 * z, 3.6 * z, uniform.main);
         rect(uX - 5.8 * z, uY - 14.6 * z, 3.2 * z, 1.8 * z, uniform.main);
         rect(uX + 2.6 * z, uY - 14.6 * z, 3.2 * z, 1.8 * z, uniform.main);
-        if (emp.activity !== 'gaming') {
+        if (emp.activity !== 'gaming' && !isBookReadingPose) {
           rect(uX - 3.2 * z, uY - 14.4 * z, 2 * z, 1.6 * z, palette.skin);
           rect(uX + 1.2 * z, uY - 14.4 * z, 2 * z, 1.6 * z, palette.skin);
         }
@@ -2184,6 +2219,36 @@ export function drawEmployeeSprite(
       dRect(-6.8, baseY - 18.2 * z, 2, 4, uniform.main);
       dRect(4.4, baseY - 18.2 * z, 2, 4.2, uniform.main);
       dRect(3.2, baseY - 14.2 * z, 3.4, 2.2, uniform.dark);
+    } else if (isArcadePose) {
+      if (isFacingAway) {
+        // Standing NE/NW at arcade cabinet: both forearms reach forward onto joystick & buttons!
+        const farArmX = dirFlip > 0 ? cx + 3.2 * z : cx - 8.8 * z;
+        const farHandX = dirFlip > 0 ? cx + 8.0 * z : cx - 10.8 * z;
+        rect(dirFlip > 0 ? cx + 2.4 * z : cx - 4.4 * z, baseY - 18.2 * z, 2 * z, 2.6 * z, uniform.main);
+        rect(farArmX, baseY - 16.8 * z + arcJoyShift * 0.4, 5.4 * z, 1.8 * z, uniform.main);
+        rect(farHandX + arcJoyShift * 0.6, baseY - 17.0 * z + arcJoyShift * 0.3, 2.6 * z, 1.8 * z, palette.skin);
+
+        const nearBicepX = dirFlip > 0 ? cx - 4.2 * z : cx + 2.0 * z;
+        const nearForeX = dirFlip > 0 ? cx - 2.2 * z : cx - 6.0 * z;
+        const nearHandX = dirFlip > 0 ? cx + 5.8 * z : cx - 8.6 * z;
+        rect(nearBicepX, baseY - 17.8 * z, 2.2 * z, 3.2 * z, uniform.dark);
+        rect(nearForeX, baseY - 15.0 * z + arcBtnTap * 0.4, 8.2 * z, 1.8 * z, uniform.main);
+        rect(nearHandX, baseY - 15.2 * z + arcBtnTap, 2.6 * z, 1.8 * z, palette.skin);
+      } else {
+        // Standing S/SE/SW arcade posture: forward-bent sleeves & active arcade hands
+        rect(cx - 6.6 * z, baseY - 18.2 * z, 2 * z, 3.4 * z, uniform.main);
+        rect(cx + 4.6 * z, baseY - 18.2 * z, 2 * z, 3.4 * z, uniform.main);
+        rect(cx - 6.0 * z, baseY - 15.0 * z + arcJoyShift * 0.4, 4.0 * z, 1.8 * z, uniform.main);
+        rect(cx + 2.0 * z, baseY - 15.0 * z + arcBtnTap * 0.4, 4.0 * z, 1.8 * z, uniform.main);
+        rect(cx - 3.6 * z + arcJoyShift * 0.6, baseY - 14.8 * z, 2.4 * z, 1.8 * z, palette.skin);
+        rect(cx + 1.4 * z, baseY - 14.8 * z + arcBtnTap, 2.4 * z, 1.8 * z, palette.skin);
+      }
+    } else if (isVendingPose) {
+      // Standing soda break: left arm relaxed, right/leading arm bent upward holding chilled can
+      rect(cx - 7 * z, baseY - 18 * z, 2 * z, 6.4 * z, uniform.main);
+      rect(cx - 7 * z, baseY - 11.6 * z, 2 * z, 1.6 * z, palette.skin);
+      rect(cx + 4.6 * z, baseY - 18 * z, 2 * z, 3.6 * z, uniform.main);
+      rect(cx + 3.8 * z, baseY - 14.8 * z - vendSipLift * 0.6, 3.2 * z, 1.8 * z, uniform.main);
     } else {
       // Standing / walking slender 2*z arms
       const armBob = legSwing * 0.3;
@@ -2369,12 +2434,24 @@ export function drawEmployeeSprite(
         if (!isVest && !isHoodie) {
           uRect(4.4, uY - 15.1 * z, 0.9, 2, '#f6f7fc');
         }
-        if (emp.activity !== 'gaming') {
+        if (emp.activity !== 'gaming' && !isBookReadingPose) {
           uRect(5.1, uY - 15 * z, 2.8, 1.9, palette.skin);
         }
       } else if (isLaptopPose) {
         dRect(3.2, baseY - 14.6 * z, 4, 2.2, uniform.dark);
         dRect(-1.8, baseY - 18.6 * z, 3, 4, upperSleeveCol);
+      } else if (isArcadePose) {
+        // Standing lateral male arcade player: both arms extended onto joystick & button deck
+        dRect(2.4, baseY - 16.0 * z + arcJoyShift * 0.4, 4.8, 1.9, uniform.dark);
+        dRect(6.8, baseY - 16.1 * z + arcJoyShift, 2.6, 1.8, palette.skinShadow);
+        dRect(-1.6, baseY - 18.6 * z, 2.8, 3.6, upperSleeveCol);
+        dRect(-0.6, baseY - 15.0 * z + arcBtnTap * 0.4, 6.6, 2.1, foreArmCol);
+        dRect(5.8, baseY - 15.1 * z + arcBtnTap, 2.8, 1.9, palette.skin);
+      } else if (isVendingPose) {
+        // Standing lateral male soda sip: raised forearm holding chilled aluminum drink can
+        dRect(-1.6, baseY - 18.6 * z, 2.8, 3.6, upperSleeveCol);
+        dRect(-0.6, baseY - 15.0 * z - vendSipLift * 0.6, 5.2, 2.1, foreArmCol);
+        dRect(4.2, baseY - 15.1 * z - vendSipLift, 2.6, 1.9, palette.skin);
       } else {
         const armSwing = -sideStride * 0.9;
         if (Math.abs(armSwing) > 0.35) {
@@ -2392,11 +2469,13 @@ export function drawEmployeeSprite(
         dRect(-1.2 + armSwing * 1.1, baseY - 11.6 * z, 2.3, 1.8, palette.skin);
       }
     } else if (isPureBack) {
-      if (isCodingPose) {
+      if (isCodingPose || isArcadePose) {
+        const tapL = isArcadePose ? arcJoyShift : keyTapL * 0.3;
+        const tapR = isArcadePose ? arcBtnTap : keyTapR * 0.3;
         rect(uX - 8.4 * z, uY - 18.6 * z, 2.8 * z, 3.6 * z, upperSleeveCol);
         rect(uX + 5.6 * z, uY - 18.6 * z, 2.8 * z, 3.6 * z, upperSleeveCol);
-        rect(uX - 8.8 * z, uY - 16.6 * z + keyTapL * 0.3, 2.4 * z, 2.4 * z, foreArmCol);
-        rect(uX + 6.4 * z, uY - 16.6 * z + keyTapR * 0.3, 2.4 * z, 2.4 * z, foreArmCol);
+        rect(uX - 8.8 * z, uY - 16.6 * z + tapL, 2.4 * z, 2.4 * z, foreArmCol);
+        rect(uX + 6.4 * z, uY - 16.6 * z + tapR, 2.4 * z, 2.4 * z, foreArmCol);
       } else if (seated) {
         // Seated pure North (south-side conference chair): symmetric upper sleeves & forward-tucked elbows
         rect(uX - 8.4 * z, uY - 18.6 * z, 2.6 * z, 3.8 * z, upperSleeveCol);
@@ -2519,7 +2598,7 @@ export function drawEmployeeSprite(
         rect(uX + 6 * z, uY - 18.6 * z, 2.6 * z, 3.4 * z, upperSleeveCol);
         rect(uX - 7.8 * z, uY - 15.2 * z, 4.2 * z, 2 * z, foreArmCol);
         rect(uX + 3.6 * z, uY - 15.2 * z, 4.2 * z, 2 * z, foreArmCol);
-        if (emp.activity !== 'gaming') {
+        if (emp.activity !== 'gaming' && !isBookReadingPose) {
           rect(uX - 4 * z, uY - 15 * z, 2.4 * z, 1.8 * z, palette.skin);
           rect(uX + 1.6 * z, uY - 15 * z, 2.4 * z, 1.8 * z, palette.skin);
         }
@@ -2533,6 +2612,37 @@ export function drawEmployeeSprite(
         dRect(6, baseY - 15.2 * z, 2.8, 1, '#cfd8ee');
       }
       dRect(4.4, baseY - 14.6 * z, 4, 2.4, foreArmCol);
+    } else if (isArcadePose) {
+      if (isFacingAway) {
+        // Standing NE/NW at arcade cabinet: athletic arms reaching onto joystick & RGB arcade buttons!
+        const farArmX = dirFlip > 0 ? cx + 3.8 * z : cx - 9.8 * z;
+        const farHandX = dirFlip > 0 ? cx + 8.8 * z : cx - 12.0 * z;
+        rect(dirFlip > 0 ? cx + 3.0 * z : cx - 5.8 * z, baseY - 18.8 * z, 2.8 * z, 2.8 * z, upperSleeveCol);
+        rect(farArmX, baseY - 17.2 * z + arcJoyShift * 0.4, 6.0 * z, 2.1 * z, foreArmCol);
+        rect(farHandX + arcJoyShift * 0.6, baseY - 17.4 * z + arcJoyShift * 0.3, 3.0 * z, 1.9 * z, palette.skin);
+
+        const nearBicepX = dirFlip > 0 ? cx - 5.8 * z : cx + 3.0 * z;
+        const nearForeX = dirFlip > 0 ? cx - 3.4 * z : cx - 6.4 * z;
+        const nearHandX = dirFlip > 0 ? cx + 6.4 * z : cx - 9.6 * z;
+        rect(nearBicepX, baseY - 18.4 * z, 2.8 * z, 3.4 * z, upperSleeveCol);
+        rect(nearForeX, baseY - 15.2 * z + arcBtnTap * 0.4, 9.6 * z, 2.1 * z, foreArmCol);
+        rect(nearHandX, baseY - 15.4 * z + arcBtnTap, 3.0 * z, 1.9 * z, palette.skin);
+      } else {
+        // Standing S/SE/SW arcade posture: bent athletic forearms & active joystick/button hands
+        rect(cx - 8.6 * z, baseY - 18.8 * z, 2.6 * z, 3.6 * z, upperSleeveCol);
+        rect(cx + 6.0 * z, baseY - 18.8 * z, 2.6 * z, 3.6 * z, upperSleeveCol);
+        rect(cx - 7.8 * z, baseY - 15.2 * z + arcJoyShift * 0.4, 4.8 * z, 2.1 * z, foreArmCol);
+        rect(cx + 3.0 * z, baseY - 15.2 * z + arcBtnTap * 0.4, 4.8 * z, 2.1 * z, foreArmCol);
+        rect(cx - 4.4 * z + arcJoyShift * 0.6, baseY - 14.9 * z, 2.8 * z, 1.9 * z, palette.skin);
+        rect(cx + 1.6 * z, baseY - 14.9 * z + arcBtnTap, 2.8 * z, 1.9 * z, palette.skin);
+      }
+    } else if (isVendingPose) {
+      // Standing soda break: left arm relaxed at side, right arm bent upward holding chilled drink can
+      rect(cx - 9 * z, baseY - 18.8 * z, 3 * z, 3.2 * z, upperSleeveCol);
+      rect(cx - 8 * z, baseY - 15.6 * z, 2 * z, 3.6 * z, foreArmCol);
+      rect(cx - 8 * z, baseY - 11.9 * z, 2 * z, 1.8 * z, palette.skin);
+      rect(cx + 6 * z, baseY - 18.8 * z, 3 * z, 3.4 * z, upperSleeveCol);
+      rect(cx + 4.8 * z, baseY - 15.4 * z - vendSipLift * 0.6, 3.8 * z, 2.1 * z, foreArmCol);
     } else {
       // Standing / walking athletic sleeves (18*z total span, 1*z waist daylight gap) + side hands
       const armBob = legSwing * 0.3;
@@ -2596,14 +2706,111 @@ export function drawEmployeeSprite(
       ctx.stroke();
       ctx.fillStyle = '#ff5666';
       ctx.fillRect(Math.round(cx - 23 * z), Math.round(baseY - 29 * z + sweep), Math.ceil(3 * z), Math.ceil(3 * z));
-    } else if (!isLaptopPose && !isPureBack && (emp.activity === 'reading' || emp.activity === 'searching')) {
-      ctx.fillStyle = '#f5ecd7';
-      ctx.fillRect(
-        Math.round(uX + (dirFlip > 0 ? 3.5 : -9.5) * z),
-        Math.round(uY - 15 * z),
-        Math.ceil(6 * z),
-        Math.ceil(5 * z),
-      );
+    } else if (isBookReadingPose) {
+      // 8-directional open hardcover book (seeded leather binding, twin cream pages, dark ink lines & ribbon bookmark)
+      const bookBindings = [
+        ['#9e2a3b', '#6b1824'], // burgundy morocco
+        ['#264e86', '#173156'], // oxford navy
+        ['#1f6b4a', '#12422d'], // forest emerald
+        ['#9c5a25', '#693a14'], // warm cognac
+        ['#6b387d', '#432050'], // royal plum
+      ] as const;
+      const [coverCol, spineCol] = bookBindings[propSeed % bookBindings.length];
+      const pageBob = Math.sin(timeSec * 2.8 + (propSeed & 7)) * 0.5 * z;
+
+      if (isSideProfile) {
+        // Lateral profile (E / W): angled hardcover jacket + stepped cream page block facing reader
+        const bx = dirFlip > 0 ? uX + 3.8 * z : uX - 10.4 * z;
+        const by = uY - 16.4 * z + pageBob;
+        rect(bx, by, 6.6 * z, 5.8 * z, coverCol);
+        rect(dirFlip > 0 ? bx + 5.3 * z : bx, by, 1.3 * z, 5.8 * z, spineCol);
+        rect(dirFlip > 0 ? bx + 0.4 * z : bx + 1.4 * z, by + 0.5 * z, 4.8 * z, 4.6 * z, '#fffdf2');
+        rect(dirFlip > 0 ? bx + 1.1 * z : bx + 2.1 * z, by + 1.5 * z, 3.0 * z, 0.7 * z, '#3b4254');
+        rect(dirFlip > 0 ? bx + 1.1 * z : bx + 2.1 * z, by + 2.9 * z, 2.6 * z, 0.7 * z, '#3b4254');
+        rect(dirFlip > 0 ? bx + 2.2 * z : bx + 2.4 * z, by + 4.4 * z, 2.2 * z, 1.7 * z, palette.skin);
+      } else if (isPureBack) {
+        // Pure rear (N): subtle edge of hardcover & cream page corner peeking past right forearm
+        rect(uX + 4.8 * z, uY - 16.6 * z + pageBob, 3.2 * z, 4.6 * z, coverCol);
+        rect(uX + 5.2 * z, uY - 16.1 * z + pageBob, 2.2 * z, 3.6 * z, '#fffdf2');
+      } else if (isFacingAway) {
+        // 3/4 rear (NE / NW): open cream page leaf & hardcover edge tucked snugly into forward hands!
+        const bx = dirFlip > 0 ? uX + 2.8 * z : uX - 9.2 * z;
+        const by = uY - 16.4 * z + pageBob;
+        rect(bx, by, 6.4 * z, 5.2 * z, coverCol);
+        rect(bx + 0.6 * z, by + 0.5 * z, 5.2 * z, 4.1 * z, '#fffdf2');
+        rect(bx + 3.0 * z, by + 0.5 * z, 0.7 * z, 4.1 * z, '#dfd5be');
+        rect(bx + 1.2 * z, by + 1.5 * z, 1.5 * z, 0.65 * z, '#3b4254');
+        rect(bx + 3.9 * z, by + 1.5 * z, 1.5 * z, 0.65 * z, '#3b4254');
+        rect(bx + 1.2 * z, by + 2.7 * z, 1.4 * z, 0.65 * z, '#3b4254');
+        rect(dirFlip > 0 ? bx + 5.0 * z : bx - 0.6 * z, by + 2.2 * z, 2.0 * z, 1.8 * z, palette.skin);
+      } else {
+        // Front & 3/4-Front (S / SE / SW): iconic open twin-page hardcover with center spine & red silk bookmark!
+        const bookCenter = uX + (isPureFront ? 0 : dirFlip * 2.6 * z);
+        const bx = bookCenter - 5.0 * z;
+        const by = uY - 16.2 * z + pageBob;
+        // Outer leather cover + dark spine crease
+        rect(bx, by, 10.0 * z, 6.0 * z, coverCol);
+        rect(bookCenter - 0.6 * z, by, 1.2 * z, 6.2 * z, spineCol);
+        // Twin open cream vellum pages
+        rect(bx + 0.7 * z, by + 0.6 * z, 3.8 * z, 4.7 * z, '#fffdf2');
+        rect(bookCenter + 0.5 * z, by + 0.6 * z, 3.8 * z, 4.7 * z, '#f2ead5');
+        // Printed dark ink text lines on both pages
+        rect(bx + 1.3 * z, by + 1.6 * z, 2.5 * z, 0.65 * z, '#3b4254');
+        rect(bx + 1.3 * z, by + 2.9 * z, 2.2 * z, 0.65 * z, '#3b4254');
+        rect(bx + 1.3 * z, by + 4.1 * z, 2.6 * z, 0.65 * z, '#3b4254');
+        rect(bookCenter + 1.1 * z, by + 1.6 * z, 2.5 * z, 0.65 * z, '#3b4254');
+        rect(bookCenter + 1.1 * z, by + 2.9 * z, 2.4 * z, 0.65 * z, '#3b4254');
+        rect(bookCenter + 1.1 * z, by + 4.1 * z, 2.0 * z, 0.65 * z, '#3b4254');
+        // Crimson silk ribbon bookmark tail
+        rect(bookCenter - 0.3 * z, by + 5.2 * z, 0.8 * z, 1.9 * z, '#e63946');
+        // Left & right hands clasping the outer hardcover edges
+        rect(bx - 0.7 * z, by + 2.1 * z, 1.8 * z, 1.9 * z, palette.skin);
+        rect(bx + 8.9 * z, by + 2.1 * z, 1.8 * z, 1.9 * z, palette.skin);
+      }
+    } else if (isArcadePose) {
+      // Subtle neon CRT arcade glow spark on active hands when mashing arcade buttons
+      if (!isPureBack) {
+        const sparkX = isSideProfile
+          ? cx + dirFlip * 7.2 * z
+          : isFacingAway
+            ? cx + dirFlip * 8.4 * z
+            : cx + dirFlip * 3.8 * z;
+        const sparkY = (isFacingAway ? baseY - 16.2 * z : baseY - 15.4 * z) + arcBtnTap;
+        if (arcBtnWave > 0.35) {
+          rect(sparkX, sparkY, 1.7 * z, 1.0 * z, '#5cf0ff');
+        } else if (arcJoyWave > 0.45) {
+          rect(sparkX - dirFlip * 2.2 * z, sparkY - 0.8 * z, 1.5 * z, 0.9 * z, '#ff4fd8');
+        }
+      }
+    } else if (isVendingPose) {
+      // Chilled aluminum soda/energy can with silver pull-tab rim, cylindrical shading & brand stripe
+      const canFlavors = [
+        ['#e63946', '#9e1c28', '#ffffff'], // Crimson Cola
+        ['#00b4d8', '#007291', '#ffd147'], // Cyber Citrus Blue
+        ['#2ec4b6', '#197d73', '#dcff70'], // Tropical LimeFizz
+        ['#ff9f1c', '#b86804', '#fff3b0'], // Sunset Mango
+      ] as const;
+      const [canMain, canShade, canStripe] = canFlavors[propSeed % canFlavors.length];
+      const canX = isSideProfile
+        ? dirFlip > 0
+          ? cx + 4.4 * z
+          : cx - 8.2 * z
+        : isPureBack
+          ? cx + 5.6 * z
+          : cx + (palette.gender === 'female' ? 5.2 : 6.2) * z;
+      const canY = baseY - 16.8 * z - vendSipLift;
+      // Aluminum top lid + pull-tab rim
+      rect(canX + 0.2 * z, canY, 3.2 * z, 0.9 * z, '#e8f1ff');
+      rect(canX + 1.3 * z, canY + 0.1 * z, 1.0 * z, 0.6 * z, '#8ea2bd');
+      // Cylindrical colored body + right-side shadow + crisp brand ribbon
+      rect(canX, canY + 0.9 * z, 3.6 * z, 4.2 * z, canMain);
+      rect(canX + 2.6 * z, canY + 0.9 * z, 1.0 * z, 4.2 * z, canShade);
+      rect(canX + 0.3 * z, canY + 2.3 * z, 2.8 * z, 1.0 * z, canStripe);
+      // Aluminum bottom bevel + fingers gripping can
+      rect(canX + 0.2 * z, canY + 5.1 * z, 3.2 * z, 0.6 * z, '#cbd7e8');
+      if (!isPureBack) {
+        rect(canX - 0.5 * z, canY + 2.6 * z, 2.0 * z, 1.8 * z, palette.skin);
+      }
     } else if (emp.activity === 'coffee' || emp.socialReaction === 'coffee_gift') {
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(Math.round(uX + handSpanX * z), Math.round(uY - 14 * z), Math.ceil(4 * z), Math.ceil(5 * z));
@@ -3629,8 +3836,34 @@ export function drawEmployeeSprite(
     );
   }
 
-  // Floating Zzz, ♪ lounging sparkle, gaming excitement ★, card suit ♠♥♦♣, or Error !
-  if (emp.activity === 'gaming') {
+  // Floating Zzz, ♪ lounging sparkle, arcade 1UP, soda fizz ✦, literary ✦, gaming ★, card suit ♠♥♦♣, or Error !
+  const isActiveBreakPropPose =
+    emp.activity === 'arcade' ||
+    emp.activity === 'vending' ||
+    emp.activity === 'coffee' ||
+    emp.activity === 'watercooler' ||
+    emp.activity === 'pizza' ||
+    isBookReadingPose;
+  if (emp.activity === 'arcade') {
+    const bounce = Math.abs(Math.sin(timeSec * 6.5)) * 4.5 * z;
+    const showOneUp = Math.floor(timeSec * 1.8) % 2 === 0;
+    ctx.font = `bold ${Math.max(7, Math.round((showOneUp ? 7 : 8) * z))}px "Press Start 2P", monospace`;
+    ctx.fillStyle = showOneUp ? '#3be87a' : '#ffd147';
+    ctx.textAlign = 'center';
+    ctx.fillText(showOneUp ? '1UP' : '★', uX + 10.5 * z, uY - 38 * z - bounce);
+  } else if (emp.activity === 'vending') {
+    const fizzY = ((timeSec * 9) % 8) * z;
+    ctx.font = `bold ${Math.max(8, Math.round(8 * z))}px "JetBrains Mono", monospace`;
+    ctx.fillStyle = '#5cf0ff';
+    ctx.textAlign = 'center';
+    ctx.fillText('✦', uX + 10 * z, uY - 37 * z - fizzY);
+  } else if (isBookReadingPose) {
+    const floatY = ((timeSec * 6) % 7) * z;
+    ctx.font = `bold ${Math.max(8, Math.round(8 * z))}px "JetBrains Mono", monospace`;
+    ctx.fillStyle = '#ffd97d';
+    ctx.textAlign = 'center';
+    ctx.fillText('✦', uX + 10 * z, uY - 37 * z - floatY);
+  } else if (emp.activity === 'gaming') {
     const bounce = Math.abs(Math.sin(timeSec * 6)) * 5 * z;
     ctx.font = `bold ${Math.max(8, Math.round(8 * z))}px "Press Start 2P", monospace`;
     ctx.fillStyle = Math.sin(timeSec * 8) > 0 ? '#ffd147' : '#3cd8ff';
@@ -3656,7 +3889,7 @@ export function drawEmployeeSprite(
     ctx.fillStyle = '#7ef3ff';
     ctx.textAlign = 'center';
     ctx.fillText('♪', uX + 10 * z, uY - 37 * z - floatY);
-  } else if (emp.activity === 'sleeping' || emp.status === 'waiting') {
+  } else if (emp.activity === 'sleeping' || (emp.status === 'waiting' && !isActiveBreakPropPose && !isWalking)) {
     const floatY = ((timeSec * 12) % 10) * z;
     ctx.font = `bold ${Math.max(8, Math.round(8 * z))}px "Press Start 2P", monospace`;
     ctx.fillStyle = '#9ee8ff';

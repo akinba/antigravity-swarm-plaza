@@ -35,7 +35,7 @@ const NON_SOCIAL_EVENT_KINDS: FloorEventKind[] = [
 
 export const MIN_BREAK_AGENTS_FOR_SOCIAL_EVENT = 2;
 export const AUTO_EVENT_COOLDOWN_MS = 150_000;
-const EVENT_DURATION_MS = 16_000;
+export const EVENT_DURATION_MS = 20_000;
 
 const layoutSeeds = new Map<string, number>();
 const floorEvents = new Map<string, FloorRandomEvent>();
@@ -61,7 +61,9 @@ export function countOnBreakOrWaitingAgents(employees: OfficeEmployee[]): number
       emp.activity === 'sleeping' ||
       emp.activity === 'lounging' ||
       emp.activity === 'watercooler' ||
-      emp.activity === 'pizza'
+      emp.activity === 'pizza' ||
+      emp.activity === 'arcade' ||
+      emp.activity === 'vending'
     ) {
       count += 1;
     }

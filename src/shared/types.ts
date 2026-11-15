@@ -14,6 +14,8 @@ export type AgentActivityKind =
   | 'pizza'
   | 'lounging'
   | 'gaming'
+  | 'arcade'
+  | 'vending'
   | 'card_game'
   | 'going_home'
   | 'error';

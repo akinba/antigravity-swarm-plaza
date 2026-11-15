@@ -904,6 +904,8 @@ const CARD_GAME_BUBBLES = [
  * console gaming, ambient micro-activities (lounging, coffee, watercooler, pizza), and
  * active floor event reactions. Never pulls `status === 'working'` employees off their work.
  */
+export const LOUNGE_ROTATION_MS = 22_500;
+
 export function applyLoungeActivities(
   employees: OfficeEmployee[],
   floorIndex: number,
@@ -940,7 +942,7 @@ export function applyLoungeActivities(
   );
   if (loungeEmployees.length === 0) return;
 
-  const bucket = Math.floor(nowMs / 18000);
+  const bucket = Math.floor(nowMs / LOUNGE_ROTATION_MS);
   const chatIdx = Math.floor(nowMs / 6000) % GAMING_CHATS.length;
   const claimedIds = new Set<string>();
 
@@ -1016,7 +1018,7 @@ export function applyLoungeActivities(
     emp.partnerName = undefined;
     emp.playerSlot = undefined;
 
-    const slot = (empIdx + bucket) % 6;
+    const slot = (empIdx + bucket) % 9;
     if (slot <= 2) {
       emp.activity = 'lounging';
       if (emp.status === 'waiting') {
@@ -1034,9 +1036,18 @@ export function applyLoungeActivities(
       emp.activity = 'watercooler';
       emp.speechBubble =
         (empIdx + bucket) % 2 === 0 ? '💧 Yeni modeli duydun mu?' : '💧 Su molası iyi geldi';
-    } else {
+    } else if (slot === 5) {
       emp.activity = 'pizza';
       emp.speechBubble = '🍕 Atıştırmalık molası';
+    } else if (slot === 6) {
+      emp.activity = 'reading';
+      emp.speechBubble = '📚 Kitap köşesinde okuma keyfi';
+    } else if (slot === 7) {
+      emp.activity = 'arcade';
+      emp.speechBubble = "🕹️ Atari'de yüksek skor denemesi!";
+    } else {
+      emp.activity = 'vending';
+      emp.speechBubble = '🥤 Otomattan soğuk içecek aldı';
     }
 
     if (activeEvent?.kind === 'MASCOT_ZOOMIES') {
