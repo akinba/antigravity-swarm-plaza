@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   drawEmployeePortrait,
   drawEmployeeSprite,
+  drawFurniture,
   getEmployeePalette,
   hashString,
   type FemaleHairStyle,
@@ -14,6 +15,7 @@ import {
 import type { Facing } from '../../src/client/engine/pathfinding';
 import {
   drawChairForegroundBackrest,
+  drawDeskVerifiedTrophy,
   drawEnhancedFurniture,
   drawErgonomicOfficeChair,
   type ChairVariant,
@@ -526,5 +528,112 @@ describe('pixelSprites gender, hair, outfit palettes & rendering', () => {
     drawEnhancedFurniture(partCtx, 'war_table_part', 300, 240, 1.5, 1.0, true);
     assert.equal(partStats.saves, partStats.restores, 'Unbalanced save/restore for war_table_part');
     assert.equal(partStats.drawOps, 0, 'war_table_part must draw zero primitives');
+  });
+
+  it('renders 4-way rotated workstations (dev_desk, clover_desk, qa_desk, exec_desk), directional armchairs, and exec_coffee_table cleanly across zoom/level/night', () => {
+    const deskFacings: Facing[] = ['NE', 'NW', 'SE', 'SW'];
+    const rotatedKinds: FurnitureKind[] = [
+      'desk',
+      'dev_desk',
+      'clover_desk',
+      'qa_desk',
+      'exec_desk',
+      'armchair',
+    ];
+
+    for (const kind of rotatedKinds) {
+      const centersByFacing = new Map<Facing, { meanX: number; meanY: number }>();
+
+      for (const facing of deskFacings) {
+        for (const night of [false, true]) {
+          for (const level of [1, 5, 8]) {
+            for (const zoom of [0.75, 1.0, 2.0]) {
+              const { ctx, rects, stats } = createMockCanvasContext();
+              drawEnhancedFurniture(
+                ctx,
+                kind,
+                300,
+                240,
+                zoom,
+                1.6,
+                night,
+                true,
+                kind === 'exec_desk' ? 'argon' : 'pro',
+                false,
+                'SWARM BOARD',
+                level,
+                facing,
+              );
+              assert.equal(
+                stats.saves,
+                stats.restores,
+                `Unbalanced save/restore for ${kind}/${facing}/lv${level}/zoom${zoom}`,
+              );
+              assert.ok(
+                stats.drawOps > 12,
+                `Expected rich 2.5D geometry for ${kind}/${facing}, got ${stats.drawOps}`,
+              );
+              for (const r of rects) {
+                assert.ok(
+                  Number.isFinite(r.x) && Number.isFinite(r.y) && r.w > 0 && r.h > 0,
+                  `Invalid fillRect in ${kind}/${facing}/lv${level}/zoom${zoom}: ${JSON.stringify(r)}`,
+                );
+              }
+
+              if (!night && level === 8 && zoom === 1.0 && rects.length > 0) {
+                const meanX = rects.reduce((s, r) => s + r.x + r.w * 0.5, 0) / rects.length;
+                const meanY = rects.reduce((s, r) => s + r.y + r.h * 0.5, 0) / rects.length;
+                centersByFacing.set(facing, { meanX, meanY });
+              }
+            }
+          }
+        }
+      }
+
+      // Verify that opposite rotations (e.g. NE vs SW, SE vs NW) produce genuinely rotated geometry
+      const cNE = centersByFacing.get('NE')!;
+      const cSW = centersByFacing.get('SW')!;
+      const cSE = centersByFacing.get('SE')!;
+      const cNW = centersByFacing.get('NW')!;
+      assert.ok(
+        Math.hypot(cNE.meanX - cSW.meanX, cNE.meanY - cSW.meanY) > 0.5,
+        `Expected rotated centroid difference between NE and SW for ${kind}`,
+      );
+      assert.ok(
+        Math.hypot(cSE.meanX - cNW.meanX, cSE.meanY - cNW.meanY) > 0.5,
+        `Expected rotated centroid difference between SE and NW for ${kind}`,
+      );
+    }
+
+    // Executive marble/brass coffee table + rotated verified trophy + fallback drawFurniture
+    for (const night of [false, true]) {
+      const { ctx, rects, stats } = createMockCanvasContext();
+      drawEnhancedFurniture(ctx, 'exec_coffee_table', 300, 240, 2.0, 1.4, night, true);
+      assert.equal(stats.saves, stats.restores);
+      assert.ok(stats.drawOps > 14);
+      for (const r of rects) {
+        assert.ok(r.w > 0 && r.h > 0);
+      }
+    }
+
+    const trophyXs = new Set<number>();
+    for (const facing of deskFacings) {
+      const { ctx, rects, stats } = createMockCanvasContext();
+      drawDeskVerifiedTrophy(ctx, 300, 240, 2.0, 1.2, facing);
+      assert.equal(stats.saves, stats.restores);
+      assert.ok(rects.length >= 6);
+      trophyXs.add(Math.round(rects[0].x));
+      for (const r of rects) {
+        assert.ok(r.w > 0 && r.h > 0);
+      }
+    }
+    assert.ok(trophyXs.size >= 2, 'Expected verified desk trophy position to rotate with desk facing');
+
+    for (const fallbackKind of ['clover_desk', 'exec_coffee_table'] as const) {
+      const { ctx, rects, stats } = createMockCanvasContext();
+      drawFurniture(ctx, fallbackKind, 200, 200, 1.5, 1.0, true, false, 'SWARM BOARD', 5);
+      assert.equal(stats.saves, stats.restores);
+      assert.ok(rects.length > 0);
+    }
   });
 });

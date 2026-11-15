@@ -1,5 +1,12 @@
+import { GRID_H, GRID_W } from './isoMath';
 import type { OfficeZone } from '../../shared/types';
-import { type Facing, type FurnitureItem, type ZoneSlot } from './pathfinding';
+import {
+  buildWalkableGridForFurniture,
+  findPath,
+  type Facing,
+  type FurnitureItem,
+  type ZoneSlot,
+} from './pathfinding';
 import { hashString } from './pixelSprites';
 
 export type MascotKind = 'none' | 'tabby_cat' | 'tuxedo_cat' | 'robo_vac' | 'office_dog';
@@ -175,11 +182,14 @@ const BLUEPRINT_0: BlueprintBase = {
   deskStyle: 'clover_desk',
   furniture: [
     { gx: 0, gy: 6, kind: 'elevator_doors' },
-    // Exec NW (0..4, 0..4)
-    { gx: 2, gy: 2, kind: 'exec_desk' },
-    { gx: 2, gy: 3, kind: 'desk_chair' },
-    { gx: 1, gy: 1, kind: 'bookshelf' },
-    { gx: 3, gy: 1, kind: 'filing_cabinet' },
+    // Exec NW (0..4, 0..4) — Boss facing SW toward room + 2 facing guest armchairs & coffee table
+    { gx: 2, gy: 0, kind: 'exec_chair', facing: 'SW' },
+    { gx: 2, gy: 1, kind: 'exec_desk', facing: 'SW' },
+    { gx: 1, gy: 3, kind: 'armchair', facing: 'SE' },
+    { gx: 2, gy: 3, kind: 'exec_coffee_table' },
+    { gx: 3, gy: 3, kind: 'armchair', facing: 'NW' },
+    { gx: 0, gy: 0, kind: 'bookshelf' },
+    { gx: 3, gy: 0, kind: 'filing_cabinet' },
     { gx: 4, gy: 0, kind: 'wood_partition' },
     { gx: 4, gy: 1, kind: 'wood_partition' },
     { gx: 4, gy: 2, kind: 'wood_partition' },
@@ -211,19 +221,19 @@ const BLUEPRINT_0: BlueprintBase = {
     { gx: 12, gy: 1, kind: 'server_rack' },
     { gx: 13, gy: 1, kind: 'server_rack' },
     { gx: 14, gy: 1, kind: 'aquarium' },
-    // Clover 2x2 Coding Cluster Center (3..6, 6..10) + QA Desks (9..10, 6..8)
-    { gx: 4, gy: 6, kind: 'dev_desk' },
-    { gx: 5, gy: 6, kind: 'dev_desk' },
-    { gx: 4, gy: 7, kind: 'dev_desk' },
-    { gx: 5, gy: 7, kind: 'dev_desk' },
-    { gx: 3, gy: 6, kind: 'desk_chair' },
-    { gx: 6, gy: 6, kind: 'desk_chair' },
-    { gx: 3, gy: 7, kind: 'desk_chair' },
-    { gx: 6, gy: 7, kind: 'desk_chair' },
-    { gx: 9, gy: 6, kind: 'qa_desk' },
-    { gx: 9, gy: 7, kind: 'desk_chair' },
-    { gx: 11, gy: 6, kind: 'qa_desk' },
-    { gx: 11, gy: 7, kind: 'desk_chair' },
+    // 4-Leaf Pinwheel Clover Coding Pod (3..6, 5..8) + Multi-Angle QA Desks (8..11, 6..7)
+    { gx: 4, gy: 6, kind: 'clover_desk', facing: 'SW' },
+    { gx: 5, gy: 6, kind: 'clover_desk', facing: 'NW' },
+    { gx: 5, gy: 7, kind: 'clover_desk', facing: 'NE' },
+    { gx: 4, gy: 7, kind: 'clover_desk', facing: 'SE' },
+    { gx: 4, gy: 5, kind: 'desk_chair', facing: 'SW' },
+    { gx: 6, gy: 6, kind: 'desk_chair', facing: 'NW' },
+    { gx: 5, gy: 8, kind: 'desk_chair', facing: 'NE' },
+    { gx: 3, gy: 7, kind: 'desk_chair', facing: 'SE' },
+    { gx: 9, gy: 6, kind: 'qa_desk', facing: 'SE' },
+    { gx: 8, gy: 6, kind: 'desk_chair', facing: 'SE' },
+    { gx: 11, gy: 6, kind: 'qa_desk', facing: 'NE' },
+    { gx: 11, gy: 7, kind: 'desk_chair', facing: 'NE' },
     { gx: 14, gy: 5, kind: 'water_cooler' },
     // Lounge & PlayStation Beanbag Hobby Zone SE (7..15, 9..13)
     { gx: 14, gy: 9, kind: 'coffee_machine' },
@@ -274,17 +284,18 @@ const BLUEPRINT_0: BlueprintBase = {
   zoneSlots: {
     ELEVATOR: [ELEVATOR_SLOT],
     DESK_ARCHITECT: [
-      { gx: 2, gy: 3, facing: 'NE' },
-      { gx: 3, gy: 2, facing: 'NW' },
+      { gx: 2, gy: 0, facing: 'SW' },
+      { gx: 1, gy: 3, facing: 'SE' },
+      { gx: 3, gy: 3, facing: 'NW' },
     ],
     DESK_CODING: [
-      { gx: 3, gy: 6, facing: 'SE' },
+      { gx: 4, gy: 5, facing: 'SW' },
       { gx: 6, gy: 6, facing: 'NW' },
+      { gx: 5, gy: 8, facing: 'NE' },
       { gx: 3, gy: 7, facing: 'SE' },
-      { gx: 6, gy: 7, facing: 'NW' },
     ],
     DESK_QA: [
-      { gx: 9, gy: 7, facing: 'NE' },
+      { gx: 8, gy: 6, facing: 'SE' },
       { gx: 11, gy: 7, facing: 'NE' },
     ],
     WAR_ROOM: [
@@ -354,11 +365,14 @@ const BLUEPRINT_1: BlueprintBase = {
   deskStyle: 'single_desk',
   furniture: [
     { gx: 0, gy: 6, kind: 'elevator_doors' },
-    // Exec NE (11..15, 0..4)
-    { gx: 13, gy: 2, kind: 'exec_desk' },
-    { gx: 13, gy: 3, kind: 'desk_chair' },
-    { gx: 12, gy: 1, kind: 'bookshelf' },
-    { gx: 14, gy: 1, kind: 'filing_cabinet' },
+    // Exec NE (11..15, 0..4) — Boss facing SW toward central floor + 2 facing guest armchairs & coffee table
+    { gx: 13, gy: 1, kind: 'exec_chair', facing: 'SW' },
+    { gx: 13, gy: 2, kind: 'exec_desk', facing: 'SW' },
+    { gx: 12, gy: 3, kind: 'armchair', facing: 'SE' },
+    { gx: 13, gy: 3, kind: 'exec_coffee_table' },
+    { gx: 14, gy: 3, kind: 'armchair', facing: 'NW' },
+    { gx: 12, gy: 0, kind: 'bookshelf' },
+    { gx: 15, gy: 0, kind: 'filing_cabinet' },
     { gx: 11, gy: 0, kind: 'wood_partition' },
     { gx: 11, gy: 1, kind: 'wood_partition' },
     { gx: 11, gy: 2, kind: 'wood_partition' },
@@ -372,17 +386,19 @@ const BLUEPRINT_1: BlueprintBase = {
     { gx: 7, gy: 2, kind: 'glass_partition' },
     { gx: 5, gy: 1, kind: 'server_rack' },
     { gx: 6, gy: 1, kind: 'server_rack' },
-    { gx: 9, gy: 1, kind: 'qa_desk' },
-    { gx: 9, gy: 2, kind: 'desk_chair' },
-    // Spaced Individual Coding Desks (2..4, 2..11) — leaving (0..1, 6..7) elevator foyer open
-    { gx: 3, gy: 3, kind: 'dev_desk' },
-    { gx: 3, gy: 4, kind: 'desk_chair' },
-    { gx: 3, gy: 8, kind: 'dev_desk' },
-    { gx: 3, gy: 9, kind: 'desk_chair' },
-    { gx: 1, gy: 10, kind: 'dev_desk' },
-    { gx: 1, gy: 11, kind: 'desk_chair' },
-    { gx: 4, gy: 11, kind: 'qa_desk' },
-    { gx: 4, gy: 12, kind: 'desk_chair' },
+    { gx: 9, gy: 1, kind: 'qa_desk', facing: 'SE' },
+    { gx: 8, gy: 1, kind: 'desk_chair', facing: 'SE' },
+    // 3-Leaf Tri-Clover Pod (1..4, 7..9) + Spaced Desk (3,3..4) — leaving (0..1, 6..7) elevator foyer open
+    { gx: 3, gy: 3, kind: 'dev_desk', facing: 'SE' },
+    { gx: 2, gy: 3, kind: 'desk_chair', facing: 'SE' },
+    { gx: 2, gy: 8, kind: 'clover_desk', facing: 'SW' },
+    { gx: 3, gy: 8, kind: 'clover_desk', facing: 'NW' },
+    { gx: 2, gy: 9, kind: 'clover_desk', facing: 'SE' },
+    { gx: 2, gy: 7, kind: 'desk_chair', facing: 'SW' },
+    { gx: 4, gy: 8, kind: 'desk_chair', facing: 'NW' },
+    { gx: 1, gy: 9, kind: 'desk_chair', facing: 'SE' },
+    { gx: 4, gy: 11, kind: 'qa_desk', facing: 'NE' },
+    { gx: 4, gy: 12, kind: 'desk_chair', facing: 'NE' },
     // Central War-Room Hub (6..10, 4..8) — Round / Octagonal Executive Table
     { gx: 7, gy: 4, kind: 'whiteboard_l' },
     { gx: 8, gy: 4, kind: 'whiteboard_r' },
@@ -456,17 +472,18 @@ const BLUEPRINT_1: BlueprintBase = {
   zoneSlots: {
     ELEVATOR: [ELEVATOR_SLOT],
     DESK_ARCHITECT: [
-      { gx: 13, gy: 3, facing: 'NE' },
+      { gx: 13, gy: 1, facing: 'SW' },
       { gx: 12, gy: 3, facing: 'SE' },
+      { gx: 14, gy: 3, facing: 'NW' },
     ],
     DESK_CODING: [
-      { gx: 3, gy: 4, facing: 'NE' },
-      { gx: 3, gy: 9, facing: 'NE' },
-      { gx: 1, gy: 11, facing: 'NE' },
+      { gx: 2, gy: 7, facing: 'SW' },
+      { gx: 4, gy: 8, facing: 'NW' },
+      { gx: 1, gy: 9, facing: 'SE' },
       { gx: 2, gy: 3, facing: 'SE' },
     ],
     DESK_QA: [
-      { gx: 9, gy: 2, facing: 'NE' },
+      { gx: 8, gy: 1, facing: 'SE' },
       { gx: 4, gy: 12, facing: 'NE' },
     ],
     WAR_ROOM: [
@@ -553,10 +570,13 @@ const BLUEPRINT_2: BlueprintBase = {
     { gx: 4, gy: 4, kind: 'armchair' },
     { gx: 2, gy: 3, kind: 'lounge_table' },
     { gx: 8, gy: 4, kind: 'ping_pong' },
-    // Exec SW (0..4, 9..13)
-    { gx: 2, gy: 11, kind: 'exec_desk' },
-    { gx: 2, gy: 12, kind: 'desk_chair' },
-    { gx: 1, gy: 10, kind: 'bookshelf' },
+    // Exec SW (0..4, 9..13) — Boss facing SE toward room + 2 facing guest armchairs & coffee table
+    { gx: 0, gy: 11, kind: 'exec_chair', facing: 'SE' },
+    { gx: 1, gy: 11, kind: 'exec_desk', facing: 'SE' },
+    { gx: 3, gy: 10, kind: 'armchair', facing: 'SW' },
+    { gx: 3, gy: 11, kind: 'exec_coffee_table' },
+    { gx: 3, gy: 12, kind: 'armchair', facing: 'NE' },
+    { gx: 0, gy: 13, kind: 'bookshelf' },
     { gx: 1, gy: 13, kind: 'filing_cabinet' },
     { gx: 4, gy: 11, kind: 'wood_partition' },
     { gx: 4, gy: 12, kind: 'wood_partition' },
@@ -574,19 +594,19 @@ const BLUEPRINT_2: BlueprintBase = {
     { gx: 12, gy: 1, kind: 'server_rack' },
     { gx: 13, gy: 1, kind: 'server_rack' },
     { gx: 14, gy: 1, kind: 'office_plant' },
-    { gx: 11, gy: 4, kind: 'qa_desk' },
-    { gx: 11, gy: 5, kind: 'desk_chair' },
-    { gx: 11, gy: 6, kind: 'qa_desk' },
-    { gx: 11, gy: 7, kind: 'desk_chair' },
-    // Long Startup Bench Row Center (5..8, 6..7)
-    { gx: 5, gy: 6, kind: 'dev_desk' },
-    { gx: 6, gy: 6, kind: 'dev_desk' },
-    { gx: 7, gy: 6, kind: 'dev_desk' },
-    { gx: 8, gy: 6, kind: 'dev_desk' },
-    { gx: 5, gy: 7, kind: 'desk_chair' },
-    { gx: 6, gy: 7, kind: 'desk_chair' },
-    { gx: 7, gy: 7, kind: 'desk_chair' },
-    { gx: 8, gy: 7, kind: 'desk_chair' },
+    { gx: 11, gy: 4, kind: 'qa_desk', facing: 'NW' },
+    { gx: 12, gy: 4, kind: 'desk_chair', facing: 'NW' },
+    { gx: 11, gy: 6, kind: 'qa_desk', facing: 'SE' },
+    { gx: 10, gy: 6, kind: 'desk_chair', facing: 'SE' },
+    // Dual-Sided Face-to-Face Startup Bench Row Center (5..8, 5..7)
+    { gx: 5, gy: 6, kind: 'dev_desk', facing: 'SW' },
+    { gx: 6, gy: 6, kind: 'dev_desk', facing: 'NE' },
+    { gx: 7, gy: 6, kind: 'dev_desk', facing: 'SW' },
+    { gx: 8, gy: 6, kind: 'dev_desk', facing: 'NE' },
+    { gx: 5, gy: 5, kind: 'desk_chair', facing: 'SW' },
+    { gx: 6, gy: 7, kind: 'desk_chair', facing: 'NE' },
+    { gx: 7, gy: 5, kind: 'desk_chair', facing: 'SW' },
+    { gx: 8, gy: 7, kind: 'desk_chair', facing: 'NE' },
     // Presentation Room SE (9..15, 8..13) — Executive Rectangular / Boatboard Table
     { gx: 11, gy: 9, kind: 'whiteboard_l' },
     { gx: 12, gy: 9, kind: 'whiteboard_r' },
@@ -640,18 +660,19 @@ const BLUEPRINT_2: BlueprintBase = {
   zoneSlots: {
     ELEVATOR: [ELEVATOR_SLOT],
     DESK_ARCHITECT: [
-      { gx: 2, gy: 12, facing: 'NE' },
-      { gx: 3, gy: 11, facing: 'NW' },
+      { gx: 0, gy: 11, facing: 'SE' },
+      { gx: 3, gy: 10, facing: 'SW' },
+      { gx: 3, gy: 12, facing: 'NE' },
     ],
     DESK_CODING: [
-      { gx: 5, gy: 7, facing: 'NE' },
+      { gx: 5, gy: 5, facing: 'SW' },
       { gx: 6, gy: 7, facing: 'NE' },
-      { gx: 7, gy: 7, facing: 'NE' },
+      { gx: 7, gy: 5, facing: 'SW' },
       { gx: 8, gy: 7, facing: 'NE' },
     ],
     DESK_QA: [
-      { gx: 11, gy: 5, facing: 'NE' },
-      { gx: 11, gy: 7, facing: 'NE' },
+      { gx: 12, gy: 4, facing: 'NW' },
+      { gx: 10, gy: 6, facing: 'SE' },
     ],
     WAR_ROOM: [
       { gx: 10, gy: 11, facing: 'SE' },
@@ -709,8 +730,8 @@ const BLUEPRINT_2: BlueprintBase = {
   ],
   propPositions: [
     { key: 'plants', kind: 'prop_plant', gx: 4.3, gy: 2.2 },
-    { key: 'trophy', kind: 'prop_trophy', gx: 3.5, gy: 10.2 },
-    { key: 'arcade', kind: 'prop_arcade', gx: 0.6, gy: 11.5 },
+    { key: 'trophy', kind: 'prop_trophy', gx: 0.6, gy: 12.2 },
+    { key: 'arcade', kind: 'prop_arcade', gx: 2.3, gy: 13.2 },
     { key: 'hologram', kind: 'prop_hologram', gx: 7.5, gy: 9.5 },
   ],
 };
@@ -720,11 +741,14 @@ const BLUEPRINT_3: BlueprintBase = {
   deskStyle: 'u_pod_desk',
   furniture: [
     { gx: 0, gy: 6, kind: 'elevator_doors' },
-    // Exec & Presentation Boardroom North (2..13, 0..4)
-    { gx: 3, gy: 2, kind: 'exec_desk' },
-    { gx: 3, gy: 3, kind: 'desk_chair' },
-    { gx: 1, gy: 1, kind: 'bookshelf' },
-    { gx: 2, gy: 1, kind: 'filing_cabinet' },
+    // Executive Boss Suite NW (0..5, 0..4) — Boss faces SE (face visible) with guest armchairs + coffee table in front
+    { gx: 1, gy: 2, kind: 'exec_chair', facing: 'SE' },
+    { gx: 2, gy: 2, kind: 'exec_desk', facing: 'SE' },
+    { gx: 4, gy: 1, kind: 'armchair', facing: 'SW' },
+    { gx: 4, gy: 2, kind: 'exec_coffee_table' },
+    { gx: 4, gy: 3, kind: 'armchair', facing: 'NE' },
+    { gx: 0, gy: 0, kind: 'bookshelf' },
+    { gx: 2, gy: 0, kind: 'filing_cabinet' },
     { gx: 6, gy: 0, kind: 'glass_partition' },
     { gx: 6, gy: 1, kind: 'glass_partition' },
     { gx: 6, gy: 2, kind: 'glass_partition' },
@@ -753,22 +777,22 @@ const BLUEPRINT_3: BlueprintBase = {
     { gx: 10, gy: 4, kind: 'meeting_chair', facing: 'NE' },
     { gx: 11, gy: 3, kind: 'meeting_chair', facing: 'NW' },
     { gx: 11, gy: 2, kind: 'meeting_chair', facing: 'NW' },
-    // U-Pod Coding Left Wing (2..5, 8..11) — keeping (0..2, 6..7) open
-    { gx: 3, gy: 8, kind: 'dev_desk' },
-    { gx: 4, gy: 8, kind: 'dev_desk' },
-    { gx: 3, gy: 10, kind: 'dev_desk' },
-    { gx: 4, gy: 10, kind: 'dev_desk' },
-    { gx: 2, gy: 9, kind: 'desk_chair' },
-    { gx: 3, gy: 9, kind: 'desk_chair' },
-    { gx: 4, gy: 9, kind: 'desk_chair' },
-    { gx: 5, gy: 9, kind: 'desk_chair' },
+    // Counter-Clockwise 4-Leaf Clover Coding Pod (2..5, 7..10) — keeping (0..2, 6..7) open
+    { gx: 3, gy: 8, kind: 'clover_desk', facing: 'SE' },
+    { gx: 4, gy: 8, kind: 'clover_desk', facing: 'SW' },
+    { gx: 4, gy: 9, kind: 'clover_desk', facing: 'NW' },
+    { gx: 3, gy: 9, kind: 'clover_desk', facing: 'NE' },
+    { gx: 2, gy: 8, kind: 'desk_chair', facing: 'SE' },
+    { gx: 4, gy: 7, kind: 'desk_chair', facing: 'SW' },
+    { gx: 5, gy: 9, kind: 'desk_chair', facing: 'NW' },
+    { gx: 3, gy: 10, kind: 'desk_chair', facing: 'NE' },
     // QA & Server Right Wing (10..15, 5..9)
     { gx: 12, gy: 5, kind: 'server_rack' },
     { gx: 13, gy: 5, kind: 'server_rack' },
-    { gx: 11, gy: 7, kind: 'qa_desk' },
-    { gx: 11, gy: 8, kind: 'desk_chair' },
-    { gx: 13, gy: 7, kind: 'qa_desk' },
-    { gx: 13, gy: 8, kind: 'desk_chair' },
+    { gx: 11, gy: 7, kind: 'qa_desk', facing: 'SE' },
+    { gx: 10, gy: 7, kind: 'desk_chair', facing: 'SE' },
+    { gx: 13, gy: 7, kind: 'qa_desk', facing: 'NW' },
+    { gx: 14, gy: 7, kind: 'desk_chair', facing: 'NW' },
     // Central Atrium Lounge & PlayStation Beanbag Zone (6..9, 6..13)
     { gx: 6, gy: 6, kind: 'coffee_machine' },
     { gx: 9, gy: 6, kind: 'water_cooler' },
@@ -828,18 +852,19 @@ const BLUEPRINT_3: BlueprintBase = {
   zoneSlots: {
     ELEVATOR: [ELEVATOR_SLOT],
     DESK_ARCHITECT: [
-      { gx: 3, gy: 3, facing: 'NE' },
-      { gx: 4, gy: 2, facing: 'NW' },
+      { gx: 1, gy: 2, facing: 'SE' },
+      { gx: 4, gy: 1, facing: 'SW' },
+      { gx: 4, gy: 3, facing: 'NE' },
     ],
     DESK_CODING: [
-      { gx: 2, gy: 9, facing: 'SE' },
-      { gx: 3, gy: 9, facing: 'NE' },
-      { gx: 4, gy: 9, facing: 'NE' },
+      { gx: 2, gy: 8, facing: 'SE' },
+      { gx: 4, gy: 7, facing: 'SW' },
       { gx: 5, gy: 9, facing: 'NW' },
+      { gx: 3, gy: 10, facing: 'NE' },
     ],
     DESK_QA: [
-      { gx: 11, gy: 8, facing: 'NE' },
-      { gx: 13, gy: 8, facing: 'NE' },
+      { gx: 10, gy: 7, facing: 'SE' },
+      { gx: 14, gy: 7, facing: 'NW' },
     ],
     WAR_ROOM: [
       { gx: 7, gy: 2, facing: 'SE' },
@@ -896,14 +921,14 @@ const BLUEPRINT_3: BlueprintBase = {
     { gx: 8, gy: 12, facing: 'NW' },
   ],
   propPositions: [
-    { key: 'plants', kind: 'prop_plant', gx: 4.8, gy: 1.5 },
-    { key: 'trophy', kind: 'prop_trophy', gx: 4.5, gy: 0.8 },
+    { key: 'plants', kind: 'prop_plant', gx: 5.2, gy: 0.5 },
+    { key: 'trophy', kind: 'prop_trophy', gx: 3.2, gy: 0.5 },
     { key: 'arcade', kind: 'prop_arcade', gx: 10.0, gy: 10.2 },
     { key: 'hologram', kind: 'prop_hologram', gx: 7.5, gy: 6.2 },
   ],
 };
 
-// Blueprint 4: Creative Rooftop Loft (Paired Duo Twin Desks + Aquarium + Bonsai + Tuxedo Cat)
+// Blueprint 4: Creative Rooftop Loft (3-Leaf Clover + Angled Twin Desks + Aquarium + Bonsai + Tuxedo Cat)
 const BLUEPRINT_4: BlueprintBase = {
   deskStyle: 'twin_desk',
   furniture: [
@@ -929,29 +954,34 @@ const BLUEPRINT_4: BlueprintBase = {
     { gx: 6, gy: 5, kind: 'glass_partition' },
     { gx: 5, gy: 0, kind: 'glass_partition' },
     { gx: 5, gy: 1, kind: 'glass_partition' },
-    // Paired Duo Twin Desks NE (8..15, 0..6)
-    { gx: 8, gy: 2, kind: 'dev_desk' },
-    { gx: 9, gy: 2, kind: 'dev_desk' },
-    { gx: 8, gy: 3, kind: 'desk_chair' },
-    { gx: 9, gy: 3, kind: 'desk_chair' },
-    { gx: 12, gy: 2, kind: 'dev_desk' },
-    { gx: 13, gy: 2, kind: 'dev_desk' },
-    { gx: 12, gy: 3, kind: 'desk_chair' },
-    { gx: 13, gy: 3, kind: 'desk_chair' },
-    { gx: 8, gy: 5, kind: 'qa_desk' },
-    { gx: 8, gy: 6, kind: 'desk_chair' },
-    { gx: 11, gy: 5, kind: 'qa_desk' },
-    { gx: 11, gy: 6, kind: 'desk_chair' },
+    // 3-Leaf Tri-Clover Pod + Angled Duo Desks NE (7..15, 0..6)
+    { gx: 8, gy: 2, kind: 'clover_desk', facing: 'SE' },
+    { gx: 9, gy: 2, kind: 'clover_desk', facing: 'SW' },
+    { gx: 9, gy: 3, kind: 'clover_desk', facing: 'NW' },
+    { gx: 7, gy: 2, kind: 'desk_chair', facing: 'SE' },
+    { gx: 9, gy: 1, kind: 'desk_chair', facing: 'SW' },
+    { gx: 10, gy: 3, kind: 'desk_chair', facing: 'NW' },
+    { gx: 12, gy: 2, kind: 'dev_desk', facing: 'SW' },
+    { gx: 12, gy: 1, kind: 'desk_chair', facing: 'SW' },
+    { gx: 13, gy: 2, kind: 'dev_desk', facing: 'NE' },
+    { gx: 13, gy: 3, kind: 'desk_chair', facing: 'NE' },
+    { gx: 8, gy: 5, kind: 'qa_desk', facing: 'SE' },
+    { gx: 7, gy: 5, kind: 'desk_chair', facing: 'SE' },
+    { gx: 11, gy: 5, kind: 'qa_desk', facing: 'NE' },
+    { gx: 11, gy: 6, kind: 'desk_chair', facing: 'NE' },
     { gx: 14, gy: 1, kind: 'bookshelf' },
-    // Exec East (12..15, 7..10)
+    // Executive Boss Suite East (12..15, 7..10) — Boss faces SW (face visible) with guest armchairs + coffee table
     { gx: 11, gy: 7, kind: 'wood_partition' },
     { gx: 11, gy: 8, kind: 'wood_partition' },
     { gx: 11, gy: 9, kind: 'wood_partition' },
     { gx: 12, gy: 7, kind: 'wood_partition_x' },
     { gx: 13, gy: 7, kind: 'wood_partition_x' },
-    { gx: 13, gy: 8, kind: 'exec_desk' },
-    { gx: 13, gy: 9, kind: 'desk_chair' },
-    { gx: 14, gy: 8, kind: 'bonsai' },
+    { gx: 14, gy: 7, kind: 'exec_chair', facing: 'SW' },
+    { gx: 14, gy: 8, kind: 'exec_desk', facing: 'SW' },
+    { gx: 13, gy: 9, kind: 'armchair', facing: 'SE' },
+    { gx: 14, gy: 9, kind: 'exec_coffee_table' },
+    { gx: 15, gy: 9, kind: 'armchair', facing: 'NW' },
+    { gx: 12, gy: 8, kind: 'bonsai' },
     // Wide Lounge, Aquarium, Pizza Bar & PlayStation Beanbag Zone South (0..11, 8..13)
     { gx: 1, gy: 9, kind: 'coffee_machine' },
     { gx: 10, gy: 8, kind: 'water_cooler' },
@@ -999,17 +1029,19 @@ const BLUEPRINT_4: BlueprintBase = {
   zoneSlots: {
     ELEVATOR: [ELEVATOR_SLOT],
     DESK_ARCHITECT: [
-      { gx: 13, gy: 9, facing: 'NE' },
-      { gx: 12, gy: 8, facing: 'SE' },
+      { gx: 14, gy: 7, facing: 'SW' },
+      { gx: 13, gy: 9, facing: 'SE' },
+      { gx: 15, gy: 9, facing: 'NW' },
     ],
     DESK_CODING: [
-      { gx: 8, gy: 3, facing: 'NE' },
-      { gx: 9, gy: 3, facing: 'NE' },
-      { gx: 12, gy: 3, facing: 'NE' },
+      { gx: 7, gy: 2, facing: 'SE' },
+      { gx: 9, gy: 1, facing: 'SW' },
+      { gx: 10, gy: 3, facing: 'NW' },
+      { gx: 12, gy: 1, facing: 'SW' },
       { gx: 13, gy: 3, facing: 'NE' },
     ],
     DESK_QA: [
-      { gx: 8, gy: 6, facing: 'NE' },
+      { gx: 7, gy: 5, facing: 'SE' },
       { gx: 11, gy: 6, facing: 'NE' },
     ],
     WAR_ROOM: [
@@ -1069,7 +1101,7 @@ const BLUEPRINT_4: BlueprintBase = {
   ],
   propPositions: [
     { key: 'plants', kind: 'prop_plant', gx: 6.2, gy: 0.8 },
-    { key: 'trophy', kind: 'prop_trophy', gx: 14.5, gy: 8.2 },
+    { key: 'trophy', kind: 'prop_trophy', gx: 15.2, gy: 7.4 },
     { key: 'arcade', kind: 'prop_arcade', gx: 10.0, gy: 12.2 },
     { key: 'hologram', kind: 'prop_hologram', gx: 5.0, gy: 8.5 },
   ],
@@ -1077,6 +1109,243 @@ const BLUEPRINT_4: BlueprintBase = {
 
 const BLUEPRINTS = [BLUEPRINT_0, BLUEPRINT_1, BLUEPRINT_2, BLUEPRINT_3, BLUEPRINT_4];
 const MASCOTS: MascotKind[] = ['none', 'tabby_cat', 'robo_vac', 'office_dog', 'tuxedo_cat'];
+
+const CARDINAL_DESK_SEATS: ReadonlyArray<{ facing: Facing; chairDx: number; chairDy: number }> = [
+  { facing: 'SE', chairDx: -1, chairDy: 0 },
+  { facing: 'SW', chairDx: 0, chairDy: -1 },
+  { facing: 'NW', chairDx: 1, chairDy: 0 },
+  { facing: 'NE', chairDx: 0, chairDy: 1 },
+];
+
+const WORK_DESK_KIND_SET = new Set(['dev_desk', 'qa_desk', 'clover_desk', 'exec_desk', 'desk']);
+
+function chairOffsetForDeskFacing(facing: Facing | undefined): { dx: number; dy: number } | null {
+  if (facing === 'SE') return { dx: -1, dy: 0 };
+  if (facing === 'SW') return { dx: 0, dy: -1 };
+  if (facing === 'NW') return { dx: 1, dy: 0 };
+  if (facing === 'NE') return { dx: 0, dy: 1 };
+  return null;
+}
+
+/**
+ * Deterministically varies open-office desk seating directions (`SE | SW | NE | NW`)
+ * and 4-leaf clover pinwheel spin handedness (`CW <-> CCW`) based on `variantSeed`,
+ * while preserving Executive Boss Suites, 0 collisions, zone integrity, and 100% A* reachability.
+ */
+function applySeededDeskOrientationVariety(bp: BlueprintBase, variantSeed: number): BlueprintBase {
+  if (variantSeed === 0) return bp;
+
+  const furniture = bp.furniture.map((f) => ({ ...f }));
+  const nextCodingSlots = bp.zoneSlots.DESK_CODING.map((s) => ({ ...s }));
+  const nextQaSlots = bp.zoneSlots.DESK_QA.map((s) => ({ ...s }));
+
+  const occupiedTiles = new Set<string>(furniture.map((f) => `${f.gx},${f.gy}`));
+  const reservedSlotTiles = new Set<string>();
+  const nonWorkZones: OfficeZone[] = [
+    'ELEVATOR',
+    'DESK_ARCHITECT',
+    'WAR_ROOM',
+    'SERVER_RACK',
+    'COFFEE_LOUNGE',
+  ];
+  for (const z of nonWorkZones) {
+    for (const s of bp.zoneSlots[z]) reservedSlotTiles.add(`${s.gx},${s.gy}`);
+  }
+  reservedSlotTiles.add(`${bp.presenterSlot.gx},${bp.presenterSlot.gy}`);
+  for (const list of [
+    bp.meetingChairSlots,
+    bp.gamingSlots,
+    bp.loungeSeatSlots,
+    bp.coffeeSlots,
+    bp.watercoolerSlots,
+    bp.pizzaSlots,
+  ]) {
+    for (const s of list) reservedSlotTiles.add(`${s.gx},${s.gy}`);
+  }
+
+  let mutated = false;
+
+  // 1. Flip 2x2 4-leaf clover pinwheel pods between CW and CCW when (variantSeed & 1) === 1
+  if ((variantSeed & 1) === 1) {
+    const cloverMap = new Map<string, FurnitureItem>();
+    for (const item of furniture) {
+      if (item.kind === 'clover_desk') cloverMap.set(`${item.gx},${item.gy}`, item);
+    }
+
+    for (const d00 of cloverMap.values()) {
+      const x0 = d00.gx;
+      const y0 = d00.gy;
+      const d10 = cloverMap.get(`${x0 + 1},${y0}`);
+      const d11 = cloverMap.get(`${x0 + 1},${y0 + 1}`);
+      const d01 = cloverMap.get(`${x0},${y0 + 1}`);
+      if (!d10 || !d11 || !d01) continue;
+
+      const podDesks = [d00, d10, d11, d01];
+      const podChairs: FurnitureItem[] = [];
+      const podSlots: ZoneSlot[] = [];
+      let validPod = true;
+
+      for (const d of podDesks) {
+        const off = chairOffsetForDeskFacing(d.facing);
+        if (!off) {
+          validPod = false;
+          break;
+        }
+        const cx = d.gx + off.dx;
+        const cy = d.gy + off.dy;
+        const ch = furniture.find((f) => f.kind === 'desk_chair' && f.gx === cx && f.gy === cy);
+        const sl = nextCodingSlots.find((s) => s.gx === cx && s.gy === cy);
+        if (!ch || !sl) {
+          validPod = false;
+          break;
+        }
+        podChairs.push(ch);
+        podSlots.push(sl);
+      }
+      if (!validPod) continue;
+
+      for (const ch of podChairs) occupiedTiles.delete(`${ch.gx},${ch.gy}`);
+
+      const targetSpin: Array<{ desk: FurnitureItem; facing: Facing; cx: number; cy: number }> =
+        d00.facing === 'SW'
+          ? [
+              { desk: d00, facing: 'SE', cx: x0 - 1, cy: y0 },
+              { desk: d10, facing: 'SW', cx: x0 + 1, cy: y0 - 1 },
+              { desk: d11, facing: 'NW', cx: x0 + 2, cy: y0 + 1 },
+              { desk: d01, facing: 'NE', cx: x0, cy: y0 + 2 },
+            ]
+          : [
+              { desk: d00, facing: 'SW', cx: x0, cy: y0 - 1 },
+              { desk: d10, facing: 'NW', cx: x0 + 2, cy: y0 },
+              { desk: d11, facing: 'NE', cx: x0 + 1, cy: y0 + 2 },
+              { desk: d01, facing: 'SE', cx: x0 - 1, cy: y0 + 1 },
+            ];
+
+      const canFlip = targetSpin.every(({ desk, cx, cy }) => {
+        if (cx < 1 || cx >= GRID_W || cy < 0 || cy >= GRID_H) return false;
+        const key = `${cx},${cy}`;
+        if (occupiedTiles.has(key) || reservedSlotTiles.has(key)) return false;
+        if (bp.getTileZone(cx, cy) !== 'DESK_CODING') return false;
+        if (!bp.propPositions.every((p) => Math.hypot(cx - p.gx, cy - p.gy) >= 0.75)) return false;
+        return !furniture.some(
+          (other) =>
+            other !== desk &&
+            !podDesks.includes(other) &&
+            WORK_DESK_KIND_SET.has(other.kind) &&
+            Math.abs(other.gx - cx) + Math.abs(other.gy - cy) === 1,
+        );
+      });
+
+      if (canFlip) {
+        for (let i = 0; i < 4; i++) {
+          const t = targetSpin[i];
+          t.desk.facing = t.facing;
+          podChairs[i].gx = t.cx;
+          podChairs[i].gy = t.cy;
+          podChairs[i].facing = t.facing;
+          podSlots[i].gx = t.cx;
+          podSlots[i].gy = t.cy;
+          podSlots[i].facing = t.facing;
+          occupiedTiles.add(`${t.cx},${t.cy}`);
+        }
+        mutated = true;
+      } else {
+        for (const ch of podChairs) occupiedTiles.add(`${ch.gx},${ch.gy}`);
+      }
+    }
+  }
+
+  // 2. Rotate standalone / bench dev_desk & qa_desk seating across valid cardinal directions (SE, SW, NW, NE)
+  for (const desk of furniture) {
+    if (desk.kind !== 'dev_desk' && desk.kind !== 'qa_desk') continue;
+    const targetZone: OfficeZone = desk.kind === 'dev_desk' ? 'DESK_CODING' : 'DESK_QA';
+    const slotsArr = desk.kind === 'dev_desk' ? nextCodingSlots : nextQaSlots;
+    const off = chairOffsetForDeskFacing(desk.facing);
+    if (!off) continue;
+
+    const origCx = desk.gx + off.dx;
+    const origCy = desk.gy + off.dy;
+    const chair = furniture.find(
+      (f) => f.kind === 'desk_chair' && f.gx === origCx && f.gy === origCy,
+    );
+    const slot = slotsArr.find((s) => s.gx === origCx && s.gy === origCy);
+    if (!chair || !slot) continue;
+
+    occupiedTiles.delete(`${chair.gx},${chair.gy}`);
+
+    const validOptions = CARDINAL_DESK_SEATS.filter((opt) => {
+      const nx = desk.gx + opt.chairDx;
+      const ny = desk.gy + opt.chairDy;
+      if (nx < 1 || nx >= GRID_W || ny < 0 || ny >= GRID_H) return false;
+      const key = `${nx},${ny}`;
+      if (occupiedTiles.has(key) || reservedSlotTiles.has(key)) return false;
+      if (slotsArr.some((s) => s !== slot && s.gx === nx && s.gy === ny)) return false;
+      if (bp.getTileZone(nx, ny) !== targetZone) return false;
+      if (!bp.propPositions.every((p) => Math.hypot(nx - p.gx, ny - p.gy) >= 0.75)) return false;
+      const touchesOtherDesk = furniture.some(
+        (other) =>
+          other !== desk &&
+          WORK_DESK_KIND_SET.has(other.kind) &&
+          Math.abs(other.gx - nx) + Math.abs(other.gy - ny) === 1,
+      );
+      return !touchesOtherDesk;
+    });
+
+    if (validOptions.length > 1) {
+      const mix =
+        (Math.imul(variantSeed ^ (desk.gx * 73856093) ^ (desk.gy * 19349663), 0x9e3779b1) >>> 0) %
+        validOptions.length;
+      const chosen = validOptions[mix];
+      const nx = desk.gx + chosen.chairDx;
+      const ny = desk.gy + chosen.chairDy;
+      if (nx !== chair.gx || ny !== chair.gy || chosen.facing !== desk.facing) {
+        desk.facing = chosen.facing;
+        chair.gx = nx;
+        chair.gy = ny;
+        chair.facing = chosen.facing;
+        slot.gx = nx;
+        slot.gy = ny;
+        slot.facing = chosen.facing;
+        mutated = true;
+      }
+    }
+
+    occupiedTiles.add(`${chair.gx},${chair.gy}`);
+  }
+
+  if (!mutated) return bp;
+
+  // Verify A* reachability from both elevator tiles before committing the variant
+  const grid = buildWalkableGridForFurniture(furniture);
+  if (!grid[6]?.[0] || !grid[7]?.[0]) return bp;
+  for (const s of [...nextCodingSlots, ...nextQaSlots]) {
+    if (!grid[s.gy]?.[s.gx]) return bp;
+    const p6 = findPath(grid, { gx: 0, gy: 6 }, s);
+    const p7 = findPath(grid, { gx: 0, gy: 7 }, s);
+    const last6 = p6[p6.length - 1];
+    const last7 = p7[p7.length - 1];
+    if (
+      !last6 ||
+      last6.gx !== s.gx ||
+      last6.gy !== s.gy ||
+      !last7 ||
+      last7.gx !== s.gx ||
+      last7.gy !== s.gy
+    ) {
+      return bp;
+    }
+  }
+
+  return {
+    ...bp,
+    furniture,
+    zoneSlots: {
+      ...bp.zoneSlots,
+      DESK_CODING: nextCodingSlots,
+      DESK_QA: nextQaSlots,
+    },
+  };
+}
 
 export function getFloorLayout(
   floorId: string,
@@ -1091,8 +1360,19 @@ export function getFloorLayout(
   const bp = BLUEPRINTS[blueprintIndex];
   const themePalette = THEME_PALETTES[themeIndex];
 
+  const seedRound = Math.floor(Math.abs(layoutSeed) / 5);
+  const variantSeed =
+    seedRound === 0 && floorNumber === 0 && floorId === 'test-floor'
+      ? 0
+      : ((Math.imul(h, 0x9e3779b1) ^
+          Math.imul(floorNumber + 1, 0x85ebca6b) ^
+          Math.imul(layoutSeed * 2654435761 + seedRound, 0xc2b2ae35)) >>>
+          0) || 1;
+
+  const orientedBp = applySeededDeskOrientationVariety(bp, variantSeed);
+
   return {
-    ...bp,
+    ...orientedBp,
     blueprintIndex,
     themeIndex,
     themePalette,

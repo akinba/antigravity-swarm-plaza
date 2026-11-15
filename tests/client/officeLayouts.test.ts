@@ -416,7 +416,7 @@ describe('officeLayouts all 5 floor blueprints', () => {
   });
 
   it('aligns every glass and wood partition strictly on a visual floor zone seam without colliding with work desks', () => {
-    const workDeskKinds = new Set(['dev_desk', 'qa_desk', 'exec_desk']);
+    const workDeskKinds = new Set(['dev_desk', 'qa_desk', 'exec_desk', 'clover_desk']);
 
     for (const layout of getAllFiveLayouts()) {
       const partitions = layout.furniture.filter((f) => isPartitionKind(f.kind));
@@ -562,5 +562,175 @@ describe('officeLayouts all 5 floor blueprints', () => {
         `expected conference room chairs across BP0..BP4 to cover facing '${dir}'`,
       );
     }
+  });
+
+  it('equips every blueprint with a face-visible Executive Boss Suite, coffee table, and 2 facing guest armchairs', () => {
+    for (const layout of getAllFiveLayouts()) {
+      const bp = layout.blueprintIndex;
+      const execDesks = layout.furniture.filter((f) => f.kind === 'exec_desk');
+      const execChairs = layout.furniture.filter((f) => f.kind === 'exec_chair');
+      const execTables = layout.furniture.filter((f) => f.kind === 'exec_coffee_table');
+
+      assert.equal(execDesks.length, 1, `blueprint ${bp} expected 1 exec_desk`);
+      assert.equal(execChairs.length, 1, `blueprint ${bp} expected 1 exec_chair`);
+      assert.equal(execTables.length, 1, `blueprint ${bp} expected 1 exec_coffee_table`);
+
+      const desk = execDesks[0];
+      const chair = execChairs[0];
+      const table = execTables[0];
+      const archSlots = layout.zoneSlots.DESK_ARCHITECT;
+
+      assert.ok(archSlots.length >= 3, `blueprint ${bp} DESK_ARCHITECT should include boss + 2 guest slots`);
+      assert.equal(archSlots[0].gx, chair.gx);
+      assert.equal(archSlots[0].gy, chair.gy);
+      assert.equal(desk.facing, chair.facing, `blueprint ${bp} exec_desk.facing !== exec_chair.facing`);
+      assert.equal(chair.facing, archSlots[0].facing);
+
+      // Boss must face SE or SW so their face is visible toward camera, seated behind exec_desk
+      assert.equal(
+        chair.facing === 'SE' || chair.facing === 'SW',
+        true,
+        `blueprint ${bp} boss chair facing '${chair.facing}' must be SE or SW for camera visibility`,
+      );
+      assert.ok(
+        chair.gx + chair.gy < desk.gx + desk.gy,
+        `blueprint ${bp} boss chair (${chair.gx},${chair.gy}) must sit behind exec_desk (${desk.gx},${desk.gy})`,
+      );
+
+      // Coffee table must sit in front of exec_desk along the Boss's line of sight
+      const frontVec = facingUnitGridVector(desk.facing!);
+      const tableFrontDot = (table.gx - desk.gx) * frontVec.dx + (table.gy - desk.gy) * frontVec.dy;
+      assert.ok(
+        tableFrontDot >= 0.8,
+        `blueprint ${bp} exec_coffee_table (${table.gx},${table.gy}) not in front of exec_desk (${desk.gx},${desk.gy})`,
+      );
+
+      // Guest slots [1] & [2] must be explicit armchairs facing each other across exec_coffee_table
+      const guestA = layout.furniture.find(
+        (f) => f.kind === 'armchair' && f.gx === archSlots[1].gx && f.gy === archSlots[1].gy,
+      );
+      const guestB = layout.furniture.find(
+        (f) => f.kind === 'armchair' && f.gx === archSlots[2].gx && f.gy === archSlots[2].gy,
+      );
+      assert.ok(guestA, `blueprint ${bp} missing guest armchair A at (${archSlots[1].gx},${archSlots[1].gy})`);
+      assert.ok(guestB, `blueprint ${bp} missing guest armchair B at (${archSlots[2].gx},${archSlots[2].gy})`);
+      assert.equal(guestA.facing, archSlots[1].facing);
+      assert.equal(guestB.facing, archSlots[2].facing);
+
+      const vecA = facingUnitGridVector(guestA.facing!);
+      const vecB = facingUnitGridVector(guestB.facing!);
+      const dotToTableA = (table.gx - guestA.gx) * vecA.dx + (table.gy - guestA.gy) * vecA.dy;
+      const dotToTableB = (table.gx - guestB.gx) * vecB.dx + (table.gy - guestB.gy) * vecB.dy;
+      assert.ok(dotToTableA > 0.7, `blueprint ${bp} guest armchair A does not face exec_coffee_table`);
+      assert.ok(dotToTableB > 0.7, `blueprint ${bp} guest armchair B does not face exec_coffee_table`);
+      assert.ok(
+        vecA.dx * vecB.dx + vecA.dy * vecB.dy < -0.8,
+        `blueprint ${bp} guest armchairs (${guestA.facing} vs ${guestB.facing}) must face opposite each other`,
+      );
+    }
+  });
+
+  it('arranges open-office coding zones with 3-leaf and 4-leaf clover pods (yonca) and multi-directional seating', () => {
+    const layouts = getAllFiveLayouts();
+    const cloverCountsByBp = new Map<number, number>();
+    const allWorkFacings = new Set<Facing>();
+
+    for (const layout of layouts) {
+      const bp = layout.blueprintIndex;
+      const clovers = layout.furniture.filter((f) => f.kind === 'clover_desk');
+      cloverCountsByBp.set(bp, clovers.length);
+
+      if (clovers.length > 0) {
+        const cloverFacings = new Set(clovers.map((c) => c.facing));
+        assert.equal(
+          cloverFacings.size,
+          clovers.length,
+          `blueprint ${bp} clover pod leaves should each face a distinct outward seating angle`,
+        );
+      }
+
+      const workDesks = layout.furniture.filter(
+        (f) => f.kind === 'dev_desk' || f.kind === 'qa_desk' || f.kind === 'clover_desk',
+      );
+      for (const desk of workDesks) {
+        assert.ok(desk.facing, `blueprint ${bp} ${desk.kind} (${desk.gx},${desk.gy}) missing facing`);
+        allWorkFacings.add(desk.facing);
+        const u = facingUnitGridVector(desk.facing);
+        const expectedChairGx = Math.round(desk.gx - u.dx);
+        const expectedChairGy = Math.round(desk.gy - u.dy);
+        const pairedChair = layout.furniture.find(
+          (f) => f.kind === 'desk_chair' && f.gx === expectedChairGx && f.gy === expectedChairGy,
+        );
+        assert.ok(
+          pairedChair,
+          `blueprint ${bp} ${desk.kind} (${desk.gx},${desk.gy}:${desk.facing}) missing paired desk_chair at (${expectedChairGx},${expectedChairGy})`,
+        );
+        assert.equal(pairedChair.facing, desk.facing);
+      }
+    }
+
+    // Verify both 4-leaf pinwheel clovers (BP0, BP3) and 3-leaf tri-clovers (BP1, BP4) exist
+    assert.equal(cloverCountsByBp.get(0), 4, 'BP0 should feature a 4-leaf clover pod');
+    assert.equal(cloverCountsByBp.get(3), 4, 'BP3 should feature a 4-leaf clover pod');
+    assert.equal(cloverCountsByBp.get(1), 3, 'BP1 should feature a 3-leaf tri-clover pod');
+    assert.equal(cloverCountsByBp.get(4), 3, 'BP4 should feature a 3-leaf tri-clover pod');
+
+    for (const dir of ['SE', 'SW', 'NE', 'NW'] as Facing[]) {
+      assert.equal(
+        allWorkFacings.has(dir),
+        true,
+        `expected open-office work desks to include seating direction '${dir}'`,
+      );
+    }
+  });
+
+  it('applies deterministic layoutSeed seating orientation randomness while preserving 0 collisions and 100% A* reachability', () => {
+    const signaturesByBlueprint = new Map<number, Set<string>>();
+
+    for (let seed = 0; seed < 25; seed++) {
+      const a = getFloorLayout('plaza-floor', 1, seed);
+      const b = getFloorLayout('plaza-floor', 1, seed);
+      assert.deepEqual(a.furniture, b.furniture, `seed=${seed} must be strictly deterministic`);
+      assert.deepEqual(a.zoneSlots, b.zoneSlots, `seed=${seed} zoneSlots must be deterministic`);
+
+      // Zero furniture overlaps
+      const seen = new Set<string>();
+      for (const item of a.furniture) {
+        assert.ok(item.gx >= 0 && item.gx < GRID_W && item.gy >= 0 && item.gy < GRID_H);
+        const k = `${item.gx},${item.gy}`;
+        assert.equal(seen.has(k), false, `seed=${seed} bp=${a.blueprintIndex} collision at (${k})`);
+        seen.add(k);
+      }
+
+      // 100% A* reachability from elevator entrances
+      const grid = buildWalkableGridForFurniture(a.furniture);
+      assert.equal(grid[6][0], true);
+      assert.equal(grid[7][0], true);
+      for (const z of ALL_ZONES) {
+        for (const slot of a.zoneSlots[z]) {
+          assert.equal(grid[slot.gy][slot.gx], true);
+          const p6 = findPath(grid, { gx: 0, gy: 6 }, slot);
+          assert.deepEqual(p6[p6.length - 1], { gx: slot.gx, gy: slot.gy });
+        }
+      }
+
+      const orientSig = a.furniture
+        .filter((f) => f.kind === 'dev_desk' || f.kind === 'qa_desk' || f.kind === 'clover_desk')
+        .map((f) => `${f.kind}@${f.gx},${f.gy}:${f.facing}`)
+        .join('|');
+      const set = signaturesByBlueprint.get(a.blueprintIndex) ?? new Set<string>();
+      set.add(orientSig);
+      signaturesByBlueprint.set(a.blueprintIndex, set);
+    }
+
+    // Across seeds 0..24 (5 seeds per blueprint), blueprints produce multiple distinct seating orientation arrangements
+    let variedBlueprints = 0;
+    for (const [, sigs] of signaturesByBlueprint) {
+      if (sigs.size >= 2) variedBlueprints += 1;
+    }
+    assert.ok(
+      variedBlueprints >= 4,
+      `expected >=4 blueprints to vary desk seating orientations across layoutSeeds, got ${variedBlueprints}`,
+    );
   });
 });

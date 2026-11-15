@@ -19,6 +19,7 @@ export type FurnitureKind =
   | 'desk'
   | 'exec_desk'
   | 'dev_desk'
+  | 'clover_desk'
   | 'qa_desk'
   | 'chair'
   | 'desk_chair'
@@ -35,6 +36,7 @@ export type FurnitureKind =
   | 'sofa_r'
   | 'armchair'
   | 'coffee_table'
+  | 'exec_coffee_table'
   | 'lounge_table'
   | 'gaming_table'
   | 'war_table'
@@ -2461,6 +2463,1010 @@ export function drawPlushBeanbag(
   }
 }
 
+type CardFacing = 'NE' | 'SE' | 'SW' | 'NW';
+
+function normalizeCardFacing(
+  facing: ChairFacing | undefined,
+  fallback: CardFacing = 'NE',
+): CardFacing {
+  if (!facing) return fallback;
+  const up = String(facing).toUpperCase();
+  if (up === 'NE' || up === 'N') return 'NE';
+  if (up === 'NW') return 'NW';
+  if (up === 'SW' || up === 'W') return 'SW';
+  if (up === 'SE' || up === 'E' || up === 'S') return 'SE';
+  return fallback;
+}
+
+function getCardIsoBasis(dir: CardFacing): {
+  fwd: { x: number; y: number };
+  right: { x: number; y: number };
+} {
+  // Exact 90°-rotatable 2:1 isometric desk/chair local axes:
+  // +fwd points from the seated user across the desk; +right points to the user's right hand.
+  // 32 units = 1 full isometric tile.
+  switch (dir) {
+    case 'NE':
+      return { fwd: { x: 1, y: -0.5 }, right: { x: 1, y: 0.5 } };
+    case 'SE':
+      return { fwd: { x: 1, y: 0.5 }, right: { x: -1, y: 0.5 } };
+    case 'SW':
+      return { fwd: { x: -1, y: 0.5 }, right: { x: -1, y: -0.5 } };
+    case 'NW':
+      return { fwd: { x: -1, y: -0.5 }, right: { x: 1, y: -0.5 } };
+  }
+}
+
+function createCardIsoPainter(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  z: number,
+  dir: CardFacing,
+) {
+  const { fwd, right } = getCardIsoBasis(dir);
+  const pt = (f: number, r: number, h = 0) => ({
+    x: cx + (f * fwd.x + r * right.x) * z,
+    y: cy + (f * fwd.y + r * right.y) * z - h * z,
+  });
+  const floorY = (f: number, r: number) => cy + (f * fwd.y + r * right.y) * z;
+
+  const fillPoly = (
+    ptsFR: ReadonlyArray<{ f: number; r: number }>,
+    h: number,
+    fill: string,
+    stroke?: string,
+    lineW = 0.85,
+  ) => {
+    if (ptsFR.length < 3) return;
+    const p0 = pt(ptsFR[0].f, ptsFR[0].r, h);
+    ctx.beginPath();
+    ctx.moveTo(p0.x, p0.y);
+    for (let i = 1; i < ptsFR.length; i++) {
+      const pi = pt(ptsFR[i].f, ptsFR[i].r, h);
+      ctx.lineTo(pi.x, pi.y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+    if (stroke) {
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = Math.max(0.75, lineW * z);
+      ctx.stroke();
+    }
+  };
+
+  const fillVertQuad = (
+    f0: number,
+    r0: number,
+    f1: number,
+    r1: number,
+    hBot: number,
+    hTop: number,
+    fill: string,
+    stroke?: string,
+    lineW = 0.8,
+  ) => {
+    const a = pt(f0, r0, hBot);
+    const b = pt(f1, r1, hBot);
+    const c = pt(f1, r1, hTop);
+    const d = pt(f0, r0, hTop);
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.lineTo(c.x, c.y);
+    ctx.lineTo(d.x, d.y);
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+    if (stroke) {
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = Math.max(0.7, lineW * z);
+      ctx.stroke();
+    }
+  };
+
+  const drawSlab = (
+    rawPts: ReadonlyArray<{ f: number; r: number }>,
+    hBot: number,
+    hTop: number,
+    pal: {
+      top: string;
+      sideLit: string;
+      sideMid: string;
+      sideDark: string;
+      rim?: string;
+      outline?: string;
+    },
+  ) => {
+    if (rawPts.length < 3) return;
+    const basePts = rawPts.map((p) => pt(p.f, p.r, 0));
+    let area2 = 0;
+    for (let i = 0; i < basePts.length; i++) {
+      const j = (i + 1) % basePts.length;
+      area2 += basePts[i].x * basePts[j].y - basePts[j].x * basePts[i].y;
+    }
+    const pts = area2 >= 0 ? [...rawPts] : [...rawPts].reverse();
+    const scr0 = pts.map((p) => pt(p.f, p.r, 0));
+    const outline = pal.outline ?? '#121622';
+
+    const walls: Array<{
+      depthY: number;
+      aBot: { x: number; y: number };
+      bBot: { x: number; y: number };
+      bTop: { x: number; y: number };
+      aTop: { x: number; y: number };
+      col: string;
+    }> = [];
+
+    for (let i = 0; i < pts.length; i++) {
+      const j = (i + 1) % pts.length;
+      const dx = scr0[j].x - scr0[i].x;
+      const dy = scr0[j].y - scr0[i].y;
+      const outX = dy;
+      const outY = -dx;
+      if (outY > -0.05 * z) {
+        const len = Math.max(1e-4, Math.hypot(outX, outY));
+        const nx = outX / len;
+        const col = nx < -0.22 ? pal.sideLit : nx > 0.22 ? pal.sideDark : pal.sideMid;
+        walls.push({
+          depthY: (scr0[i].y + scr0[j].y) * 0.5,
+          aBot: pt(pts[i].f, pts[i].r, hBot),
+          bBot: pt(pts[j].f, pts[j].r, hBot),
+          bTop: pt(pts[j].f, pts[j].r, hTop),
+          aTop: pt(pts[i].f, pts[i].r, hTop),
+          col,
+        });
+      }
+    }
+
+    walls.sort((a, b) => a.depthY - b.depthY);
+    for (const w of walls) {
+      ctx.beginPath();
+      ctx.moveTo(w.aBot.x, w.aBot.y);
+      ctx.lineTo(w.bBot.x, w.bBot.y);
+      ctx.lineTo(w.bTop.x, w.bTop.y);
+      ctx.lineTo(w.aTop.x, w.aTop.y);
+      ctx.closePath();
+      ctx.fillStyle = w.col;
+      ctx.fill();
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = Math.max(0.75, 0.8 * z);
+      ctx.stroke();
+    }
+
+    fillPoly(pts, hTop, pal.top, outline, 0.85);
+    if (pal.rim) {
+      fillPoly(pts, hTop, 'rgba(255, 250, 236, 0.03)', pal.rim, 0.7);
+    }
+  };
+
+  const boxPts = (f0: number, f1: number, r0: number, r1: number) => [
+    { f: f0, r: r0 },
+    { f: f1, r: r0 },
+    { f: f1, r: r1 },
+    { f: f0, r: r1 },
+  ];
+
+  return { pt, floorY, fillPoly, fillVertQuad, drawSlab, boxPts };
+}
+
+function drawOrientedWorkstation(
+  ctx: CanvasRenderingContext2D,
+  kind: string,
+  cx: number,
+  cy: number,
+  z: number,
+  timeSec: number,
+  night: boolean,
+  isOccupied: boolean,
+  modelAccent: string,
+  deskLevel: number,
+  facing: ChairFacing | undefined,
+): void {
+  const isExec = kind === 'exec_desk';
+  const isClover = kind === 'clover_desk';
+  const isQa = kind === 'qa_desk';
+  const dir = normalizeCardFacing(facing, isExec ? 'SE' : 'NE');
+  const isMonitorFront = dir === 'NE' || dir === 'NW';
+  const iso = createCardIsoPainter(ctx, cx, cy, z, dir);
+
+  if (isExec) {
+    // --- GRAND DOUBLE-PEDESTAL EXECUTIVE BOSS / COORDINATOR DESK ---
+    const rMax = 19.4;
+    const fUser = -13.2;
+    const fFront = 12.6;
+    const hTop = 11.6;
+    const hBot = 8.2;
+
+    // Floor contact shadow shaped to executive footprint
+    iso.fillPoly(
+      iso.boxPts(fUser - 1.2, fFront + 1.6, -rMax - 1.4, rMax + 1.4),
+      0,
+      'rgba(7, 10, 20, 0.30)',
+    );
+
+    const baseWood = night
+      ? {
+          top: '#5e2e18',
+          sideLit: '#4f2513',
+          sideMid: '#3d1c0d',
+          sideDark: '#291107',
+          outline: '#140904',
+        }
+      : {
+          top: '#783b1f',
+          sideLit: '#663018',
+          sideMid: '#4f2411',
+          sideDark: '#36170a',
+          outline: '#1a0c05',
+        };
+
+    // Painter-sort twin mahogany drawer pedestals + recessed brass-trimmed coffered front modesty skirt
+    const underParts: Array<{ y: number; draw: () => void }> = [
+      {
+        y: iso.floorY(-0.2, -14.2),
+        draw: () => {
+          iso.drawSlab(iso.boxPts(fUser + 1.4, fFront - 1.6, -17.8, -10.4), 0, hBot, baseWood);
+          if (isMonitorFront) {
+            const pPull = iso.pt(fUser + 1.35, -14.0, 5.0);
+            ctx.fillStyle = '#e0b34c';
+            pxRect(ctx, pPull.x - 1.5 * z, pPull.y - 0.6 * z, 3 * z, 1.1 * z);
+          }
+        },
+      },
+      {
+        y: iso.floorY(-0.2, 14.2),
+        draw: () => {
+          iso.drawSlab(iso.boxPts(fUser + 1.4, fFront - 1.6, 10.4, 17.8), 0, hBot, baseWood);
+          if (isMonitorFront) {
+            const pPull = iso.pt(fUser + 1.35, 14.0, 5.0);
+            ctx.fillStyle = '#e0b34c';
+            pxRect(ctx, pPull.x - 1.5 * z, pPull.y - 0.6 * z, 3 * z, 1.1 * z);
+          }
+        },
+      },
+      {
+        y: iso.floorY(fFront - 2.0, 0),
+        draw: () => {
+          // Recessed coffered modesty panel facing visitors (+f) + brushed-brass inlay moldings
+          iso.drawSlab(iso.boxPts(fFront - 3.6, fFront - 1.4, -10.8, 10.8), 0.8, hBot, baseWood);
+          if (!isMonitorFront) {
+            // Visitor face (+f) is camera-visible when boss faces SE / SW!
+            iso.fillVertQuad(
+              fFront - 1.32,
+              -9.6,
+              fFront - 1.32,
+              9.6,
+              2.2,
+              6.8,
+              night ? '#2c1409' : '#3d1c0d',
+              '#d9ab42',
+              0.85,
+            );
+            iso.fillVertQuad(
+              fFront - 1.28,
+              -7.8,
+              fFront - 1.28,
+              7.8,
+              4.2,
+              4.8,
+              '#e6ba56',
+            );
+          }
+        },
+      },
+    ];
+    underParts.sort((a, b) => a.y - b.y);
+    for (const part of underParts) part.draw();
+
+    // Sculpted overhanging royal-mahogany bullnose top with gently bowed visitor front edge
+    const execTopPts = [
+      { f: fUser, r: -rMax + 1.8 },
+      { f: fUser + 1.6, r: -rMax },
+      { f: fFront - 1.6, r: -rMax },
+      { f: fFront, r: -rMax + 2.2 },
+      { f: fFront + 1.2, r: -6.5 },
+      { f: fFront + 1.4, r: 6.5 },
+      { f: fFront, r: rMax - 2.2 },
+      { f: fFront - 1.6, r: rMax },
+      { f: fUser + 1.6, r: rMax },
+      { f: fUser, r: rMax - 1.8 },
+    ];
+    iso.drawSlab(
+      execTopPts,
+      hBot,
+      hTop,
+      night
+        ? {
+            top: '#8c4526',
+            sideLit: '#70351c',
+            sideMid: '#572814',
+            sideDark: '#3b190b',
+            rim: 'rgba(255, 224, 168, 0.34)',
+            outline: '#1a0c05',
+          }
+        : {
+            top: '#ab5732',
+            sideLit: '#8a4323',
+            sideMid: '#6b3219',
+            sideDark: '#4a210f',
+            rim: 'rgba(255, 236, 194, 0.42)',
+            outline: '#210f07',
+          },
+    );
+
+    // Painter-sorted executive desktop appointments (keeps central r in [-7..+7] low so Coordinator's face is 100% clear!)
+    const topItems: Array<{ y: number; draw: () => void }> = [];
+
+    // 1. Stitched obsidian & gold executive leather blotter (deri sümen) + briefing sheet + gold pen
+    topItems.push({
+      y: iso.floorY(-6.8, 0),
+      draw: () => {
+        iso.fillPoly(iso.boxPts(-11.4, -2.4, -9.0, 9.0), hTop + 0.06, '#181d2c', '#d4a638', 0.85);
+        iso.fillPoly(iso.boxPts(-8.8, -3.6, -5.2, 2.2), hTop + 0.12, '#f6f8ff');
+        iso.fillPoly(iso.boxPts(-8.0, -7.0, -4.6, 0.8), hTop + 0.15, modelAccent);
+        // Compact wireless executive keyboard & right-hand mouse on blotter
+        iso.fillPoly(iso.boxPts(-10.2, -7.0, -4.2, 3.6), hTop + 0.16, '#0e121d');
+        const pPen = iso.pt(-5.2, 6.4, hTop + 0.2);
+        ctx.fillStyle = '#ffd147';
+        pxRect(ctx, pPen.x - 1.6 * z, pPen.y - 1.2 * z, 3.2 * z, 1.3 * z);
+        ctx.fillStyle = '#fff5b8';
+        pxRect(ctx, pPen.x - 0.6 * z, pPen.y - 2.4 * z, 1.1 * z, 1.6 * z);
+      },
+    });
+
+    // 2. Engraved Brushed-Brass CEO Nameplate (pirinç isimlik) along visitor front edge (+f)
+    topItems.push({
+      y: iso.floorY(9.8, 0),
+      draw: () => {
+        iso.drawSlab(iso.boxPts(8.8, 11.0, -5.4, 5.4), hTop, hTop + 2.2, {
+          top: '#f2c963',
+          sideLit: '#deb043',
+          sideMid: '#c4952b',
+          sideDark: '#8f6916',
+          outline: '#302106',
+        });
+        if (!isMonitorFront) {
+          iso.fillVertQuad(11.04, -4.2, 11.04, 4.2, hTop + 0.5, hTop + 1.6, '#261a06');
+          iso.fillVertQuad(11.08, -2.8, 11.08, 2.8, hTop + 0.9, hTop + 1.3, '#ffe89e');
+        }
+        const pPlate = iso.pt(9.9, 0, hTop + 2.2);
+        ctx.fillStyle = '#fff3b8';
+        pxRect(ctx, pPlate.x - 2.2 * z, pPlate.y - 0.6 * z, 4.4 * z, 0.9 * z);
+      },
+    });
+
+    // 3. Left-wing canted low-profile Executive Command Display (placed at r = -17..-8.2, completely outside face sightline!)
+    topItems.push({
+      y: iso.floorY(4.8, -12.8),
+      draw: () => {
+        const mPts = [
+          { f: 6.8, r: -17.0 },
+          { f: 8.0, r: -16.2 },
+          { f: 4.2, r: -8.2 },
+          { f: 3.0, r: -9.0 },
+        ];
+        // Brushed brass & gunmetal stand base
+        iso.drawSlab(iso.boxPts(4.8, 6.8, -13.8, -11.4), hTop, hTop + 1.4, {
+          top: '#c9a24b',
+          sideLit: '#9e7c32',
+          sideMid: '#785c20',
+          sideDark: '#4f3b12',
+          outline: '#1c1507',
+        });
+        const monTop = isMonitorFront ? hTop + 7.2 : hTop + 5.8;
+        iso.drawSlab(mPts, hTop + 1.3, monTop, {
+          top: '#2d364d',
+          sideLit: '#232b3d',
+          sideMid: '#181e2c',
+          sideDark: '#0f131d',
+          outline: '#090c14',
+        });
+        if (isMonitorFront) {
+          iso.fillVertQuad(6.6, -16.2, 3.2, -9.4, hTop + 2.0, monTop - 0.7, '#121d33');
+          iso.fillVertQuad(6.2, -15.4, 3.8, -10.6, monTop - 2.1, monTop - 1.2, modelAccent);
+          iso.fillVertQuad(6.0, -15.0, 4.2, -11.4, hTop + 2.6, hTop + 3.4, '#ffd147');
+        } else {
+          // Luxury brushed-gold rear spine & Argon telemetry bar facing visitors
+          iso.fillVertQuad(7.85, -15.8, 4.35, -8.8, hTop + 3.2, hTop + 4.0, '#d9ab42');
+          iso.fillVertQuad(7.6, -15.3, 4.6, -9.3, hTop + 2.2, hTop + 2.8, modelAccent);
+          // Warm screen bounce glow onto desk wing toward boss
+          iso.fillPoly(
+            iso.boxPts(0.4, 4.8, -16.2, -8.8),
+            hTop + 0.05,
+            isOccupied ? 'rgba(184, 140, 255, 0.20)' : 'rgba(92, 240, 255, 0.12)',
+          );
+        }
+      },
+    });
+
+    // 4. Right-wing Classic Emerald-Glass & Brass Banker's Lamp + Gold Porcelain Espresso Cup
+    topItems.push({
+      y: iso.floorY(5.6, 14.0),
+      draw: () => {
+        // Warm golden reading pool on mahogany surface
+        iso.fillPoly(
+          iso.boxPts(2.4, 8.8, 10.6, 17.4),
+          hTop + 0.05,
+          night ? 'rgba(255, 224, 122, 0.42)' : 'rgba(255, 230, 138, 0.28)',
+        );
+        const pLamp = iso.pt(5.8, 14.2, hTop);
+        ctx.fillStyle = '#d4a638';
+        pxRect(ctx, pLamp.x - 2.4 * z, pLamp.y - 1.6 * z, 4.8 * z, 1.7 * z);
+        ctx.fillStyle = '#9c761c';
+        pxRect(ctx, pLamp.x - 0.8 * z, pLamp.y - 6.8 * z, 1.6 * z, 5.4 * z);
+        ctx.fillStyle = '#fff2a6';
+        pxRect(ctx, pLamp.x - 3.2 * z, pLamp.y - 7.2 * z, 6.4 * z, 1.3 * z);
+        ctx.fillStyle = '#1b9e56';
+        pxRect(ctx, pLamp.x - 3.6 * z, pLamp.y - 9.8 * z, 7.2 * z, 2.8 * z);
+        ctx.fillStyle = '#4be08a';
+        pxRect(ctx, pLamp.x - 2.4 * z, pLamp.y - 9.3 * z, 4.8 * z, 1.2 * z);
+      },
+    });
+
+    topItems.push({
+      y: iso.floorY(-5.8, 12.2),
+      draw: () => {
+        const pCup = iso.pt(-5.8, 12.2, hTop);
+        ctx.fillStyle = '#ffd147';
+        pxRect(ctx, pCup.x - 2.1 * z, pCup.y - 1.0 * z, 4.2 * z, 1.1 * z);
+        ctx.fillStyle = '#fffdf5';
+        pxRect(ctx, pCup.x - 1.5 * z, pCup.y - 3.4 * z, 3.0 * z, 2.6 * z);
+        ctx.fillStyle = '#6e381d';
+        pxRect(ctx, pCup.x - 1.0 * z, pCup.y - 3.3 * z, 2.0 * z, 0.9 * z);
+      },
+    });
+
+    topItems.sort((a, b) => a.y - b.y);
+    for (const item of topItems) item.draw();
+
+    drawDeskEvolutionExtras(ctx, 'exec_desk', cx, cy, z, timeSec, isOccupied, deskLevel, dir);
+    return;
+  }
+
+  // --- 4-WAY WORKSTATIONS: 'desk' | 'dev_desk' | 'clover_desk' | 'qa_desk' ---
+  const rHalf = isClover ? 15.5 : isQa ? 13.6 : 14.2;
+  const fUser = isClover ? -12.2 : -12.6;
+  const fBack = isClover ? 15.6 : isQa ? 11.0 : 11.6;
+  const hBot = 7.8;
+  const hTop = 11.2;
+
+  iso.fillPoly(
+    iso.boxPts(fUser - 0.8, fBack + 0.8, -rHalf - 0.8, rHalf + 0.8),
+    0,
+    'rgba(7, 10, 20, 0.27)',
+  );
+
+  // Under-desk steel frame legs & recessed modesty skirt
+  const legPal = {
+    top: '#313a4f',
+    sideLit: '#293145',
+    sideMid: '#1e2434',
+    sideDark: '#131722',
+    outline: '#0d1018',
+  };
+  const underParts: Array<{ y: number; draw: () => void }> = [
+    {
+      y: iso.floorY(0, -rHalf + 2.2),
+      draw: () => {
+        iso.drawSlab(
+          iso.boxPts(fUser + 1.8, fBack - 1.6, -rHalf + 1.4, -rHalf + 3.2),
+          0,
+          hBot,
+          legPal,
+        );
+      },
+    },
+    {
+      y: iso.floorY(0, rHalf - 2.2),
+      draw: () => {
+        iso.drawSlab(
+          iso.boxPts(fUser + 1.8, fBack - 1.6, rHalf - 3.2, rHalf - 1.4),
+          0,
+          hBot,
+          legPal,
+        );
+      },
+    },
+    {
+      y: iso.floorY(fBack - 2.4, 0),
+      draw: () => {
+        iso.drawSlab(
+          iso.boxPts(fBack - 3.4, fBack - 1.5, -rHalf + 2.8, rHalf - 2.8),
+          1.2,
+          hBot,
+          legPal,
+        );
+      },
+    },
+  ];
+  underParts.sort((a, b) => a.y - b.y);
+  for (const u of underParts) u.draw();
+
+  // Desktop slab polygon: clover_desk has an ergonomic curved user pocket + seamless inner pod seam!
+  const topPts = isClover
+    ? [
+        { f: fUser + 1.8, r: -rHalf },
+        { f: fBack, r: -rHalf },
+        { f: fBack, r: rHalf },
+        { f: fUser + 1.8, r: rHalf },
+        { f: fUser, r: rHalf - 2.4 },
+        { f: fUser + 1.0, r: 5.2 },
+        { f: fUser + 1.0, r: -5.2 },
+        { f: fUser, r: -rHalf + 2.4 },
+      ]
+    : [
+        { f: fUser + 1.0, r: -rHalf },
+        { f: fBack - 0.8, r: -rHalf },
+        { f: fBack, r: -rHalf + 0.8 },
+        { f: fBack, r: rHalf - 0.8 },
+        { f: fBack - 0.8, r: rHalf },
+        { f: fUser + 1.0, r: rHalf },
+        { f: fUser, r: rHalf - 1.2 },
+        { f: fUser, r: -rHalf + 1.2 },
+      ];
+
+  const deskWood = isClover
+    ? night
+      ? {
+          top: '#9e8667',
+          sideLit: '#826d52',
+          sideMid: '#66543e',
+          sideDark: '#473a2a',
+          rim: 'rgba(255, 244, 222, 0.30)',
+          outline: '#1a1510',
+        }
+      : {
+          top: '#dfc5a0',
+          sideLit: '#b89c76',
+          sideMid: '#917858',
+          sideDark: '#6b573e',
+          rim: 'rgba(255, 250, 236, 0.42)',
+          outline: '#261e15',
+        }
+    : isQa
+      ? night
+        ? {
+            top: '#94836e',
+            sideLit: '#786957',
+            sideMid: '#5c5042',
+            sideDark: '#40372d',
+            rim: 'rgba(255, 242, 224, 0.28)',
+            outline: '#171410',
+          }
+        : {
+            top: '#cfba9e',
+            sideLit: '#a38e75',
+            sideMid: '#7d6c58',
+            sideDark: '#594c3d',
+            rim: 'rgba(255, 248, 232, 0.36)',
+            outline: '#241e18',
+          }
+      : night
+        ? {
+            top: '#9c8364',
+            sideLit: '#80694f',
+            sideMid: '#63503b',
+            sideDark: '#453728',
+            rim: 'rgba(255, 240, 214, 0.28)',
+            outline: '#1a140e',
+          }
+        : {
+            top: '#d8b890',
+            sideLit: '#ad8e68',
+            sideMid: '#856b4c',
+            sideDark: '#5e4a33',
+            rim: 'rgba(255, 248, 228, 0.38)',
+            outline: '#241b12',
+          };
+
+  iso.drawSlab(topPts, hBot, hTop, deskWood);
+
+  // Painter-sorted desktop accessories so both front (NE/NW) and rear (SE/SW) views layer cleanly
+  const topItems: Array<{ y: number; draw: () => void }> = [];
+
+  // Clover Pod Inner Frosted Acoustic Privacy Screen (fuses 3 or 4 CW/CCW petals into a central +/T hub!)
+  if (isClover) {
+    topItems.push({
+      y: iso.floorY(fBack - 0.5, 0),
+      draw: () => {
+        const divH = hTop + 4.8;
+        iso.fillVertQuad(
+          fBack - 0.45,
+          -rHalf + 1.0,
+          fBack - 0.45,
+          rHalf - 1.0,
+          hTop + 0.2,
+          divH,
+          night ? 'rgba(96, 204, 245, 0.28)' : 'rgba(132, 224, 255, 0.42)',
+          '#8ea4c8',
+          0.85,
+        );
+        // Frosted sandblasted middle privacy band along the clover spine
+        iso.fillVertQuad(
+          fBack - 0.42,
+          -rHalf + 1.6,
+          fBack - 0.42,
+          rHalf - 1.6,
+          hTop + 1.8,
+          hTop + 3.0,
+          night ? 'rgba(195, 236, 255, 0.24)' : 'rgba(232, 250, 255, 0.46)',
+        );
+      },
+    });
+  }
+
+  // Cable grommet near monitor spine
+  const fMonBase = isClover ? 7.6 : 5.6;
+  topItems.push({
+    y: iso.floorY(fMonBase + 1.2, 0),
+    draw: () => {
+      iso.fillPoly(
+        iso.boxPts(fMonBase + 0.5, fMonBase + 2.0, -2.4, 2.4),
+        hTop + 0.04,
+        '#181e2d',
+      );
+    },
+  });
+
+  // Extended anthracite desk mat + mechanical keyboard + right-hand mouse
+  topItems.push({
+    y: iso.floorY(-6.8, 0),
+    draw: () => {
+      iso.fillPoly(iso.boxPts(-10.2, -3.4, -8.6, 8.6), hTop + 0.05, '#202738');
+      iso.fillPoly(iso.boxPts(-9.4, -5.6, -6.6, 2.8), hTop + 0.12, '#111521');
+      iso.fillPoly(
+        iso.boxPts(-8.6, -6.6, -5.8, 2.0),
+        hTop + 0.18,
+        isOccupied ? modelAccent : '#4a5878',
+      );
+      // Right-hand ergonomic mouse (always at +r = user's right hand!)
+      iso.fillPoly(iso.boxPts(-8.4, -5.8, 4.4, 6.6), hTop + 0.15, '#cbd5e8');
+      const pKey = iso.pt(-7.5, -1.8, hTop + 0.2);
+      ctx.fillStyle = isOccupied ? modelAccent : '#4a5878';
+      pxRect(ctx, pKey.x - 1.6 * z, pKey.y - 0.5 * z, 3.2 * z, 1.0 * z);
+    },
+  });
+
+  // Ceramic coffee mug on user's left flank (-r)
+  topItems.push({
+    y: iso.floorY(-5.6, -10.8),
+    draw: () => {
+      const pMug = iso.pt(-5.6, -10.8, hTop);
+      ctx.fillStyle = '#f2f5fc';
+      pxRect(ctx, pMug.x - 1.5 * z, pMug.y - 3.0 * z, 3.0 * z, 3.0 * z);
+      ctx.fillStyle = '#6e381d';
+      pxRect(ctx, pMug.x - 1.0 * z, pMug.y - 3.0 * z, 2.0 * z, 1.0 * z);
+    },
+  });
+
+  if (isQa) {
+    // QA Diagnostic Widescreen Monitor + Companion Telemetry Tablet
+    topItems.push({
+      y: iso.floorY(fMonBase, -2.0),
+      draw: () => {
+        const mTop = isMonitorFront ? hTop + 8.6 : hTop + 6.0;
+        // Stand foot
+        iso.fillPoly(
+          iso.boxPts(fMonBase - 0.6, fMonBase + 1.4, -4.4, -0.4),
+          hTop + 0.08,
+          '#252d40',
+        );
+        iso.drawSlab(
+          iso.boxPts(fMonBase, fMonBase + 1.2, -8.8, 3.6),
+          hTop + 1.2,
+          mTop,
+          {
+            top: '#2a3347',
+            sideLit: '#1e2536',
+            sideMid: '#151a26',
+            sideDark: '#0e121b',
+            outline: '#090c14',
+          },
+        );
+        if (isMonitorFront) {
+          const fScr = fMonBase - 0.06;
+          iso.fillVertQuad(fScr, -7.8, fScr, 2.6, hTop + 1.9, mTop - 0.7, isOccupied ? '#1c2b42' : '#1b2336');
+          iso.fillVertQuad(
+            fScr - 0.04,
+            -6.8,
+            fScr - 0.04,
+            0.8,
+            mTop - 2.3,
+            mTop - 1.3,
+            isOccupied ? '#3be87a' : '#3a4b6e',
+          );
+          iso.fillVertQuad(
+            fScr - 0.04,
+            -6.8,
+            fScr - 0.04,
+            -0.6,
+            mTop - 4.1,
+            mTop - 3.1,
+            isOccupied ? '#ffbe3b' : '#2e3c59',
+          );
+        } else {
+          // Sleek sculpted rear monitor shell + VESA spine + QA status LED bar
+          const fRear = fMonBase + 1.25;
+          iso.fillVertQuad(fRear, -3.2, fRear, -1.6, hTop + 0.2, hTop + 3.8, '#6e80a3');
+          iso.fillVertQuad(
+            fRear + 0.03,
+            -6.0,
+            fRear + 0.03,
+            0.8,
+            hTop + 3.8,
+            hTop + 4.5,
+            isOccupied ? '#3be87a' : '#475675',
+          );
+          if (isOccupied) {
+            iso.fillPoly(
+              iso.boxPts(fMonBase - 3.8, fMonBase - 0.2, -8.0, 3.0),
+              hTop + 0.04,
+              'rgba(59, 232, 122, 0.16)',
+            );
+          }
+        }
+      },
+    });
+    // Angled QA checklist tablet on +r side
+    topItems.push({
+      y: iso.floorY(fMonBase - 1.0, 7.6),
+      draw: () => {
+        iso.drawSlab(
+          iso.boxPts(fMonBase - 1.8, fMonBase + 0.2, 5.2, 10.0),
+          hTop + 0.2,
+          hTop + 2.8,
+          {
+            top: isOccupied ? '#243854' : '#1b2336',
+            sideLit: '#1c2333',
+            sideMid: '#141926',
+            sideDark: '#0d111a',
+            outline: '#090c14',
+          },
+        );
+        const pTab = iso.pt(fMonBase - 0.8, 7.6, hTop + 2.8);
+        ctx.fillStyle = isOccupied ? '#ffbe3b' : '#3a4b6e';
+        pxRect(ctx, pTab.x - 1.4 * z, pTab.y - 0.6 * z, 2.8 * z, 1.0 * z);
+      },
+    });
+  } else {
+    // Dual Canted Widescreen Coding Monitors (left wing r in [-11.6..-1.2], right wing r in [+1.2..+11.6], central sightline gap!)
+    const pulse = Math.sin(timeSec * 7) > 0;
+    const mTop = isMonitorFront ? hTop + 8.6 : hTop + 5.8;
+
+    const addCodingMonitor = (isRight: boolean) => {
+      const rOuter = isRight ? 11.4 : -11.4;
+      const rInner = isRight ? 1.2 : -1.2;
+      const fOuter = fMonBase - 1.4;
+      const fInner = fMonBase + 0.8;
+      const rLo = Math.min(rOuter, rInner);
+      const rHi = Math.max(rOuter, rInner);
+      const rMid = (rOuter + rInner) * 0.5;
+      const fMid = (fOuter + fInner) * 0.5;
+
+      topItems.push({
+        y: iso.floorY(fMid, rMid),
+        draw: () => {
+          const mPts = isRight
+            ? [
+                { f: fInner, r: rInner },
+                { f: fInner + 1.1, r: rInner },
+                { f: fOuter + 1.1, r: rOuter },
+                { f: fOuter, r: rOuter },
+              ]
+            : [
+                { f: fOuter, r: rOuter },
+                { f: fOuter + 1.1, r: rOuter },
+                { f: fInner + 1.1, r: rInner },
+                { f: fInner, r: rInner },
+              ];
+
+          iso.fillPoly(
+            iso.boxPts(fMid - 0.4, fMid + 1.3, rMid - 1.4, rMid + 1.4),
+            hTop + 0.08,
+            '#252d40',
+          );
+          iso.drawSlab(mPts, hTop + 1.2, mTop, {
+            top: '#2a3347',
+            sideLit: '#1f2638',
+            sideMid: '#151a26',
+            sideDark: '#0d1019',
+            outline: '#090c14',
+          });
+
+          const fA = isRight ? fInner : fOuter;
+          const rA = isRight ? rInner + 0.7 : rOuter + 0.7;
+          const fB = isRight ? fOuter : fInner;
+          const rB = isRight ? rOuter - 0.7 : rInner - 0.7;
+
+          if (isMonitorFront) {
+            iso.fillVertQuad(
+              fA - 0.06,
+              rA,
+              fB - 0.06,
+              rB,
+              hTop + 1.9,
+              mTop - 0.7,
+              isOccupied ? '#132038' : '#1a2234',
+            );
+            const c1 = isOccupied
+              ? isRight
+                ? '#ff7eb9'
+                : modelAccent
+              : '#334463';
+            const c2 = isOccupied
+              ? pulse
+                ? isRight
+                  ? '#3cd8ff'
+                  : '#3be87a'
+                : isRight
+                  ? '#3be87a'
+                  : '#3cd8ff'
+              : '#293752';
+            const c3 = isOccupied ? (isRight ? modelAccent : '#ffd147') : '#293752';
+            const lerpF = (t: number) => fA + (fB - fA) * t - 0.1;
+            const lerpR = (t: number) => rA + (rB - rA) * t;
+            iso.fillVertQuad(lerpF(0.1), lerpR(0.1), lerpF(0.72), lerpR(0.72), mTop - 2.2, mTop - 1.3, c1);
+            iso.fillVertQuad(lerpF(0.14), lerpR(0.14), lerpF(0.66), lerpR(0.66), mTop - 3.8, mTop - 2.9, c2);
+            iso.fillVertQuad(lerpF(0.1), lerpR(0.1), lerpF(0.8), lerpR(0.8), mTop - 5.3, mTop - 4.5, c3);
+          } else {
+            // Low-profile sculpted rear monitor casing + brushed VESA arm + LED bar (zero occlusion of SE/SW faces!)
+            const fRA = fA + 1.15;
+            const fRB = fB + 1.15;
+            const lerpRF = (t: number) => fRA + (fRB - fRA) * t;
+            const lerpRR = (t: number) => rA + (rB - rA) * t;
+            iso.fillVertQuad(
+              lerpRF(0.42),
+              lerpRR(0.42),
+              lerpRF(0.58),
+              lerpRR(0.58),
+              hTop + 0.2,
+              hTop + 3.6,
+              '#7385a8',
+            );
+            iso.fillVertQuad(
+              lerpRF(0.2),
+              lerpRR(0.2),
+              lerpRF(0.8),
+              lerpRR(0.8),
+              hTop + 3.6,
+              hTop + 4.3,
+              isOccupied ? modelAccent : '#455370',
+            );
+            if (isOccupied) {
+              iso.fillPoly(
+                iso.boxPts(fMid - 3.6, fMid - 0.3, rLo + 0.8, rHi - 0.8),
+                hTop + 0.04,
+                'rgba(60, 216, 255, 0.16)',
+              );
+            }
+          }
+        },
+      });
+    };
+
+    addCodingMonitor(false);
+    addCodingMonitor(true);
+  }
+
+  topItems.sort((a, b) => a.y - b.y);
+  for (const item of topItems) item.draw();
+
+  drawDeskEvolutionExtras(
+    ctx,
+    kind === 'desk' || kind === 'clover_desk' ? 'dev_desk' : kind,
+    cx,
+    cy,
+    z,
+    timeSec,
+    isOccupied,
+    deskLevel,
+    dir,
+  );
+}
+
+function drawDirectionalArmchair(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  z: number,
+  facing: ChairFacing | undefined,
+): void {
+  const dir = normalizeCardFacing(facing, 'SE');
+  const isFront = dir === 'SE' || dir === 'SW';
+  const iso = createCardIsoPainter(ctx, cx, cy, z, dir);
+
+  // Soft floor contact shadow
+  iso.fillPoly(iso.boxPts(-10.2, 8.6, -10.8, 10.8), 0, 'rgba(7, 10, 20, 0.28)');
+
+  // 4 tapered warm-walnut legs
+  for (const [lf, lr] of [
+    [-7.8, -8.2],
+    [-7.8, 8.2],
+    [5.8, -8.2],
+    [5.8, 8.2],
+  ] as const) {
+    const pLeg = iso.pt(lf, lr, 0);
+    ctx.fillStyle = '#6e4526';
+    pxRect(ctx, pLeg.x - 1.1 * z, pLeg.y - 2.4 * z, 2.2 * z, 2.4 * z);
+  }
+
+  const seatPal = {
+    top: '#c75472',
+    sideLit: '#a13c57',
+    sideMid: '#852e46',
+    sideDark: '#611e31',
+    rim: 'rgba(255, 214, 226, 0.26)',
+    outline: '#240b13',
+  };
+  const bolsterPal = {
+    top: '#de6480',
+    sideLit: '#b3435d',
+    sideMid: '#913248',
+    sideDark: '#6b2133',
+    rim: 'rgba(255, 224, 232, 0.30)',
+    outline: '#240b13',
+  };
+
+  const parts: Array<{ y: number; draw: () => void }> = [
+    // Plush seat deck (deepened forward pocket so NE/NW seated guests nestle cleanly on the cushion)
+    {
+      y: iso.floorY(0.8, 0),
+      draw: () => {
+        iso.drawSlab(iso.boxPts(-7.0, 8.2, -7.8, 7.8), 2.0, 7.6, seatPal);
+        if (isFront) {
+          // Warm gold-amber lumbar accent pillow nestled against backrest
+          iso.drawSlab(iso.boxPts(-5.4, -2.6, -4.4, 4.4), 7.6, 10.0, {
+            top: '#ffd166',
+            sideLit: '#e0ad3e',
+            sideMid: '#ba8b25',
+            sideDark: '#8c6514',
+            outline: '#2e2005',
+          });
+        }
+      },
+    },
+    // Left rolled armrest
+    {
+      y: iso.floorY(-0.2, -8.4),
+      draw: () => {
+        iso.drawSlab(iso.boxPts(-8.6, 7.4, -10.0, -6.6), 2.4, 11.2, bolsterPal);
+      },
+    },
+    // Right rolled armrest
+    {
+      y: iso.floorY(-0.2, 8.4),
+      draw: () => {
+        iso.drawSlab(iso.boxPts(-8.6, 7.4, 6.6, 10.0), 2.4, 11.2, bolsterPal);
+      },
+    },
+    // Reclined button-tufted backrest at -f (tucked slightly back on NE/NW so seated spine sits cleanly in cushion)
+    {
+      y: iso.floorY(isFront ? -7.6 : -8.8, 0),
+      draw: () => {
+        const backF0 = isFront ? -9.6 : -10.6;
+        const backF1 = isFront ? -5.6 : -6.8;
+        const backTop = isFront ? 16.0 : 14.2;
+        iso.drawSlab(iso.boxPts(backF0, backF1, -9.4, 9.4), 2.6, backTop, bolsterPal);
+        if (isFront) {
+          for (const tr of [-4.2, 0, 4.2]) {
+            const pTuft = iso.pt(-5.55, tr, 12.6);
+            ctx.fillStyle = '#5c1828';
+            pxRect(ctx, pTuft.x - 0.8 * z, pTuft.y - 0.8 * z, 1.6 * z, 1.6 * z);
+          }
+        } else {
+          // Tailored rear upholstery seam + brass piping strip when seen from behind (NE/NW)
+          iso.fillVertQuad(backF0 - 0.06, -6.8, backF0 - 0.06, 6.8, 6.0, 6.7, '#d9ab42');
+        }
+      },
+    },
+  ];
+
+  parts.sort((a, b) => a.y - b.y);
+  for (const part of parts) part.draw();
+}
+
 /**
  * Renders high-craft 2.5D office furniture, tech racks, smartboards, partitions,
  * hospitality stations, and all 5 custom mini-room fixtures.
@@ -2478,12 +3484,13 @@ export function drawEnhancedFurniture(
   isHovered = false,
   whiteboardLabel = 'SWARM BOARD',
   deskLevel = 1,
-  facing: ChairFacing = 'SE',
+  facing?: ChairFacing,
   colorIndex?: number,
 ): void {
   const z = zoom;
   const cx = sx;
   const cy = sy;
+  const chairOrPropFacing: ChairFacing = facing ?? 'SE';
   const modelAccent = MODEL_ACCENT_COLORS[occupierModelFamily] ?? '#5cf0ff';
 
   ctx.save();
@@ -2493,125 +3500,25 @@ export function drawEnhancedFurniture(
     return;
   }
 
-  if (kind === 'desk' || kind === 'dev_desk' || kind === 'qa_desk' || kind === 'exec_desk') {
-    const isExec = kind === 'exec_desk';
-    const isQa = kind === 'qa_desk';
-    const w = isExec ? 24 : isQa ? 21 : 22;
-    const d = isExec ? 12 : isQa ? 10.5 : 11;
-
-    drawFloorShadow(ctx, cx, cy, w + 2, d + 1.5, z, 0.3);
-
-    // Recessed dark modesty front skirt & steel legs underneath beveled desktop
-    drawBox(ctx, cx, cy, w - 2, d - 1.5, 7, '#252c3d', '#1d2333', '#141824', z, '');
-    // Thick beveled wood desktop slab (kept at total height 10*z so seated faces stay unobstructed)
-    const topCol = isExec ? '#a35632' : isQa ? '#cfba9e' : '#d8b890';
-    const leftCol = isExec ? '#7a3c1f' : isQa ? '#a18c73' : '#a88963';
-    const rightCol = isExec ? '#592913' : isQa ? '#786652' : '#806647';
-    drawBox(
+  if (
+    kind === 'desk' ||
+    kind === 'dev_desk' ||
+    kind === 'clover_desk' ||
+    kind === 'qa_desk' ||
+    kind === 'exec_desk'
+  ) {
+    drawOrientedWorkstation(
       ctx,
-      cx,
-      cy - 7 * z,
-      w,
-      d,
-      3.2,
-      topCol,
-      leftCol,
-      rightCol,
-      z,
-      'rgba(255, 248, 228, 0.32)',
-    );
-
-    // Cable management grommet & rear cable channel spine
-    ctx.fillStyle = '#181d2b';
-    pxRect(ctx, cx - 3 * z, cy - 14.5 * z, 6 * z, 2 * z);
-    ctx.fillStyle = '#2d364d';
-    pxRect(ctx, cx - 1 * z, cy - 13 * z, 2 * z, 3 * z);
-
-    // Extended dark desk mat / mousepad + mechanical keyboard + mouse
-    ctx.fillStyle = '#202738';
-    pxRect(ctx, cx - 9.5 * z, cy - 10.5 * z, 15.5 * z, 4 * z);
-    ctx.fillStyle = '#121622';
-    pxRect(ctx, cx - 8 * z, cy - 10 * z, 10 * z, 2.8 * z);
-    ctx.fillStyle = isOccupied ? modelAccent : '#4a5878';
-    pxRect(ctx, cx - 7 * z, cy - 9.3 * z, 8 * z, 1 * z);
-    ctx.fillStyle = '#cbd5e8';
-    pxRect(ctx, cx + 3.5 * z, cy - 9.8 * z, 1.8 * z, 2.2 * z);
-
-    // Ceramic coffee mug on desk corner
-    ctx.fillStyle = isExec ? '#ffd147' : '#f2f5fc';
-    pxRect(ctx, cx + 8.5 * z, cy - 12 * z, 3.2 * z, 3.2 * z);
-    ctx.fillStyle = '#6e381d';
-    pxRect(ctx, cx + 9.1 * z, cy - 12 * z, 2 * z, 1 * z);
-
-    if (isExec) {
-      // Executive command monitor + golden desk blotter trim
-      ctx.fillStyle = '#ffd147';
-      pxRect(ctx, cx - 5 * z, cy - 6.2 * z, 10 * z, 1.5 * z);
-      drawBox(ctx, cx + 6 * z, cy - 10.2 * z, 7.5, 4, 5.5, '#344163', '#202840', '#151a2b', z);
-      ctx.fillStyle = isOccupied ? modelAccent : '#5cf0ff';
-      pxRect(ctx, cx + 2.5 * z, cy - 17.5 * z, 7.5 * z, 4.5 * z);
-    } else if (isQa) {
-      // Dual-bezel QA diagnostic monitor + syntax/test bars
-      if (night && isOccupied) {
-        ctx.fillStyle = 'rgba(255, 190, 59, 0.16)';
-        pxRect(ctx, cx + 2 * z, cy - 25 * z, 15 * z, 12 * z);
-      }
-      ctx.fillStyle = '#121622';
-      pxRect(ctx, cx + 3.5 * z, cy - 23.5 * z, 12.5 * z, 9.5 * z);
-      ctx.fillStyle = isOccupied ? '#1c2b42' : '#1b2336';
-      pxRect(ctx, cx + 5 * z, cy - 22 * z, 9.5 * z, 6.5 * z);
-      ctx.fillStyle = isOccupied ? '#3be87a' : '#3a4b6e';
-      pxRect(ctx, cx + 6 * z, cy - 20.8 * z, 6.5 * z, 1.4 * z);
-      ctx.fillStyle = isOccupied ? '#ffbe3b' : '#2e3c59';
-      pxRect(ctx, cx + 6 * z, cy - 18.6 * z, 5 * z, 1.4 * z);
-    } else {
-      // Dual angled widescreen coding monitors with syntax-highlighted pixel code lines
-      if (night && isOccupied) {
-        ctx.fillStyle = 'rgba(60, 216, 255, 0.15)';
-        pxRect(ctx, cx - 17 * z, cy - 25 * z, 34 * z, 12 * z);
-      }
-      // Monitor stands
-      ctx.fillStyle = '#252d40';
-      pxRect(ctx, cx - 11 * z, cy - 14.5 * z, 2.2 * z, 2.5 * z);
-      pxRect(ctx, cx + 8.8 * z, cy - 14.5 * z, 2.2 * z, 2.5 * z);
-
-      // Left & right monitor bezels
-      ctx.fillStyle = '#111521';
-      pxRect(ctx, cx - 15.5 * z, cy - 23.5 * z, 11 * z, 9.5 * z);
-      pxRect(ctx, cx + 4.5 * z, cy - 23.5 * z, 11 * z, 9.5 * z);
-
-      // Screen backgrounds
-      const screenBg = isOccupied ? '#132038' : '#1a2234';
-      ctx.fillStyle = screenBg;
-      pxRect(ctx, cx - 14 * z, cy - 22 * z, 8 * z, 6.5 * z);
-      pxRect(ctx, cx + 6 * z, cy - 22 * z, 8 * z, 6.5 * z);
-
-      // Syntax-highlighted code lines
-      const pulse = Math.sin(timeSec * 7) > 0;
-      ctx.fillStyle = isOccupied ? modelAccent : '#334463';
-      pxRect(ctx, cx - 13.2 * z, cy - 21 * z, 5.5 * z, 1.2 * z);
-      ctx.fillStyle = isOccupied ? (pulse ? '#3be87a' : '#3cd8ff') : '#293752';
-      pxRect(ctx, cx - 12.5 * z, cy - 19.2 * z, 4.5 * z, 1.2 * z);
-      ctx.fillStyle = isOccupied ? '#ffd147' : '#293752';
-      pxRect(ctx, cx - 13.2 * z, cy - 17.4 * z, 6 * z, 1.1 * z);
-
-      ctx.fillStyle = isOccupied ? '#ff7eb9' : '#334463';
-      pxRect(ctx, cx + 6.8 * z, cy - 21 * z, 5 * z, 1.2 * z);
-      ctx.fillStyle = isOccupied ? (pulse ? '#3cd8ff' : '#3be87a') : '#293752';
-      pxRect(ctx, cx + 7.4 * z, cy - 19.2 * z, 5.5 * z, 1.2 * z);
-      ctx.fillStyle = isOccupied ? modelAccent : '#293752';
-      pxRect(ctx, cx + 6.8 * z, cy - 17.4 * z, 4 * z, 1.1 * z);
-    }
-
-    drawDeskEvolutionExtras(
-      ctx,
-      kind === 'desk' ? 'dev_desk' : kind,
+      kind,
       cx,
       cy,
       z,
       timeSec,
+      night,
       isOccupied,
+      modelAccent,
       deskLevel,
+      facing,
     );
   } else if (
     kind === 'chair' ||
@@ -2622,7 +3529,7 @@ export function drawEnhancedFurniture(
   ) {
     const chairVariant: ChairVariant =
       kind === 'exec_chair' ? 'exec' : kind === 'meeting_chair' ? 'meeting' : 'task';
-    drawErgonomicOfficeChair(ctx, cx, cy, z, chairVariant, facing, modelAccent);
+    drawErgonomicOfficeChair(ctx, cx, cy, z, chairVariant, chairOrPropFacing, modelAccent);
   } else if (
     kind === 'gaming_seat' ||
     kind === 'beanbag' ||
@@ -2630,11 +3537,12 @@ export function drawEnhancedFurniture(
     kind.startsWith('gaming_seat_')
   ) {
     const bagColor = resolveBeanbagColorVariant(ctx, kind, sx, sy, timeSec, colorIndex);
-    drawPlushBeanbag(ctx, cx, cy, z, facing, bagColor);
-  } else if (kind === 'sofa' || kind === 'sofa_l' || kind === 'sofa_r' || kind === 'armchair') {
-    const isArm = kind === 'armchair';
-    const w = isArm ? 15.5 : 20.5;
-    const d = isArm ? 10 : 11;
+    drawPlushBeanbag(ctx, cx, cy, z, chairOrPropFacing, bagColor);
+  } else if (kind === 'armchair') {
+    drawDirectionalArmchair(ctx, cx, cy, z, facing);
+  } else if (kind === 'sofa' || kind === 'sofa_l' || kind === 'sofa_r') {
+    const w = 20.5;
+    const d = 11;
     drawFloorShadow(ctx, cx, cy, w + 1.5, d + 1.5, z, 0.28);
 
     // Tapered oak feet
@@ -2643,25 +3551,85 @@ export function drawEnhancedFurniture(
     pxRect(ctx, cx + (w - 6) * z, cy + 1 * z, 2 * z, 2.2 * z);
 
     // Plush seat deck, side bolsters & tufted backrest
-    const topC = isArm ? '#c25170' : '#cc4b5e';
-    const leftC = isArm ? '#8f344d' : '#963040';
-    const rightC = isArm ? '#662235' : '#6b1f2b';
-    drawBox(ctx, cx, cy - 1 * z, w, d, 8.5, topC, leftC, rightC, z);
-    // Side armrests
+    drawBox(ctx, cx, cy - 1 * z, w, d, 8.5, '#cc4b5e', '#963040', '#6b1f2b', z);
     drawBox(ctx, cx - (w - 4.5) * z, cy - 5 * z, 4, d * 0.72, 5.5, '#d96277', '#a1384a', '#732331', z);
     drawBox(ctx, cx + (w - 5.5) * z, cy - 3 * z, 4, d * 0.72, 5.5, '#d96277', '#a1384a', '#732331', z);
-    // Tufted high backrest
     drawBox(ctx, cx - 3.5 * z, cy - 9.5 * z, w - 4, 4.2, 9, '#de6276', '#a83a4c', '#7a2533', z);
 
     // Button-tuft dimples & accent throw cushion
     ctx.fillStyle = '#611b27';
     pxRect(ctx, cx - 7 * z, cy - 14.5 * z, 1.6 * z, 1.6 * z);
     pxRect(ctx, cx - 1.5 * z, cy - 13.5 * z, 1.6 * z, 1.6 * z);
-    if (!isArm) {
-      pxRect(ctx, cx + 4 * z, cy - 12.5 * z, 1.6 * z, 1.6 * z);
-      ctx.fillStyle = '#ffd166';
-      pxRect(ctx, cx + 5 * z, cy - 12 * z, 4.5 * z, 4 * z);
-    }
+    pxRect(ctx, cx + 4 * z, cy - 12.5 * z, 1.6 * z, 1.6 * z);
+    ctx.fillStyle = '#ffd166';
+    pxRect(ctx, cx + 5 * z, cy - 12 * z, 4.5 * z, 4 * z);
+  } else if (kind === 'exec_coffee_table') {
+    // Luxury CEO Visitor Coffee Table (Walnut, Brushed Brass & Smoked Emperador Marble — never overwritten by gaming/pizza props!)
+    drawFloorShadow(ctx, cx, cy, 17.5, 10.2, z, 0.3);
+
+    // Brushed-brass & dark-walnut architectural legs + lower lookbook shelf
+    ctx.fillStyle = '#b88b2e';
+    pxRect(ctx, cx - 12.8 * z, cy - 5.2 * z, 1.8 * z, 6.4 * z);
+    pxRect(ctx, cx + 11.0 * z, cy - 5.2 * z, 1.8 * z, 6.4 * z);
+    pxRect(ctx, cx - 0.9 * z, cy + 1.2 * z, 1.8 * z, 4.0 * z);
+    drawBox(ctx, cx, cy - 1.4 * z, 14.2, 8.0, 2.0, '#6e3a1f', '#4f2814', '#361a0c', z);
+
+    // Leather-bound architectural folio on lower walnut shelf
+    ctx.fillStyle = '#d9ab42';
+    pxRect(ctx, cx - 4.8 * z, cy - 4.8 * z, 5.2 * z, 1.3 * z);
+    ctx.fillStyle = '#f5efe2';
+    pxRect(ctx, cx + 1.0 * z, cy - 4.6 * z, 4.4 * z, 1.2 * z);
+
+    // Beveled walnut & smoked-bronze marble tabletop with brushed-gold rim
+    drawBox(
+      ctx,
+      cx,
+      cy - 6.4 * z,
+      16.6,
+      9.4,
+      2.3,
+      '#8f4926',
+      '#693318',
+      '#47210e',
+      z,
+      'rgba(245, 208, 107, 0.48)',
+    );
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - 15.0 * z);
+    ctx.lineTo(cx + 13.0 * z, cy - 11.0 * z);
+    ctx.lineTo(cx, cy - 7.0 * z);
+    ctx.lineTo(cx - 13.0 * z, cy - 11.0 * z);
+    ctx.closePath();
+    ctx.fillStyle = '#241b18';
+    ctx.fill();
+
+    // Subtle marble gold/cream veining streak
+    ctx.strokeStyle = 'rgba(242, 214, 150, 0.36)';
+    ctx.lineWidth = Math.max(0.85, 1.0 * z);
+    ctx.beginPath();
+    ctx.moveTo(cx - 7.5 * z, cy - 10.6 * z);
+    ctx.lineTo(cx - 1.2 * z, cy - 13.2 * z);
+    ctx.moveTo(cx + 0.8 * z, cy - 9.4 * z);
+    ctx.lineTo(cx + 6.4 * z, cy - 11.8 * z);
+    ctx.stroke();
+
+    // Brushed-brass hospitality tray + crystal water carafe + 2 porcelain visitor espresso cups
+    ctx.fillStyle = '#d4a638';
+    pxRect(ctx, cx - 5.6 * z, cy - 12.6 * z, 8.2 * z, 3.2 * z);
+    ctx.fillStyle = '#1b1614';
+    pxRect(ctx, cx - 4.8 * z, cy - 12.1 * z, 6.6 * z, 2.2 * z);
+    // Crystal carafe
+    ctx.fillStyle = '#9ee8ff';
+    pxRect(ctx, cx - 1.6 * z, cy - 15.6 * z, 2.4 * z, 3.8 * z);
+    ctx.fillStyle = '#e8fbff';
+    pxRect(ctx, cx - 1.1 * z, cy - 16.4 * z, 1.4 * z, 1.2 * z);
+    // Two facing guest porcelain espresso cups
+    ctx.fillStyle = '#fffdf5';
+    pxRect(ctx, cx - 4.4 * z, cy - 13.8 * z, 2.0 * z, 2.0 * z);
+    pxRect(ctx, cx + 3.8 * z, cy - 12.4 * z, 2.0 * z, 2.0 * z);
+    ctx.fillStyle = '#6e381d';
+    pxRect(ctx, cx - 4.0 * z, cy - 13.7 * z, 1.2 * z, 0.7 * z);
+    pxRect(ctx, cx + 4.2 * z, cy - 12.3 * z, 1.2 * z, 0.7 * z);
   } else if (kind === 'coffee_table' || kind === 'lounge_table' || kind === 'gaming_table') {
     drawFloorShadow(ctx, cx, cy, 18.2, 10.6, z, 0.3);
 
@@ -3805,10 +4773,11 @@ export function drawOfficeDog(
 export type ToolBubbleKind = 'reading' | 'writing' | 'testing' | 'searching' | 'error';
 
 /**
- * Draws XP/level-based desk upgrades on top of dev_desk, qa_desk, or exec_desk:
- * - Lv3+: Dual monitor upgrade
+ * Draws XP/level-based desk upgrades on top of dev_desk, clover_desk, qa_desk, or exec_desk
+ * across all 4 cardinal/isometric orientations (`NE`, `NW`, `SE`, `SW`):
+ * - Lv3+: Dual monitor / ultrawide telemetry upgrade
  * - Lv5+: Desk succulent plant & steaming coffee mug
- * - Lv8+: Gold mechanical keyboard & golden trophy
+ * - Lv8+: 24k-gold mechanical keyboard & golden trophy
  */
 export function drawDeskEvolutionExtras(
   ctx: CanvasRenderingContext2D,
@@ -3819,58 +4788,104 @@ export function drawDeskEvolutionExtras(
   timeSec: number,
   isOccupied: boolean,
   level: number,
+  facing: ChairFacing = 'NE',
 ): void {
   if (level < 3) return;
   const z = zoom;
+  const isExec = kind === 'exec_desk';
+  const isQa = kind === 'qa_desk';
+  const dir = normalizeCardFacing(facing, isExec ? 'SE' : 'NE');
+  const isMonitorFront = dir === 'NE' || dir === 'NW';
+  const iso = createCardIsoPainter(ctx, cx, cy, z, dir);
+  const hTop = isExec ? 11.6 : 11.2;
 
-  // Lv3+: Dual monitor (qa_desk & exec_desk get a second left monitor; dev_desk gets an ultrawide top bar)
-  if (kind === 'qa_desk' || kind === 'exec_desk') {
-    const mx = kind === 'exec_desk' ? cx - 15 * z : cx - 13 * z;
-    const my = cy - 23 * z;
-    ctx.fillStyle = '#141824';
-    pxRect(ctx, mx, my, 11 * z, 9 * z);
-    ctx.fillStyle = isOccupied ? '#3cd8ff' : '#243147';
-    pxRect(ctx, mx + 2 * z, my + 2 * z, 7 * z, 5 * z);
-  } else if (kind === 'dev_desk') {
-    ctx.fillStyle = isOccupied ? '#3be87a' : '#2a3954';
-    pxRect(ctx, cx - 13 * z, cy - 24.5 * z, 6 * z, 1.2 * z);
-    pxRect(ctx, cx + 7 * z, cy - 24.5 * z, 6 * z, 1.2 * z);
+  ctx.save();
+
+  // Lv3+: Secondary companion display / monitor lightbar upgrade
+  if (isQa) {
+    const mTop = isMonitorFront ? hTop + 7.6 : hTop + 5.4;
+    iso.drawSlab(iso.boxPts(4.8, 5.9, 4.4, 11.4), hTop + 1.1, mTop, {
+      top: '#2a3347',
+      sideLit: '#1e2536',
+      sideMid: '#151a26',
+      sideDark: '#0e121b',
+      outline: '#090c14',
+    });
+    if (isMonitorFront) {
+      iso.fillVertQuad(4.74, 5.2, 4.74, 10.6, hTop + 1.8, mTop - 0.7, isOccupied ? '#152840' : '#1b2336');
+      iso.fillVertQuad(
+        4.7,
+        5.8,
+        4.7,
+        10.0,
+        mTop - 2.2,
+        mTop - 1.2,
+        isOccupied ? '#3cd8ff' : '#2f415e',
+      );
+    } else {
+      iso.fillVertQuad(5.96, 5.8, 5.96, 10.0, hTop + 3.2, hTop + 3.9, isOccupied ? '#3cd8ff' : '#475675');
+    }
+  } else if (isExec) {
+    // Sleek low-profile brass-trimmed market ticker module on inner left wing (never enters central face sightline!)
+    iso.drawSlab(iso.boxPts(2.4, 3.8, -16.8, -11.6), hTop, hTop + 2.4, {
+      top: '#293247',
+      sideLit: '#c9a24b',
+      sideMid: '#1a2030',
+      sideDark: '#101420',
+      outline: '#090c14',
+    });
+    const pTick = iso.pt(3.1, -14.2, hTop + 2.45);
+    ctx.fillStyle = isOccupied ? '#3cd8ff' : '#3a4c6e';
+    pxRect(ctx, pTick.x - 1.8 * z, pTick.y - 0.5 * z, 3.6 * z, 0.9 * z);
+  } else {
+    // Ultrawide status lightbars perched atop both left & right coding monitors
+    const barH = (isMonitorFront ? hTop + 8.6 : hTop + 5.8) + 0.08;
+    const barCol = isOccupied ? '#3be87a' : '#2a3954';
+    iso.fillPoly(iso.boxPts(4.8, 5.8, -9.8, -2.8), barH, barCol);
+    iso.fillPoly(iso.boxPts(4.8, 5.8, 2.8, 9.8), barH, barCol);
   }
 
-  // Lv5+: Mini desk plant (left corner) & steaming mug (right corner)
+  // Lv5+: Mini terracotta succulent pot (-r corner) & warm rising steam wisps above mug
   if (level >= 5) {
+    const pPlant = iso.pt(3.4, isExec ? -16.8 : -11.6, hTop);
     ctx.fillStyle = '#a65c3a';
-    pxRect(ctx, cx - 19 * z, cy - 13 * z, 5 * z, 4 * z);
+    pxRect(ctx, pPlant.x - 2.1 * z, pPlant.y - 2.8 * z, 4.2 * z, 2.8 * z);
     ctx.fillStyle = '#3be87a';
-    pxRect(ctx, cx - 20 * z, cy - 17 * z, 7 * z, 4 * z);
+    pxRect(ctx, pPlant.x - 2.8 * z, pPlant.y - 5.6 * z, 5.6 * z, 3.0 * z);
     ctx.fillStyle = '#7efaa8';
-    pxRect(ctx, cx - 18 * z, cy - 19 * z, 3 * z, 2 * z);
+    pxRect(ctx, pPlant.x - 1.4 * z, pPlant.y - 7.0 * z, 2.8 * z, 1.6 * z);
 
-    ctx.fillStyle = '#f4f6fc';
-    pxRect(ctx, cx + 12 * z, cy - 13 * z, 4 * z, 4 * z);
-    ctx.fillStyle = '#73381d';
-    pxRect(ctx, cx + 13 * z, cy - 13 * z, 2 * z, 1 * z);
-    const steamY = cy - (15 + ((timeSec * 4) % 4)) * z;
-    ctx.fillStyle = 'rgba(220, 240, 255, 0.7)';
-    pxRect(ctx, cx + 13 * z, steamY, 2 * z, 2 * z);
+    const pMug = iso.pt(-5.6, isExec ? 12.2 : -10.8, hTop + 3.4);
+    const steamDrift = ((timeSec * 4) % 3.6) * z;
+    ctx.fillStyle = 'rgba(220, 240, 255, 0.72)';
+    pxRect(ctx, pMug.x - 0.9 * z, pMug.y - 1.8 * z - steamDrift, 1.8 * z, 1.8 * z);
   }
 
-  // Lv8+: Gold mechanical keyboard & golden trophy
+  // Lv8+: Shimmering 24k-gold mechanical keyboard & golden prestige trophy (+r corner)
   if (level >= 8) {
     const shimmer = Math.sin(timeSec * 4) > 0.3 ? '#fff3a1' : '#ffd147';
-    ctx.fillStyle = '#b8860b';
-    pxRect(ctx, cx - 7 * z, cy - 10 * z, 10 * z, 3 * z);
-    ctx.fillStyle = shimmer;
-    pxRect(ctx, cx - 6 * z, cy - 9 * z, 8 * z, 1 * z);
+    iso.fillPoly(
+      iso.boxPts(isExec ? -10.2 : -9.4, isExec ? -7.0 : -5.6, -5.8, 3.0),
+      hTop + 0.2,
+      '#b8860b',
+    );
+    iso.fillPoly(
+      iso.boxPts(isExec ? -9.5 : -8.6, isExec ? -7.6 : -6.6, -5.0, 2.2),
+      hTop + 0.25,
+      shimmer,
+    );
 
+    const pTrophy = iso.pt(2.6, isExec ? 16.4 : 11.2, hTop);
     ctx.fillStyle = '#8c6211';
-    pxRect(ctx, cx + 15 * z, cy - 11 * z, 4 * z, 2 * z);
+    pxRect(ctx, pTrophy.x - 1.9 * z, pTrophy.y - 1.6 * z, 3.8 * z, 1.6 * z);
     ctx.fillStyle = '#ffd147';
-    pxRect(ctx, cx + 16 * z, cy - 15 * z, 2 * z, 4 * z);
-    pxRect(ctx, cx + 14 * z, cy - 18 * z, 6 * z, 3 * z);
+    pxRect(ctx, pTrophy.x - 0.9 * z, pTrophy.y - 4.4 * z, 1.8 * z, 2.9 * z);
+    pxRect(ctx, pTrophy.x - 2.6 * z, pTrophy.y - 6.8 * z, 5.2 * z, 2.6 * z);
     ctx.fillStyle = shimmer;
-    pxRect(ctx, cx + 15 * z, cy - 18 * z, 2 * z, 2 * z);
+    pxRect(ctx, pTrophy.x - 1.2 * z, pTrophy.y - 6.5 * z, 1.8 * z, 1.6 * z);
   }
+
+  ctx.restore();
 }
 
 /**
@@ -3999,8 +5014,9 @@ export function drawMentionEnvelope(
 }
 
 /**
- * Draws a gleaming miniature golden verified trophy & emerald seal on the upper-left
- * corner of a desk when its assigned agent has verified task output (`isVerifiedOutput`).
+ * Draws a gleaming miniature golden verified trophy & emerald seal on the flank
+ * corner of a desk when its assigned agent has verified task output (`isVerifiedOutput`),
+ * rotating cleanly with `facing` (`NE` | `NW` | `SE` | `SW`).
  */
 export function drawDeskVerifiedTrophy(
   ctx: CanvasRenderingContext2D,
@@ -4008,10 +5024,16 @@ export function drawDeskVerifiedTrophy(
   sy: number,
   zoom: number,
   timeSec: number,
+  facing: ChairFacing = 'NE',
 ): void {
   const z = zoom;
-  const tx = sx - 13.5 * z;
-  const ty = sy - 10.5 * z;
+  const dir = normalizeCardFacing(facing, 'NE');
+  const { fwd, right } = getCardIsoBasis(dir);
+  const fLocal = 0.6;
+  const rLocal = -11.6;
+  const hLocal = 11.4;
+  const tx = sx + (fLocal * fwd.x + rLocal * right.x) * z;
+  const ty = sy + (fLocal * fwd.y + rLocal * right.y - hLocal) * z;
   const shimmer = Math.sin(timeSec * 3.6) > 0.25;
 
   ctx.save();

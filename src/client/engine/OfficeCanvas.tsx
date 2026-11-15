@@ -108,7 +108,7 @@ interface TeleportEffect {
 }
 
 const WALK_SPEED_TILES_PER_SEC = 3.2;
-const WORK_DESK_KINDS = new Set(['dev_desk', 'qa_desk', 'exec_desk', 'desk']);
+const WORK_DESK_KINDS = new Set(['dev_desk', 'qa_desk', 'exec_desk', 'clover_desk', 'desk']);
 const WORK_CHAIR_KINDS = new Set(['desk_chair', 'exec_chair', 'swivel_chair', 'chair']);
 const DESK_SEAT_DISTANCE = 0.72;
 const CHAIR_MODEL_ACCENTS: Record<string, string> = {
@@ -152,23 +152,40 @@ interface DeskSeatAlignment {
 
 interface LayoutSeatAlignments {
   deskSeatMap: Map<string, DeskSeatAlignment>;
+  deskToSeatMap: Map<string, string>;
+  deskFacingMap: Map<string, Facing>;
   meetingSeatMap: Map<string, DeskSeatAlignment>;
   chairFacingMap: Map<string, Facing>;
   explicitChairVariantMap: Map<string, ChairVariant>;
   explicitWorkChairKeys: Set<string>;
+  armchairKeys: Set<string>;
   beanbagKeys: Set<string>;
   confTableDepth: number | null;
 }
 
 function buildLayoutSeatAlignments(layout: FloorLayout): LayoutSeatAlignments {
   const deskSeatMap = new Map<string, DeskSeatAlignment>();
+  const deskToSeatMap = new Map<string, string>();
+  const deskFacingMap = new Map<string, Facing>();
   const meetingSeatMap = new Map<string, DeskSeatAlignment>();
   const chairFacingMap = new Map<string, Facing>();
   const explicitChairVariantMap = new Map<string, ChairVariant>();
   const explicitWorkChairKeys = new Set<string>();
+  const armchairKeys = new Set<string>();
   const beanbagKeys = new Set<string>();
 
   const workDesks = layout.furniture.filter((f) => WORK_DESK_KINDS.has(f.kind));
+  for (const d of workDesks) {
+    if (d.facing) {
+      deskFacingMap.set(`${d.gx},${d.gy}`, d.facing);
+    }
+  }
+  for (const item of layout.furniture) {
+    if (item.kind === 'armchair') {
+      armchairKeys.add(`${item.gx},${item.gy}`);
+    }
+  }
+
   const warTables = layout.furniture.filter((f) => isConferenceTableKind(f.kind));
   const confTableDepth =
     warTables.length > 0
@@ -185,22 +202,41 @@ function buildLayoutSeatAlignments(layout: FloorLayout): LayoutSeatAlignments {
   const tvConsoles = layout.furniture.filter(
     (f) => f.kind === 'tv_console' || f.kind === 'gaming_tv',
   );
+  const loungeTables = layout.furniture.filter(
+    (f) =>
+      f.kind === 'lounge_table' ||
+      f.kind === 'library_table' ||
+      f.kind === 'exec_coffee_table' ||
+      f.kind === 'coffee_table',
+  );
+
+  const seatHintFacingMap = new Map<string, Facing>();
+  for (const slot of [
+    ...layout.zoneSlots.DESK_ARCHITECT,
+    ...layout.zoneSlots.DESK_CODING,
+    ...layout.zoneSlots.DESK_QA,
+  ]) {
+    seatHintFacingMap.set(`${slot.gx},${slot.gy}`, slot.facing);
+  }
 
   const candidateSeats: Array<{ gx: number; gy: number }> = [];
   const seenCandidates = new Set<string>();
   const pushCandidate = (gx: number, gy: number) => {
     const k = `${gx},${gy}`;
-    if (seenCandidates.has(k)) return;
+    if (seenCandidates.has(k) || armchairKeys.has(k)) return;
     seenCandidates.add(k);
     candidateSeats.push({ gx, gy });
   };
 
-  // Prioritize explicit work chairs first (orthogonal before diagonal), then desk zone slots
+  // Prioritize explicit work chairs first, then desk zone slots (excluding guest armchairs)
   const workChairItems = layout.furniture.filter((f) => WORK_CHAIR_KINDS.has(f.kind));
   for (const item of workChairItems) {
     const ck = `${item.gx},${item.gy}`;
     explicitWorkChairKeys.add(ck);
     explicitChairVariantMap.set(ck, item.kind === 'exec_chair' ? 'exec' : 'task');
+    if (item.facing) {
+      seatHintFacingMap.set(ck, item.facing);
+    }
   }
   const sortedChairItems = [...workChairItems].sort((a, b) => {
     const minA = Math.min(...workDesks.map((d) => Math.hypot(d.gx - a.gx, d.gy - a.gy)), 99);
@@ -220,7 +256,9 @@ function buildLayoutSeatAlignments(layout: FloorLayout): LayoutSeatAlignments {
 
   const claimedDesks = new Set<string>();
   for (const seat of candidateSeats) {
-    let bestDesk: { gx: number; gy: number } | null = null;
+    const seatKey = `${seat.gx},${seat.gy}`;
+    const expectedFacing = seatHintFacingMap.get(seatKey);
+    let bestDesk: (typeof workDesks)[number] | null = null;
     let bestScore = Infinity;
 
     for (const desk of workDesks) {
@@ -230,10 +268,12 @@ function buildLayoutSeatAlignments(layout: FloorLayout): LayoutSeatAlignments {
       if (dist < 0.05 || dist > 1.48) continue;
 
       const deskKey = `${desk.gx},${desk.gy}`;
-      const claimedPenalty = claimedDesks.has(deskKey) ? 0.55 : 0;
-      // Prefer desks directly north-east (dy === -1, dx === 0) on exact distance ties
-      const dirBias = dx === 0 && dy === -1 ? -0.02 : 0;
-      const score = dist + claimedPenalty + dirBias;
+      const candidateFacing = facingFromDelta(dx, dy, 'SE');
+      const claimedPenalty = claimedDesks.has(deskKey) ? 4.0 : 0;
+      const diagonalPenalty = dist > 1.05 ? 1.2 : 0;
+      const deskMatchBonus = desk.facing && desk.facing === candidateFacing ? -2.5 : 0;
+      const seatMatchBonus = expectedFacing && expectedFacing === candidateFacing ? -2.5 : 0;
+      const score = dist + claimedPenalty + diagonalPenalty + deskMatchBonus + seatMatchBonus;
       if (score < bestScore) {
         bestScore = score;
         bestDesk = desk;
@@ -241,7 +281,8 @@ function buildLayoutSeatAlignments(layout: FloorLayout): LayoutSeatAlignments {
     }
 
     if (!bestDesk) continue;
-    claimedDesks.add(`${bestDesk.gx},${bestDesk.gy}`);
+    const bestDeskKey = `${bestDesk.gx},${bestDesk.gy}`;
+    claimedDesks.add(bestDeskKey);
 
     const dx = bestDesk.gx - seat.gx;
     const dy = bestDesk.gy - seat.gy;
@@ -250,13 +291,13 @@ function buildLayoutSeatAlignments(layout: FloorLayout): LayoutSeatAlignments {
     const seatGy = bestDesk.gy - (dy / dist) * DESK_SEAT_DISTANCE;
     const deskDepth = bestDesk.gx + bestDesk.gy;
     const seatDepth = seatGx + seatGy;
-    const deskFacing = facingFromDelta(dx, dy, 'SE');
+    const deskFacing = bestDesk.facing ?? facingFromDelta(dx, dy, 'SE');
     const isBehindDesk = seat.gx + seat.gy < deskDepth;
 
     let chairDepth: number;
     let empDepth: number;
     if (isBehindDesk) {
-      // NW / NE behind desk: chair -> employee (seatX + seatY) -> desk occludes knees/lower legs
+      // SW / SE behind desk (face visible toward camera): chair -> employee -> desk in front
       empDepth = Math.min(deskDepth - 0.06, seatDepth);
       chairDepth = empDepth - 0.04;
     } else if (seatDepth <= deskDepth + 0.06) {
@@ -264,12 +305,11 @@ function buildLayoutSeatAlignments(layout: FloorLayout): LayoutSeatAlignments {
       chairDepth = deskDepth + 0.03;
       empDepth = deskDepth + 0.07;
     } else {
-      // SW / SE in front of desk: desk -> chair -> employee centered on cushion
+      // NE / NW in front of desk: desk -> chair cushion -> employee -> foreground backrest
       empDepth = seatDepth;
       chairDepth = empDepth - 0.04;
     }
 
-    const seatKey = `${seat.gx},${seat.gy}`;
     deskSeatMap.set(seatKey, {
       deskGx: bestDesk.gx,
       deskGy: bestDesk.gy,
@@ -280,6 +320,8 @@ function buildLayoutSeatAlignments(layout: FloorLayout): LayoutSeatAlignments {
       chairDepth,
       empDepth,
     });
+    deskToSeatMap.set(bestDeskKey, seatKey);
+    deskFacingMap.set(bestDeskKey, deskFacing);
     chairFacingMap.set(seatKey, deskFacing);
   }
 
@@ -345,17 +387,41 @@ function buildLayoutSeatAlignments(layout: FloorLayout): LayoutSeatAlignments {
           );
         }
       }
-    } else if (item.facing) {
+    } else if (item.kind === 'armchair') {
+      const armKey = `${item.gx},${item.gy}`;
+      if (item.facing) {
+        chairFacingMap.set(armKey, item.facing);
+      } else if (loungeTables.length > 0) {
+        let bestTbl: { gx: number; gy: number } | null = null;
+        let bestD = 2.6;
+        for (const tbl of loungeTables) {
+          const d = Math.hypot(tbl.gx - item.gx, tbl.gy - item.gy);
+          if (d < bestD) {
+            bestD = d;
+            bestTbl = tbl;
+          }
+        }
+        if (bestTbl) {
+          chairFacingMap.set(
+            armKey,
+            facingFromDelta(bestTbl.gx - item.gx, bestTbl.gy - item.gy, 'SE'),
+          );
+        }
+      }
+    } else if (item.facing && !chairFacingMap.has(`${item.gx},${item.gy}`)) {
       chairFacingMap.set(`${item.gx},${item.gy}`, item.facing);
     }
   }
 
   return {
     deskSeatMap,
+    deskToSeatMap,
+    deskFacingMap,
     meetingSeatMap,
     chairFacingMap,
     explicitChairVariantMap,
     explicitWorkChairKeys,
+    armchairKeys,
     beanbagKeys,
     confTableDepth,
   };
@@ -1475,9 +1541,10 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
             : renderItemGx + renderItemGy;
         const itemFacing =
           chairDeskAlign?.deskFacing ??
+          currentAlignments.deskFacingMap.get(itemKey) ??
           currentAlignments.chairFacingMap.get(itemKey) ??
           item.facing ??
-          'SE';
+          'NE';
         const p = gridToScreen(renderItemGx, renderItemGy, cam);
         const isWb = item.kind === 'whiteboard_l' || item.kind === 'whiteboard_r';
         if (isWb) {
@@ -1495,25 +1562,50 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
             let deskHasSeated = false;
             let deskHasVerified = false;
             if (WORK_DESK_KINDS.has(item.kind)) {
-              let bestDist = 1.65;
+              const pairedSeatKey = currentAlignments.deskToSeatMap.get(itemKey);
               let matchedActive = false;
-              for (const emp of currentFloor.employees) {
-                const actor = actors.get(emp.id);
-                if (!actor) continue;
-                const d = Math.hypot(item.gx - actor.targetSlotGx, item.gy - actor.targetSlotGy);
-                if (d < bestDist) {
-                  bestDist = d;
-                  matchedActive = true;
-                  deskLevel = emp.level;
-                  occupierModelFamily = emp.modelFamily;
-                  deskHasWorking = emp.status === 'working';
-                  deskHasSeated = !actor.isWalking && emp.activity !== 'going_home';
-                  deskHasVerified = Boolean(emp.health?.isVerifiedOutput);
+              if (pairedSeatKey) {
+                for (const emp of currentFloor.employees) {
+                  const actor = actors.get(emp.id);
+                  if (!actor) continue;
+                  const empSlotKey = `${Math.round(actor.targetSlotGx)},${Math.round(actor.targetSlotGy)}`;
+                  if (empSlotKey === pairedSeatKey) {
+                    matchedActive = true;
+                    deskLevel = emp.level;
+                    occupierModelFamily = emp.modelFamily;
+                    deskHasWorking = emp.status === 'working';
+                    deskHasSeated = !actor.isWalking && emp.activity !== 'going_home';
+                    deskHasVerified = Boolean(emp.health?.isVerifiedOutput);
+                    break;
+                  }
+                }
+              }
+              if (!matchedActive) {
+                let bestDist = 1.25;
+                for (const emp of currentFloor.employees) {
+                  const actor = actors.get(emp.id);
+                  if (!actor) continue;
+                  const d = Math.hypot(item.gx - actor.targetSlotGx, item.gy - actor.targetSlotGy);
+                  if (d < bestDist) {
+                    bestDist = d;
+                    matchedActive = true;
+                    deskLevel = emp.level;
+                    occupierModelFamily = emp.modelFamily;
+                    deskHasWorking = emp.status === 'working';
+                    deskHasSeated = !actor.isWalking && emp.activity !== 'going_home';
+                    deskHasVerified = Boolean(emp.health?.isVerifiedOutput);
+                  }
                 }
               }
               if (!matchedActive && fallbackDeskSlots.length > 0) {
-                let fbDist = 1.65;
+                let fbDist = 1.25;
                 for (const fb of fallbackDeskSlots) {
+                  if (pairedSeatKey && `${Math.round(fb.gx)},${Math.round(fb.gy)}` === pairedSeatKey) {
+                    deskLevel = fb.emp.level;
+                    occupierModelFamily = fb.emp.modelFamily;
+                    deskHasVerified = true;
+                    break;
+                  }
                   const d = Math.hypot(item.gx - fb.gx, item.gy - fb.gy);
                   if (d < fbDist) {
                     fbDist = d;
@@ -1534,7 +1626,8 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
               (WORK_DESK_KINDS.has(item.kind) &&
                 (deskHasWorking ||
                   deskHasSeated ||
-                  (item.kind === 'dev_desk' && occupiedZones.has('DESK_CODING')) ||
+                  ((item.kind === 'dev_desk' || item.kind === 'clover_desk') &&
+                    occupiedZones.has('DESK_CODING')) ||
                   (item.kind === 'qa_desk' && occupiedZones.has('DESK_QA')) ||
                   (item.kind === 'exec_desk' && occupiedZones.has('DESK_ARCHITECT')))) ||
               (isConfTableAnchor && isWarRoomActive) ||
@@ -1610,7 +1703,16 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
               itemColorIndex,
             );
             if (deskHasVerified) {
-              drawDeskVerifiedTrophy(ctx, p.x, p.y, cam.zoom, timeSec);
+              (
+                drawDeskVerifiedTrophy as (
+                  ctx: CanvasRenderingContext2D,
+                  x: number,
+                  y: number,
+                  zoom: number,
+                  timeSec: number,
+                  facing?: Facing,
+                ) => void
+              )(ctx, p.x, p.y, cam.zoom, timeSec, itemFacing);
             }
           },
         });
@@ -1701,6 +1803,8 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
         const activeSeatAlign = deskSeatAlign ?? meetingSeatAlign;
         const isSeatedOnBeanbag =
           isSeatedStationary && !activeSeatAlign && currentAlignments.beanbagKeys.has(slotKey);
+        const isSeatedOnArmchair =
+          isSeatedStationary && !activeSeatAlign && currentAlignments.armchairKeys.has(slotKey);
         const alignedChairFacing = isSeatedStationary
           ? currentAlignments.chairFacingMap.get(slotKey)
           : undefined;
@@ -1794,7 +1898,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
           y: empScreenY - 20 * cam.zoom,
           r: 22 * cam.zoom,
         });
-        const isSeatedOverride = activeSeatAlign ? true : undefined;
+        const isSeatedOverride = activeSeatAlign || isSeatedOnArmchair ? true : undefined;
         renderables.push({
           depth: empDepth,
           draw: () => {
@@ -1855,6 +1959,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
                 !isPresenting &&
                 (Boolean(activeSeatAlign) ||
                   isSeatedOnBeanbag ||
+                  isSeatedOnArmchair ||
                   renderEmp.activity === 'coding' ||
                   renderEmp.activity === 'terminal' ||
                   renderEmp.activity === 'reading' ||

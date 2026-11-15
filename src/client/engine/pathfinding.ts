@@ -55,11 +55,14 @@ export interface ZoneSlot {
  * Kept in sync with furniture placement in OfficeCanvas / pixelSprites.
  */
 export const FURNITURE_BLOCKS: ReadonlyArray<FurnitureItem> = [
-  // Executive corner
-  { gx: 2, gy: 2, kind: 'exec_desk' },
-  { gx: 2, gy: 3, kind: 'desk_chair', facing: 'NE' },
-  { gx: 1, gy: 1, kind: 'bookshelf' },
-  { gx: 4, gy: 1, kind: 'filing_cabinet' },
+  // Executive corner — Boss facing SW toward room + 2 facing guest armchairs & coffee table
+  { gx: 2, gy: 0, kind: 'exec_chair', facing: 'SW' },
+  { gx: 2, gy: 1, kind: 'exec_desk', facing: 'SW' },
+  { gx: 1, gy: 3, kind: 'armchair', facing: 'SE' },
+  { gx: 2, gy: 3, kind: 'exec_coffee_table' },
+  { gx: 3, gy: 3, kind: 'armchair', facing: 'NW' },
+  { gx: 0, gy: 0, kind: 'bookshelf' },
+  { gx: 4, gy: 0, kind: 'filing_cabinet' },
   // War room presentation screen, conference table & walkable meeting chairs
   { gx: 6, gy: 1, kind: 'whiteboard_l' },
   { gx: 7, gy: 1, kind: 'whiteboard_r' },
@@ -136,9 +139,8 @@ export const COFFEE_SLOT: ZoneSlot = { gx: 14, gy: 10, facing: 'NW' };
 
 export const ZONE_SLOTS: Record<OfficeZone, ZoneSlot[]> = {
   DESK_ARCHITECT: [
-    { gx: 2, gy: 3, facing: 'NE' },
-    { gx: 3, gy: 2, facing: 'NW' },
-    { gx: 1, gy: 3, facing: 'NE' },
+    { gx: 2, gy: 0, facing: 'SW' },
+    { gx: 1, gy: 3, facing: 'SE' },
     { gx: 3, gy: 3, facing: 'NW' },
   ],
   WAR_ROOM: MEETING_CHAIR_SLOTS,
@@ -193,6 +195,9 @@ const SEAT_FURNITURE_KINDS = new Set([
   'armchair',
   'gaming_seat',
   'desk_chair',
+  'exec_chair',
+  'swivel_chair',
+  'chair',
   'meeting_chair',
   'elevator_doors',
 ]);

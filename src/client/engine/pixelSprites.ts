@@ -411,7 +411,7 @@ export function drawFurniture(
     ctx.fillStyle = '#ffd147';
     ctx.fillRect(Math.round(cx - 5 * z), Math.round(cy - 5 * z), Math.ceil(10 * z), Math.ceil(3 * z));
     drawDeskEvolutionExtras(ctx, kind, cx, cy, z, timeSec, isOccupied, deskLevel);
-  } else if (kind === 'dev_desk') {
+  } else if (kind === 'dev_desk' || kind === 'clover_desk') {
     // Low 10px desk with monitors angled toward side corners so seated face & hands stay visible
     drawIsoBox(ctx, cx, cy, 22, 11, 10, '#d4b48c', '#a38560', '#7d6344', z);
     const screenColor = isOccupied
@@ -432,7 +432,11 @@ export function drawFurniture(
     ctx.fillRect(Math.round(cx - 6 * z), Math.round(cy - 9 * z), Math.ceil(8 * z), Math.ceil(1 * z));
     ctx.fillStyle = '#2a3347';
     ctx.fillRect(Math.round(cx + 5 * z), Math.round(cy - 10 * z), Math.ceil(5 * z), Math.ceil(3 * z));
-    drawDeskEvolutionExtras(ctx, kind, cx, cy, z, timeSec, isOccupied, deskLevel);
+    drawDeskEvolutionExtras(ctx, 'dev_desk', cx, cy, z, timeSec, isOccupied, deskLevel);
+  } else if (kind === 'exec_coffee_table') {
+    drawIsoBox(ctx, cx, cy, 18, 9, 6, '#3d2a20', '#5e3c23', '#422815', z);
+    ctx.fillStyle = '#d9af48';
+    ctx.fillRect(Math.round(cx - 4 * z), Math.round(cy - 8 * z), Math.ceil(8 * z), Math.ceil(2 * z));
   } else if (kind === 'qa_desk') {
     drawIsoBox(ctx, cx, cy, 20, 10, 10, '#cbb59a', '#9c8870', '#756450', z);
     ctx.fillStyle = '#141824';
@@ -2118,22 +2122,22 @@ export function drawEmployeeSprite(
         rect(uX - 3.6 * z, uY - 14.6 * z + keyTapL, 2.6 * z, 1.8 * z, palette.skin);
         rect(uX + 1 * z, uY - 14.6 * z + keyTapR, 2.6 * z, 1.8 * z, palette.skin);
       } else {
-        // Seated SE/SW coding: BOTH forearms & hands extend forward past torso onto keyboard home row!
-        rect(uX - 6.4 * z, uY - 18.2 * z, 2 * z, 3.1 * z, uniform.main);
-        rect(uX + 4.4 * z, uY - 18.2 * z, 2 * z, 3.1 * z, uniform.main);
+        // Seated SE/SW coding: BOTH forearms & hands slope naturally forward-down onto the desk keyboard!
+        rect(uX - 6.4 * z, uY - 18.2 * z, 2 * z, 3.8 * z, uniform.main);
+        rect(uX + 4.4 * z, uY - 18.2 * z, 2 * z, 3.6 * z, uniform.main);
         const crossForeX = dirFlip > 0 ? uX - 6 * z : uX - 4.8 * z;
         const crossHandX = dirFlip > 0 ? uX + 4.2 * z : uX - 7.2 * z;
         const leadForeX = dirFlip > 0 ? uX + 4.2 * z : uX - 9.2 * z;
         const leadHandX = dirFlip > 0 ? uX + 8.2 * z : uX - 11.4 * z;
-        rect(crossForeX, uY - 14.8 * z + keyTapL * 0.4, 10.8 * z, 1.9 * z, uniform.main);
-        rect(leadForeX, uY - 16.2 * z + keyTapR * 0.4, 5 * z, 1.9 * z, uniform.main);
-        rect(crossHandX, uY - 14.6 * z + keyTapL, 3 * z, 1.9 * z, palette.skin);
-        rect(leadHandX, uY - 16 * z + keyTapR, 3.2 * z, 1.9 * z, palette.skin);
+        rect(crossForeX, uY - 13.4 * z + keyTapL * 0.4, 10.8 * z, 1.9 * z, uniform.main);
+        rect(leadForeX, uY - 14.4 * z + keyTapR * 0.4, 5 * z, 1.9 * z, uniform.main);
+        rect(crossHandX, uY - 13.1 * z + keyTapL, 3 * z, 1.9 * z, palette.skin);
+        rect(leadHandX, uY - 14.1 * z + keyTapR, 3.2 * z, 1.9 * z, palette.skin);
         if (typeWaveL > 0.55) {
-          rect(crossHandX + (dirFlip > 0 ? 1.4 : 0) * z, uY - 12.6 * z + keyTapL, 1.6 * z, 0.9 * z, '#7ef3ff');
+          rect(crossHandX + (dirFlip > 0 ? 1.4 : 0) * z, uY - 11.1 * z + keyTapL, 1.6 * z, 0.9 * z, '#7ef3ff');
         }
         if (typeWaveR > 0.55) {
-          rect(leadHandX + (dirFlip > 0 ? 1.6 : 0) * z, uY - 14 * z + keyTapR, 1.6 * z, 0.9 * z, '#3be87a');
+          rect(leadHandX + (dirFlip > 0 ? 1.6 : 0) * z, uY - 12.1 * z + keyTapR, 1.6 * z, 0.9 * z, '#3be87a');
         }
       }
     } else if (seated) {
@@ -2443,42 +2447,42 @@ export function drawEmployeeSprite(
         rect(uX - 4.4 * z, uY - 14.8 * z + keyTapL, 3 * z, 2 * z, palette.skin);
         rect(uX + 1.4 * z, uY - 14.8 * z + keyTapR, 3 * z, 2 * z, palette.skin);
       } else {
-        // Seated SE/SW coding: BOTH forearms & hands extend forward past torso onto keyboard home row!
-        rect(uX - 8.4 * z, uY - 18.6 * z, 2.6 * z, 3.4 * z, upperSleeveCol);
-        rect(uX + 5.8 * z, uY - 18.6 * z, 2.6 * z, 3.2 * z, upperSleeveCol);
+        // Seated SE/SW coding: BOTH forearms & hands slope naturally forward-down onto the desk keyboard!
+        rect(uX - 8.4 * z, uY - 18.6 * z, 2.6 * z, 4.1 * z, upperSleeveCol);
+        rect(uX + 5.8 * z, uY - 18.6 * z, 2.6 * z, 3.8 * z, upperSleeveCol);
         if (isVest) {
-          rect(uX - 8.4 * z, uY - 15.4 * z, 2.6 * z, 0.9 * z, '#cfd8ee');
-          rect(uX + 5.8 * z, uY - 15.6 * z, 2.6 * z, 0.9 * z, '#cfd8ee');
+          rect(uX - 8.4 * z, uY - 14.8 * z, 2.6 * z, 0.9 * z, '#cfd8ee');
+          rect(uX + 5.8 * z, uY - 15.0 * z, 2.6 * z, 0.9 * z, '#cfd8ee');
         }
         const crossForeX = dirFlip > 0 ? uX - 7.8 * z : uX - 5.4 * z;
         const crossHandX = dirFlip > 0 ? uX + 5 * z : uX - 8.4 * z;
         const leadForeX = dirFlip > 0 ? uX + 5.4 * z : uX - 10.4 * z;
         const leadHandX = dirFlip > 0 ? uX + 9.2 * z : uX - 12.6 * z;
-        rect(crossForeX, uY - 14.9 * z + keyTapL * 0.4, 13.2 * z, 2.1 * z, foreArmCol);
-        rect(leadForeX, uY - 16.4 * z + keyTapR * 0.4, 5 * z, 2.1 * z, foreArmCol);
+        rect(crossForeX, uY - 13.5 * z + keyTapL * 0.4, 13.2 * z, 2.1 * z, foreArmCol);
+        rect(leadForeX, uY - 14.6 * z + keyTapR * 0.4, 5 * z, 2.1 * z, foreArmCol);
         if (!isVest && !isHoodie) {
           rect(
             dirFlip > 0 ? crossHandX - 0.8 * z : crossHandX + 3.4 * z,
-            uY - 14.8 * z + keyTapL * 0.4,
+            uY - 13.4 * z + keyTapL * 0.4,
             0.9 * z,
             2 * z,
             '#f6f7fc',
           );
           rect(
             dirFlip > 0 ? leadHandX - 0.8 * z : leadHandX + 3.4 * z,
-            uY - 16.3 * z + keyTapR * 0.4,
+            uY - 14.5 * z + keyTapR * 0.4,
             0.9 * z,
             2 * z,
             '#f6f7fc',
           );
         }
-        rect(crossHandX, uY - 14.7 * z + keyTapL, 3.4 * z, 2 * z, palette.skin);
-        rect(leadHandX, uY - 16.2 * z + keyTapR, 3.4 * z, 2 * z, palette.skin);
+        rect(crossHandX, uY - 13.2 * z + keyTapL, 3.4 * z, 2 * z, palette.skin);
+        rect(leadHandX, uY - 14.3 * z + keyTapR, 3.4 * z, 2 * z, palette.skin);
         if (typeWaveL > 0.55) {
-          rect(crossHandX + (dirFlip > 0 ? 1.6 : 0) * z, uY - 12.6 * z + keyTapL, 1.6 * z, 0.9 * z, '#7ef3ff');
+          rect(crossHandX + (dirFlip > 0 ? 1.6 : 0) * z, uY - 11.1 * z + keyTapL, 1.6 * z, 0.9 * z, '#7ef3ff');
         }
         if (typeWaveR > 0.55) {
-          rect(leadHandX + (dirFlip > 0 ? 1.6 : 0) * z, uY - 14.1 * z + keyTapR, 1.6 * z, 0.9 * z, '#3be87a');
+          rect(leadHandX + (dirFlip > 0 ? 1.6 : 0) * z, uY - 12.2 * z + keyTapR, 1.6 * z, 0.9 * z, '#3be87a');
         }
       }
     } else if (seated) {
