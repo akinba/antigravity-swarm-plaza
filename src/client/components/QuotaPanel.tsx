@@ -12,14 +12,23 @@ export function pctColor(pct: number): string {
   return pct < 20 ? '#ff5666' : pct < 50 ? '#ffbe3b' : '#3be87a';
 }
 
+export interface HudQuotaPoolEntry {
+  id: 'gemini' | 'claude_gpt';
+  shortLabel: string;
+  label: string;
+  pct: number;
+  resetsMin?: number;
+}
+
 export interface HudQuotaInfo {
   kind: 'quota' | 'ctx';
   pct: number;
   detail: string;
   resetsMin?: number;
+  pools?: HudQuotaPoolEntry[];
 }
 
-/** Lowest known real quota pool wins; otherwise the fullest active agent's remaining context. */
+/** Shows all known quota pools (border stays healthy if >=1 pool is >=50%); otherwise fullest active agent's remaining context. */
 export function computeHudQuota(
   quotaPools: QuotaPoolStatus[] | undefined,
   employees: OfficeEmployee[] | undefined,
@@ -27,13 +36,30 @@ export function computeHudQuota(
 ): HudQuotaInfo | null {
   const pools = (quotaPools ?? []).filter((p) => p.remainingPct !== null);
   if (pools.length > 0) {
-    const low = pools.reduce((a, b) => ((a.remainingPct ?? 100) <= (b.remainingPct ?? 100) ? a : b));
-    const resetMs = low.resetsAt ? Date.parse(low.resetsAt) - nowMs : NaN;
+    const mapped: HudQuotaPoolEntry[] = pools
+      .map((p) => {
+        const resetMs = p.resetsAt ? Date.parse(p.resetsAt) - nowMs : NaN;
+        return {
+          id: p.pool,
+          shortLabel: p.pool === 'gemini' ? 'GEM' : 'CLD',
+          label: p.label,
+          pct: Math.round(p.remainingPct ?? 0),
+          resetsMin: Number.isFinite(resetMs) && resetMs > 0 ? Math.ceil(resetMs / 60000) : undefined,
+        };
+      })
+      .sort((a, b) => (a.id === b.id ? 0 : a.id === 'gemini' ? -1 : 1));
+    const maxPct = Math.max(...mapped.map((m) => m.pct));
     return {
       kind: 'quota',
-      pct: Math.round(low.remainingPct ?? 0),
-      detail: low.label,
-      resetsMin: Number.isFinite(resetMs) && resetMs > 0 ? Math.ceil(resetMs / 60000) : undefined,
+      pct: maxPct,
+      detail: mapped
+        .map(
+          (m) =>
+            `${m.label}: %${m.pct}${m.resetsMin !== undefined ? ` (↻ ${m.resetsMin}m)` : ''}`,
+        )
+        .join(' | '),
+      resetsMin: mapped.length === 1 && mapped[0].pct < 50 ? mapped[0].resetsMin : undefined,
+      pools: mapped,
     };
   }
   let best: { pct: number; left: number; name: string } | null = null;

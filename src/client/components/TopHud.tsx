@@ -70,10 +70,34 @@ export const TopHud: React.FC<TopHudProps> = ({
         cursor: 'pointer',
         fontFamily: 'inherit',
         padding: '2px 6px',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
       }}
     >
-      🔋 {quotaInfo.kind === 'quota' ? t.quota.hudQuota : t.quota.hudCtx} %{quotaInfo.pct}
-      {quotaInfo.resetsMin !== undefined ? ` · ↻ ${quotaInfo.resetsMin}m` : ''}
+      <span>🔋</span>
+      {quotaInfo.kind === 'quota' && quotaInfo.pools && quotaInfo.pools.length > 0 ? (
+        quotaInfo.pools.map((p, idx) => (
+          <React.Fragment key={p.id}>
+            {idx > 0 && <span style={{ color: '#6b7796' }}>{isCompactPane ? ' ' : '·'}</span>}
+            <span style={{ color: pctColor(p.pct), fontWeight: 700 }}>
+              {isCompactPane
+                ? `${p.id === 'gemini' ? 'G' : 'C'}:%${p.pct}`
+                : `${p.shortLabel} %${p.pct}`}
+              {!isCompactPane &&
+              quotaInfo.pools!.length === 1 &&
+              p.pct < 50 &&
+              p.resetsMin !== undefined
+                ? ` · ↻ ${p.resetsMin}m`
+                : ''}
+            </span>
+          </React.Fragment>
+        ))
+      ) : (
+        <span>
+          {t.quota.hudCtx} %{quotaInfo.pct}
+        </span>
+      )}
     </button>
   ) : null;
   const ecoColor = ecoScore >= 75 ? '#3be87a' : ecoScore >= 45 ? '#ffbe3b' : '#ff5666';
