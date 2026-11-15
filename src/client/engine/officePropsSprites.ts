@@ -33,6 +33,7 @@ export type FurnitureKind =
   | 'beanbag_charcoal'
   | 'sofa'
   | 'sofa_l'
+  | 'sofa_m'
   | 'sofa_r'
   | 'armchair'
   | 'coffee_table'
@@ -3480,21 +3481,269 @@ function drawOrientedWorkstation(
   );
 }
 
+type SofaModulePart = 'left' | 'mid' | 'right' | 'single';
+
+interface IsoSlabPalette {
+  top: string;
+  sideLit: string;
+  sideMid: string;
+  sideDark: string;
+  rim?: string;
+  outline?: string;
+}
+
+interface UpholsteryColorTheme {
+  name: string;
+  seat: IsoSlabPalette;
+  bolster: IsoSlabPalette;
+  pillow: IsoSlabPalette;
+  tuft: string;
+  piping: string;
+  welt: string;
+}
+
+const CLASSIC_BERRY_UPHOLSTERY: UpholsteryColorTheme = {
+  name: 'classic_berry',
+  seat: {
+    top: '#c75472',
+    sideLit: '#a13c57',
+    sideMid: '#852e46',
+    sideDark: '#611e31',
+    rim: 'rgba(255, 214, 226, 0.26)',
+    outline: '#240b13',
+  },
+  bolster: {
+    top: '#de6480',
+    sideLit: '#b3435d',
+    sideMid: '#913248',
+    sideDark: '#6b2133',
+    rim: 'rgba(255, 224, 232, 0.30)',
+    outline: '#240b13',
+  },
+  pillow: {
+    top: '#ffd166',
+    sideLit: '#e0ad3e',
+    sideMid: '#ba8b25',
+    sideDark: '#8c6514',
+    outline: '#2e2005',
+  },
+  tuft: '#5c1828',
+  piping: '#d9ab42',
+  welt: 'rgba(255, 232, 240, 0.32)',
+};
+
+export const UPHOLSTERY_COLOR_THEMES: readonly UpholsteryColorTheme[] = [
+  // 0: Emerald Velvet + Warm Ochre Gold Pillow
+  {
+    name: 'emerald_velvet',
+    seat: {
+      top: '#247d58',
+      sideLit: '#1c6345',
+      sideMid: '#154d35',
+      sideDark: '#0e3625',
+      rim: 'rgba(182, 245, 216, 0.28)',
+      outline: '#081f15',
+    },
+    bolster: {
+      top: '#2d9168',
+      sideLit: '#21704f',
+      sideMid: '#18573d',
+      sideDark: '#103d2a',
+      rim: 'rgba(198, 250, 226, 0.32)',
+      outline: '#081f15',
+    },
+    pillow: {
+      top: '#f4c553',
+      sideLit: '#d4a135',
+      sideMid: '#ad8022',
+      sideDark: '#7d5a14',
+      outline: '#2b1e05',
+    },
+    tuft: '#0b2e1f',
+    piping: '#d9ab42',
+    welt: 'rgba(202, 252, 228, 0.32)',
+  },
+  // 1: Royal Cobalt / Midnight Navy + Saffron Pillow
+  {
+    name: 'royal_cobalt',
+    seat: {
+      top: '#2e5ea6',
+      sideLit: '#234982',
+      sideMid: '#1a3866',
+      sideDark: '#112647',
+      rim: 'rgba(190, 218, 255, 0.28)',
+      outline: '#091529',
+    },
+    bolster: {
+      top: '#396fc0',
+      sideLit: '#2b5596',
+      sideMid: '#204275',
+      sideDark: '#152d52',
+      rim: 'rgba(206, 228, 255, 0.32)',
+      outline: '#091529',
+    },
+    pillow: {
+      top: '#f2b84b',
+      sideLit: '#cf9630',
+      sideMid: '#a8761f',
+      sideDark: '#785212',
+      outline: '#2b1c05',
+    },
+    tuft: '#0e2140',
+    piping: '#e0b84c',
+    welt: 'rgba(212, 232, 255, 0.32)',
+  },
+  // 2: Cognac / Tan Saddle Leather + Warm Ivory Linen Pillow
+  {
+    name: 'cognac_leather',
+    seat: {
+      top: '#b86835',
+      sideLit: '#945026',
+      sideMid: '#753d1b',
+      sideDark: '#542a11',
+      rim: 'rgba(255, 224, 194, 0.30)',
+      outline: '#261105',
+    },
+    bolster: {
+      top: '#cc7843',
+      sideLit: '#a65c2e',
+      sideMid: '#854721',
+      sideDark: '#5e3115',
+      rim: 'rgba(255, 232, 206, 0.34)',
+      outline: '#261105',
+    },
+    pillow: {
+      top: '#f2e8d5',
+      sideLit: '#d4c6ad',
+      sideMid: '#b3a389',
+      sideDark: '#877962',
+      outline: '#2e271d',
+    },
+    tuft: '#47210b',
+    piping: '#e6c267',
+    welt: 'rgba(255, 236, 212, 0.34)',
+  },
+  // 3: Saffron Mustard Velvet + Deep Slate Teal Pillow
+  {
+    name: 'mustard_velvet',
+    seat: {
+      top: '#c9932c',
+      sideLit: '#a3741f',
+      sideMid: '#825b16',
+      sideDark: '#5e400e',
+      rim: 'rgba(255, 238, 186, 0.30)',
+      outline: '#261904',
+    },
+    bolster: {
+      top: '#dea63b',
+      sideLit: '#b58426',
+      sideMid: '#91681b',
+      sideDark: '#694a11',
+      rim: 'rgba(255, 244, 204, 0.34)',
+      outline: '#261904',
+    },
+    pillow: {
+      top: '#2c5e6b',
+      sideLit: '#204752',
+      sideMid: '#17353d',
+      sideDark: '#0f242b',
+      outline: '#071317',
+    },
+    tuft: '#523609',
+    piping: '#f5d77f',
+    welt: 'rgba(255, 246, 208, 0.34)',
+  },
+  // 4: Plum Burgundy Velvet + Champagne Pillow
+  {
+    name: 'plum_burgundy',
+    seat: {
+      top: '#8a335c',
+      sideLit: '#6e2548',
+      sideMid: '#571b37',
+      sideDark: '#3d1126',
+      rim: 'rgba(255, 204, 228, 0.28)',
+      outline: '#1f0713',
+    },
+    bolster: {
+      top: '#a1406d',
+      sideLit: '#802e54',
+      sideMid: '#662242',
+      sideDark: '#47162d',
+      rim: 'rgba(255, 216, 235, 0.32)',
+      outline: '#1f0713',
+    },
+    pillow: {
+      top: '#f5dec4',
+      sideLit: '#d6ba9c',
+      sideMid: '#b59879',
+      sideDark: '#8a7157',
+      outline: '#2e2217',
+    },
+    tuft: '#360d20',
+    piping: '#e0b44c',
+    welt: 'rgba(255, 220, 238, 0.32)',
+  },
+  // 5: Petrol Teal + Terracotta Coral Pillow
+  {
+    name: 'petrol_teal',
+    seat: {
+      top: '#1f707a',
+      sideLit: '#175760',
+      sideMid: '#11434a',
+      sideDark: '#0b2e33',
+      rim: 'rgba(184, 242, 248, 0.28)',
+      outline: '#061a1d',
+    },
+    bolster: {
+      top: '#288490',
+      sideLit: '#1e6770',
+      sideMid: '#164f57',
+      sideDark: '#0e373d',
+      rim: 'rgba(202, 248, 252, 0.32)',
+      outline: '#061a1d',
+    },
+    pillow: {
+      top: '#e87a56',
+      sideLit: '#c45e3d',
+      sideMid: '#9e472b',
+      sideDark: '#73311c',
+      outline: '#290f07',
+    },
+    tuft: '#09282c',
+    piping: '#deb148',
+    welt: 'rgba(206, 250, 255, 0.32)',
+  },
+];
+
+function resolveUpholsteryTheme(
+  colorIndex: number | undefined,
+  defaultClassicBerry: boolean,
+): UpholsteryColorTheme {
+  if (colorIndex === undefined || !Number.isFinite(colorIndex)) {
+    return defaultClassicBerry ? CLASSIC_BERRY_UPHOLSTERY : UPHOLSTERY_COLOR_THEMES[0];
+  }
+  const len = UPHOLSTERY_COLOR_THEMES.length;
+  const idx = ((Math.trunc(colorIndex) % len) + len) % len;
+  return UPHOLSTERY_COLOR_THEMES[idx];
+}
+
 function drawDirectionalArmchair(
   ctx: CanvasRenderingContext2D,
   cx: number,
   cy: number,
   z: number,
   facing: ChairFacing | undefined,
+  colorIndex?: number,
 ): void {
   const dir = normalizeCardFacing(facing, 'SE');
   const isFront = dir === 'SE' || dir === 'SW';
   const iso = createCardIsoPainter(ctx, cx, cy, z, dir);
+  const theme = resolveUpholsteryTheme(colorIndex, true);
 
   // Soft floor contact shadow
   iso.fillPoly(iso.boxPts(-10.2, 8.6, -10.8, 10.8), 0, 'rgba(7, 10, 20, 0.28)');
 
-  // 4 tapered warm-walnut legs
+  // 4 tapered warm-walnut legs + subtle brass ferrules
   for (const [lf, lr] of [
     [-7.8, -8.2],
     [-7.8, 8.2],
@@ -3503,25 +3752,13 @@ function drawDirectionalArmchair(
   ] as const) {
     const pLeg = iso.pt(lf, lr, 0);
     ctx.fillStyle = '#6e4526';
-    pxRect(ctx, pLeg.x - 1.1 * z, pLeg.y - 2.4 * z, 2.2 * z, 2.4 * z);
+    pxRect(ctx, pLeg.x - 1.1 * z, pLeg.y - 2.4 * z, 2.2 * z, 1.8 * z);
+    ctx.fillStyle = '#cfa23e';
+    pxRect(ctx, pLeg.x - 0.9 * z, pLeg.y - 0.7 * z, 1.8 * z, 0.7 * z);
   }
 
-  const seatPal = {
-    top: '#c75472',
-    sideLit: '#a13c57',
-    sideMid: '#852e46',
-    sideDark: '#611e31',
-    rim: 'rgba(255, 214, 226, 0.26)',
-    outline: '#240b13',
-  };
-  const bolsterPal = {
-    top: '#de6480',
-    sideLit: '#b3435d',
-    sideMid: '#913248',
-    sideDark: '#6b2133',
-    rim: 'rgba(255, 224, 232, 0.30)',
-    outline: '#240b13',
-  };
+  const seatPal = theme.seat;
+  const bolsterPal = theme.bolster;
 
   const parts: Array<{ y: number; draw: () => void }> = [
     // Plush seat deck (deepened forward pocket so NE/NW seated guests nestle cleanly on the cushion)
@@ -3530,14 +3767,8 @@ function drawDirectionalArmchair(
       draw: () => {
         iso.drawSlab(iso.boxPts(-7.0, 8.2, -7.8, 7.8), 2.0, 7.6, seatPal);
         if (isFront) {
-          // Warm gold-amber lumbar accent pillow nestled against backrest
-          iso.drawSlab(iso.boxPts(-5.4, -2.6, -4.4, 4.4), 7.6, 10.0, {
-            top: '#ffd166',
-            sideLit: '#e0ad3e',
-            sideMid: '#ba8b25',
-            sideDark: '#8c6514',
-            outline: '#2e2005',
-          });
+          // Contrast lumbar accent pillow nestled against backrest
+          iso.drawSlab(iso.boxPts(-5.4, -2.6, -4.4, 4.4), 7.6, 10.0, theme.pillow);
         }
       },
     },
@@ -3566,12 +3797,12 @@ function drawDirectionalArmchair(
         if (isFront) {
           for (const tr of [-4.2, 0, 4.2]) {
             const pTuft = iso.pt(-5.55, tr, 12.6);
-            ctx.fillStyle = '#5c1828';
+            ctx.fillStyle = theme.tuft;
             pxRect(ctx, pTuft.x - 0.8 * z, pTuft.y - 0.8 * z, 1.6 * z, 1.6 * z);
           }
         } else {
           // Tailored rear upholstery seam + brass piping strip when seen from behind (NE/NW)
-          iso.fillVertQuad(backF0 - 0.06, -6.8, backF0 - 0.06, 6.8, 6.0, 6.7, '#d9ab42');
+          iso.fillVertQuad(backF0 - 0.06, -6.8, backF0 - 0.06, 6.8, 6.0, 6.7, theme.piping);
         }
       },
     },
@@ -3579,6 +3810,152 @@ function drawDirectionalArmchair(
 
   parts.sort((a, b) => a.y - b.y);
   for (const part of parts) part.draw();
+}
+
+/**
+ * Renders a 4-way rotatable 2.5D modular sofa segment (`sofa_l`, `sofa_m`, `sofa_r`, or standalone `sofa`).
+ * In `createCardIsoPainter`, `32` units along `right` equals 1 exact isometric tile (`r ∈ [-16, +16]`),
+ * so `sofa_l + sofa_r` forms a seamless 2-seater loveseat and `sofa_l + sofa_m + sofa_r` forms a
+ * seamless 3-seater grand couch with zero center-armrest collisions and crisp individual seat cushions.
+ */
+function drawDirectionalSofaPart(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  z: number,
+  facing: ChairFacing | undefined,
+  part: SofaModulePart,
+  colorIndex?: number,
+): void {
+  const dir = normalizeCardFacing(facing, 'NE');
+  const isFront = dir === 'SE' || dir === 'SW';
+  const rightGoesFront = dir === 'NE' || dir === 'SE';
+  const hasLeftArm = part === 'left' || part === 'single';
+  const hasRightArm = part === 'right' || part === 'single';
+  const iso = createCardIsoPainter(ctx, cx, cy, z, dir);
+  const theme = resolveUpholsteryTheme(colorIndex, false);
+
+  const outerR0 = hasLeftArm ? -12.6 : -16.05;
+  const outerR1 = hasRightArm ? 12.6 : 16.05;
+  const backF0 = isFront ? -9.8 : -13.0;
+  const backF1 = isFront ? -5.8 : -9.2;
+  const frontF1 = isFront ? 8.4 : 9.8;
+
+  // 1. Continuous soft floor contact shadow across modular seam
+  iso.fillPoly(
+    iso.boxPts(backF0 - 0.5, frontF1 + 0.6, hasLeftArm ? -13.4 : -16.05, hasRightArm ? 13.4 : 16.05),
+    0,
+    'rgba(7, 10, 20, 0.26)',
+  );
+
+  // 2. Tapered walnut legs + brushed-brass ferrules ONLY at outer ends (plus subtle center support on `mid`)
+  const legCoords: Array<[number, number]> = [];
+  if (hasLeftArm) {
+    legCoords.push([backF0 + 2.2, -10.4], [frontF1 - 2.2, -10.4]);
+  }
+  if (hasRightArm) {
+    legCoords.push([backF0 + 2.2, 10.4], [frontF1 - 2.2, 10.4]);
+  }
+  if (part === 'mid') {
+    legCoords.push([backF0 + 2.4, 0], [frontF1 - 2.4, 0]);
+  }
+  for (const [lf, lr] of legCoords) {
+    const pLeg = iso.pt(lf, lr, 0);
+    ctx.fillStyle = '#6e4526';
+    pxRect(ctx, pLeg.x - 1.15 * z, pLeg.y - 2.3 * z, 2.3 * z, 1.7 * z);
+    ctx.fillStyle = '#d9ab42';
+    pxRect(ctx, pLeg.x - 0.95 * z, pLeg.y - 0.7 * z, 1.9 * z, 0.7 * z);
+  }
+
+  // 3. Continuous warm-walnut architectural base rail tying 2-seater / 3-seater modules into one body
+  const walnutPlinthPal: IsoSlabPalette = {
+    top: '#7a4b2a',
+    sideLit: '#693f22',
+    sideMid: '#523019',
+    sideDark: '#3b2110',
+    rim: 'rgba(235, 194, 148, 0.20)',
+    outline: '#1f1007',
+  };
+  iso.drawSlab(iso.boxPts(backF0 + 0.2, frontF1 - 0.2, outerR0, outerR1), 1.8, 3.4, walnutPlinthPal);
+
+  // 4. Exact 3D BSP draw helpers (Backrest in f < backF1; Left Arm / Cushion / Right Arm in f >= backF1)
+  const drawBackrest = () => {
+    const backTop = isFront ? 16.0 : 13.6;
+    iso.drawSlab(iso.boxPts(backF0, backF1, outerR0, outerR1), 3.4, backTop, theme.bolster);
+    if (isFront) {
+      const tuftRs =
+        part === 'left'
+          ? [-3.4, 7.6]
+          : part === 'right'
+            ? [-7.6, 3.4]
+            : part === 'mid'
+              ? [-6.0, 6.0]
+              : [-4.2, 0, 4.2];
+      for (const tr of tuftRs) {
+        const pTuft = iso.pt(backF1 + 0.06, tr, 12.6);
+        ctx.fillStyle = theme.tuft;
+        pxRect(ctx, pTuft.x - 0.8 * z, pTuft.y - 0.8 * z, 1.6 * z, 1.6 * z);
+      }
+    } else {
+      // Continuous tailored rear brass piping seam uniting all modules when seen from NE/NW
+      const pipeR0 = hasLeftArm ? -10.2 : -16.05;
+      const pipeR1 = hasRightArm ? 10.2 : 16.05;
+      iso.fillVertQuad(backF0 - 0.06, pipeR0, backF0 - 0.06, pipeR1, 6.2, 6.9, theme.piping);
+    }
+  };
+
+  const drawLeftArm = () => {
+    if (!hasLeftArm) return;
+    iso.drawSlab(iso.boxPts(backF1, frontF1 - 0.3, -12.6, -8.8), 3.4, 11.4, theme.bolster);
+  };
+
+  const drawRightArm = () => {
+    if (!hasRightArm) return;
+    iso.drawSlab(iso.boxPts(backF1, frontF1 - 0.3, 8.8, 12.6), 3.4, 11.4, theme.bolster);
+  };
+
+  const drawSeatCushionAndPillows = () => {
+    const cushR0 = hasLeftArm ? -8.8 : -15.82;
+    const cushR1 = hasRightArm ? 8.8 : 15.82;
+    iso.drawSlab(iso.boxPts(backF1, frontF1, cushR0, cushR1), 3.4, 7.9, theme.seat);
+    // Subtle plush crown highlight along front welt of each individual seat cushion
+    iso.fillPoly(
+      iso.boxPts(frontF1 - 1.3, frontF1 - 0.25, cushR0 + 0.8, cushR1 - 0.8),
+      7.94,
+      theme.welt,
+    );
+
+    // Designer contrast throw pillows at outer corners (plus front lumbar accent on `mid`)
+    if (hasLeftArm && part !== 'single') {
+      iso.drawSlab(iso.boxPts(backF1 + 0.2, backF1 + 4.4, -8.4, -3.6), 7.9, 11.1, theme.pillow);
+    } else if (hasRightArm && part !== 'single') {
+      iso.drawSlab(iso.boxPts(backF1 + 0.2, backF1 + 4.4, 3.6, 8.4), 7.9, 11.1, theme.pillow);
+    } else if (part === 'single' && isFront) {
+      iso.drawSlab(iso.boxPts(backF1 + 0.2, backF1 + 3.2, -4.4, 4.4), 7.9, 10.4, theme.pillow);
+    } else if (part === 'mid' && isFront) {
+      iso.drawSlab(iso.boxPts(backF1 + 0.2, backF1 + 2.8, -5.0, 5.0), 7.9, 10.2, theme.pillow);
+    }
+  };
+
+  const drawDeckRow = () => {
+    if (rightGoesFront) {
+      drawLeftArm();
+      drawSeatCushionAndPillows();
+      drawRightArm();
+    } else {
+      drawRightArm();
+      drawSeatCushionAndPillows();
+      drawLeftArm();
+    }
+  };
+
+  if (isFront) {
+    drawBackrest();
+    drawDeckRow();
+  } else {
+    drawDeckRow();
+    drawBackrest();
+  }
 }
 
 /**
@@ -3653,7 +4030,7 @@ export function drawEnhancedFurniture(
     const bagColor = resolveBeanbagColorVariant(ctx, kind, sx, sy, timeSec, colorIndex);
     drawPlushBeanbag(ctx, cx, cy, z, chairOrPropFacing, bagColor);
   } else if (kind === 'armchair') {
-    drawDirectionalArmchair(ctx, cx, cy, z, facing);
+    drawDirectionalArmchair(ctx, cx, cy, z, facing, colorIndex);
   } else if (kind === 'lounge_lamp' || kind === 'floor_lamp') {
     // 2.5D Mid-Century Walnut & Brushed-Brass Standing Lounge Abajur (switched OFF by day, warm honey-peach glow at night!)
     drawFloorShadow(ctx, cx, cy, 8.4, 4.6, z, night ? 0.2 : 0.3);
@@ -3786,29 +4163,21 @@ export function drawEnhancedFurniture(
       ctx.fillStyle = '#52483c';
       pxRect(ctx, cx - topHW * 0.6, shTopY - 0.4 * z, topHW * 1.2, 0.8 * z);
     }
-  } else if (kind === 'sofa' || kind === 'sofa_l' || kind === 'sofa_r') {
-    const w = 20.5;
-    const d = 11;
-    drawFloorShadow(ctx, cx, cy, w + 1.5, d + 1.5, z, 0.28);
-
-    // Tapered oak feet
-    ctx.fillStyle = '#6e4526';
-    pxRect(ctx, cx - (w - 4) * z, cy + 1 * z, 2 * z, 2.2 * z);
-    pxRect(ctx, cx + (w - 6) * z, cy + 1 * z, 2 * z, 2.2 * z);
-
-    // Plush seat deck, side bolsters & tufted backrest
-    drawBox(ctx, cx, cy - 1 * z, w, d, 8.5, '#cc4b5e', '#963040', '#6b1f2b', z);
-    drawBox(ctx, cx - (w - 4.5) * z, cy - 5 * z, 4, d * 0.72, 5.5, '#d96277', '#a1384a', '#732331', z);
-    drawBox(ctx, cx + (w - 5.5) * z, cy - 3 * z, 4, d * 0.72, 5.5, '#d96277', '#a1384a', '#732331', z);
-    drawBox(ctx, cx - 3.5 * z, cy - 9.5 * z, w - 4, 4.2, 9, '#de6276', '#a83a4c', '#7a2533', z);
-
-    // Button-tuft dimples & accent throw cushion
-    ctx.fillStyle = '#611b27';
-    pxRect(ctx, cx - 7 * z, cy - 14.5 * z, 1.6 * z, 1.6 * z);
-    pxRect(ctx, cx - 1.5 * z, cy - 13.5 * z, 1.6 * z, 1.6 * z);
-    pxRect(ctx, cx + 4 * z, cy - 12.5 * z, 1.6 * z, 1.6 * z);
-    ctx.fillStyle = '#ffd166';
-    pxRect(ctx, cx + 5 * z, cy - 12 * z, 4.5 * z, 4 * z);
+  } else if (
+    kind === 'sofa' ||
+    kind === 'sofa_l' ||
+    kind === 'sofa_m' ||
+    kind === 'sofa_r'
+  ) {
+    const sofaPart: SofaModulePart =
+      kind === 'sofa_l'
+        ? 'left'
+        : kind === 'sofa_m'
+          ? 'mid'
+          : kind === 'sofa_r'
+            ? 'right'
+            : 'single';
+    drawDirectionalSofaPart(ctx, cx, cy, z, facing, sofaPart, colorIndex);
   } else if (kind === 'exec_coffee_table') {
     // Luxury CEO Visitor Coffee Table (Walnut, Brushed Brass & Smoked Emperador Marble — never overwritten by gaming/pizza props!)
     drawFloorShadow(ctx, cx, cy, 17.5, 10.2, z, 0.3);

@@ -244,8 +244,8 @@ const BLUEPRINT_0: BlueprintBase = {
     { gx: 13, gy: 10, kind: 'gaming_seat' },
     { gx: 13, gy: 12, kind: 'gaming_seat' },
     { gx: 14, gy: 11, kind: 'gaming_seat' },
-    { gx: 8, gy: 12, kind: 'sofa_l' },
-    { gx: 9, gy: 12, kind: 'sofa_r' },
+    { gx: 8, gy: 12, kind: 'sofa_l', facing: 'NE' },
+    { gx: 9, gy: 12, kind: 'sofa_r', facing: 'NE' },
     { gx: 7, gy: 11, kind: 'armchair' },
     { gx: 10, gy: 11, kind: 'armchair' },
     { gx: 9, gy: 11, kind: 'lounge_table' },
@@ -354,7 +354,7 @@ const BLUEPRINT_0: BlueprintBase = {
   ],
   pizzaSlots: [
     { gx: 8, gy: 11, facing: 'SE' },
-    { gx: 10, gy: 12, facing: 'NW' },
+    { gx: 10, gy: 10, facing: 'SW' },
     { gx: 9, gy: 10, facing: 'SW' },
   ],
   propPositions: [
@@ -432,8 +432,8 @@ const BLUEPRINT_1: BlueprintBase = {
     { gx: 13, gy: 11, kind: 'gaming_seat' },
     { gx: 13, gy: 13, kind: 'gaming_seat' },
     { gx: 14, gy: 12, kind: 'gaming_seat' },
-    { gx: 6, gy: 12, kind: 'sofa_l' },
-    { gx: 7, gy: 12, kind: 'sofa_r' },
+    { gx: 6, gy: 12, kind: 'sofa_l', facing: 'NE' },
+    { gx: 7, gy: 12, kind: 'sofa_r', facing: 'NE' },
     { gx: 5, gy: 11, kind: 'armchair' },
     { gx: 8, gy: 11, kind: 'armchair' },
     { gx: 10, gy: 12, kind: 'armchair' },
@@ -549,7 +549,7 @@ const BLUEPRINT_1: BlueprintBase = {
   ],
   pizzaSlots: [
     { gx: 6, gy: 11, facing: 'SE' },
-    { gx: 8, gy: 12, facing: 'NW' },
+    { gx: 8, gy: 10, facing: 'SW' },
     { gx: 7, gy: 10, facing: 'SW' },
   ],
   propPositions: [
@@ -575,9 +575,9 @@ const BLUEPRINT_2: BlueprintBase = {
     { gx: 7, gy: 1, kind: 'gaming_seat' },
     { gx: 7, gy: 3, kind: 'gaming_seat' },
     { gx: 8, gy: 2, kind: 'gaming_seat' },
-    { gx: 1, gy: 4, kind: 'sofa_l' },
-    { gx: 2, gy: 4, kind: 'sofa_r' },
-    { gx: 3, gy: 4, kind: 'lounge_lamp' },
+    { gx: 0, gy: 4, kind: 'lounge_lamp' },
+    { gx: 1, gy: 4, kind: 'sofa_l', facing: 'NE' },
+    { gx: 2, gy: 4, kind: 'sofa_r', facing: 'NE' },
     { gx: 4, gy: 4, kind: 'armchair' },
     { gx: 2, gy: 3, kind: 'lounge_table' },
     { gx: 8, gy: 4, kind: 'ping_pong' },
@@ -818,10 +818,10 @@ const BLUEPRINT_3: BlueprintBase = {
     { gx: 8, gy: 8, kind: 'gaming_seat' },
     { gx: 8, gy: 10, kind: 'gaming_seat' },
     { gx: 9, gy: 9, kind: 'gaming_seat' },
-    { gx: 6, gy: 13, kind: 'sofa_l' },
-    { gx: 7, gy: 13, kind: 'sofa_r' },
-    { gx: 8, gy: 13, kind: 'lounge_lamp' },
-    { gx: 9, gy: 13, kind: 'armchair' },
+    { gx: 6, gy: 13, kind: 'sofa_l', facing: 'NE' },
+    { gx: 7, gy: 13, kind: 'sofa_r', facing: 'NE' },
+    { gx: 9, gy: 13, kind: 'lounge_lamp' },
+    { gx: 10, gy: 12, kind: 'armchair', facing: 'NW' },
     { gx: 7, gy: 12, kind: 'lounge_table' },
     { gx: 0, gy: 12, kind: 'office_plant' },
     { gx: 14, gy: 1, kind: 'office_plant' },
@@ -903,7 +903,7 @@ const BLUEPRINT_3: BlueprintBase = {
       { gx: 6, gy: 7, facing: 'NE' },
       { gx: 6, gy: 13, facing: 'NE' },
       { gx: 7, gy: 13, facing: 'NE' },
-      { gx: 9, gy: 13, facing: 'NW' },
+      { gx: 10, gy: 12, facing: 'NW' },
       { gx: 8, gy: 10, facing: 'NE' },
       { gx: 9, gy: 9, facing: 'NW' },
     ],
@@ -927,7 +927,7 @@ const BLUEPRINT_3: BlueprintBase = {
   loungeSeatSlots: [
     { gx: 6, gy: 13, facing: 'NE' },
     { gx: 7, gy: 13, facing: 'NE' },
-    { gx: 9, gy: 13, facing: 'NW' },
+    { gx: 10, gy: 12, facing: 'NW' },
     { gx: 8, gy: 10, facing: 'NE' },
     { gx: 9, gy: 9, facing: 'NW' },
   ],
@@ -1013,8 +1013,8 @@ const BLUEPRINT_4: BlueprintBase = {
     { gx: 8, gy: 9, kind: 'gaming_seat' },
     { gx: 8, gy: 11, kind: 'gaming_seat' },
     { gx: 9, gy: 10, kind: 'gaming_seat' },
-    { gx: 2, gy: 12, kind: 'sofa_l' },
-    { gx: 3, gy: 12, kind: 'sofa_r' },
+    { gx: 2, gy: 12, kind: 'sofa_l', facing: 'NE' },
+    { gx: 3, gy: 12, kind: 'sofa_r', facing: 'NE' },
     { gx: 0, gy: 12, kind: 'lounge_lamp' },
     { gx: 4, gy: 12, kind: 'lounge_lamp' },
     { gx: 1, gy: 11, kind: 'armchair' },
@@ -1372,6 +1372,91 @@ function applySeededDeskOrientationVariety(bp: BlueprintBase, variantSeed: numbe
   };
 }
 
+const THREE_SEATER_SOFA_SPECS: Record<
+  number,
+  { leftGx: number; midGx: number; rightGx: number; gy: number; extraGx: number; facing: Facing }
+> = {
+  0: { leftGx: 8, midGx: 9, rightGx: 10, gy: 12, extraGx: 10, facing: 'NE' },
+  1: { leftGx: 6, midGx: 7, rightGx: 8, gy: 12, extraGx: 8, facing: 'NE' },
+  2: { leftGx: 1, midGx: 2, rightGx: 3, gy: 4, extraGx: 3, facing: 'NE' },
+  3: { leftGx: 6, midGx: 7, rightGx: 8, gy: 13, extraGx: 8, facing: 'NE' },
+  4: { leftGx: 1, midGx: 2, rightGx: 3, gy: 12, extraGx: 1, facing: 'NE' },
+};
+
+/**
+ * Deterministically assigns 6-palette upholstery colors (`0..5`) to lounge sofas and lounge armchairs,
+ * and upgrades the lounge 2-seater (`sofa_l + sofa_r`) into a seamless 3-seater (`sofa_l + sofa_m + sofa_r`)
+ * with an extra walkable seat slot when `isThreeSeater` is true.
+ */
+function applySeededLoungeSofaAndColorVariety(
+  bp: BlueprintBase,
+  blueprintIndex: number,
+  sofaColorIndex: number,
+  isThreeSeater: boolean,
+): BlueprintBase {
+  const furniture = bp.furniture.map((f) => ({ ...f }));
+  const nextCoffeeLoungeSlots = bp.zoneSlots.COFFEE_LOUNGE.map((s) => ({ ...s }));
+  const nextLoungeSeatSlots = bp.loungeSeatSlots.map((s) => ({ ...s }));
+
+  const spec = THREE_SEATER_SOFA_SPECS[blueprintIndex];
+  if (isThreeSeater && spec) {
+    const extraKeyOccupied = furniture.some(
+      (f) => f.gx === spec.extraGx && f.gy === spec.gy,
+    );
+    if (!extraKeyOccupied) {
+      // Replace existing 2-seater sofa_l & sofa_r on this row with seamless 3-seater sofa_l + sofa_m + sofa_r
+      const filtered = furniture.filter(
+        (f) =>
+          !((f.kind === 'sofa_l' || f.kind === 'sofa_r') && f.gy === spec.gy),
+      );
+      filtered.push(
+        { gx: spec.leftGx, gy: spec.gy, kind: 'sofa_l', facing: spec.facing, colorIndex: sofaColorIndex },
+        { gx: spec.midGx, gy: spec.gy, kind: 'sofa_m', facing: spec.facing, colorIndex: sofaColorIndex },
+        { gx: spec.rightGx, gy: spec.gy, kind: 'sofa_r', facing: spec.facing, colorIndex: sofaColorIndex },
+      );
+      furniture.length = 0;
+      furniture.push(...filtered);
+
+      const extraSlot: ZoneSlot = { gx: spec.extraGx, gy: spec.gy, facing: spec.facing };
+      if (!nextCoffeeLoungeSlots.some((s) => s.gx === extraSlot.gx && s.gy === extraSlot.gy)) {
+        nextCoffeeLoungeSlots.push(extraSlot);
+      }
+      if (!nextLoungeSeatSlots.some((s) => s.gx === extraSlot.gx && s.gy === extraSlot.gy)) {
+        nextLoungeSeatSlots.push(extraSlot);
+      }
+    }
+  }
+
+  for (const item of furniture) {
+    if (
+      item.kind === 'sofa' ||
+      item.kind === 'sofa_l' ||
+      item.kind === 'sofa_m' ||
+      item.kind === 'sofa_r'
+    ) {
+      item.facing = item.facing ?? 'NE';
+      item.colorIndex = sofaColorIndex;
+    } else if (
+      item.kind === 'armchair' &&
+      bp.getTileZone(item.gx, item.gy) === 'COFFEE_LOUNGE'
+    ) {
+      // Companion lounge armchairs receive coordinated living-room palette colors (0..5);
+      // Boss Suite armchairs in DESK_ARCHITECT keep classic executive upholstery (undefined).
+      item.colorIndex = (sofaColorIndex + ((item.gx + item.gy) % 2 === 0 ? 0 : 2)) % 6;
+    }
+  }
+
+  return {
+    ...bp,
+    furniture,
+    zoneSlots: {
+      ...bp.zoneSlots,
+      COFFEE_LOUNGE: nextCoffeeLoungeSlots,
+    },
+    loungeSeatSlots: nextLoungeSeatSlots,
+  };
+}
+
 export function getFloorLayout(
   floorId: string,
   floorNumber: number,
@@ -1394,10 +1479,21 @@ export function getFloorLayout(
           Math.imul(layoutSeed * 2654435761 + seedRound, 0xc2b2ae35)) >>>
           0) || 1;
 
+  // gcd(5, 2) === 1 and gcd(5, 6) === 1 ensure every blueprint visits both 2-seater & 3-seater
+  // AND all 6 upholstery palettes (0..5) across layoutSeeds as well as across floor numbers!
+  const isThreeSeater = Math.abs(h + floorNumber + layoutSeed) % 2 === 1;
+  const sofaColorIndex = Math.abs(h * 5 + floorNumber * 7 + layoutSeed) % 6;
+
   const orientedBp = applySeededDeskOrientationVariety(bp, variantSeed);
+  const styledBp = applySeededLoungeSofaAndColorVariety(
+    orientedBp,
+    blueprintIndex,
+    sofaColorIndex,
+    isThreeSeater,
+  );
 
   return {
-    ...orientedBp,
+    ...styledBp,
     blueprintIndex,
     themeIndex,
     themePalette,

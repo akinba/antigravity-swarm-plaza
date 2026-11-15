@@ -19,6 +19,7 @@ export interface FurnitureItem {
   gy: number;
   kind: string;
   facing?: Facing;
+  colorIndex?: number;
 }
 
 export type ConferenceTableKind =
@@ -101,8 +102,8 @@ export const FURNITURE_BLOCKS: ReadonlyArray<FurnitureItem> = [
   { gx: 13, gy: 10, kind: 'tv_console' },
   { gx: 12, gy: 11, kind: 'gaming_seat' },
   { gx: 13, gy: 11, kind: 'gaming_seat' },
-  { gx: 8, gy: 12, kind: 'sofa_l' },
-  { gx: 9, gy: 12, kind: 'sofa_r' },
+  { gx: 8, gy: 12, kind: 'sofa_l', facing: 'NE', colorIndex: 0 },
+  { gx: 9, gy: 12, kind: 'sofa_r', facing: 'NE', colorIndex: 0 },
   { gx: 7, gy: 11, kind: 'armchair' },
   { gx: 10, gy: 11, kind: 'armchair' },
   { gx: 11, gy: 12, kind: 'armchair' },
@@ -194,7 +195,9 @@ export function getTileZone(gx: number, gy: number): OfficeZone {
 }
 
 const SEAT_FURNITURE_KINDS = new Set([
+  'sofa',
   'sofa_l',
+  'sofa_m',
   'sofa_r',
   'armchair',
   'gaming_seat',

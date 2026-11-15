@@ -14,6 +14,7 @@ import {
 } from '../../src/client/engine/pixelSprites';
 import type { Facing } from '../../src/client/engine/pathfinding';
 import {
+  UPHOLSTERY_COLOR_THEMES,
   drawCardGameTableOverlay,
   drawChairForegroundBackrest,
   drawDeskVerifiedTrophy,
@@ -35,9 +36,11 @@ interface RecordedRect {
 function createMockCanvasContext(): {
   ctx: CanvasRenderingContext2D;
   rects: RecordedRect[];
+  fills: string[];
   stats: { saves: number; restores: number; drawOps: number };
 } {
   const rects: RecordedRect[] = [];
+  const fills: string[] = [];
   const stats = { saves: 0, restores: 0, drawOps: 0 };
   const noop = () => {};
   const mock = {
@@ -67,6 +70,7 @@ function createMockCanvasContext(): {
     arc: noop,
     fill: () => {
       stats.drawOps += 1;
+      fills.push(String(mock.fillStyle));
     },
     stroke: () => {
       stats.drawOps += 1;
@@ -87,6 +91,7 @@ function createMockCanvasContext(): {
   return {
     ctx: mock as unknown as CanvasRenderingContext2D,
     rects,
+    fills,
     stats,
   };
 }
@@ -807,6 +812,74 @@ describe('pixelSprites gender, hair, outfit palettes & rendering', () => {
     drawFurniture(fbCtx, 'lounge_lamp', 200, 200, 1.5, 1.0, false, false, 'SWARM BOARD', 1);
     assert.equal(fbStats.saves, fbStats.restores);
     assert.ok(fbRects.length >= 2 && fbStats.drawOps >= 5);
+  });
+
+  it('renders modular 2-seater (sofa_l + sofa_r) and 3-seater (sofa_l + sofa_m + sofa_r) sofas across 4 facings and all 6 upholstery color themes', () => {
+    assert.equal(UPHOLSTERY_COLOR_THEMES.length, 6);
+    const sofaFacings: Facing[] = ['NE', 'NW', 'SE', 'SW'];
+    const sofaKinds: FurnitureKind[] = ['sofa_l', 'sofa_m', 'sofa_r', 'sofa'];
+    const zooms = [0.75, 1.0, 2.0];
+
+    // 1. All 4 sofa module kinds across 4 facings and zoom levels have balanced save/restore and armless mid module
+    for (const facing of sofaFacings) {
+      for (const zoom of zooms) {
+        const opsByKind = new Map<FurnitureKind, number>();
+        for (const kind of sofaKinds) {
+          const { ctx, rects, fills, stats } = createMockCanvasContext();
+          drawEnhancedFurniture(ctx, kind, 300, 240, zoom, 1.2, false, false, 'pro', false, '', 1, facing, 0);
+          assert.equal(stats.saves, stats.restores);
+          assert.ok(stats.drawOps >= 10, `Expected rich 2.5D drawOps for ${kind}/${facing}`);
+          assert.ok(!fills.includes('#cc4b5e'), 'Legacy broken pink sofa box color must not be used');
+          for (const r of rects) {
+            assert.ok(r.w > 0 && r.h > 0 && Number.isFinite(r.x) && Number.isFinite(r.y));
+          }
+          opsByKind.set(kind, stats.drawOps);
+        }
+        // Armless middle segment (sofa_m) omits outer armrest slab (and corner throw pillow on NE/NW)
+        assert.ok(
+          (opsByKind.get('sofa_m') ?? 0) < (opsByKind.get('sofa_l') ?? 0) &&
+            (opsByKind.get('sofa_m') ?? 0) < (opsByKind.get('sofa_r') ?? 0),
+          `Expected armless sofa_m (${opsByKind.get('sofa_m')}) to emit fewer drawOps than outer-armrest sofa_l (${opsByKind.get('sofa_l')}) / sofa_r (${opsByKind.get('sofa_r')}) on ${facing}`,
+        );
+      }
+    }
+
+    // 2. All 6 upholstery color indices (0..5) produce distinct seat & bolster colors on both sofas and lounge armchairs
+    const seenSofaSeatTops = new Set<string>();
+    const seenArmchairSeatTops = new Set<string>();
+    for (let colorIdx = 0; colorIdx < 6; colorIdx++) {
+      const expectedSeatTop = UPHOLSTERY_COLOR_THEMES[colorIdx].seat.top;
+      const expectedBolsterTop = UPHOLSTERY_COLOR_THEMES[colorIdx].bolster.top;
+
+      const { ctx: sCtx, fills: sFills } = createMockCanvasContext();
+      drawEnhancedFurniture(sCtx, 'sofa_l', 300, 240, 1.5, 1.0, false, false, 'pro', false, '', 1, 'NE', colorIdx);
+      assert.ok(sFills.includes(expectedSeatTop), `Expected sofa_l colorIndex=${colorIdx} to fill seat ${expectedSeatTop}`);
+      assert.ok(sFills.includes(expectedBolsterTop), `Expected sofa_l colorIndex=${colorIdx} to fill bolster ${expectedBolsterTop}`);
+      seenSofaSeatTops.add(expectedSeatTop);
+
+      const { ctx: aCtx, fills: aFills } = createMockCanvasContext();
+      drawEnhancedFurniture(aCtx, 'armchair', 300, 240, 1.5, 1.0, false, false, 'pro', false, '', 1, 'SE', colorIdx);
+      assert.ok(aFills.includes(expectedSeatTop), `Expected armchair colorIndex=${colorIdx} to fill seat ${expectedSeatTop}`);
+      seenArmchairSeatTops.add(expectedSeatTop);
+    }
+    assert.equal(seenSofaSeatTops.size, 6);
+    assert.equal(seenArmchairSeatTops.size, 6);
+
+    // 3. Armchair with undefined colorIndex preserves classic Boss Suite berry leather (#c75472)
+    const { ctx: bossArmCtx, fills: bossArmFills } = createMockCanvasContext();
+    drawEnhancedFurniture(bossArmCtx, 'armchair', 300, 240, 1.5, 1.0, false, false, 'pro', false, '', 1, 'NW', undefined);
+    assert.ok(bossArmFills.includes('#c75472'), 'Expected Boss Suite armchair (colorIndex=undefined) to preserve classic berry leather');
+
+    // 4. Fallback drawFurniture supports sofa_l, sofa_m, sofa_r, and sofa with armless sofa_m
+    const fbOps = new Map<string, number>();
+    for (const kind of ['sofa_l', 'sofa_m', 'sofa_r', 'sofa']) {
+      const { ctx: fCtx, stats: fStats } = createMockCanvasContext();
+      drawFurniture(fCtx, kind, 200, 200, 1.5, 1.0, false, false, 'SWARM BOARD', 1);
+      assert.equal(fStats.saves, fStats.restores);
+      fbOps.set(kind, fStats.drawOps);
+    }
+    assert.ok((fbOps.get('sofa_m') ?? 0) < (fbOps.get('sofa_l') ?? 0));
+    assert.ok((fbOps.get('sofa_m') ?? 0) < (fbOps.get('sofa_r') ?? 0));
   });
 });
 

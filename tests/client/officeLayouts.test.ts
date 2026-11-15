@@ -783,4 +783,67 @@ describe('officeLayouts all 5 floor blueprints', () => {
       }
     }
   });
+
+  it('varies COFFEE_LOUNGE sofas between seamless 2-seater and 3-seater models and cycles all 6 upholstery color palettes across layoutSeeds', () => {
+    const sizesByBp = new Map<number, Set<number>>();
+    const sofaColorsSeen = new Set<number>();
+    const armchairColorsSeen = new Set<number>();
+
+    for (let seed = 0; seed < 30; seed++) {
+      const layout = getFloorLayout('plaza-floor', 1, seed);
+      const bp = layout.blueprintIndex;
+      const sofaParts = layout.furniture.filter(
+        (f) => f.kind === 'sofa_l' || f.kind === 'sofa_m' || f.kind === 'sofa_r',
+      );
+      assert.ok(
+        sofaParts.length === 2 || sofaParts.length === 3,
+        `seed=${seed} bp=${bp} expected 2-seater or 3-seater sofa, got ${sofaParts.length} parts`,
+      );
+
+      const sorted = [...sofaParts].sort((a, b) => a.gx - b.gx);
+      assert.equal(sorted[0].kind, 'sofa_l');
+      assert.equal(sorted[sorted.length - 1].kind, 'sofa_r');
+      if (sorted.length === 3) {
+        assert.equal(sorted[1].kind, 'sofa_m');
+        assert.equal(sorted[1].gx, sorted[0].gx + 1);
+        assert.equal(sorted[2].gx, sorted[1].gx + 1);
+      } else {
+        assert.equal(sorted[1].gx, sorted[0].gx + 1);
+      }
+
+      const grid = buildWalkableGridForFurniture(layout.furniture);
+      for (const part of sorted) {
+        assert.equal(part.facing, 'NE');
+        assert.equal(typeof part.colorIndex, 'number');
+        assert.equal(part.colorIndex, sorted[0].colorIndex, 'all sofa cushions must share the same palette');
+        assert.equal(grid[part.gy][part.gx], true, 'every sofa cushion tile must be walkable for seating');
+        const path = findPath(grid, { gx: 0, gy: 6 }, { gx: part.gx, gy: part.gy });
+        assert.deepEqual(path[path.length - 1], { gx: part.gx, gy: part.gy });
+      }
+
+      sofaColorsSeen.add(sorted[0].colorIndex!);
+      for (const arm of layout.furniture.filter((f) => f.kind === 'armchair')) {
+        if (layout.getTileZone(arm.gx, arm.gy) === 'COFFEE_LOUNGE') {
+          assert.equal(typeof arm.colorIndex, 'number');
+          armchairColorsSeen.add(arm.colorIndex!);
+        } else if (layout.getTileZone(arm.gx, arm.gy) === 'DESK_ARCHITECT') {
+          assert.equal(arm.colorIndex, undefined, 'Boss Suite armchairs keep classic executive upholstery');
+        }
+      }
+
+      const szSet = sizesByBp.get(bp) ?? new Set<number>();
+      szSet.add(sorted.length);
+      sizesByBp.set(bp, szSet);
+    }
+
+    for (let bp = 0; bp < 5; bp++) {
+      const szSet = sizesByBp.get(bp);
+      assert.ok(
+        szSet && szSet.has(2) && szSet.has(3),
+        `blueprint ${bp} must produce both 2-seater and 3-seater sofas across layoutSeeds`,
+      );
+    }
+    assert.equal(sofaColorsSeen.size, 6, 'sofas must cycle across all 6 upholstery color palettes (0..5)');
+    assert.equal(armchairColorsSeen.size, 6, 'lounge armchairs must cycle across all 6 color palettes (0..5)');
+  });
 });

@@ -579,9 +579,16 @@ export function drawFurniture(
     ctx.fillRect(Math.round(cx - 3 * z), Math.round(cy - 23 * z), Math.ceil(3 * z), Math.ceil(3 * z));
     ctx.fillStyle = '#3be87a';
     ctx.fillRect(Math.round(cx + 1 * z), Math.round(cy - 23 * z), Math.ceil(3 * z), Math.ceil(3 * z));
-  } else if (kind === 'sofa_l' || kind === 'sofa_r') {
-    drawIsoBox(ctx, cx, cy, 20, 11, 10, '#c44558', '#8f2c3b', '#661d28', z);
-    drawIsoBox(ctx, cx - 4 * z, cy - 10 * z, 16, 4, 9, '#d9576a', '#a33747', '#782330', z);
+  } else if (kind === 'sofa' || kind === 'sofa_l' || kind === 'sofa_m' || kind === 'sofa_r') {
+    // Modular fallback sofa (sofa_l: left bolster, sofa_m: armless middle, sofa_r: right bolster, sofa: single)
+    drawIsoBox(ctx, cx, cy, 18, 10, 7.5, '#247d58', '#1c6345', '#0e3625', z);
+    drawIsoBox(ctx, cx - 4 * z, cy + 2 * z, 16, 4.5, 11, '#2d9168', '#21704f', '#103d2a', z);
+    if (kind === 'sofa_l' || kind === 'sofa') {
+      drawIsoBox(ctx, cx - 8 * z, cy - 4 * z, 5, 8, 9.5, '#2d9168', '#21704f', '#103d2a', z);
+    }
+    if (kind === 'sofa_r' || kind === 'sofa') {
+      drawIsoBox(ctx, cx + 8 * z, cy + 4 * z, 5, 8, 9.5, '#2d9168', '#21704f', '#103d2a', z);
+    }
   } else if (kind === 'armchair') {
     drawIsoBox(ctx, cx, cy, 15, 10, 9, '#b84b68', '#853048', '#5e1f31', z);
     drawIsoBox(ctx, cx - 3 * z, cy - 9 * z, 12, 4, 8, '#cf5d7b', '#993c55', '#6e273a', z);

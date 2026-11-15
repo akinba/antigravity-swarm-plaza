@@ -185,7 +185,13 @@ function buildLayoutSeatAlignments(layout: FloorLayout): LayoutSeatAlignments {
     }
   }
   for (const item of layout.furniture) {
-    if (item.kind === 'armchair') {
+    if (
+      item.kind === 'armchair' ||
+      item.kind === 'sofa' ||
+      item.kind === 'sofa_l' ||
+      item.kind === 'sofa_m' ||
+      item.kind === 'sofa_r'
+    ) {
       armchairKeys.add(`${item.gx},${item.gy}`);
     }
   }
@@ -1476,7 +1482,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
 
       // 1 & 2. Optional Offscreen Static Layer Cache
       if (useStaticCache) {
-        const staticCacheKey = `${canvasW}x${canvasH}|${dpr.toFixed(2)}|${antiAliasing}|${cam.zoom.toFixed(3)}|${Math.round(cam.offsetX)},${Math.round(cam.offsetY)}|${currentLayout.blueprintIndex}|${currentLayout.themePalette.nameEn}|${night ? 1 : 0}|${eventKind ?? 'none'}|${localeRef.current}`;
+        const staticCacheKey = `${canvasW}x${canvasH}|${dpr.toFixed(2)}|${antiAliasing}|${cam.zoom.toFixed(3)}|${Math.round(cam.offsetX)},${Math.round(cam.offsetY)}|${currentLayout.blueprintIndex}|${currentFloor.layoutSeed ?? 0}|${currentLayout.themePalette.nameEn}|${night ? 1 : 0}|${eventKind ?? 'none'}|${localeRef.current}`;
 
         let staticCanvas = staticCacheRef.current.canvas;
         if (!staticCanvas && typeof document !== 'undefined') {
@@ -1615,7 +1621,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
         const isConfTableAnchor = isConferenceTableKind(item.kind);
         const isBeanbag = isBeanbagKind(item.kind);
         const isPartition = isPartitionKind(item.kind);
-        const itemColorIndex = isBeanbag ? beanbagCounter++ : undefined;
+        const itemColorIndex = isBeanbag ? beanbagCounter++ : item.colorIndex;
         const chairDeskAlign = isWorkChair
           ? currentAlignments.deskSeatMap.get(itemKey)
           : isMeetingChair
