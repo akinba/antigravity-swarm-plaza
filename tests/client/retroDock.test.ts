@@ -9,6 +9,7 @@ import {
   extractMentions,
   filterMentionSuggestions,
   filterSlashSuggestions,
+  resolveOrchestration,
   resolvePromptProvider,
 } from '../../src/client/components/RetroCommandDock';
 import { deriveMentionFromModel } from '../../src/client/components/SettingsModal';
@@ -144,5 +145,15 @@ describe('RetroCommandDock helpers & i18n', () => {
       provider: 'gemini',
     });
     assert.equal(deriveMentionFromModel('qwen2.5-coder:14b'), 'local-qwen2.5-coder');
+  });
+
+  it('resolves single vs swarm orchestration mode for ENTER and RUN SWARM buttons', () => {
+    assert.equal(resolveOrchestration('Fix header alignment'), 'single');
+    assert.equal(resolveOrchestration('/swarm refactor dock'), 'swarm');
+    assert.equal(resolveOrchestration('Fix header alignment', 'swarm'), 'swarm');
+    assert.equal(resolveOrchestration('/swarm refactor dock', 'single'), 'single');
+    assert.equal(DICTIONARIES.en.dock.enterSingle, '↵ ENTER');
+    assert.equal(DICTIONARIES.tr.dock.enterSingle, '↵ ENTER');
+    assert.equal(DICTIONARIES.en.dock.openDock, '💬 DOCK');
   });
 });

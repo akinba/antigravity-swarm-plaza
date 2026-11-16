@@ -438,4 +438,63 @@ describe('PromptRunner & standalone prompt endpoints', () => {
       await instance.close();
     }
   });
+
+  it('distinguishes single vs swarm orchestration and returns clean [CLI/API NOT CONFIGURED] or falls back to Gemini REST SSE', async () => {
+    // 1. Missing CLI and no API key -> clean [CLI/API NOT CONFIGURED] message
+    const noConfigEvents: PromptStreamEvent[] = [];
+    const noConfigRunner = new PromptRunner({
+      defaultWorkspace: process.cwd(),
+      resolveCliCommand: async () => null,
+      geminiApiKey: '',
+    });
+    noConfigRunner.subscribe((ev) => noConfigEvents.push(ev));
+
+    noConfigRunner.startPrompt({
+      prompt: 'Analyze repo',
+      model: 'gemini-4-hydrogen-medium',
+      mode: 'turbo',
+      orchestration: 'single',
+      mentions: [],
+    });
+    await noConfigRunner.waitForIdle();
+
+    assert.ok(noConfigEvents.some((e) => e.type === 'status' && e.text?.includes('[SINGLE]')));
+    const errEv = noConfigEvents.find((e) => e.type === 'error');
+    assert.ok(errEv);
+    assert.match(errEv.text ?? '', /\[CLI\/API NOT CONFIGURED\]/);
+
+    // 2. Missing CLI + geminiApiKey present -> Gemini REST SSE fallback + [SWARM MODE]
+    const sseEvents: PromptStreamEvent[] = [];
+    let restUrl = '';
+    const restRunner = new PromptRunner({
+      defaultWorkspace: process.cwd(),
+      resolveCliCommand: async () => null,
+      geminiApiKey: 'test-gemini-key',
+      fetchImpl: async (url) => {
+        restUrl = String(url);
+        return new Response(
+          createNdjsonStream([
+            `data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text: 'Gemini REST ok' }] } }] })}`,
+            'data: [DONE]',
+          ]),
+          { status: 200 },
+        );
+      },
+    });
+    restRunner.subscribe((ev) => sseEvents.push(ev));
+
+    restRunner.startPrompt({
+      prompt: 'Run swarm task',
+      model: 'gemini-3.8-flash-fast',
+      mode: 'turbo',
+      orchestration: 'swarm',
+      mentions: ['coordinator'],
+    });
+    await restRunner.waitForIdle();
+
+    assert.match(restUrl, /generativelanguage\.googleapis\.com.*gemini-2\.5-flash:streamGenerateContent\?alt=sse/);
+    assert.ok(sseEvents.some((e) => e.type === 'status' && e.text?.includes('[SWARM MODE]')));
+    assert.ok(sseEvents.some((e) => e.type === 'chunk' && e.text?.includes('Gemini REST ok')));
+    assert.equal(restRunner.getState().status, 'idle');
+  });
 });

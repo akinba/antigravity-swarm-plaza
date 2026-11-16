@@ -326,6 +326,7 @@ export interface PromptRequest {
   prompt: string;
   model: PromptModelId;
   mode: ExecutionMode;
+  orchestration?: 'single' | 'swarm';
   mentions: string[];
   provider?: 'gemini' | 'ollama';
   ollamaBaseUrl?: string;

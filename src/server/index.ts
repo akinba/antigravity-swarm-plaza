@@ -354,6 +354,7 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
         prompt: body.prompt,
         model: body.model ?? 'gemini-4-hydrogen-medium',
         mode: body.mode ?? 'turbo',
+        orchestration: body.orchestration,
         mentions: Array.isArray(body.mentions) ? body.mentions : [],
         provider: body.provider,
         ollamaBaseUrl: body.ollamaBaseUrl,

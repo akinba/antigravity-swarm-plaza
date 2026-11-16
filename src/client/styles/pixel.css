@@ -354,39 +354,59 @@ canvas {
    RETRO COMMAND DOCK (Standalone Prompt & Live Stream Drawer)
    ============================================================ */
 .retro-dock-wrap {
-  position: fixed;
-  left: 50%;
-  bottom: 10px;
-  transform: translateX(-50%);
-  width: min(860px, calc(100vw - 24px));
+  position: relative;
+  flex-shrink: 0;
+  width: 100%;
+  background: #0f121d;
+  border-top: 3px solid var(--border-dark);
+  box-shadow: inset 0 2px 0 #262f4b;
+  padding: 6px 12px;
   z-index: 45;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  pointer-events: none;
+  justify-content: center;
 }
 
-.retro-dock-wrap > * {
-  pointer-events: auto;
+.retro-dock-inner {
+  position: relative;
+  width: min(920px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
 }
 
 .retro-dock-wrap.minimized {
-  width: auto;
-  min-width: 280px;
+  padding: 3px 12px;
+}
+
+.retro-dock-wrap.minimized .retro-dock-panel {
+  padding: 4px 10px;
+  gap: 0;
+}
+
+.retro-dock-reopen-btn {
+  position: fixed;
+  right: 14px;
+  bottom: 12px;
+  z-index: 45;
 }
 
 .retro-dock-drawer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 6px);
+  z-index: 50;
   background: var(--bg-panel);
   border: 3px solid var(--border-dark);
   box-shadow:
     inset 2px 2px 0 var(--border-light),
     inset -2px -2px 0 #121524,
-    0 4px 0 rgba(0, 0, 0, 0.65);
+    0 4px 0 rgba(0, 0, 0, 0.75);
   padding: 8px 10px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 260px;
+  max-height: 250px;
 }
 
 .retro-dock-drawer-head {
@@ -450,15 +470,14 @@ canvas {
 .retro-dock-panel {
   position: relative;
   background: var(--bg-panel);
-  border: 3px solid var(--border-dark);
+  border: 2px solid var(--border-dark);
   box-shadow:
     inset 2px 2px 0 var(--border-light),
-    inset -2px -2px 0 #121524,
-    0 6px 0 rgba(0, 0, 0, 0.7);
-  padding: 8px 10px;
+    inset -2px -2px 0 #121524;
+  padding: 6px 10px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .retro-dock-header {
@@ -517,8 +536,8 @@ canvas {
 
 .retro-dock-textarea {
   width: 100%;
-  min-height: 36px;
-  max-height: 120px;
+  min-height: 28px;
+  max-height: 92px;
   resize: none;
   background: transparent;
   border: none;

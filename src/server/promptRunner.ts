@@ -1,5 +1,6 @@
 import { execFile, spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import fs from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import type {
@@ -43,8 +44,10 @@ export interface PromptRunnerOptions {
   fetchImpl?: typeof fetch;
   spawnImpl?: typeof spawn;
   execFileImpl?: ExecFileFn;
+  resolveCliCommand?: (cmd: string) => Promise<string | null>;
   ollamaUrl?: string;
   cliCommand?: string;
+  geminiApiKey?: string;
   defaultWorkspace?: string;
   maxLogs?: number;
 }
@@ -111,6 +114,30 @@ export function isOllamaRequest(req: PromptRequest): boolean {
   );
 }
 
+export function mapGeminiRestModel(model: string): string {
+  if (model.includes('flash')) return 'gemini-2.5-flash';
+  return 'gemini-2.5-pro';
+}
+
+export async function defaultResolveCliCommand(cmd: string): Promise<string | null> {
+  const trimmed = cmd.trim();
+  if (!trimmed) return null;
+  if (trimmed.includes('/') || trimmed.includes('\\')) {
+    return fs.existsSync(trimmed) ? trimmed : null;
+  }
+  const locator = process.platform === 'win32' ? 'where.exe' : 'which';
+  try {
+    const { stdout } = await execFileAsync(locator, [trimmed], { encoding: 'utf8' });
+    const first = stdout
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .find(Boolean);
+    return first || null;
+  } catch {
+    return null;
+  }
+}
+
 const FILE_PATH_REGEX =
   /\b((?:src|tests|docs|plugin|scripts)\/[A-Za-z0-9_./-]+\.[A-Za-z0-9]+)\b/;
 
@@ -152,8 +179,10 @@ export class PromptRunner {
   private readonly fetchImpl: typeof fetch;
   private readonly spawnImpl: typeof spawn;
   private readonly execFileImpl: ExecFileFn;
+  private readonly resolveCliCommandFn: (cmd: string) => Promise<string | null>;
   private readonly ollamaUrl: string;
   private readonly cliCommand: string;
+  private readonly geminiApiKey: string;
   private readonly defaultWorkspace: string;
   private readonly maxLogs: number;
 
@@ -175,9 +204,12 @@ export class PromptRunner {
     this.execFileImpl =
       options.execFileImpl ??
       ((cmd, args, opts) => execFileAsync(cmd, args, { cwd: opts.cwd, encoding: 'utf8' }));
+    this.resolveCliCommandFn = options.resolveCliCommand ?? defaultResolveCliCommand;
     this.ollamaUrl =
       options.ollamaUrl ?? process.env.OLLAMA_CHAT_URL ?? 'http://localhost:11434/api/chat';
     this.cliCommand = options.cliCommand ?? process.env.ANTIGRAVITY_CLI_CMD ?? 'agy';
+    this.geminiApiKey =
+      (options.geminiApiKey ?? process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? '').trim();
     this.defaultWorkspace = options.defaultWorkspace ?? CURRENT_WORKSPACE;
     this.workspace = this.defaultWorkspace;
     this.maxLogs = options.maxLogs ?? 200;
@@ -284,12 +316,13 @@ export class PromptRunner {
       });
     }
 
+    const orchLabel = req.orchestration === 'swarm' ? '[SWARM MODE]' : '[SINGLE]';
     this.emit({
       runId,
       type: 'status',
       agentId: targets[0],
       status: 'running',
-      text: `Started ${req.model} (${req.mode})`,
+      text: `${orchLabel} Started ${req.model} (${req.mode})`,
       timestamp: now,
     });
 
@@ -561,21 +594,32 @@ export class PromptRunner {
     agentId: string,
     signal?: AbortSignal,
   ): Promise<void> {
+    const resolvedCmd = await this.resolveCliCommandFn(this.cliCommand);
+    if (!resolvedCmd) {
+      if (this.geminiApiKey) {
+        await this.runGeminiRest(runId, req, agentId, signal);
+        return;
+      }
+      throw new Error(
+        "[CLI/API NOT CONFIGURED] Gemini CLI ('agy'/'gemini') veya GEMINI_API_KEY bulunamadı. Yerel model için Ayarlar -> Yerel Ajanlar (Ollama) üzerinden bir model seçin veya ANTIGRAVITY_CLI_CMD / GEMINI_API_KEY tanımlayın.",
+      );
+    }
+
     const args = ['chat', '--model', req.model, '--mode', req.mode, req.prompt];
 
     await new Promise<void>((resolve, reject) => {
       let child: ChildProcess;
       try {
-        child = this.spawnImpl(this.cliCommand, args, {
+        child = this.spawnImpl(resolvedCmd, args, {
           cwd: this.workspace,
           stdio: ['ignore', 'pipe', 'pipe'],
-          shell: process.platform === 'win32',
+          shell: process.platform === 'win32' && /\.(cmd|bat)$/i.test(resolvedCmd),
         });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         reject(
           new Error(
-            `[CLI NOT FOUND] Failed to start '${this.cliCommand}' (${msg}). Install Antigravity CLI or configure Settings -> Local Agents (Ollama).`,
+            `[CLI NOT FOUND] Failed to start '${resolvedCmd}' (${msg}). Install Antigravity CLI or configure Settings -> Local Agents (Ollama).`,
           ),
         );
         return;
@@ -635,6 +679,69 @@ export class PromptRunner {
         }
       });
     });
+  }
+
+  private async runGeminiRest(
+    runId: string,
+    req: PromptRequest,
+    agentId: string,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const restModel = mapGeminiRestModel(req.model);
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(restModel)}:streamGenerateContent?alt=sse&key=${encodeURIComponent(this.geminiApiKey)}`;
+    const attachmentsNote =
+      req.attachments && req.attachments.length > 0
+        ? `\n\nAttached context: ${req.attachments.join(', ')}`
+        : '';
+
+    const response = await this.fetchImpl(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: `${req.prompt}${attachmentsNote}` }],
+          },
+        ],
+      }),
+      signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`[GEMINI API ERROR] HTTP ${response.status} ${response.statusText}`);
+    }
+    if (!response.body) return;
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+      for (const rawLine of lines) {
+        const trimmed = rawLine.trim();
+        if (!trimmed.startsWith('data:')) continue;
+        const payload = trimmed.slice(5).trim();
+        if (!payload || payload === '[DONE]') continue;
+        try {
+          const parsed = JSON.parse(payload) as {
+            candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+          };
+          const text =
+            parsed.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? '';
+          if (text) {
+            this.handleTextChunk(runId, agentId, text);
+          }
+        } catch {
+          // Ignore malformed SSE JSON chunk
+        }
+      }
+    }
   }
 
   private async collectGitDiffs(runId: string): Promise<void> {

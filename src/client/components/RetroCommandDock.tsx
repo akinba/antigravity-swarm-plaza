@@ -174,6 +174,14 @@ export function filterSlashSuggestions(query: string): SlashCommandOption[] {
   );
 }
 
+export function resolveOrchestration(
+  promptText: string,
+  explicit?: 'single' | 'swarm',
+): 'single' | 'swarm' {
+  if (explicit) return explicit;
+  return promptText.trim().startsWith('/swarm') ? 'swarm' : 'single';
+}
+
 export function extractMentions(text: string): string[] {
   const matches = text.match(/@([a-zA-Z0-9_.-]+)/g);
   if (!matches) return [];
@@ -216,6 +224,7 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
 }) => {
   const { t, locale } = useI18n();
   const [minimized, setMinimized] = useState(false);
+  const [hidden, setHidden] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [promptText, setPromptText] = useState('');
   const [cursorPos, setCursorPos] = useState(0);
@@ -367,7 +376,7 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
     });
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (explicitOrchestration?: 'single' | 'swarm') => {
     const trimmed = promptText.trim();
     if (!trimmed) return;
 
@@ -380,11 +389,12 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
       return;
     }
 
+    const orchestration = resolveOrchestration(trimmed, explicitOrchestration);
     playMentionChime();
     setDrawerOpen(true);
     setNotice(null);
     setRunStatus('running');
-    appendLog('status', `> ${trimmed}`);
+    appendLog('status', `> [${orchestration.toUpperCase()}] ${trimmed}`);
 
     const mentions = extractMentions(trimmed);
     const { provider, ollamaBaseUrl } = resolvePromptProvider(model, localAgents);
@@ -398,6 +408,7 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
           prompt: trimmed,
           model,
           mode,
+          orchestration,
           mentions,
           provider,
           ollamaBaseUrl,
@@ -511,12 +522,29 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
           ? t.dock.statusStopped
           : t.dock.statusIdle;
 
+  if (hidden) {
+    return (
+      <button
+        type="button"
+        className="pixel-btn cyan retro-dock-reopen-btn"
+        style={{ fontSize: 9, padding: '6px 12px' }}
+        onClick={() => {
+          playSelectBlip();
+          setHidden(false);
+        }}
+      >
+        {t.dock.openDock}
+      </button>
+    );
+  }
+
   return (
     <section
       className={`retro-dock-wrap${minimized ? ' minimized' : ''}`}
       aria-label={t.dock.title}
     >
-      {!minimized && drawerOpen && (
+      <div className="retro-dock-inner">
+        {!minimized && drawerOpen && (
         <div className="retro-dock-drawer">
           <div className="retro-dock-drawer-head">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -678,6 +706,17 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
               }}
             >
               {minimized ? t.dock.expand : t.dock.minimize}
+            </button>
+            <button
+              type="button"
+              className="pixel-btn"
+              style={{ fontSize: 8, padding: '3px 8px' }}
+              onClick={() => {
+                playSelectBlip();
+                setHidden(true);
+              }}
+            >
+              {t.dock.hideDock}
             </button>
           </div>
         </div>
@@ -904,19 +943,32 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
                     ■ {t.dock.stop}
                   </button>
                 ) : (
-                  <button
-                    type="button"
-                    className="pixel-btn cyan"
-                    style={{ fontSize: 9, padding: '5px 12px' }}
-                    onClick={() => void handleSubmit()}
-                  >
-                    ▶ {t.dock.send}
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      className="pixel-btn"
+                      style={{ fontSize: 9, padding: '5px 10px' }}
+                      title={t.dock.enterSingleTitle}
+                      onClick={() => void handleSubmit('single')}
+                    >
+                      {t.dock.enterSingle}
+                    </button>
+                    <button
+                      type="button"
+                      className="pixel-btn cyan"
+                      style={{ fontSize: 9, padding: '5px 12px' }}
+                      title={t.dock.runSwarmTitle}
+                      onClick={() => void handleSubmit('swarm')}
+                    >
+                      ▶ {t.dock.send}
+                    </button>
+                  </>
                 )}
               </div>
             </div>
           </>
         )}
+      </div>
       </div>
     </section>
   );
