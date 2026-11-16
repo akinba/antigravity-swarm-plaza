@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   DEFAULT_GRAPHICS_SETTINGS,
   type AntiAliasingMode,
@@ -119,6 +119,62 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [modelDraft, setModelDraft] = useState('qwen2.5-coder:14b');
   const [agentNameDraft, setAgentNameDraft] = useState('Local Qwen 2.5 Coder');
   const [mentionDraft, setMentionDraft] = useState('local-qwen2.5-coder');
+  const [geminiKeyStatus, setGeminiKeyStatus] = useState<{
+    configured: boolean;
+    masked: string;
+    source: 'env' | 'settings' | 'none';
+  }>({ configured: false, masked: '', source: 'none' });
+  const [geminiKeyDraft, setGeminiKeyDraft] = useState('');
+  const [showGeminiKey, setShowGeminiKey] = useState(false);
+  const [geminiKeySaving, setGeminiKeySaving] = useState(false);
+  const [geminiKeyNotice, setGeminiKeyNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/settings/gemini-key')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        setGeminiKeyStatus({
+          configured: Boolean(data.configured),
+          masked: typeof data.masked === 'string' ? data.masked : '',
+          source: data.source ?? 'none',
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleSaveGeminiKey = async (apiKey: string) => {
+    playSelectBlip();
+    setGeminiKeySaving(true);
+    setGeminiKeyNotice(null);
+    try {
+      const res = await fetch('/api/settings/gemini-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey }),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as {
+          configured?: boolean;
+          masked?: string;
+          source?: 'env' | 'settings' | 'none';
+        };
+        setGeminiKeyStatus({
+          configured: Boolean(data.configured),
+          masked: data.masked ?? '',
+          source: data.source ?? 'none',
+        });
+        setGeminiKeyDraft('');
+        setGeminiKeyNotice(t.settingsModal.geminiKeySaved);
+      }
+    } finally {
+      setGeminiKeySaving(false);
+    }
+  };
 
   const handleSelectModel = (modelName: string) => {
     setModelDraft(modelName);
@@ -617,6 +673,76 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               ))}
             </div>
           )}
+        </div>
+
+        {/* Gemini API Key */}
+        <div className="pixel-panel-inset" style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+            <span className="pixel-title" style={{ fontSize: 9, color: '#ffd147' }}>
+              {t.settingsModal.geminiKeySection}
+            </span>
+            <span
+              className="pixel-badge"
+              style={{
+                fontSize: 9,
+                color: geminiKeyStatus.configured ? '#3be87a' : 'var(--text-dim)',
+              }}
+            >
+              {geminiKeyStatus.configured
+                ? `✓ ${geminiKeyStatus.masked} (${geminiKeyStatus.source})`
+                : t.settingsModal.geminiKeyNotConfigured}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            <input
+              type={showGeminiKey ? 'text' : 'password'}
+              value={geminiKeyDraft}
+              onChange={(e) => setGeminiKeyDraft(e.target.value)}
+              placeholder={t.settingsModal.geminiKeyPlaceholder}
+              aria-label={t.settingsModal.geminiKeySection}
+              className="retro-dock-select"
+              style={{ flex: 1, minWidth: 200, maxWidth: 'none', cursor: 'text' }}
+            />
+            <button
+              type="button"
+              className="pixel-btn"
+              style={{ fontSize: 9, padding: '5px 8px' }}
+              onClick={() => {
+                playSelectBlip();
+                setShowGeminiKey((prev) => !prev);
+              }}
+            >
+              {showGeminiKey ? t.settingsModal.geminiKeyHide : t.settingsModal.geminiKeyShow}
+            </button>
+            <button
+              type="button"
+              className="pixel-btn cyan"
+              style={{ fontSize: 9, padding: '5px 10px' }}
+              disabled={geminiKeySaving || !geminiKeyDraft.trim()}
+              onClick={() => void handleSaveGeminiKey(geminiKeyDraft.trim())}
+            >
+              {t.settingsModal.geminiKeySave}
+            </button>
+            <button
+              type="button"
+              className="pixel-btn danger"
+              style={{ fontSize: 9, padding: '5px 10px' }}
+              disabled={geminiKeySaving}
+              onClick={() => void handleSaveGeminiKey('')}
+            >
+              {t.settingsModal.geminiKeyClear}
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>
+              {t.settingsModal.geminiKeyHint}
+            </span>
+            {geminiKeyNotice && (
+              <span style={{ fontSize: 10, color: '#3be87a' }}>{geminiKeyNotice}</span>
+            )}
+          </div>
         </div>
 
         {/* Footer */}

@@ -311,6 +311,17 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
     res.json(promptRunner.getState());
   });
 
+  app.get('/api/settings/gemini-key', (_req, res) => {
+    res.json(promptRunner.getGeminiApiKeyStatus());
+  });
+
+  app.post('/api/settings/gemini-key', (req, res) => {
+    const body = (req.body ?? {}) as { apiKey?: unknown };
+    const apiKey = typeof body.apiKey === 'string' ? body.apiKey : '';
+    const status = promptRunner.setGeminiApiKey(apiKey);
+    res.json({ ok: true, ...status });
+  });
+
   app.get('/api/ollama/models', async (req, res) => {
     const baseUrl = typeof req.query.baseUrl === 'string' ? req.query.baseUrl : undefined;
     try {

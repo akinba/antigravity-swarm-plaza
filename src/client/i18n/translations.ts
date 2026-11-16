@@ -373,6 +373,15 @@ export interface Translations {
     noLocalAgents: string;
     removeAgentBtn: string;
     ollamaOfflineHint: string;
+    geminiKeySection: string;
+    geminiKeyNotConfigured: string;
+    geminiKeyPlaceholder: string;
+    geminiKeySave: string;
+    geminiKeyClear: string;
+    geminiKeyShow: string;
+    geminiKeyHide: string;
+    geminiKeyHint: string;
+    geminiKeySaved: string;
   };
 }
 
@@ -801,6 +810,15 @@ const TR: Translations = {
     noLocalAgents: 'Henüz tanımlı yerel Ollama ajanı yok.',
     removeAgentBtn: 'Kaldır',
     ollamaOfflineHint: 'Ollama çevrimdışı — modeli elle yazıp ekleyebilirsiniz:',
+    geminiKeySection: '🔑 GEMINI API KEY',
+    geminiKeyNotConfigured: 'Tanımlı değil',
+    geminiKeyPlaceholder: 'AIza... (Google AI Studio GEMINI_API_KEY)',
+    geminiKeySave: 'Kaydet',
+    geminiKeyClear: 'Temizle',
+    geminiKeyShow: 'Göster',
+    geminiKeyHide: 'Gizle',
+    geminiKeyHint: 'Google AI Studio anahtarınız yerel sunucuda (~/.gemini/swarm-plaza-secrets.json) saklanır.',
+    geminiKeySaved: 'Kaydedildi!',
   },
 };
 
@@ -1229,6 +1247,15 @@ const EN: Translations = {
     noLocalAgents: 'No local Ollama agents configured yet.',
     removeAgentBtn: 'Remove',
     ollamaOfflineHint: 'Ollama offline — you can still enter a model name manually:',
+    geminiKeySection: '🔑 GEMINI API KEY',
+    geminiKeyNotConfigured: 'Not configured',
+    geminiKeyPlaceholder: 'AIza... (Google AI Studio GEMINI_API_KEY)',
+    geminiKeySave: 'Save',
+    geminiKeyClear: 'Clear',
+    geminiKeyShow: 'Show',
+    geminiKeyHide: 'Hide',
+    geminiKeyHint: 'Your Google AI Studio key is stored locally (~/.gemini/swarm-plaza-secrets.json).',
+    geminiKeySaved: 'Saved!',
   },
 };
 

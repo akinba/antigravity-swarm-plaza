@@ -1,6 +1,7 @@
 import { execFile, spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import type {
@@ -48,8 +49,17 @@ export interface PromptRunnerOptions {
   ollamaUrl?: string;
   cliCommand?: string;
   geminiApiKey?: string;
+  secretsFilePath?: string;
   defaultWorkspace?: string;
   maxLogs?: number;
+}
+
+export type GeminiKeySource = 'env' | 'settings' | 'none';
+
+export interface GeminiApiKeyStatus {
+  configured: boolean;
+  masked: string;
+  source: GeminiKeySource;
 }
 
 export class PromptConflictError extends Error {
@@ -115,8 +125,23 @@ export function isOllamaRequest(req: PromptRequest): boolean {
 }
 
 export function mapGeminiRestModel(model: string): string {
-  if (model.includes('flash')) return 'gemini-2.5-flash';
-  return 'gemini-2.5-pro';
+  if (model === 'gemini-4-carbon-medium') return 'gemini-2.5-pro';
+  if (
+    model === 'gemini-4-argon-medium' ||
+    model === 'gemini-4-hydrogen-medium' ||
+    model === 'gemini-3.8-flash-fast'
+  ) {
+    return 'gemini-2.5-flash';
+  }
+  if (model.includes('pro') || model.includes('carbon')) return 'gemini-2.5-pro';
+  return 'gemini-2.5-flash';
+}
+
+export function maskSecretKey(key: string): string {
+  const trimmed = key.trim();
+  if (!trimmed) return '';
+  if (trimmed.length <= 8) return '****';
+  return `${trimmed.slice(0, 4)}...${trimmed.slice(-4)}`;
 }
 
 export async function defaultResolveCliCommand(cmd: string): Promise<string | null> {
@@ -182,7 +207,10 @@ export class PromptRunner {
   private readonly resolveCliCommandFn: (cmd: string) => Promise<string | null>;
   private readonly ollamaUrl: string;
   private readonly cliCommand: string;
-  private readonly geminiApiKey: string;
+  private readonly secretsFilePath: string;
+  private readonly envGeminiApiKey: string;
+  private geminiApiKey: string;
+  private geminiKeySource: GeminiKeySource;
   private readonly defaultWorkspace: string;
   private readonly maxLogs: number;
 
@@ -208,11 +236,102 @@ export class PromptRunner {
     this.ollamaUrl =
       options.ollamaUrl ?? process.env.OLLAMA_CHAT_URL ?? 'http://localhost:11434/api/chat';
     this.cliCommand = options.cliCommand ?? process.env.ANTIGRAVITY_CLI_CMD ?? 'agy';
-    this.geminiApiKey =
-      (options.geminiApiKey ?? process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? '').trim();
+    this.secretsFilePath =
+      options.secretsFilePath ?? path.join(os.homedir(), '.gemini', 'swarm-plaza-secrets.json');
+    this.envGeminiApiKey = (process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? '').trim();
+
+    if (options.geminiApiKey !== undefined) {
+      this.geminiApiKey = options.geminiApiKey.trim();
+      this.geminiKeySource = this.geminiApiKey ? 'env' : 'none';
+    } else {
+      const savedKey = this.readSavedGeminiApiKey();
+      if (savedKey) {
+        this.geminiApiKey = savedKey;
+        this.geminiKeySource = 'settings';
+      } else if (this.envGeminiApiKey) {
+        this.geminiApiKey = this.envGeminiApiKey;
+        this.geminiKeySource = 'env';
+      } else {
+        this.geminiApiKey = '';
+        this.geminiKeySource = 'none';
+      }
+    }
+
     this.defaultWorkspace = options.defaultWorkspace ?? CURRENT_WORKSPACE;
     this.workspace = this.defaultWorkspace;
     this.maxLogs = options.maxLogs ?? 200;
+  }
+
+  private readSavedGeminiApiKey(): string {
+    try {
+      if (!fs.existsSync(this.secretsFilePath)) return '';
+      const raw = fs.readFileSync(this.secretsFilePath, 'utf8');
+      const parsed = JSON.parse(raw) as { geminiApiKey?: string };
+      return typeof parsed.geminiApiKey === 'string' ? parsed.geminiApiKey.trim() : '';
+    } catch {
+      return '';
+    }
+  }
+
+  getGeminiApiKeyStatus(): GeminiApiKeyStatus {
+    return {
+      configured: Boolean(this.geminiApiKey),
+      masked: maskSecretKey(this.geminiApiKey),
+      source: this.geminiKeySource,
+    };
+  }
+
+  setGeminiApiKey(apiKey: string): GeminiApiKeyStatus {
+    const trimmed = (apiKey ?? '').trim();
+    const dir = path.dirname(this.secretsFilePath);
+    if (!trimmed) {
+      try {
+        if (fs.existsSync(this.secretsFilePath)) {
+          const raw = fs.readFileSync(this.secretsFilePath, 'utf8');
+          const parsed = JSON.parse(raw) as Record<string, unknown>;
+          delete parsed.geminiApiKey;
+          if (Object.keys(parsed).length === 0) {
+            fs.unlinkSync(this.secretsFilePath);
+          } else {
+            fs.writeFileSync(this.secretsFilePath, JSON.stringify(parsed, null, 2), {
+              encoding: 'utf8',
+              mode: 0o600,
+            });
+          }
+        }
+      } catch {
+        // Ignore cleanup errors
+      }
+      if (this.envGeminiApiKey) {
+        this.geminiApiKey = this.envGeminiApiKey;
+        this.geminiKeySource = 'env';
+      } else {
+        this.geminiApiKey = '';
+        this.geminiKeySource = 'none';
+      }
+      return this.getGeminiApiKeyStatus();
+    }
+
+    fs.mkdirSync(dir, { recursive: true });
+    let existing: Record<string, unknown> = {};
+    try {
+      if (fs.existsSync(this.secretsFilePath)) {
+        existing = JSON.parse(fs.readFileSync(this.secretsFilePath, 'utf8')) as Record<
+          string,
+          unknown
+        >;
+      }
+    } catch {
+      existing = {};
+    }
+    existing.geminiApiKey = trimmed;
+    fs.writeFileSync(this.secretsFilePath, JSON.stringify(existing, null, 2), {
+      encoding: 'utf8',
+      mode: 0o600,
+    });
+    this.geminiApiKey = trimmed;
+    this.geminiKeySource = 'settings';
+    return this.getGeminiApiKeyStatus();
   }
 
   subscribe(listener: (event: PromptStreamEvent) => void): () => void {

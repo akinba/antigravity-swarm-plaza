@@ -192,10 +192,41 @@ export function extractMentions(text: string): string[] {
   return Array.from(unique);
 }
 
-interface LogLine {
+export interface DockLogLine {
   id: string;
   kind: PromptStreamEvent['type'];
   text: string;
+  runId?: string;
+}
+
+export function appendPromptStreamLog(
+  prev: DockLogLine[],
+  kind: PromptStreamEvent['type'],
+  text: string,
+  runId?: string,
+): DockLogLine[] {
+  if (!text) return prev;
+  if (kind === 'chunk' && prev.length > 0) {
+    const last = prev[prev.length - 1];
+    if (last.kind === 'chunk' && (runId === undefined || last.runId === undefined || last.runId === runId)) {
+      const updated: DockLogLine = {
+        ...last,
+        text: `${last.text}${text}`,
+        runId: runId ?? last.runId,
+      };
+      return [...prev.slice(0, -1), updated];
+    }
+  }
+  const next = [
+    ...prev,
+    {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      kind,
+      text,
+      runId,
+    },
+  ];
+  return next.length > 200 ? next.slice(next.length - 200) : next;
 }
 
 interface SpeechRecognitionInstance {
@@ -235,7 +266,7 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
   const [showAttachInput, setShowAttachInput] = useState(false);
   const [attachDraft, setAttachDraft] = useState('');
   const [runStatus, setRunStatus] = useState<'running' | 'idle' | 'stopped' | 'error'>('idle');
-  const [logs, setLogs] = useState<LogLine[]>([]);
+  const [logs, setLogs] = useState<DockLogLine[]>([]);
   const [diffs, setDiffs] = useState<DiffFileChange[]>([]);
   const [listening, setListening] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -245,15 +276,9 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
   const logsEndRef = useRef<HTMLDivElement | null>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
 
-  const appendLog = (kind: PromptStreamEvent['type'], text: string) => {
+  const appendLog = (kind: PromptStreamEvent['type'], text: string, runId?: string) => {
     if (!text) return;
-    setLogs((prev) => {
-      const next = [
-        ...prev,
-        { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, kind, text },
-      ];
-      return next.length > 200 ? next.slice(next.length - 200) : next;
-    });
+    setLogs((prev) => appendPromptStreamLog(prev, kind, text, runId));
   };
 
   // Auto-resize textarea
@@ -299,20 +324,20 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
         const ev = JSON.parse(msg.data) as PromptStreamEvent;
         if (ev.status) setRunStatus(ev.status);
         if (ev.type === 'status' && ev.text) {
-          appendLog('status', `[STATUS] ${ev.text}`);
+          appendLog('status', `[STATUS] ${ev.text}`, ev.runId);
         } else if (ev.type === 'chunk' && ev.text) {
-          appendLog('chunk', ev.text);
+          appendLog('chunk', ev.text, ev.runId);
         } else if (ev.type === 'file' && ev.file) {
-          appendLog('file', `[FILE] ${ev.file}`);
+          appendLog('file', `[FILE] ${ev.file}`, ev.runId);
         } else if (ev.type === 'diff' && Array.isArray(ev.diffs)) {
           setDiffs(ev.diffs);
           setDrawerOpen(true);
         } else if (ev.type === 'error' && ev.text) {
-          appendLog('error', `[ERR] ${ev.text}`);
+          appendLog('error', `[ERR] ${ev.text}`, ev.runId);
           setDrawerOpen(true);
         } else if (ev.type === 'done') {
           setRunStatus(ev.status ?? 'idle');
-          if (ev.text) appendLog('done', `[DONE] ${ev.text}`);
+          if (ev.text) appendLog('done', `[DONE] ${ev.text}`, ev.runId);
         }
       } catch {
         // ignore malformed heartbeat/comment

@@ -4,6 +4,7 @@ import {
   DEFAULT_DOCK_MODEL,
   DOCK_MODE_OPTIONS,
   DOCK_MODEL_OPTIONS,
+  appendPromptStreamLog,
   buildDockModelOptions,
   detectAutocompleteTrigger,
   extractMentions,
@@ -155,5 +156,23 @@ describe('RetroCommandDock helpers & i18n', () => {
     assert.equal(DICTIONARIES.en.dock.enterSingle, '↵ ENTER');
     assert.equal(DICTIONARIES.tr.dock.enterSingle, '↵ ENTER');
     assert.equal(DICTIONARIES.en.dock.openDock, '💬 DOCK');
+    assert.ok(DICTIONARIES.tr.settingsModal.geminiKeySection.length > 0);
+    assert.ok(DICTIONARIES.en.settingsModal.geminiKeySection.length > 0);
+  });
+
+  it('concatenates consecutive chunk events for the same runId into a single flowing log line', () => {
+    let logs = appendPromptStreamLog([], 'status', '> Hello', 'run-1');
+    logs = appendPromptStreamLog(logs, 'chunk', 'Hello', 'run-1');
+    logs = appendPromptStreamLog(logs, 'chunk', '!', 'run-1');
+    logs = appendPromptStreamLog(logs, 'chunk', ' It seems', 'run-1');
+    logs = appendPromptStreamLog(logs, 'chunk', ' fixed.', 'run-1');
+    logs = appendPromptStreamLog(logs, 'done', '[DONE]', 'run-1');
+    logs = appendPromptStreamLog(logs, 'chunk', 'Next run', 'run-2');
+
+    assert.equal(logs.length, 4);
+    assert.equal(logs[0].text, '> Hello');
+    assert.equal(logs[1].text, 'Hello! It seems fixed.');
+    assert.equal(logs[2].text, '[DONE]');
+    assert.equal(logs[3].text, 'Next run');
   });
 });

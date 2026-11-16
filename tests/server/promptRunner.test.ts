@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
@@ -8,6 +9,7 @@ import { applyActivePromptOverrides } from '../../src/server/gamification.js';
 import {
   InvalidDiffPathError,
   PromptRunner,
+  mapGeminiRestModel,
   parseGitNumstat,
   resolveSafeWorkspaceFile,
 } from '../../src/server/promptRunner.js';
@@ -496,5 +498,94 @@ describe('PromptRunner & standalone prompt endpoints', () => {
     assert.ok(sseEvents.some((e) => e.type === 'status' && e.text?.includes('[SWARM MODE]')));
     assert.ok(sseEvents.some((e) => e.type === 'chunk' && e.text?.includes('Gemini REST ok')));
     assert.equal(restRunner.getState().status, 'idle');
+  });
+
+  it('manages Gemini API key via GET/POST /api/settings/gemini-key with masking, persistence, clearing, and REST model mapping', async () => {
+    assert.equal(mapGeminiRestModel('gemini-4-carbon-medium'), 'gemini-2.5-pro');
+    assert.equal(mapGeminiRestModel('gemini-4-argon-medium'), 'gemini-2.5-flash');
+    assert.equal(mapGeminiRestModel('gemini-4-hydrogen-medium'), 'gemini-2.5-flash');
+    assert.equal(mapGeminiRestModel('gemini-3.8-flash-fast'), 'gemini-2.5-flash');
+
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-secrets-'));
+    const secretsFilePath = path.join(tempDir, 'swarm-plaza-secrets.json');
+    const runner = new PromptRunner({
+      defaultWorkspace: process.cwd(),
+      secretsFilePath,
+      geminiApiKey: '',
+    });
+
+    const instance = createPlazaApp({
+      agyDataDir: path.join(os.tmpdir(), 'nonexistent-agy-test-dir'),
+      initialDemoMode: true,
+      broadcastIntervalMs: 0,
+      promptRunner: runner,
+    });
+
+    await new Promise<void>((resolve) => {
+      instance.server.listen(0, '127.0.0.1', () => resolve());
+    });
+
+    const addr = instance.server.address();
+    const port = typeof addr === 'object' && addr ? addr.port : 0;
+    const baseUrl = `http://127.0.0.1:${port}`;
+
+    try {
+      const initRes = await fetch(`${baseUrl}/api/settings/gemini-key`);
+      assert.equal(initRes.status, 200);
+      const initJson = (await initRes.json()) as {
+        configured: boolean;
+        masked: string;
+        source: string;
+      };
+      assert.equal(initJson.configured, false);
+      assert.equal(initJson.masked, '');
+      assert.equal(initJson.source, 'none');
+
+      const rawKey = 'AIzaSyTestSecretKey1234567890';
+      const saveRes = await fetch(`${baseUrl}/api/settings/gemini-key`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: rawKey }),
+      });
+      assert.equal(saveRes.status, 200);
+      const saveJson = (await saveRes.json()) as {
+        ok: boolean;
+        configured: boolean;
+        masked: string;
+        source: string;
+      };
+      assert.equal(saveJson.ok, true);
+      assert.equal(saveJson.configured, true);
+      assert.equal(saveJson.masked, 'AIza...7890');
+      assert.equal(saveJson.source, 'settings');
+      assert.ok(!JSON.stringify(saveJson).includes(rawKey));
+
+      // Persisted on disk and loaded by a fresh PromptRunner instance
+      const reloaded = new PromptRunner({
+        defaultWorkspace: process.cwd(),
+        secretsFilePath,
+      });
+      assert.equal(reloaded.getGeminiApiKeyStatus().configured, true);
+      assert.equal(reloaded.getGeminiApiKeyStatus().masked, 'AIza...7890');
+      assert.equal(reloaded.getGeminiApiKeyStatus().source, 'settings');
+
+      const clearRes = await fetch(`${baseUrl}/api/settings/gemini-key`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: '' }),
+      });
+      assert.equal(clearRes.status, 200);
+      const clearJson = (await clearRes.json()) as {
+        ok: boolean;
+        configured: boolean;
+        masked: string;
+      };
+      assert.equal(clearJson.ok, true);
+      assert.equal(clearJson.configured, false);
+      assert.equal(clearJson.masked, '');
+    } finally {
+      await instance.close();
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
   });
 });
