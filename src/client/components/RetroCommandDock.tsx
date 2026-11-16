@@ -255,7 +255,6 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
 }) => {
   const { t, locale } = useI18n();
   const [minimized, setMinimized] = useState(false);
-  const [hidden, setHidden] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [promptText, setPromptText] = useState('');
   const [cursorPos, setCursorPos] = useState(0);
@@ -547,22 +546,6 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
           ? t.dock.statusStopped
           : t.dock.statusIdle;
 
-  if (hidden) {
-    return (
-      <button
-        type="button"
-        className="pixel-btn cyan retro-dock-reopen-btn"
-        style={{ fontSize: 9, padding: '6px 12px' }}
-        onClick={() => {
-          playSelectBlip();
-          setHidden(false);
-        }}
-      >
-        {t.dock.openDock}
-      </button>
-    );
-  }
-
   return (
     <section
       className={`retro-dock-wrap${minimized ? ' minimized' : ''}`}
@@ -731,17 +714,6 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
               }}
             >
               {minimized ? t.dock.expand : t.dock.minimize}
-            </button>
-            <button
-              type="button"
-              className="pixel-btn"
-              style={{ fontSize: 8, padding: '3px 8px' }}
-              onClick={() => {
-                playSelectBlip();
-                setHidden(true);
-              }}
-            >
-              {t.dock.hideDock}
             </button>
           </div>
         </div>

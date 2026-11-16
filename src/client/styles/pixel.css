@@ -388,14 +388,6 @@ canvas {
   gap: 0;
 }
 
-.retro-dock-reopen-btn {
-  position: absolute;
-  left: 50%;
-  bottom: 12px;
-  transform: translateX(-50%);
-  z-index: 45;
-}
-
 @media (max-width: 960px) {
   .retro-dock-wrap {
     width: min(760px, calc(100% - 24px));

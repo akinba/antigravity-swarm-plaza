@@ -319,8 +319,6 @@ export interface Translations {
     enterSingle: string;
     enterSingleTitle: string;
     runSwarmTitle: string;
-    hideDock: string;
-    openDock: string;
   };
   settingsModal: {
     title: string;
@@ -756,8 +754,6 @@ const TR: Translations = {
     enterSingle: '↵ ENTER',
     enterSingleTitle: 'Swarm olmadan tek ajanla çalıştır',
     runSwarmTitle: 'Çoklu ajan Swarm görevi olarak çalıştır',
-    hideDock: 'GİZLE',
-    openDock: '💬 DOCK',
   },
   settingsModal: {
     title: '⚙️ GRAFİK & SİSTEM AYARLARI',
@@ -1193,8 +1189,6 @@ const EN: Translations = {
     enterSingle: '↵ ENTER',
     enterSingleTitle: 'Run with single agent (no swarm)',
     runSwarmTitle: 'Run as multi-agent Swarm task',
-    hideDock: 'HIDE',
-    openDock: '💬 DOCK',
   },
   settingsModal: {
     title: '⚙️ GRAPHICS & SYSTEM SETTINGS',

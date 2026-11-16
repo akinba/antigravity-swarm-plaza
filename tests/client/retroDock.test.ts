@@ -155,7 +155,6 @@ describe('RetroCommandDock helpers & i18n', () => {
     assert.equal(resolveOrchestration('/swarm refactor dock', 'single'), 'single');
     assert.equal(DICTIONARIES.en.dock.enterSingle, '↵ ENTER');
     assert.equal(DICTIONARIES.tr.dock.enterSingle, '↵ ENTER');
-    assert.equal(DICTIONARIES.en.dock.openDock, '💬 DOCK');
     assert.ok(DICTIONARIES.tr.settingsModal.geminiKeySection.length > 0);
     assert.ok(DICTIONARIES.en.settingsModal.geminiKeySection.length > 0);
   });
