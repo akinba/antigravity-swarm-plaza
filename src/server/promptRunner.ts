@@ -6,6 +6,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import type {
   DiffFileChange,
+  GeminiModelInfo,
   OllamaModelInfo,
   PromptModelId,
   PromptRequest,
@@ -125,16 +126,16 @@ export function isOllamaRequest(req: PromptRequest): boolean {
 }
 
 export function mapGeminiRestModel(model: string): string {
-  if (model === 'gemini-4-carbon-medium') return 'gemini-2.5-pro';
+  const clean = model.replace(/^models\//, '').trim();
+  if (clean === 'gemini-4-carbon-medium') return 'gemini-2.5-pro';
   if (
-    model === 'gemini-4-argon-medium' ||
-    model === 'gemini-4-hydrogen-medium' ||
-    model === 'gemini-3.8-flash-fast'
+    clean === 'gemini-4-argon-medium' ||
+    clean === 'gemini-4-hydrogen-medium' ||
+    clean === 'gemini-3.8-flash-fast'
   ) {
     return 'gemini-2.5-flash';
   }
-  if (model.includes('pro') || model.includes('carbon')) return 'gemini-2.5-pro';
-  return 'gemini-2.5-flash';
+  return clean || 'gemini-2.5-flash';
 }
 
 export function maskSecretKey(key: string): string {
@@ -400,6 +401,65 @@ export class PromptRunner {
     }
   }
 
+  async fetchGeminiModels(): Promise<{
+    ok: boolean;
+    models: GeminiModelInfo[];
+    error?: string;
+  }> {
+    if (!this.geminiApiKey) {
+      return {
+        ok: false,
+        models: [],
+        error: 'Gemini API key is not configured.',
+      };
+    }
+    const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(this.geminiApiKey)}`;
+    try {
+      const response = await this.fetchImpl(url, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+      });
+      if (!response.ok) {
+        return {
+          ok: false,
+          models: [],
+          error: `Gemini API HTTP ${response.status} ${response.statusText}`,
+        };
+      }
+      const data = (await response.json()) as {
+        models?: Array<{
+          name?: string;
+          displayName?: string;
+          description?: string;
+          supportedGenerationMethods?: string[];
+        }>;
+      };
+      const models: GeminiModelInfo[] = (data.models ?? [])
+        .filter(
+          (m) =>
+            typeof m.name === 'string' &&
+            Array.isArray(m.supportedGenerationMethods) &&
+            m.supportedGenerationMethods.includes('generateContent'),
+        )
+        .map((m) => {
+          const id = m.name!.replace(/^models\//, '').trim();
+          return {
+            id,
+            displayName: (m.displayName ?? id).trim(),
+            description: m.description,
+          };
+        });
+      return { ok: true, models };
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      return {
+        ok: false,
+        models: [],
+        error: `Gemini API request failed: ${detail}`,
+      };
+    }
+  }
+
   startPrompt(req: PromptRequest): { runId: string } {
     if (this.status === 'running') {
       throw new PromptConflictError();
@@ -436,12 +496,16 @@ export class PromptRunner {
     }
 
     const orchLabel = req.orchestration === 'swarm' ? '[SWARM MODE]' : '[SINGLE]';
+    const profileSummary =
+      req.orchestration === 'swarm' && Array.isArray(req.swarmProfile) && req.swarmProfile.length > 0
+        ? ` | Roles: ${req.swarmProfile.map((r) => `${r.role}=${r.model}(${r.level})`).join(', ')}`
+        : '';
     this.emit({
       runId,
       type: 'status',
       agentId: targets[0],
       status: 'running',
-      text: `${orchLabel} Started ${req.model} (${req.mode})`,
+      text: `${orchLabel} Started ${req.model} (${req.mode})${profileSummary}`,
       timestamp: now,
     });
 

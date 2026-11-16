@@ -3,19 +3,21 @@ import { describe, it } from 'node:test';
 import {
   DEFAULT_DOCK_MODEL,
   DOCK_MODE_OPTIONS,
-  DOCK_MODEL_OPTIONS,
+  SWARM_ROLES,
   appendPromptStreamLog,
+  buildDefaultSwarmProfile,
   buildDockModelOptions,
   detectAutocompleteTrigger,
   extractMentions,
   filterMentionSuggestions,
   filterSlashSuggestions,
+  getProjectSwarmStorageKey,
   resolveOrchestration,
   resolvePromptProvider,
 } from '../../src/client/components/RetroCommandDock';
 import { deriveMentionFromModel } from '../../src/client/components/SettingsModal';
 import { DICTIONARIES } from '../../src/client/i18n/translations';
-import type { LocalAgentConfig } from '../../src/shared/types';
+import type { GeminiModelInfo, LocalAgentConfig } from '../../src/shared/types';
 
 describe('RetroCommandDock helpers & i18n', () => {
   it('detects @ and / autocomplete triggers at cursor position', () => {
@@ -77,18 +79,9 @@ describe('RetroCommandDock helpers & i18n', () => {
     assert.deepEqual(extractMentions('no mentions here'), []);
   });
 
-  it('exposes the 5 required models with Gemini 4 Hydrogen as default and 3 execution modes', () => {
-    assert.equal(DEFAULT_DOCK_MODEL, 'gemini-4-hydrogen-medium');
-    assert.deepEqual(
-      DOCK_MODEL_OPTIONS.map((m) => m.id),
-      [
-        'gemini-4-carbon-medium',
-        'gemini-4-argon-medium',
-        'gemini-4-hydrogen-medium',
-        'gemini-3.8-flash-fast',
-        'qwen2.5-coder:14b',
-      ],
-    );
+  it('returns empty model list when neither Gemini models nor Ollama agents are configured, and exposes 3 execution modes', () => {
+    assert.equal(DEFAULT_DOCK_MODEL, '');
+    assert.deepEqual(buildDockModelOptions([], []), []);
     assert.deepEqual(DOCK_MODE_OPTIONS, ['turbo', 'safe', 'eco-swarm']);
   });
 
@@ -128,10 +121,26 @@ describe('RetroCommandDock helpers & i18n', () => {
       },
     ];
 
-    const options = buildDockModelOptions(localAgents);
-    assert.equal(options.length, 5); // 4 Gemini + 1 enabled Ollama
+    const geminiModels: GeminiModelInfo[] = [
+      { id: 'gemini-2.5-flash', displayName: 'Gemini 2.5 Flash' },
+      { id: 'gemini-2.5-pro', displayName: 'Gemini 2.5 Pro' },
+    ];
+
+    const options = buildDockModelOptions(localAgents, geminiModels);
+    assert.equal(options.length, 3); // 2 fetched Gemini + 1 enabled Ollama
+    assert.ok(options.some((o) => o.id === 'gemini-2.5-flash' && o.provider === 'gemini'));
     assert.ok(options.some((o) => o.id === 'ollama:deepseek-r1:14b' && o.provider === 'ollama'));
     assert.ok(!options.some((o) => o.id === 'ollama:llama3.2'));
+
+    const profile = buildDefaultSwarmProfile(options);
+    assert.deepEqual(
+      profile.map((p) => p.role),
+      [...SWARM_ROLES],
+    );
+    assert.equal(profile[0].model, 'gemini-2.5-flash');
+    assert.equal(profile[0].level, 'medium');
+    assert.equal(getProjectSwarmStorageKey('floor-1'), 'swarm_plaza_project_swarm_floor-1');
+    assert.equal(getProjectSwarmStorageKey(null), 'swarm_plaza_project_swarm_default');
 
     const mentions = filterMentionSuggestions('deep', [], localAgents);
     assert.equal(mentions.length, 1);

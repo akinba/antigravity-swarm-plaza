@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   DEFAULT_GRAPHICS_SETTINGS,
   type FloorEventKind,
+  type GeminiModelInfo,
   type GraphicsSettings,
   type LocalAgentConfig,
   type OfficeEmployee,
@@ -30,7 +31,9 @@ import { EventCalendarModal } from './components/EventCalendarModal';
 import { IconLegendModal } from './components/IconLegendModal';
 import { RetroCommandDock } from './components/RetroCommandDock';
 import {
+  loadStoredGeminiModels,
   loadStoredLocalAgents,
+  saveStoredGeminiModels,
   saveStoredLocalAgents,
   SettingsModal,
 } from './components/SettingsModal';
@@ -112,10 +115,16 @@ export const App: React.FC = () => {
   const [liveFps, setLiveFps] = useState<number>(60);
   const [graphicsSettings, setGraphicsSettings] = useState<GraphicsSettings>(loadGraphicsSettings);
   const [localAgents, setLocalAgents] = useState<LocalAgentConfig[]>(loadStoredLocalAgents);
+  const [geminiModels, setGeminiModels] = useState<GeminiModelInfo[]>(loadStoredGeminiModels);
 
   const handleChangeLocalAgents = useCallback((next: LocalAgentConfig[]) => {
     setLocalAgents(next);
     saveStoredLocalAgents(next);
+  }, []);
+
+  const handleChangeGeminiModels = useCallback((next: GeminiModelInfo[]) => {
+    setGeminiModels(next);
+    saveStoredGeminiModels(next);
   }, []);
 
   useEffect(() => {
@@ -812,6 +821,7 @@ function loadStickyAlerts(): StickyAlertItem[] {
             activeFloorId={activeFloor?.id ?? null}
             employees={activeFloor?.employees ?? []}
             localAgents={localAgents}
+            geminiModels={geminiModels}
           />
         </div>
       </main>
@@ -878,6 +888,8 @@ function loadStickyAlerts(): StickyAlertItem[] {
           onChangeGraphics={setGraphicsSettings}
           localAgents={localAgents}
           onChangeLocalAgents={handleChangeLocalAgents}
+          geminiModels={geminiModels}
+          onChangeGeminiModels={handleChangeGeminiModels}
           liveFps={liveFps}
           followCam={followCam}
           onToggleFollowCam={handleToggleFollowCam}

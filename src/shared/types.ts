@@ -322,11 +322,26 @@ export interface OllamaModelInfo {
   modifiedAt?: string;
 }
 
+export interface GeminiModelInfo {
+  id: string;
+  displayName: string;
+  description?: string;
+}
+
+export type ThinkingLevel = 'low' | 'medium' | 'high';
+
+export interface SwarmRoleAssignment {
+  role: string;
+  model: string;
+  level: ThinkingLevel;
+}
+
 export interface PromptRequest {
   prompt: string;
   model: PromptModelId;
   mode: ExecutionMode;
   orchestration?: 'single' | 'swarm';
+  swarmProfile?: SwarmRoleAssignment[];
   mentions: string[];
   provider?: 'gemini' | 'ollama';
   ollamaBaseUrl?: string;

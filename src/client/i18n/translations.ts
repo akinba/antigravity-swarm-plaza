@@ -319,6 +319,15 @@ export interface Translations {
     enterSingle: string;
     enterSingleTitle: string;
     runSwarmTitle: string;
+    noModelsHint: string;
+    swarmConfigTitle: string;
+    swarmRoleHeader: string;
+    swarmModelHeader: string;
+    swarmLevelHeader: string;
+    levelLow: string;
+    levelMedium: string;
+    levelHigh: string;
+    swarmConfigHint: string;
   };
   settingsModal: {
     title: string;
@@ -380,6 +389,8 @@ export interface Translations {
     geminiKeyHide: string;
     geminiKeyHint: string;
     geminiKeySaved: string;
+    fetchGeminiModelsBtn: string;
+    geminiModelsCount: string;
   };
 }
 
@@ -754,6 +765,15 @@ const TR: Translations = {
     enterSingle: '↵ ENTER',
     enterSingleTitle: 'Swarm olmadan tek ajanla çalıştır',
     runSwarmTitle: 'Çoklu ajan Swarm görevi olarak çalıştır',
+    noModelsHint: "— Ayarlar'dan API Key veya Ollama ekleyin —",
+    swarmConfigTitle: '⚙ PROJE SWARM PROFİLİ',
+    swarmRoleHeader: 'Rol',
+    swarmModelHeader: 'Model',
+    swarmLevelHeader: 'Seviye',
+    levelLow: 'Low',
+    levelMedium: 'Medium',
+    levelHigh: 'High',
+    swarmConfigHint: 'Bu proje için ▶ RUN SWARM rol/model/seviye dağılımı.',
   },
   settingsModal: {
     title: '⚙️ GRAFİK & SİSTEM AYARLARI',
@@ -815,6 +835,8 @@ const TR: Translations = {
     geminiKeyHide: 'Gizle',
     geminiKeyHint: 'Google AI Studio anahtarınız yerel sunucuda (~/.gemini/swarm-plaza-secrets.json) saklanır.',
     geminiKeySaved: 'Kaydedildi!',
+    fetchGeminiModelsBtn: 'Modelleri Getir',
+    geminiModelsCount: '{n} Gemini modeli yüklendi',
   },
 };
 
@@ -1189,6 +1211,15 @@ const EN: Translations = {
     enterSingle: '↵ ENTER',
     enterSingleTitle: 'Run with single agent (no swarm)',
     runSwarmTitle: 'Run as multi-agent Swarm task',
+    noModelsHint: '— Add API Key or Ollama in Settings —',
+    swarmConfigTitle: '⚙ PROJECT SWARM PROFILE',
+    swarmRoleHeader: 'Role',
+    swarmModelHeader: 'Model',
+    swarmLevelHeader: 'Level',
+    levelLow: 'Low',
+    levelMedium: 'Medium',
+    levelHigh: 'High',
+    swarmConfigHint: 'Role/model/level assignments for ▶ RUN SWARM on this project.',
   },
   settingsModal: {
     title: '⚙️ GRAPHICS & SYSTEM SETTINGS',
@@ -1250,6 +1281,8 @@ const EN: Translations = {
     geminiKeyHide: 'Hide',
     geminiKeyHint: 'Your Google AI Studio key is stored locally (~/.gemini/swarm-plaza-secrets.json).',
     geminiKeySaved: 'Saved!',
+    fetchGeminiModelsBtn: 'Fetch Models',
+    geminiModelsCount: '{n} Gemini models loaded',
   },
 };
 

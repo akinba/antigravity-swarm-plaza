@@ -2,10 +2,13 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type {
   DiffFileChange,
   ExecutionMode,
+  GeminiModelInfo,
   LocalAgentConfig,
   OfficeEmployee,
   PromptModelId,
   PromptStreamEvent,
+  SwarmRoleAssignment,
+  ThinkingLevel,
 } from '../../shared/types';
 import { playMentionChime, playSelectBlip } from '../audio/retroSynth';
 import { useI18n } from '../i18n/translations';
@@ -17,24 +20,70 @@ export interface DockModelOption {
   ollamaBaseUrl?: string;
 }
 
-export const GEMINI_MODEL_OPTIONS: DockModelOption[] = [
-  { id: 'gemini-4-carbon-medium', label: 'Gemini 4 Carbon (Medium)', provider: 'gemini' },
-  { id: 'gemini-4-argon-medium', label: 'Gemini 4 Argon (Medium)', provider: 'gemini' },
-  { id: 'gemini-4-hydrogen-medium', label: 'Gemini 4 Hydrogen (Medium)', provider: 'gemini' },
-  { id: 'gemini-3.8-flash-fast', label: 'Gemini 3.8 Flash (Fast)', provider: 'gemini' },
-];
+export const SWARM_ROLES = ['Architect', 'Coder Core', 'Coder UI', 'Analyst', 'Verifier'] as const;
 
-export const DOCK_MODEL_OPTIONS: DockModelOption[] = [
-  ...GEMINI_MODEL_OPTIONS,
-  {
-    id: 'qwen2.5-coder:14b',
-    label: 'Local Qwen 2.5 Coder 14B (RX 7800 XT - Ollama)',
-    provider: 'ollama',
-    ollamaBaseUrl: 'http://localhost:11434',
-  },
-];
+export function buildDefaultSwarmProfile(
+  availableModels: DockModelOption[] = [],
+): SwarmRoleAssignment[] {
+  const defaultModel = availableModels[0]?.id ?? '';
+  return SWARM_ROLES.map((role) => ({
+    role,
+    model: defaultModel,
+    level: 'medium' as ThinkingLevel,
+  }));
+}
 
-export function buildDockModelOptions(localAgents: LocalAgentConfig[] = []): DockModelOption[] {
+export function getProjectSwarmStorageKey(floorId?: string | null): string {
+  return `swarm_plaza_project_swarm_${floorId || 'default'}`;
+}
+
+export function loadProjectSwarmProfile(
+  floorId: string | null | undefined,
+  availableModels: DockModelOption[] = [],
+): SwarmRoleAssignment[] {
+  const fallback = buildDefaultSwarmProfile(availableModels);
+  try {
+    const raw = localStorage.getItem(getProjectSwarmStorageKey(floorId));
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return fallback;
+    return SWARM_ROLES.map((role) => {
+      const existing = parsed.find((item) => item && item.role === role);
+      const validLevel: ThinkingLevel =
+        existing?.level === 'low' || existing?.level === 'medium' || existing?.level === 'high'
+          ? existing.level
+          : 'medium';
+      const candidateModel =
+        typeof existing?.model === 'string' && existing.model.length > 0
+          ? existing.model
+          : (availableModels[0]?.id ?? '');
+      return { role, model: candidateModel, level: validLevel };
+    });
+  } catch {
+    return fallback;
+  }
+}
+
+export function saveProjectSwarmProfile(
+  floorId: string | null | undefined,
+  profile: SwarmRoleAssignment[],
+): void {
+  try {
+    localStorage.setItem(getProjectSwarmStorageKey(floorId), JSON.stringify(profile));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+export function buildDockModelOptions(
+  localAgents: LocalAgentConfig[] = [],
+  geminiModels: GeminiModelInfo[] = [],
+): DockModelOption[] {
+  const dynamicGeminiOptions: DockModelOption[] = geminiModels.map((m) => ({
+    id: m.id as PromptModelId,
+    label: m.displayName || m.id,
+    provider: 'gemini',
+  }));
   const dynamicLocalOptions: DockModelOption[] = localAgents
     .filter((agent) => agent.enabled)
     .map((agent) => ({
@@ -43,7 +92,7 @@ export function buildDockModelOptions(localAgents: LocalAgentConfig[] = []): Doc
       provider: 'ollama',
       ollamaBaseUrl: agent.baseUrl,
     }));
-  return [...GEMINI_MODEL_OPTIONS, ...dynamicLocalOptions];
+  return [...dynamicGeminiOptions, ...dynamicLocalOptions];
 }
 
 export function resolvePromptProvider(
@@ -62,7 +111,7 @@ export function resolvePromptProvider(
   return { provider: 'gemini' };
 }
 
-export const DEFAULT_DOCK_MODEL: PromptModelId = 'gemini-4-hydrogen-medium';
+export const DEFAULT_DOCK_MODEL: PromptModelId = '';
 
 export const DOCK_MODE_OPTIONS: ExecutionMode[] = ['turbo', 'safe', 'eco-swarm'];
 
@@ -244,6 +293,7 @@ export interface RetroCommandDockProps {
   activeFloorId?: string | null;
   employees?: OfficeEmployee[];
   localAgents?: LocalAgentConfig[];
+  geminiModels?: GeminiModelInfo[];
   workspace?: string;
 }
 
@@ -251,11 +301,13 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
   activeFloorId,
   employees = [],
   localAgents = [],
+  geminiModels = [],
   workspace,
 }) => {
   const { t, locale } = useI18n();
   const [minimized, setMinimized] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [swarmConfigOpen, setSwarmConfigOpen] = useState(false);
   const [promptText, setPromptText] = useState('');
   const [cursorPos, setCursorPos] = useState(0);
   const [selectedAcIndex, setSelectedAcIndex] = useState(0);
@@ -354,7 +406,28 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
     [promptText, cursorPos],
   );
 
-  const modelOptions = useMemo(() => buildDockModelOptions(localAgents), [localAgents]);
+  const modelOptions = useMemo(
+    () => buildDockModelOptions(localAgents, geminiModels),
+    [localAgents, geminiModels],
+  );
+
+  const [swarmProfile, setSwarmProfile] = useState<SwarmRoleAssignment[]>(() =>
+    loadProjectSwarmProfile(activeFloorId, modelOptions),
+  );
+
+  useEffect(() => {
+    setSwarmProfile(loadProjectSwarmProfile(activeFloorId, modelOptions));
+  }, [activeFloorId, modelOptions]);
+
+  useEffect(() => {
+    if (modelOptions.length === 0) {
+      if (model !== '') setModel('');
+      return;
+    }
+    if (!modelOptions.some((opt) => opt.id === model)) {
+      setModel(modelOptions[0].id);
+    }
+  }, [modelOptions, model]);
 
   const acItems = useMemo(() => {
     if (!trigger) return [];
@@ -433,6 +506,7 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
           model,
           mode,
           orchestration,
+          swarmProfile: orchestration === 'swarm' ? swarmProfile : undefined,
           mentions,
           provider,
           ollamaBaseUrl,
@@ -892,15 +966,16 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
                     setModel(e.target.value as PromptModelId);
                   }}
                 >
-                  {modelOptions.map((opt) => (
-                    <option key={opt.id} value={opt.id}>
-                      {opt.label}
-                    </option>
-                  ))}
-                  {localAgents.length === 0 && (
+                  {modelOptions.length === 0 ? (
                     <option value="" disabled>
-                      {t.dock.noLocalAgentsHint}
+                      {t.dock.noModelsHint}
                     </option>
+                  ) : (
+                    modelOptions.map((opt) => (
+                      <option key={opt.id} value={opt.id}>
+                        {opt.label}
+                      </option>
+                    ))
                   )}
                 </select>
               </div>
@@ -950,19 +1025,109 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
                     >
                       {t.dock.enterSingle}
                     </button>
-                    <button
-                      type="button"
-                      className="pixel-btn cyan"
-                      style={{ fontSize: 9, padding: '5px 12px' }}
-                      title={t.dock.runSwarmTitle}
-                      onClick={() => void handleSubmit('swarm')}
-                    >
-                      ▶ {t.dock.send}
-                    </button>
+                    <div className="retro-dock-split">
+                      <button
+                        type="button"
+                        className="pixel-btn cyan"
+                        style={{ fontSize: 9, padding: '5px 10px' }}
+                        title={t.dock.runSwarmTitle}
+                        onClick={() => void handleSubmit('swarm')}
+                      >
+                        ▶ {t.dock.send}
+                      </button>
+                      <button
+                        type="button"
+                        className={`pixel-btn${swarmConfigOpen ? ' gold' : ''}`}
+                        style={{ fontSize: 10, padding: '5px 8px' }}
+                        title={t.dock.swarmConfigTitle}
+                        aria-label={t.dock.swarmConfigTitle}
+                        onClick={() => {
+                          playSelectBlip();
+                          setSwarmConfigOpen((prev) => !prev);
+                        }}
+                      >
+                        ⚙
+                      </button>
+                    </div>
                   </>
                 )}
               </div>
             </div>
+
+            {swarmConfigOpen && (
+              <div className="retro-dock-swarm-popover">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <span style={{ fontFamily: 'var(--font-pixel)', fontSize: 9, color: '#ffd147' }}>
+                    {t.dock.swarmConfigTitle}
+                  </span>
+                  <button
+                    type="button"
+                    className="pixel-btn"
+                    style={{ fontSize: 8, padding: '2px 6px' }}
+                    onClick={() => {
+                      playSelectBlip();
+                      setSwarmConfigOpen(false);
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>{t.dock.swarmConfigHint}</div>
+                <div className="retro-dock-swarm-grid" style={{ fontSize: 9, color: 'var(--accent-cyan)', fontFamily: 'var(--font-pixel)' }}>
+                  <span>{t.dock.swarmRoleHeader}</span>
+                  <span>{t.dock.swarmModelHeader}</span>
+                  <span>{t.dock.swarmLevelHeader}</span>
+                </div>
+                {swarmProfile.map((entry) => (
+                  <div key={entry.role} className="retro-dock-swarm-grid">
+                    <span style={{ fontSize: 11, color: '#3be87a' }}>{entry.role}</span>
+                    <select
+                      aria-label={`${entry.role} model`}
+                      className="retro-dock-select"
+                      style={{ maxWidth: 'none', width: '100%' }}
+                      value={entry.model}
+                      onChange={(e) => {
+                        playSelectBlip();
+                        const next = swarmProfile.map((r) =>
+                          r.role === entry.role ? { ...r, model: e.target.value } : r,
+                        );
+                        setSwarmProfile(next);
+                        saveProjectSwarmProfile(activeFloorId, next);
+                      }}
+                    >
+                      {modelOptions.length === 0 ? (
+                        <option value="">{t.dock.noModelsHint}</option>
+                      ) : (
+                        modelOptions.map((opt) => (
+                          <option key={opt.id} value={opt.id}>
+                            {opt.label}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                    <select
+                      aria-label={`${entry.role} level`}
+                      className="retro-dock-select"
+                      value={entry.level}
+                      onChange={(e) => {
+                        playSelectBlip();
+                        const next = swarmProfile.map((r) =>
+                          r.role === entry.role
+                            ? { ...r, level: e.target.value as ThinkingLevel }
+                            : r,
+                        );
+                        setSwarmProfile(next);
+                        saveProjectSwarmProfile(activeFloorId, next);
+                      }}
+                    >
+                      <option value="low">{t.dock.levelLow}</option>
+                      <option value="medium">{t.dock.levelMedium}</option>
+                      <option value="high">{t.dock.levelHigh}</option>
+                    </select>
+                  </div>
+                ))}
+              </div>
+            )}
           </>
         )}
       </div>

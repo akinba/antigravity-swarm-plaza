@@ -340,6 +340,11 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
     }
   });
 
+  app.get('/api/gemini/models', async (_req, res) => {
+    const result = await promptRunner.fetchGeminiModels();
+    res.json(result);
+  });
+
   app.get('/api/stream', (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
@@ -363,9 +368,10 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
     try {
       const { runId } = promptRunner.startPrompt({
         prompt: body.prompt,
-        model: body.model ?? 'gemini-4-hydrogen-medium',
+        model: body.model ?? 'gemini-2.5-flash',
         mode: body.mode ?? 'turbo',
         orchestration: body.orchestration,
+        swarmProfile: Array.isArray(body.swarmProfile) ? body.swarmProfile : undefined,
         mentions: Array.isArray(body.mentions) ? body.mentions : [],
         provider: body.provider,
         ollamaBaseUrl: body.ollamaBaseUrl,

@@ -3,6 +3,7 @@ import {
   DEFAULT_GRAPHICS_SETTINGS,
   type AntiAliasingMode,
   type FpsLimitMode,
+  type GeminiModelInfo,
   type GraphicsPreset,
   type GraphicsSettings,
   type LocalAgentConfig,
@@ -37,6 +38,31 @@ export function saveStoredLocalAgents(agents: LocalAgentConfig[]): void {
   }
 }
 
+export const GEMINI_MODELS_STORAGE_KEY = 'swarm_plaza_gemini_models';
+
+export function loadStoredGeminiModels(): GeminiModelInfo[] {
+  try {
+    const raw = localStorage.getItem(GEMINI_MODELS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (item): item is GeminiModelInfo =>
+        Boolean(item && typeof item.id === 'string' && typeof item.displayName === 'string'),
+    );
+  } catch {
+    return [];
+  }
+}
+
+export function saveStoredGeminiModels(models: GeminiModelInfo[]): void {
+  try {
+    localStorage.setItem(GEMINI_MODELS_STORAGE_KEY, JSON.stringify(models));
+  } catch {
+    // ignore storage errors
+  }
+}
+
 export function deriveMentionFromModel(model: string): string {
   const base = model.split(':')[0] ?? model;
   const cleaned = base.replace(/[^a-zA-Z0-9_.-]/g, '-').toLowerCase();
@@ -48,6 +74,8 @@ interface SettingsModalProps {
   onChangeGraphics: (next: GraphicsSettings) => void;
   localAgents: LocalAgentConfig[];
   onChangeLocalAgents: (next: LocalAgentConfig[]) => void;
+  geminiModels: GeminiModelInfo[];
+  onChangeGeminiModels: (next: GeminiModelInfo[]) => void;
   liveFps: number;
   followCam: boolean;
   onToggleFollowCam: () => void;
@@ -98,6 +126,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onChangeGraphics,
   localAgents,
   onChangeLocalAgents,
+  geminiModels,
+  onChangeGeminiModels,
   liveFps,
   followCam,
   onToggleFollowCam,
@@ -126,6 +156,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [showGeminiKey, setShowGeminiKey] = useState(false);
   const [geminiKeySaving, setGeminiKeySaving] = useState(false);
   const [geminiKeyNotice, setGeminiKeyNotice] = useState<string | null>(null);
+  const [fetchingGeminiModels, setFetchingGeminiModels] = useState(false);
+  const [geminiModelsError, setGeminiModelsError] = useState<string | null>(null);
+
+  const handleFetchGeminiModels = async () => {
+    playSelectBlip();
+    setFetchingGeminiModels(true);
+    setGeminiModelsError(null);
+    try {
+      const res = await fetch('/api/gemini/models');
+      const data = (await res.json()) as {
+        ok?: boolean;
+        models?: GeminiModelInfo[];
+        error?: string;
+      };
+      if (data.ok && Array.isArray(data.models)) {
+        onChangeGeminiModels(data.models);
+      } else {
+        setGeminiModelsError(data.error || 'Failed to fetch Gemini models');
+      }
+    } catch {
+      setGeminiModelsError('Failed to fetch Gemini models');
+    } finally {
+      setFetchingGeminiModels(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -168,6 +223,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         });
         setGeminiKeyDraft('');
         setGeminiKeyNotice(t.settingsModal.geminiKeySaved);
+        if (!apiKey) {
+          onChangeGeminiModels([]);
+          setGeminiModelsError(null);
+        } else {
+          await handleFetchGeminiModels();
+        }
       }
     } finally {
       setGeminiKeySaving(false);
@@ -696,15 +757,38 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             >
               {t.settingsModal.geminiKeyClear}
             </button>
+            <button
+              type="button"
+              className="pixel-btn active"
+              style={{ fontSize: 9, padding: '5px 10px' }}
+              disabled={fetchingGeminiModels || !geminiKeyStatus.configured}
+              onClick={() => void handleFetchGeminiModels()}
+            >
+              {fetchingGeminiModels
+                ? t.settingsModal.fetchingModelsBtn
+                : t.settingsModal.fetchGeminiModelsBtn}
+            </button>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>
               {t.settingsModal.geminiKeyHint}
             </span>
-            {geminiKeyNotice && (
-              <span style={{ fontSize: 10, color: '#3be87a' }}>{geminiKeyNotice}</span>
-            )}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              {geminiModels.length > 0 && (
+                <span style={{ fontSize: 10, color: '#3cd8ff' }}>
+                  {t.settingsModal.geminiModelsCount.replace('{n}', String(geminiModels.length))}
+                </span>
+              )}
+              {geminiModelsError && (
+                <span style={{ fontSize: 10, color: 'var(--accent-amber)' }}>
+                  ⚠ {geminiModelsError}
+                </span>
+              )}
+              {geminiKeyNotice && (
+                <span style={{ fontSize: 10, color: '#3be87a' }}>{geminiKeyNotice}</span>
+              )}
+            </div>
           </div>
         </div>
 

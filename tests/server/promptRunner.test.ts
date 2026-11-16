@@ -588,4 +588,108 @@ describe('PromptRunner & standalone prompt endpoints', () => {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
+
+  it('exposes GET /api/gemini/models filtering generateContent models and logs swarmProfile in [SWARM MODE]', async () => {
+    const noKeyRunner = new PromptRunner({
+      defaultWorkspace: process.cwd(),
+      geminiApiKey: '',
+    });
+    const noKeyRes = await noKeyRunner.fetchGeminiModels();
+    assert.equal(noKeyRes.ok, false);
+    assert.deepEqual(noKeyRes.models, []);
+    assert.equal(noKeyRes.error, 'Gemini API key is not configured.');
+
+    const runner = new PromptRunner({
+      defaultWorkspace: process.cwd(),
+      geminiApiKey: 'AIzaSyTestKey1234',
+      resolveCliCommand: async () => null,
+      fetchImpl: async (url) => {
+        const u = String(url);
+        if (u.includes('/v1beta/models?key=')) {
+          return new Response(
+            JSON.stringify({
+              models: [
+                {
+                  name: 'models/gemini-2.5-flash',
+                  displayName: 'Gemini 2.5 Flash',
+                  supportedGenerationMethods: ['generateContent', 'countTokens'],
+                },
+                {
+                  name: 'models/embedding-001',
+                  displayName: 'Embedding 001',
+                  supportedGenerationMethods: ['embedContent'],
+                },
+                {
+                  name: 'models/gemini-2.5-pro',
+                  displayName: 'Gemini 2.5 Pro',
+                  supportedGenerationMethods: ['generateContent'],
+                },
+              ],
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        return new Response(
+          createNdjsonStream([
+            `data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text: 'Swarm done' }] } }] })}`,
+            'data: [DONE]',
+          ]),
+          { status: 200 },
+        );
+      },
+    });
+
+    const instance = createPlazaApp({
+      agyDataDir: path.join(os.tmpdir(), 'nonexistent-agy-test-dir'),
+      initialDemoMode: true,
+      broadcastIntervalMs: 0,
+      promptRunner: runner,
+    });
+
+    await new Promise<void>((resolve) => {
+      instance.server.listen(0, '127.0.0.1', () => resolve());
+    });
+
+    const addr = instance.server.address();
+    const port = typeof addr === 'object' && addr ? addr.port : 0;
+    const baseUrl = `http://127.0.0.1:${port}`;
+
+    try {
+      const modelsRes = await fetch(`${baseUrl}/api/gemini/models`);
+      assert.equal(modelsRes.status, 200);
+      const modelsJson = (await modelsRes.json()) as {
+        ok: boolean;
+        models: Array<{ id: string; displayName: string }>;
+      };
+      assert.equal(modelsJson.ok, true);
+      assert.deepEqual(
+        modelsJson.models.map((m) => m.id),
+        ['gemini-2.5-flash', 'gemini-2.5-pro'],
+      );
+
+      const events: PromptStreamEvent[] = [];
+      runner.subscribe((ev) => events.push(ev));
+      runner.startPrompt({
+        prompt: 'Plan feature',
+        model: 'models/gemini-2.5-pro',
+        mode: 'turbo',
+        orchestration: 'swarm',
+        swarmProfile: [
+          { role: 'Architect', model: 'gemini-2.5-pro', level: 'high' },
+          { role: 'Verifier', model: 'gemini-2.5-flash', level: 'low' },
+        ],
+        mentions: ['coordinator'],
+      });
+      await runner.waitForIdle();
+
+      const statusEv = events.find((e) => e.type === 'status');
+      assert.ok(statusEv);
+      assert.match(statusEv.text ?? '', /\[SWARM MODE\]/);
+      assert.match(statusEv.text ?? '', /Architect=gemini-2\.5-pro\(high\)/);
+      assert.match(statusEv.text ?? '', /Verifier=gemini-2\.5-flash\(low\)/);
+      assert.equal(mapGeminiRestModel('models/gemini-2.5-pro'), 'gemini-2.5-pro');
+    } finally {
+      await instance.close();
+    }
+  });
 });

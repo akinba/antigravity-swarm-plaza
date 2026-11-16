@@ -636,3 +636,41 @@ canvas {
 .retro-dock-select:focus {
   border-color: var(--accent-cyan);
 }
+
+.retro-dock-split {
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.retro-dock-split > .pixel-btn:first-child {
+  border-right-width: 1px;
+}
+
+.retro-dock-split > .pixel-btn:last-child {
+  border-left-width: 1px;
+}
+
+.retro-dock-swarm-popover {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  width: min(560px, 100%);
+  z-index: 55;
+  background: var(--bg-panel);
+  border: 3px solid var(--border-dark);
+  box-shadow:
+    inset 2px 2px 0 var(--border-light),
+    inset -2px -2px 0 #121524,
+    0 4px 0 rgba(0, 0, 0, 0.75);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.retro-dock-swarm-grid {
+  display: grid;
+  grid-template-columns: 110px 1fr 96px;
+  gap: 6px;
+  align-items: center;
+}
