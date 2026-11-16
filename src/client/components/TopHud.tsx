@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { PlazaFloor, QuotaPoolStatus } from '../../shared/types';
 import { playSelectBlip } from '../audio/retroSynth';
+import { getFloorLayout } from '../engine/officeLayouts';
 import { useI18n } from '../i18n/translations';
 import { computeHudQuota, pctColor } from './QuotaPanel';
 
@@ -55,8 +56,17 @@ export const TopHud: React.FC<TopHudProps> = ({
   isNight = true,
   onToggleNight,
 }) => {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [moreOpen, setMoreOpen] = useState(false);
+
+  const floorThemeInfo = useMemo(() => {
+    if (!floor || viewMode !== 'office') return null;
+    const layout = getFloorLayout(floor.id, floor.floorNumber, floor.layoutSeed);
+    return {
+      blueprintIndex: layout.blueprintIndex,
+      themeName: locale === 'tr' ? layout.themePalette.nameTr : layout.themePalette.nameEn,
+    };
+  }, [floor, viewMode, locale]);
 
   const xpRatio = floor
     ? Math.min(100, Math.round((floor.companyXp / Math.max(1, floor.nextTierXp)) * 100))
@@ -628,6 +638,21 @@ export const TopHud: React.FC<TopHudProps> = ({
           >
             {isNight ? '🌙' : '☀️'}
           </button>
+        )}
+
+        {/* Blueprint & Theme Badge (far right of row 2) */}
+        {floorThemeInfo && (
+          <div
+            className="pixel-badge"
+            style={{
+              marginLeft: 'auto',
+              color: '#9ee8ff',
+              background: 'rgba(16, 19, 30, 0.88)',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            🏛 {t.blueprints[floorThemeInfo.blueprintIndex]} • {floorThemeInfo.themeName}
+          </div>
         )}
       </div>
     </header>

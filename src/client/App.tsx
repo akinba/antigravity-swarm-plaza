@@ -807,14 +807,14 @@ function loadStickyAlerts(): StickyAlertItem[] {
               Loading Antigravity Swarm Plaza...
             </div>
           )}
+
+          <RetroCommandDock
+            activeFloorId={activeFloor?.id ?? null}
+            employees={activeFloor?.employees ?? []}
+            localAgents={localAgents}
+          />
         </div>
       </main>
-
-      <RetroCommandDock
-        activeFloorId={activeFloor?.id ?? null}
-        employees={activeFloor?.employees ?? []}
-        localAgents={localAgents}
-      />
 
       {selectedEmployee && (
         <AgentRpgModal

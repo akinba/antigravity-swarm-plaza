@@ -2639,22 +2639,6 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
         </div>
       )}
 
-      {/* Bottom-left Blueprint & Theme Badge */}
-      <div
-        className="pixel-badge"
-        style={{
-          position: 'absolute',
-          left: 12,
-          bottom: 12,
-          color: '#9ee8ff',
-          background: 'rgba(16, 19, 30, 0.88)',
-          pointerEvents: 'none',
-        }}
-      >
-        🏛 {t.blueprints[layout.blueprintIndex]} •{' '}
-        {locale === 'tr' ? layout.themePalette.nameTr : layout.themePalette.nameEn}
-      </div>
-
       {/* Empty floor / After-hours overlay */}
       {floor.employees.length === 0 && (
         <div
@@ -2679,38 +2663,41 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({
         </div>
       )}
 
-      {/* Bottom-right camera controls & hint */}
+      {/* Bottom-right camera controls & hint (stacked vertically on right edge) */}
       <div
         style={{
           position: 'absolute',
           right: 12,
           bottom: 12,
           display: 'flex',
-          alignItems: 'center',
-          gap: 8,
+          flexDirection: 'column',
+          alignItems: 'flex-end',
+          gap: 6,
         }}
       >
-        {onOpenLegend && (
-          <button
-            className="pixel-btn"
-            onClick={() => {
-              playSelectBlip();
-              onOpenLegend();
-            }}
-            type="button"
-          >
-            {t.hud.legend}
-          </button>
-        )}
         <div
           className="pixel-badge"
           style={{ color: 'var(--text-dim)', background: 'rgba(16, 19, 30, 0.88)' }}
         >
           {t.office.zoomHint} ({Math.round(camera.zoom * 100)}%)
         </div>
-        <button className="pixel-btn" onClick={resetCamera} type="button">
-          {t.hud.resetCamera}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {onOpenLegend && (
+            <button
+              className="pixel-btn"
+              onClick={() => {
+                playSelectBlip();
+                onOpenLegend();
+              }}
+              type="button"
+            >
+              {t.hud.legend}
+            </button>
+          )}
+          <button className="pixel-btn" onClick={resetCamera} type="button">
+            {t.hud.resetCamera}
+          </button>
+        </div>
       </div>
     </div>
   );

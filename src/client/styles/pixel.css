@@ -354,28 +354,33 @@ canvas {
    RETRO COMMAND DOCK (Standalone Prompt & Live Stream Drawer)
    ============================================================ */
 .retro-dock-wrap {
-  position: relative;
-  flex-shrink: 0;
-  width: 100%;
-  background: #0f121d;
-  border-top: 3px solid var(--border-dark);
-  box-shadow: inset 0 2px 0 #262f4b;
-  padding: 6px 12px;
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  width: min(760px, calc(100% - 360px));
   z-index: 45;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+
+.retro-dock-wrap > * {
+  pointer-events: auto;
 }
 
 .retro-dock-inner {
   position: relative;
-  width: min(920px, 100%);
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: 5px;
 }
 
 .retro-dock-wrap.minimized {
-  padding: 3px 12px;
+  width: auto;
+  min-width: 280px;
 }
 
 .retro-dock-wrap.minimized .retro-dock-panel {
@@ -384,10 +389,17 @@ canvas {
 }
 
 .retro-dock-reopen-btn {
-  position: fixed;
-  right: 14px;
+  position: absolute;
+  left: 50%;
   bottom: 12px;
+  transform: translateX(-50%);
   z-index: 45;
+}
+
+@media (max-width: 960px) {
+  .retro-dock-wrap {
+    width: min(760px, calc(100% - 24px));
+  }
 }
 
 .retro-dock-drawer {
