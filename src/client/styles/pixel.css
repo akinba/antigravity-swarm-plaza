@@ -640,21 +640,24 @@ canvas {
 .retro-dock-split {
   display: inline-flex;
   align-items: stretch;
+  border: 2px solid var(--border-dark);
+  background: #173549;
+}
+
+.retro-dock-split > .pixel-btn {
+  border: none;
+  box-shadow: inset 1px 1px 0 #7fe6ff, inset -1px -1px 0 #18425e;
 }
 
 .retro-dock-split > .pixel-btn:first-child {
-  border-right-width: 1px;
-}
-
-.retro-dock-split > .pixel-btn:last-child {
-  border-left-width: 1px;
+  border-right: 2px solid var(--border-dark);
 }
 
 .retro-dock-swarm-popover {
   position: absolute;
   right: 0;
   bottom: calc(100% + 6px);
-  width: min(560px, 100%);
+  width: min(580px, 100%);
   z-index: 55;
   background: var(--bg-panel);
   border: 3px solid var(--border-dark);
@@ -666,11 +669,13 @@ canvas {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  max-height: 290px;
+  overflow-y: auto;
 }
 
 .retro-dock-swarm-grid {
   display: grid;
-  grid-template-columns: 110px 1fr 96px;
+  grid-template-columns: 112px 1fr 92px 24px;
   gap: 6px;
   align-items: center;
 }

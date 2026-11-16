@@ -328,6 +328,8 @@ export interface Translations {
     levelMedium: string;
     levelHigh: string;
     swarmConfigHint: string;
+    addRolePlaceholder: string;
+    addRoleBtn: string;
   };
   settingsModal: {
     title: string;
@@ -773,7 +775,9 @@ const TR: Translations = {
     levelLow: 'Low',
     levelMedium: 'Medium',
     levelHigh: 'High',
-    swarmConfigHint: 'Bu proje için ▶ RUN SWARM rol/model/seviye dağılımı.',
+    swarmConfigHint: 'Dock modeli = Tekli Ajan (↵ ENTER) & Swarm Orkestratörü (▶ RUN SWARM). Alt rolleri aşağıdan yönetin.',
+    addRolePlaceholder: 'Özel rol adı (ör. Coder Fast)',
+    addRoleBtn: '+ Rol Ekle',
   },
   settingsModal: {
     title: '⚙️ GRAFİK & SİSTEM AYARLARI',
@@ -1219,7 +1223,9 @@ const EN: Translations = {
     levelLow: 'Low',
     levelMedium: 'Medium',
     levelHigh: 'High',
-    swarmConfigHint: 'Role/model/level assignments for ▶ RUN SWARM on this project.',
+    swarmConfigHint: 'Dock model = Single Agent (↵ ENTER) & Swarm Orchestrator (▶ RUN SWARM). Assign sub-roles below.',
+    addRolePlaceholder: 'Custom role (e.g. Coder Fast)',
+    addRoleBtn: '+ Add Role',
   },
   settingsModal: {
     title: '⚙️ GRAPHICS & SYSTEM SETTINGS',

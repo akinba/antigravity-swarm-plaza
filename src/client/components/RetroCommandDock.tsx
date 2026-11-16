@@ -46,18 +46,22 @@ export function loadProjectSwarmProfile(
     const raw = localStorage.getItem(getProjectSwarmStorageKey(floorId));
     if (!raw) return fallback;
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return fallback;
-    return SWARM_ROLES.map((role) => {
-      const existing = parsed.find((item) => item && item.role === role);
+    if (!Array.isArray(parsed) || parsed.length === 0) return fallback;
+    const valid = parsed.filter(
+      (item): item is SwarmRoleAssignment =>
+        Boolean(item && typeof item.role === 'string' && item.role.trim().length > 0),
+    );
+    if (valid.length === 0) return fallback;
+    return valid.map((item) => {
       const validLevel: ThinkingLevel =
-        existing?.level === 'low' || existing?.level === 'medium' || existing?.level === 'high'
-          ? existing.level
+        item.level === 'low' || item.level === 'medium' || item.level === 'high'
+          ? item.level
           : 'medium';
       const candidateModel =
-        typeof existing?.model === 'string' && existing.model.length > 0
-          ? existing.model
+        typeof item.model === 'string' && item.model.length > 0
+          ? item.model
           : (availableModels[0]?.id ?? '');
-      return { role, model: candidateModel, level: validLevel };
+      return { role: item.role.trim(), model: candidateModel, level: validLevel };
     });
   } catch {
     return fallback;
@@ -75,6 +79,15 @@ export function saveProjectSwarmProfile(
   }
 }
 
+export function formatOllamaModelLabel(agent: Pick<LocalAgentConfig, 'name' | 'model'>): string {
+  const cleanName = agent.name.trim();
+  const cleanModel = agent.model.trim();
+  if (!cleanName || cleanName.toLowerCase().includes(cleanModel.toLowerCase())) {
+    return `🦙 ${cleanModel} (Ollama)`;
+  }
+  return `🦙 ${cleanName} (Ollama)`;
+}
+
 export function buildDockModelOptions(
   localAgents: LocalAgentConfig[] = [],
   geminiModels: GeminiModelInfo[] = [],
@@ -88,7 +101,7 @@ export function buildDockModelOptions(
     .filter((agent) => agent.enabled)
     .map((agent) => ({
       id: `ollama:${agent.model}` as PromptModelId,
-      label: `🦙 ${agent.name} (${agent.model})`,
+      label: formatOllamaModelLabel(agent),
       provider: 'ollama',
       ollamaBaseUrl: agent.baseUrl,
     }));
@@ -308,6 +321,7 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
   const [minimized, setMinimized] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [swarmConfigOpen, setSwarmConfigOpen] = useState(false);
+  const [newRoleDraft, setNewRoleDraft] = useState('');
   const [promptText, setPromptText] = useState('');
   const [cursorPos, setCursorPos] = useState(0);
   const [selectedAcIndex, setSelectedAcIndex] = useState(0);
@@ -1037,7 +1051,7 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
                       </button>
                       <button
                         type="button"
-                        className={`pixel-btn${swarmConfigOpen ? ' gold' : ''}`}
+                        className={`pixel-btn cyan${swarmConfigOpen ? ' active' : ''}`}
                         style={{ fontSize: 10, padding: '5px 8px' }}
                         title={t.dock.swarmConfigTitle}
                         aria-label={t.dock.swarmConfigTitle}
@@ -1077,10 +1091,13 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
                   <span>{t.dock.swarmRoleHeader}</span>
                   <span>{t.dock.swarmModelHeader}</span>
                   <span>{t.dock.swarmLevelHeader}</span>
+                  <span />
                 </div>
                 {swarmProfile.map((entry) => (
                   <div key={entry.role} className="retro-dock-swarm-grid">
-                    <span style={{ fontSize: 11, color: '#3be87a' }}>{entry.role}</span>
+                    <span style={{ fontSize: 11, color: '#3be87a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {entry.role}
+                    </span>
                     <select
                       aria-label={`${entry.role} model`}
                       className="retro-dock-select"
@@ -1124,8 +1141,95 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
                       <option value="medium">{t.dock.levelMedium}</option>
                       <option value="high">{t.dock.levelHigh}</option>
                     </select>
+                    <button
+                      type="button"
+                      className="pixel-btn danger"
+                      style={{ fontSize: 8, padding: '3px 5px' }}
+                      disabled={swarmProfile.length <= 1}
+                      onClick={() => {
+                        playSelectBlip();
+                        const next = swarmProfile.filter((r) => r.role !== entry.role);
+                        setSwarmProfile(next);
+                        saveProjectSwarmProfile(activeFloorId, next);
+                      }}
+                    >
+                      ×
+                    </button>
                   </div>
                 ))}
+
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', borderTop: '1px solid var(--border-dark)', paddingTop: 6 }}>
+                  {(['Coder Fast', 'Researcher', 'Docs'] as const).map((presetRole) => (
+                    <button
+                      key={presetRole}
+                      type="button"
+                      className="pixel-btn"
+                      style={{ fontSize: 8, padding: '3px 6px' }}
+                      disabled={swarmProfile.some(
+                        (r) => r.role.toLowerCase() === presetRole.toLowerCase(),
+                      )}
+                      onClick={() => {
+                        playSelectBlip();
+                        const next: SwarmRoleAssignment[] = [
+                          ...swarmProfile,
+                          { role: presetRole, model: modelOptions[0]?.id ?? '', level: 'medium' },
+                        ];
+                        setSwarmProfile(next);
+                        saveProjectSwarmProfile(activeFloorId, next);
+                      }}
+                    >
+                      + {presetRole}
+                    </button>
+                  ))}
+                  <input
+                    type="text"
+                    value={newRoleDraft}
+                    onChange={(e) => setNewRoleDraft(e.target.value)}
+                    placeholder={t.dock.addRolePlaceholder}
+                    className="retro-dock-select"
+                    style={{ flex: 1, minWidth: 130, maxWidth: 'none', cursor: 'text' }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const clean = newRoleDraft.trim();
+                        if (!clean || swarmProfile.some((r) => r.role.toLowerCase() === clean.toLowerCase())) return;
+                        playSelectBlip();
+                        const next: SwarmRoleAssignment[] = [
+                          ...swarmProfile,
+                          { role: clean, model: modelOptions[0]?.id ?? '', level: 'medium' },
+                        ];
+                        setSwarmProfile(next);
+                        saveProjectSwarmProfile(activeFloorId, next);
+                        setNewRoleDraft('');
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="pixel-btn active"
+                    style={{ fontSize: 8, padding: '4px 8px' }}
+                    disabled={
+                      !newRoleDraft.trim() ||
+                      swarmProfile.some(
+                        (r) => r.role.toLowerCase() === newRoleDraft.trim().toLowerCase(),
+                      )
+                    }
+                    onClick={() => {
+                      const clean = newRoleDraft.trim();
+                      if (!clean) return;
+                      playSelectBlip();
+                      const next: SwarmRoleAssignment[] = [
+                        ...swarmProfile,
+                        { role: clean, model: modelOptions[0]?.id ?? '', level: 'medium' },
+                      ];
+                      setSwarmProfile(next);
+                      saveProjectSwarmProfile(activeFloorId, next);
+                      setNewRoleDraft('');
+                    }}
+                  >
+                    {t.dock.addRoleBtn}
+                  </button>
+                </div>
               </div>
             )}
           </>

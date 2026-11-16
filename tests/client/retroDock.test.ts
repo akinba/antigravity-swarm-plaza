@@ -11,6 +11,7 @@ import {
   extractMentions,
   filterMentionSuggestions,
   filterSlashSuggestions,
+  formatOllamaModelLabel,
   getProjectSwarmStorageKey,
   resolveOrchestration,
   resolvePromptProvider,
@@ -141,6 +142,16 @@ describe('RetroCommandDock helpers & i18n', () => {
     assert.equal(profile[0].level, 'medium');
     assert.equal(getProjectSwarmStorageKey('floor-1'), 'swarm_plaza_project_swarm_floor-1');
     assert.equal(getProjectSwarmStorageKey(null), 'swarm_plaza_project_swarm_default');
+    assert.equal(
+      formatOllamaModelLabel({ name: 'Local qwen2.5-coder:7b', model: 'qwen2.5-coder:7b' }),
+      '🦙 qwen2.5-coder:7b (Ollama)',
+    );
+    assert.equal(
+      formatOllamaModelLabel({ name: 'DeepSeek Coder', model: 'deepseek-r1:14b' }),
+      '🦙 DeepSeek Coder (Ollama)',
+    );
+    assert.ok(DICTIONARIES.tr.dock.addRoleBtn.length > 0);
+    assert.ok(DICTIONARIES.en.dock.addRoleBtn.length > 0);
 
     const mentions = filterMentionSuggestions('deep', [], localAgents);
     assert.equal(mentions.length, 1);
