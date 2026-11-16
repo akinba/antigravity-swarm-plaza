@@ -315,6 +315,7 @@ export interface Translations {
     modeEco: string;
     mentionsHeader: string;
     commandsHeader: string;
+    noLocalAgentsHint: string;
   };
   settingsModal: {
     title: string;
@@ -354,6 +355,19 @@ export interface Translations {
     resetDefaults: string;
     liveFpsLabel: string;
     close: string;
+    localAgentsSection: string;
+    localProviderLabel: string;
+    ollamaUrlLabel: string;
+    fetchModelsBtn: string;
+    fetchingModelsBtn: string;
+    ollamaModelLabel: string;
+    manualModelPlaceholder: string;
+    agentNameLabel: string;
+    mentionLabel: string;
+    addLocalAgentBtn: string;
+    noLocalAgents: string;
+    removeAgentBtn: string;
+    ollamaOfflineHint: string;
   };
 }
 
@@ -724,6 +738,7 @@ const TR: Translations = {
     modeEco: '🌱 Eco-Swarm',
     mentionsHeader: 'AJAN ETİKETLE (@)',
     commandsHeader: 'HIZLI KOMUTLAR (/)',
+    noLocalAgentsHint: "── Ayarlar'dan Ollama Yerel Ajan Ekle ──",
   },
   settingsModal: {
     title: '⚙️ GRAFİK & SİSTEM AYARLARI',
@@ -763,6 +778,19 @@ const TR: Translations = {
     resetDefaults: 'VARSAYILANLARA SIFIRLA',
     liveFpsLabel: 'CANLI FPS',
     close: 'KAPAT',
+    localAgentsSection: '🦙 YEREL AJANLAR (OLLAMA)',
+    localProviderLabel: 'Sağlayıcı',
+    ollamaUrlLabel: 'Ollama Sunucu URL',
+    fetchModelsBtn: 'Modelleri Getir',
+    fetchingModelsBtn: 'Getiriliyor...',
+    ollamaModelLabel: 'Model Seçimi / Manuel Ad',
+    manualModelPlaceholder: 'ör. qwen2.5-coder:14b veya deepseek-r1:14b',
+    agentNameLabel: 'Ajan Adı',
+    mentionLabel: '@mention Etiketi',
+    addLocalAgentBtn: '+ Uygulamaya Tanımla',
+    noLocalAgents: 'Henüz tanımlı yerel Ollama ajanı yok.',
+    removeAgentBtn: 'Kaldır',
+    ollamaOfflineHint: 'Ollama çevrimdışı — modeli elle yazıp ekleyebilirsiniz:',
   },
 };
 
@@ -1133,6 +1161,7 @@ const EN: Translations = {
     modeEco: '🌱 Eco-Swarm',
     mentionsHeader: 'MENTION AGENT (@)',
     commandsHeader: 'SLASH COMMANDS (/)',
+    noLocalAgentsHint: '── Add Ollama Local Agent in Settings ──',
   },
   settingsModal: {
     title: '⚙️ GRAPHICS & SYSTEM SETTINGS',
@@ -1172,6 +1201,19 @@ const EN: Translations = {
     resetDefaults: 'RESET TO DEFAULTS',
     liveFpsLabel: 'LIVE FPS',
     close: 'CLOSE',
+    localAgentsSection: '🦙 LOCAL AGENTS (OLLAMA)',
+    localProviderLabel: 'Provider',
+    ollamaUrlLabel: 'Ollama Base URL',
+    fetchModelsBtn: 'Fetch Models',
+    fetchingModelsBtn: 'Fetching...',
+    ollamaModelLabel: 'Select Model / Manual Name',
+    manualModelPlaceholder: 'e.g. qwen2.5-coder:14b or deepseek-r1:14b',
+    agentNameLabel: 'Agent Name',
+    mentionLabel: '@mention Tag',
+    addLocalAgentBtn: '+ Add Local Agent',
+    noLocalAgents: 'No local Ollama agents configured yet.',
+    removeAgentBtn: 'Remove',
+    ollamaOfflineHint: 'Ollama offline — you can still enter a model name manually:',
   },
 };
 

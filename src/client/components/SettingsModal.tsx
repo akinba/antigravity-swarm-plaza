@@ -1,18 +1,53 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   DEFAULT_GRAPHICS_SETTINGS,
   type AntiAliasingMode,
   type FpsLimitMode,
   type GraphicsPreset,
   type GraphicsSettings,
+  type LocalAgentConfig,
+  type OllamaModelInfo,
   type ResolutionScaleMode,
 } from '../../shared/types';
 import { playSelectBlip } from '../audio/retroSynth';
 import { useI18n } from '../i18n/translations';
 
+export const LOCAL_AGENTS_STORAGE_KEY = 'swarm_plaza_local_agents';
+
+export function loadStoredLocalAgents(): LocalAgentConfig[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_AGENTS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (item): item is LocalAgentConfig =>
+        Boolean(item && typeof item.id === 'string' && typeof item.model === 'string'),
+    );
+  } catch {
+    return [];
+  }
+}
+
+export function saveStoredLocalAgents(agents: LocalAgentConfig[]): void {
+  try {
+    localStorage.setItem(LOCAL_AGENTS_STORAGE_KEY, JSON.stringify(agents));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+export function deriveMentionFromModel(model: string): string {
+  const base = model.split(':')[0] ?? model;
+  const cleaned = base.replace(/[^a-zA-Z0-9_.-]/g, '-').toLowerCase();
+  return cleaned ? `local-${cleaned}` : 'local-ollama';
+}
+
 interface SettingsModalProps {
   graphicsSettings: GraphicsSettings;
   onChangeGraphics: (next: GraphicsSettings) => void;
+  localAgents: LocalAgentConfig[];
+  onChangeLocalAgents: (next: LocalAgentConfig[]) => void;
   liveFps: number;
   followCam: boolean;
   onToggleFollowCam: () => void;
@@ -61,6 +96,8 @@ const PRESET_CONFIGS: Record<Exclude<GraphicsPreset, 'custom'>, GraphicsSettings
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   graphicsSettings,
   onChangeGraphics,
+  localAgents,
+  onChangeLocalAgents,
   liveFps,
   followCam,
   onToggleFollowCam,
@@ -75,6 +112,64 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose,
 }) => {
   const { locale, setLocale, t } = useI18n();
+  const [ollamaUrl, setOllamaUrl] = useState('http://localhost:11434');
+  const [fetchedModels, setFetchedModels] = useState<OllamaModelInfo[]>([]);
+  const [fetchingModels, setFetchingModels] = useState(false);
+  const [ollamaError, setOllamaError] = useState<string | null>(null);
+  const [modelDraft, setModelDraft] = useState('qwen2.5-coder:14b');
+  const [agentNameDraft, setAgentNameDraft] = useState('Local Qwen 2.5 Coder');
+  const [mentionDraft, setMentionDraft] = useState('local-qwen2.5-coder');
+
+  const handleSelectModel = (modelName: string) => {
+    setModelDraft(modelName);
+    setAgentNameDraft(`Local ${modelName}`);
+    setMentionDraft(deriveMentionFromModel(modelName));
+  };
+
+  const handleFetchOllamaModels = async () => {
+    playSelectBlip();
+    setFetchingModels(true);
+    setOllamaError(null);
+    try {
+      const res = await fetch(
+        `/api/ollama/models?baseUrl=${encodeURIComponent(ollamaUrl.trim() || 'http://localhost:11434')}`,
+      );
+      const data = (await res.json()) as {
+        ok?: boolean;
+        models?: OllamaModelInfo[];
+        error?: string;
+      };
+      if (data.ok && Array.isArray(data.models) && data.models.length > 0) {
+        setFetchedModels(data.models);
+        handleSelectModel(data.models[0].name);
+      } else {
+        setFetchedModels([]);
+        setOllamaError(data.error || t.settingsModal.ollamaOfflineHint);
+      }
+    } catch {
+      setFetchedModels([]);
+      setOllamaError(t.settingsModal.ollamaOfflineHint);
+    } finally {
+      setFetchingModels(false);
+    }
+  };
+
+  const handleAddLocalAgent = () => {
+    const model = modelDraft.trim();
+    if (!model) return;
+    playSelectBlip();
+    const cleanMention = (mentionDraft.trim() || deriveMentionFromModel(model)).replace(/^@/, '');
+    const nextAgent: LocalAgentConfig = {
+      id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      name: agentNameDraft.trim() || `Local ${model}`,
+      mention: cleanMention,
+      provider: 'ollama',
+      model,
+      baseUrl: ollamaUrl.trim() || 'http://localhost:11434',
+      enabled: true,
+    };
+    onChangeLocalAgents([...localAgents, nextAgent]);
+  };
 
   const applyPreset = (preset: Exclude<GraphicsPreset, 'custom'>) => {
     playSelectBlip();
@@ -393,6 +488,135 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Local Agents (Ollama) */}
+        <div className="pixel-panel-inset" style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <span className="pixel-title" style={{ fontSize: 9, color: '#3cd8ff' }}>
+              {t.settingsModal.localAgentsSection}
+            </span>
+            <span className="pixel-badge" style={{ fontSize: 9, color: '#ffbe3b' }}>
+              {t.settingsModal.localProviderLabel}: Ollama
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            <input
+              type="text"
+              value={ollamaUrl}
+              onChange={(e) => setOllamaUrl(e.target.value)}
+              aria-label={t.settingsModal.ollamaUrlLabel}
+              className="retro-dock-select"
+              style={{ flex: 1, minWidth: 190, cursor: 'text' }}
+            />
+            <button
+              type="button"
+              className="pixel-btn cyan"
+              style={{ fontSize: 9, padding: '5px 10px' }}
+              disabled={fetchingModels}
+              onClick={() => void handleFetchOllamaModels()}
+            >
+              {fetchingModels ? t.settingsModal.fetchingModelsBtn : t.settingsModal.fetchModelsBtn}
+            </button>
+          </div>
+
+          {ollamaError && (
+            <div style={{ fontSize: 10, color: 'var(--accent-amber)' }}>
+              ⚠ {ollamaError}
+            </div>
+          )}
+
+          {fetchedModels.length > 0 && (
+            <select
+              aria-label={t.settingsModal.ollamaModelLabel}
+              className="retro-dock-select"
+              style={{ width: '100%', maxWidth: 'none' }}
+              value={modelDraft}
+              onChange={(e) => handleSelectModel(e.target.value)}
+            >
+              {fetchedModels.map((m) => (
+                <option key={m.name} value={m.name}>
+                  {m.name}
+                  {typeof m.size === 'number' ? ` (${(m.size / 1e9).toFixed(1)} GB)` : ''}
+                </option>
+              ))}
+            </select>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(165px, 1fr))', gap: 6 }}>
+            <input
+              type="text"
+              value={modelDraft}
+              onChange={(e) => setModelDraft(e.target.value)}
+              placeholder={t.settingsModal.manualModelPlaceholder}
+              aria-label={t.settingsModal.ollamaModelLabel}
+              className="retro-dock-select"
+              style={{ maxWidth: 'none', cursor: 'text' }}
+            />
+            <input
+              type="text"
+              value={agentNameDraft}
+              onChange={(e) => setAgentNameDraft(e.target.value)}
+              placeholder={t.settingsModal.agentNameLabel}
+              aria-label={t.settingsModal.agentNameLabel}
+              className="retro-dock-select"
+              style={{ maxWidth: 'none', cursor: 'text' }}
+            />
+            <input
+              type="text"
+              value={mentionDraft}
+              onChange={(e) => setMentionDraft(e.target.value)}
+              placeholder={t.settingsModal.mentionLabel}
+              aria-label={t.settingsModal.mentionLabel}
+              className="retro-dock-select"
+              style={{ maxWidth: 'none', cursor: 'text' }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              type="button"
+              className="pixel-btn active"
+              style={{ fontSize: 9, padding: '5px 12px' }}
+              onClick={handleAddLocalAgent}
+            >
+              {t.settingsModal.addLocalAgentBtn}
+            </button>
+          </div>
+
+          {localAgents.length === 0 ? (
+            <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>
+              {t.settingsModal.noLocalAgents}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {localAgents.map((agent) => (
+                <div key={agent.id} className="retro-dock-diff-row">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{ color: '#3be87a' }}>{agent.name}</span>
+                    <span className="pixel-badge" style={{ fontSize: 9, color: '#3cd8ff' }}>
+                      @{agent.mention}
+                    </span>
+                    <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>
+                      ollama:{agent.model}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="pixel-btn danger"
+                    style={{ fontSize: 8, padding: '2px 6px' }}
+                    onClick={() => {
+                      playSelectBlip();
+                      onChangeLocalAgents(localAgents.filter((a) => a.id !== agent.id));
+                    }}
+                  >
+                    {t.settingsModal.removeAgentBtn}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Footer */}

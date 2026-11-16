@@ -3,6 +3,7 @@ import {
   DEFAULT_GRAPHICS_SETTINGS,
   type FloorEventKind,
   type GraphicsSettings,
+  type LocalAgentConfig,
   type OfficeEmployee,
   type PlazaFloor,
   type PlazaSnapshot,
@@ -28,7 +29,11 @@ import { ElevatorPanel } from './components/ElevatorPanel';
 import { EventCalendarModal } from './components/EventCalendarModal';
 import { IconLegendModal } from './components/IconLegendModal';
 import { RetroCommandDock } from './components/RetroCommandDock';
-import { SettingsModal } from './components/SettingsModal';
+import {
+  loadStoredLocalAgents,
+  saveStoredLocalAgents,
+  SettingsModal,
+} from './components/SettingsModal';
 import { TopHud } from './components/TopHud';
 import { WhiteboardModal } from './components/WhiteboardModal';
 import { OfficeCanvas } from './engine/OfficeCanvas';
@@ -106,6 +111,12 @@ export const App: React.FC = () => {
   const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
   const [liveFps, setLiveFps] = useState<number>(60);
   const [graphicsSettings, setGraphicsSettings] = useState<GraphicsSettings>(loadGraphicsSettings);
+  const [localAgents, setLocalAgents] = useState<LocalAgentConfig[]>(loadStoredLocalAgents);
+
+  const handleChangeLocalAgents = useCallback((next: LocalAgentConfig[]) => {
+    setLocalAgents(next);
+    saveStoredLocalAgents(next);
+  }, []);
 
   useEffect(() => {
     try {
@@ -802,6 +813,7 @@ function loadStickyAlerts(): StickyAlertItem[] {
       <RetroCommandDock
         activeFloorId={activeFloor?.id ?? null}
         employees={activeFloor?.employees ?? []}
+        localAgents={localAgents}
       />
 
       {selectedEmployee && (
@@ -864,6 +876,8 @@ function loadStickyAlerts(): StickyAlertItem[] {
         <SettingsModal
           graphicsSettings={graphicsSettings}
           onChangeGraphics={setGraphicsSettings}
+          localAgents={localAgents}
+          onChangeLocalAgents={handleChangeLocalAgents}
           liveFps={liveFps}
           followCam={followCam}
           onToggleFollowCam={handleToggleFollowCam}

@@ -24,6 +24,7 @@ import { getDemoAgentLogs, getDemoEmployee, resetDemoTick } from './demoSimulato
 import { buildPlazaSnapshot } from './gamification.js';
 import {
   InvalidDiffPathError,
+  InvalidOllamaUrlError,
   PromptConflictError,
   PromptRunner,
   defaultPromptRunner,
@@ -310,6 +311,24 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
     res.json(promptRunner.getState());
   });
 
+  app.get('/api/ollama/models', async (req, res) => {
+    const baseUrl = typeof req.query.baseUrl === 'string' ? req.query.baseUrl : undefined;
+    try {
+      const result = await promptRunner.fetchOllamaModels(baseUrl);
+      res.json(result);
+    } catch (err) {
+      if (err instanceof InvalidOllamaUrlError) {
+        res.status(400).json({ ok: false, models: [], error: err.message });
+        return;
+      }
+      res.status(500).json({
+        ok: false,
+        models: [],
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  });
+
   app.get('/api/stream', (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
@@ -336,6 +355,8 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
         model: body.model ?? 'gemini-4-hydrogen-medium',
         mode: body.mode ?? 'turbo',
         mentions: Array.isArray(body.mentions) ? body.mentions : [],
+        provider: body.provider,
+        ollamaBaseUrl: body.ollamaBaseUrl,
         workspace: body.workspace,
         attachments: Array.isArray(body.attachments) ? body.attachments : undefined,
         floorId: body.floorId,

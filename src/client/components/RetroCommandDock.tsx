@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type {
   DiffFileChange,
   ExecutionMode,
+  LocalAgentConfig,
   OfficeEmployee,
   PromptModelId,
   PromptStreamEvent,
@@ -12,15 +13,54 @@ import { useI18n } from '../i18n/translations';
 export interface DockModelOption {
   id: PromptModelId;
   label: string;
+  provider?: 'gemini' | 'ollama';
+  ollamaBaseUrl?: string;
 }
 
-export const DOCK_MODEL_OPTIONS: DockModelOption[] = [
-  { id: 'gemini-4-carbon-medium', label: 'Gemini 4 Carbon (Medium)' },
-  { id: 'gemini-4-argon-medium', label: 'Gemini 4 Argon (Medium)' },
-  { id: 'gemini-4-hydrogen-medium', label: 'Gemini 4 Hydrogen (Medium)' },
-  { id: 'gemini-3.8-flash-fast', label: 'Gemini 3.8 Flash (Fast)' },
-  { id: 'qwen2.5-coder:14b', label: 'Local Qwen 2.5 Coder 14B (RX 7800 XT - Ollama)' },
+export const GEMINI_MODEL_OPTIONS: DockModelOption[] = [
+  { id: 'gemini-4-carbon-medium', label: 'Gemini 4 Carbon (Medium)', provider: 'gemini' },
+  { id: 'gemini-4-argon-medium', label: 'Gemini 4 Argon (Medium)', provider: 'gemini' },
+  { id: 'gemini-4-hydrogen-medium', label: 'Gemini 4 Hydrogen (Medium)', provider: 'gemini' },
+  { id: 'gemini-3.8-flash-fast', label: 'Gemini 3.8 Flash (Fast)', provider: 'gemini' },
 ];
+
+export const DOCK_MODEL_OPTIONS: DockModelOption[] = [
+  ...GEMINI_MODEL_OPTIONS,
+  {
+    id: 'qwen2.5-coder:14b',
+    label: 'Local Qwen 2.5 Coder 14B (RX 7800 XT - Ollama)',
+    provider: 'ollama',
+    ollamaBaseUrl: 'http://localhost:11434',
+  },
+];
+
+export function buildDockModelOptions(localAgents: LocalAgentConfig[] = []): DockModelOption[] {
+  const dynamicLocalOptions: DockModelOption[] = localAgents
+    .filter((agent) => agent.enabled)
+    .map((agent) => ({
+      id: `ollama:${agent.model}` as PromptModelId,
+      label: `🦙 ${agent.name} (${agent.model})`,
+      provider: 'ollama',
+      ollamaBaseUrl: agent.baseUrl,
+    }));
+  return [...GEMINI_MODEL_OPTIONS, ...dynamicLocalOptions];
+}
+
+export function resolvePromptProvider(
+  model: PromptModelId,
+  localAgents: LocalAgentConfig[] = [],
+): { provider: 'gemini' | 'ollama'; ollamaBaseUrl?: string } {
+  const matched = localAgents.find(
+    (a) => a.enabled && (`ollama:${a.model}` === model || a.model === model),
+  );
+  if (matched) {
+    return { provider: 'ollama', ollamaBaseUrl: matched.baseUrl };
+  }
+  if (model.startsWith('ollama:') || model === 'qwen2.5-coder:14b') {
+    return { provider: 'ollama', ollamaBaseUrl: 'http://localhost:11434' };
+  }
+  return { provider: 'gemini' };
+}
 
 export const DEFAULT_DOCK_MODEL: PromptModelId = 'gemini-4-hydrogen-medium';
 
@@ -75,6 +115,7 @@ export function detectAutocompleteTrigger(
 export function filterMentionSuggestions(
   query: string,
   employees: Array<Pick<OfficeEmployee, 'id' | 'name' | 'roleTitle'>> = [],
+  localAgents: LocalAgentConfig[] = [],
 ): MentionSuggestion[] {
   const q = query.trim().toLowerCase();
   const seen = new Set<string>();
@@ -89,6 +130,19 @@ export function filterMentionSuggestions(
       id: cleanName,
       label: `@${cleanName}`,
       badge: emp.roleTitle.toUpperCase(),
+    });
+  }
+
+  for (const agent of localAgents) {
+    if (!agent.enabled) continue;
+    const cleanMention = agent.mention.replace(/^@/, '');
+    const key = cleanMention.toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    items.push({
+      id: cleanMention,
+      label: `@${cleanMention}`,
+      badge: `OLLAMA · ${agent.model}`,
     });
   }
 
@@ -150,12 +204,14 @@ interface SpeechRecognitionInstance {
 export interface RetroCommandDockProps {
   activeFloorId?: string | null;
   employees?: OfficeEmployee[];
+  localAgents?: LocalAgentConfig[];
   workspace?: string;
 }
 
 export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
   activeFloorId,
   employees = [],
+  localAgents = [],
   workspace,
 }) => {
   const { t, locale } = useI18n();
@@ -265,10 +321,12 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
     [promptText, cursorPos],
   );
 
+  const modelOptions = useMemo(() => buildDockModelOptions(localAgents), [localAgents]);
+
   const acItems = useMemo(() => {
     if (!trigger) return [];
     if (trigger.kind === '@') {
-      return filterMentionSuggestions(trigger.query, employees).map((item) => ({
+      return filterMentionSuggestions(trigger.query, employees, localAgents).map((item) => ({
         key: item.id,
         insert: `${item.label} `,
         title: item.label,
@@ -281,7 +339,7 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
       title: item.command,
       meta: item.description,
     }));
-  }, [trigger, employees]);
+  }, [trigger, employees, localAgents]);
 
   useEffect(() => {
     setSelectedAcIndex(0);
@@ -329,6 +387,7 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
     appendLog('status', `> ${trimmed}`);
 
     const mentions = extractMentions(trimmed);
+    const { provider, ollamaBaseUrl } = resolvePromptProvider(model, localAgents);
     setPromptText('');
 
     try {
@@ -340,6 +399,8 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
           model,
           mode,
           mentions,
+          provider,
+          ollamaBaseUrl,
           workspace,
           attachments,
           floorId: activeFloorId ?? undefined,
@@ -795,11 +856,16 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
                     setModel(e.target.value as PromptModelId);
                   }}
                 >
-                  {DOCK_MODEL_OPTIONS.map((opt) => (
+                  {modelOptions.map((opt) => (
                     <option key={opt.id} value={opt.id}>
                       {opt.label}
                     </option>
                   ))}
+                  {localAgents.length === 0 && (
+                    <option value="" disabled>
+                      {t.dock.noLocalAgentsHint}
+                    </option>
+                  )}
                 </select>
               </div>
 

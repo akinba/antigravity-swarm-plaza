@@ -329,4 +329,113 @@ describe('PromptRunner & standalone prompt endpoints', () => {
       await instance.close();
     }
   });
+
+  it('streams dynamic ollama:<model> models stripping prefix and using custom ollamaBaseUrl', async () => {
+    let capturedUrl = '';
+    let capturedModel = '';
+    const events: PromptStreamEvent[] = [];
+
+    const runner = new PromptRunner({
+      defaultWorkspace: process.cwd(),
+      fetchImpl: async (url, init) => {
+        capturedUrl = String(url);
+        const body = JSON.parse(String(init?.body ?? '{}')) as { model?: string };
+        capturedModel = body.model ?? '';
+        return new Response(
+          createNdjsonStream([
+            JSON.stringify({ message: { content: 'Hello from deepseek' } }),
+            JSON.stringify({ done: true }),
+          ]),
+          { status: 200 },
+        );
+      },
+    });
+    runner.subscribe((ev) => events.push(ev));
+
+    runner.startPrompt({
+      prompt: 'Explain architecture',
+      model: 'ollama:deepseek-r1:14b',
+      provider: 'ollama',
+      ollamaBaseUrl: 'http://127.0.0.1:11434/',
+      mode: 'eco-swarm',
+      mentions: ['local-deepseek'],
+    });
+
+    await runner.waitForIdle();
+    assert.equal(capturedUrl, 'http://127.0.0.1:11434/api/chat');
+    assert.equal(capturedModel, 'deepseek-r1:14b');
+    assert.ok(events.some((e) => e.type === 'chunk' && e.text?.includes('Hello from deepseek')));
+    assert.equal(runner.getState().status, 'idle');
+  });
+
+  it('exposes GET /api/ollama/models for tag discovery, offline fallback, and SSRF protection', async () => {
+    let offline = false;
+    const runner = new PromptRunner({
+      defaultWorkspace: process.cwd(),
+      fetchImpl: async (url) => {
+        if (offline) {
+          throw new Error('connect ECONNREFUSED 127.0.0.1:11434');
+        }
+        assert.equal(String(url), 'http://localhost:11434/api/tags');
+        return new Response(
+          JSON.stringify({
+            models: [
+              { name: 'llama3.2', size: 2048, modified_at: '2026-11-16T00:00:00Z' },
+              { name: 'deepseek-r1:14b', size: 9000 },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      },
+    });
+
+    const instance = createPlazaApp({
+      agyDataDir: path.join(os.tmpdir(), 'nonexistent-agy-test-dir'),
+      initialDemoMode: true,
+      broadcastIntervalMs: 0,
+      promptRunner: runner,
+    });
+
+    await new Promise<void>((resolve) => {
+      instance.server.listen(0, '127.0.0.1', () => resolve());
+    });
+
+    const addr = instance.server.address();
+    const port = typeof addr === 'object' && addr ? addr.port : 0;
+    const baseUrl = `http://127.0.0.1:${port}`;
+
+    try {
+      const okRes = await fetch(
+        `${baseUrl}/api/ollama/models?baseUrl=${encodeURIComponent('http://localhost:11434')}`,
+      );
+      assert.equal(okRes.status, 200);
+      const okJson = (await okRes.json()) as {
+        ok: boolean;
+        models: Array<{ name: string; size?: number; modifiedAt?: string }>;
+      };
+      assert.equal(okJson.ok, true);
+      assert.deepEqual(
+        okJson.models.map((m) => m.name),
+        ['llama3.2', 'deepseek-r1:14b'],
+      );
+
+      offline = true;
+      const offRes = await fetch(`${baseUrl}/api/ollama/models`);
+      assert.equal(offRes.status, 200);
+      const offJson = (await offRes.json()) as { ok: boolean; models: unknown[]; error?: string };
+      assert.equal(offJson.ok, false);
+      assert.deepEqual(offJson.models, []);
+      assert.match(offJson.error ?? '', /unreachable/i);
+
+      const ssrfRes = await fetch(
+        `${baseUrl}/api/ollama/models?baseUrl=${encodeURIComponent('https://evil.example.com')}`,
+      );
+      assert.equal(ssrfRes.status, 400);
+      const ssrfJson = (await ssrfRes.json()) as { ok: boolean; error?: string };
+      assert.equal(ssrfJson.ok, false);
+      assert.match(ssrfJson.error ?? '', /Disallowed external host/i);
+    } finally {
+      await instance.close();
+    }
+  });
 });

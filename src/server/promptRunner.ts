@@ -4,6 +4,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import type {
   DiffFileChange,
+  OllamaModelInfo,
   PromptModelId,
   PromptRequest,
   PromptStreamEvent,
@@ -60,6 +61,54 @@ export class InvalidDiffPathError extends Error {
     super(message);
     this.name = 'InvalidDiffPathError';
   }
+}
+
+export class InvalidOllamaUrlError extends Error {
+  constructor(message = 'Invalid or disallowed Ollama base URL') {
+    super(message);
+    this.name = 'InvalidOllamaUrlError';
+  }
+}
+
+function isPrivateOrLocalHostname(hostname: string): boolean {
+  const h = hostname.toLowerCase();
+  if (h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '[::1]' || h === '0.0.0.0') {
+    return true;
+  }
+  const ipv4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h);
+  if (!ipv4) return false;
+  const [a, b] = [Number(ipv4[1]), Number(ipv4[2])];
+  if (a === 10 || a === 127) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  return false;
+}
+
+export function resolveSafeOllamaBaseUrl(rawUrl?: string): string {
+  const candidate = (rawUrl ?? 'http://localhost:11434').trim();
+  let parsed: URL;
+  try {
+    parsed = new URL(candidate);
+  } catch {
+    throw new InvalidOllamaUrlError(`Invalid Ollama URL: ${candidate}`);
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new InvalidOllamaUrlError(`Unsupported protocol for Ollama URL: ${parsed.protocol}`);
+  }
+  if (!isPrivateOrLocalHostname(parsed.hostname)) {
+    throw new InvalidOllamaUrlError(
+      `Disallowed external host for Ollama URL: ${parsed.hostname} (only localhost / private LAN allowed)`,
+    );
+  }
+  return parsed.origin + parsed.pathname.replace(/\/+$/, '');
+}
+
+export function isOllamaRequest(req: PromptRequest): boolean {
+  return (
+    req.provider === 'ollama' ||
+    req.model.startsWith('ollama:') ||
+    req.model === 'qwen2.5-coder:14b'
+  );
 }
 
 const FILE_PATH_REGEX =
@@ -160,6 +209,43 @@ export class PromptRunner {
   async waitForIdle(): Promise<void> {
     if (this.activeRunPromise) {
       await this.activeRunPromise;
+    }
+  }
+
+  async fetchOllamaModels(
+    baseUrl?: string,
+  ): Promise<{ ok: boolean; models: OllamaModelInfo[]; error?: string }> {
+    const safeBase = resolveSafeOllamaBaseUrl(baseUrl);
+    try {
+      const response = await this.fetchImpl(`${safeBase}/api/tags`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+      });
+      if (!response.ok) {
+        return {
+          ok: false,
+          models: [],
+          error: `Ollama HTTP ${response.status} ${response.statusText}`,
+        };
+      }
+      const data = (await response.json()) as {
+        models?: Array<{ name?: string; size?: number; modified_at?: string; modifiedAt?: string }>;
+      };
+      const models: OllamaModelInfo[] = (data.models ?? [])
+        .filter((m) => typeof m.name === 'string' && m.name.trim().length > 0)
+        .map((m) => ({
+          name: m.name!.trim(),
+          size: typeof m.size === 'number' ? m.size : undefined,
+          modifiedAt: m.modified_at ?? m.modifiedAt,
+        }));
+      return { ok: true, models };
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      return {
+        ok: false,
+        models: [],
+        error: `Ollama unreachable at ${safeBase}: ${detail}`,
+      };
     }
   }
 
@@ -340,7 +426,7 @@ export class PromptRunner {
   ): Promise<void> {
     const signal = this.abortController?.signal;
     try {
-      if (req.model === 'qwen2.5-coder:14b') {
+      if (isOllamaRequest(req)) {
         await this.runOllama(runId, req, primaryAgentId, signal);
       } else {
         await this.runGeminiCli(runId, req, primaryAgentId, signal);
@@ -391,14 +477,18 @@ export class PromptRunner {
         ? `\n\nAttached context: ${req.attachments.join(', ')}`
         : '';
     const systemMsg = `You are a coding agent running in ${req.mode} mode in workspace ${this.workspace}.`;
+    const actualModel = req.model.replace(/^ollama:/, '');
+    const chatUrl = req.ollamaBaseUrl?.trim()
+      ? `${resolveSafeOllamaBaseUrl(req.ollamaBaseUrl)}/api/chat`
+      : this.ollamaUrl;
 
     let response: Response;
     try {
-      response = await this.fetchImpl(this.ollamaUrl, {
+      response = await this.fetchImpl(chatUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'qwen2.5-coder:14b',
+          model: actualModel,
           stream: true,
           messages: [
             { role: 'system', content: systemMsg },
@@ -411,7 +501,7 @@ export class PromptRunner {
       if (signal?.aborted) return;
       const detail = err instanceof Error ? err.message : String(err);
       throw new Error(
-        `[OLLAMA OFFLINE] Could not reach ${this.ollamaUrl} (${detail}). Start Ollama locally to use qwen2.5-coder:14b.`,
+        `[OLLAMA OFFLINE] Could not reach ${chatUrl} (${detail}). Start Ollama locally to use ${actualModel}.`,
       );
     }
 
@@ -479,13 +569,13 @@ export class PromptRunner {
         child = this.spawnImpl(this.cliCommand, args, {
           cwd: this.workspace,
           stdio: ['ignore', 'pipe', 'pipe'],
-          shell: false,
+          shell: process.platform === 'win32',
         });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         reject(
           new Error(
-            `[CLI NOT FOUND] Failed to start '${this.cliCommand}' (${msg}). Install Antigravity CLI or select Local Qwen 2.5 Coder 14B.`,
+            `[CLI NOT FOUND] Failed to start '${this.cliCommand}' (${msg}). Install Antigravity CLI or configure Settings -> Local Agents (Ollama).`,
           ),
         );
         return;
@@ -525,7 +615,7 @@ export class PromptRunner {
         if (err.code === 'ENOENT') {
           reject(
             new Error(
-              `[CLI NOT FOUND] '${this.cliCommand}' is not installed or not in PATH. Set ANTIGRAVITY_CLI_CMD or select Local Qwen 2.5 Coder 14B.`,
+              `[CLI NOT FOUND] '${this.cliCommand}' is not installed or not in PATH. Set ANTIGRAVITY_CLI_CMD or configure Settings -> Local Agents (Ollama).`,
             ),
           );
           return;

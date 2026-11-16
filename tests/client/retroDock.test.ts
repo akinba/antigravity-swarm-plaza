@@ -4,12 +4,16 @@ import {
   DEFAULT_DOCK_MODEL,
   DOCK_MODE_OPTIONS,
   DOCK_MODEL_OPTIONS,
+  buildDockModelOptions,
   detectAutocompleteTrigger,
   extractMentions,
   filterMentionSuggestions,
   filterSlashSuggestions,
+  resolvePromptProvider,
 } from '../../src/client/components/RetroCommandDock';
+import { deriveMentionFromModel } from '../../src/client/components/SettingsModal';
 import { DICTIONARIES } from '../../src/client/i18n/translations';
+import type { LocalAgentConfig } from '../../src/shared/types';
 
 describe('RetroCommandDock helpers & i18n', () => {
   it('detects @ and / autocomplete triggers at cursor position', () => {
@@ -94,5 +98,51 @@ describe('RetroCommandDock helpers & i18n', () => {
       assert.ok(DICTIONARIES.tr.dock[key].length > 0, `tr.dock.${key}`);
       assert.ok(DICTIONARIES.en.dock[key].length > 0, `en.dock.${key}`);
     }
+    assert.ok(DICTIONARIES.tr.settingsModal.localAgentsSection.length > 0);
+    assert.ok(DICTIONARIES.en.settingsModal.localAgentsSection.length > 0);
+    assert.ok(DICTIONARIES.tr.settingsModal.fetchModelsBtn.length > 0);
+    assert.ok(DICTIONARIES.en.settingsModal.fetchModelsBtn.length > 0);
+  });
+
+  it('dynamically lists user-configured Ollama local agents in dock models, @mentions, and provider resolution', () => {
+    const localAgents: LocalAgentConfig[] = [
+      {
+        id: 'la-1',
+        name: 'DeepSeek Coder',
+        mention: 'local-deepseek',
+        provider: 'ollama',
+        model: 'deepseek-r1:14b',
+        baseUrl: 'http://localhost:11434',
+        enabled: true,
+      },
+      {
+        id: 'la-2',
+        name: 'Disabled Llama',
+        mention: 'local-llama',
+        provider: 'ollama',
+        model: 'llama3.2',
+        baseUrl: 'http://127.0.0.1:11434',
+        enabled: false,
+      },
+    ];
+
+    const options = buildDockModelOptions(localAgents);
+    assert.equal(options.length, 5); // 4 Gemini + 1 enabled Ollama
+    assert.ok(options.some((o) => o.id === 'ollama:deepseek-r1:14b' && o.provider === 'ollama'));
+    assert.ok(!options.some((o) => o.id === 'ollama:llama3.2'));
+
+    const mentions = filterMentionSuggestions('deep', [], localAgents);
+    assert.equal(mentions.length, 1);
+    assert.equal(mentions[0].label, '@local-deepseek');
+    assert.ok(mentions[0].badge.includes('OLLAMA'));
+
+    assert.deepEqual(resolvePromptProvider('ollama:deepseek-r1:14b', localAgents), {
+      provider: 'ollama',
+      ollamaBaseUrl: 'http://localhost:11434',
+    });
+    assert.deepEqual(resolvePromptProvider('gemini-4-hydrogen-medium', localAgents), {
+      provider: 'gemini',
+    });
+    assert.equal(deriveMentionFromModel('qwen2.5-coder:14b'), 'local-qwen2.5-coder');
   });
 });

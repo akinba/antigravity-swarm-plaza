@@ -300,15 +300,35 @@ export type PromptModelId =
   | 'gemini-4-argon-medium'
   | 'gemini-4-hydrogen-medium'
   | 'gemini-3.8-flash-fast'
-  | 'qwen2.5-coder:14b';
+  | 'qwen2.5-coder:14b'
+  | `ollama:${string}`
+  | (string & {});
 
 export type ExecutionMode = 'turbo' | 'safe' | 'eco-swarm';
+
+export interface LocalAgentConfig {
+  id: string;
+  name: string;
+  mention: string;
+  provider: 'ollama';
+  model: string;
+  baseUrl: string;
+  enabled: boolean;
+}
+
+export interface OllamaModelInfo {
+  name: string;
+  size?: number;
+  modifiedAt?: string;
+}
 
 export interface PromptRequest {
   prompt: string;
   model: PromptModelId;
   mode: ExecutionMode;
   mentions: string[];
+  provider?: 'gemini' | 'ollama';
+  ollamaBaseUrl?: string;
   workspace?: string;
   attachments?: string[];
   floorId?: string;
