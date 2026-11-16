@@ -5,7 +5,13 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { WebSocket, WebSocketServer } from 'ws';
-import type { AgentDetailResponse, OfficeEmployee, PlazaSnapshot } from '../shared/types.js';
+import type {
+  AgentDetailResponse,
+  OfficeEmployee,
+  PlazaSnapshot,
+  PromptRequest,
+  PromptStreamEvent,
+} from '../shared/types.js';
 import { readAgentLogs } from './brainScanner.js';
 import {
   AGY_DATA_DIR,
@@ -16,6 +22,12 @@ import {
 } from './config.js';
 import { getDemoAgentLogs, getDemoEmployee, resetDemoTick } from './demoSimulator.js';
 import { buildPlazaSnapshot } from './gamification.js';
+import {
+  InvalidDiffPathError,
+  PromptConflictError,
+  PromptRunner,
+  defaultPromptRunner,
+} from './promptRunner.js';
 import {
   canTriggerAutoFloorEvent,
   rerollFloorLayout,
@@ -31,6 +43,7 @@ export interface PlazaAppOptions {
   broadcastIntervalMs?: number;
   clientDistDir?: string;
   sidecarToken?: string;
+  promptRunner?: PromptRunner;
 }
 
 export interface PlazaAppInstance {
@@ -117,9 +130,16 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
 
   const server = http.createServer(app);
   const wss = new WebSocketServer({ server, path: '/ws' });
+  const promptRunner = options.promptRunner ?? defaultPromptRunner;
+  const sseClients = new Set<express.Response>();
 
   const getSnapshot = (): PlazaSnapshot =>
-    buildPlazaSnapshot(agyDataDir, currentWorkspace, demoMode);
+    buildPlazaSnapshot(
+      agyDataDir,
+      currentWorkspace,
+      demoMode,
+      promptRunner.getActiveOverrides(),
+    );
 
   const broadcastSnapshot = (): PlazaSnapshot => {
     const snapshot = getSnapshot();
@@ -131,6 +151,31 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
     }
     return snapshot;
   };
+
+  const unsubscribePrompt = promptRunner.subscribe((event: PromptStreamEvent) => {
+    const ssePayload = `data: ${JSON.stringify(event)}\n\n`;
+    for (const client of sseClients) {
+      try {
+        client.write(ssePayload);
+      } catch {
+        sseClients.delete(client);
+      }
+    }
+    const wsPayload = JSON.stringify({ type: 'prompt_event', payload: event });
+    for (const client of wss.clients) {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(wsPayload);
+      }
+    }
+    if (
+      event.type === 'status' ||
+      event.type === 'file' ||
+      event.type === 'done' ||
+      event.type === 'error'
+    ) {
+      broadcastSnapshot();
+    }
+  });
 
   wss.on('connection', (ws, req) => {
     if (activeToken) {
@@ -261,6 +306,77 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
     res.json({ scheduledEvent, snapshot });
   });
 
+  app.get('/api/prompt/state', (_req, res) => {
+    res.json(promptRunner.getState());
+  });
+
+  app.get('/api/stream', (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders?.();
+
+    sseClients.add(res);
+    res.write(': connected\n\n');
+
+    req.on('close', () => {
+      sseClients.delete(res);
+    });
+  });
+
+  app.post('/api/prompt', (req, res) => {
+    const body = (req.body ?? {}) as Partial<PromptRequest>;
+    if (!body.prompt || typeof body.prompt !== 'string' || !body.prompt.trim()) {
+      res.status(400).json({ error: 'Prompt text is required' });
+      return;
+    }
+    try {
+      const { runId } = promptRunner.startPrompt({
+        prompt: body.prompt,
+        model: body.model ?? 'gemini-4-hydrogen-medium',
+        mode: body.mode ?? 'turbo',
+        mentions: Array.isArray(body.mentions) ? body.mentions : [],
+        workspace: body.workspace,
+        attachments: Array.isArray(body.attachments) ? body.attachments : undefined,
+        floorId: body.floorId,
+      });
+      res.json({ ok: true, runId });
+    } catch (err) {
+      if (err instanceof PromptConflictError) {
+        res.status(409).json({ error: err.message });
+        return;
+      }
+      res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  app.post('/api/prompt/stop', (_req, res) => {
+    const state = promptRunner.stopPrompt();
+    broadcastSnapshot();
+    res.json({ ok: true, state });
+  });
+
+  app.post('/api/diff/decision', async (req, res) => {
+    const body = (req.body ?? {}) as { path?: string; decision?: string };
+    if (!body.path || (body.decision !== 'accept' && body.decision !== 'reject')) {
+      res.status(400).json({ error: "Expected { path, decision: 'accept' | 'reject' }" });
+      return;
+    }
+    try {
+      const diffs =
+        body.decision === 'accept'
+          ? await promptRunner.acceptDiff(body.path)
+          : await promptRunner.rejectDiff(body.path);
+      res.json({ ok: true, diffs });
+    } catch (err) {
+      if (err instanceof InvalidDiffPathError) {
+        res.status(400).json({ error: err.message });
+        return;
+      }
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
   // Serve built frontend if dist/client/index.html exists
   const currentDir =
     typeof import.meta?.url === 'string'
@@ -336,7 +452,30 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
     ambientTimer.unref();
   }
 
+  const sseHeartbeatTimer = setInterval(() => {
+    for (const client of sseClients) {
+      try {
+        client.write(': heartbeat\n\n');
+      } catch {
+        sseClients.delete(client);
+      }
+    }
+  }, 15_000);
+  if (typeof sseHeartbeatTimer.unref === 'function') {
+    sseHeartbeatTimer.unref();
+  }
+
   const close = async (): Promise<void> => {
+    unsubscribePrompt();
+    clearInterval(sseHeartbeatTimer);
+    for (const client of sseClients) {
+      try {
+        client.end();
+      } catch {
+        // Ignore
+      }
+    }
+    sseClients.clear();
     if (timer) clearInterval(timer);
     if (ambientTimer) clearInterval(ambientTimer);
     await new Promise<void>((resolve) => {

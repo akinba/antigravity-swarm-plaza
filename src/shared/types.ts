@@ -294,3 +294,41 @@ export const DEFAULT_GRAPHICS_SETTINGS: GraphicsSettings = {
   fpsLimit: '60',
   staticCache: true,
 };
+
+export type PromptModelId =
+  | 'gemini-4-carbon-medium'
+  | 'gemini-4-argon-medium'
+  | 'gemini-4-hydrogen-medium'
+  | 'gemini-3.8-flash-fast'
+  | 'qwen2.5-coder:14b';
+
+export type ExecutionMode = 'turbo' | 'safe' | 'eco-swarm';
+
+export interface PromptRequest {
+  prompt: string;
+  model: PromptModelId;
+  mode: ExecutionMode;
+  mentions: string[];
+  workspace?: string;
+  attachments?: string[];
+  floorId?: string;
+}
+
+export interface DiffFileChange {
+  path: string;
+  added: number;
+  removed: number;
+  status: 'pending' | 'accepted' | 'rejected';
+  preview?: string;
+}
+
+export interface PromptStreamEvent {
+  runId: string;
+  type: 'status' | 'chunk' | 'file' | 'diff' | 'done' | 'error';
+  agentId?: string;
+  text?: string;
+  file?: string;
+  diffs?: DiffFileChange[];
+  status?: 'running' | 'idle' | 'stopped' | 'error';
+  timestamp: number;
+}

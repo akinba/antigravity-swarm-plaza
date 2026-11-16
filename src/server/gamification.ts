@@ -30,6 +30,10 @@ import {
 } from './officeEvents.js';
 import { applyOfficeInteractions } from './officeInteractions.js';
 import {
+  defaultPromptRunner,
+  type ActivePromptAgentOverride,
+} from './promptRunner.js';
+import {
   buildSwarmMentionEdges,
   classifySwarmRole,
   normalizeSwarmRoleLabel,
@@ -1413,10 +1417,49 @@ export function buildQuotaPools(
  * Build the complete PlazaSnapshot by reading SQLite summaries read-only,
  * scanning brain/swarm/transcript files, and applying gamification rules.
  */
+export function applyActivePromptOverrides(
+  floors: PlazaFloor[],
+  overrides: ReadonlyMap<string, ActivePromptAgentOverride> = defaultPromptRunner.getActiveOverrides(),
+): void {
+  if (!overrides || overrides.size === 0) return;
+
+  for (const floor of floors) {
+    let changed = false;
+    for (const override of overrides.values()) {
+      if (override.floorId && override.floorId !== floor.id) continue;
+      const key = override.agentKey.toLowerCase();
+      let target = floor.employees.find(
+        (e) => e.id.toLowerCase() === key || e.name.toLowerCase() === key,
+      );
+      if (!target && key === 'default') {
+        target =
+          floor.employees.find((e) => e.isCoordinator && e.activity !== 'going_home') ??
+          floor.employees.find((e) => e.activity !== 'going_home');
+      }
+      if (!target) continue;
+
+      target.status = 'working';
+      target.activity = 'coding';
+      target.zone = target.isCoordinator ? 'DESK_ARCHITECT' : 'DESK_CODING';
+      target.currentTool = 'prompt_runner';
+      target.currentTarget = override.currentFile || 'prompt';
+      target.speechBubble = override.currentFile
+        ? `⚡ ${override.currentFile}`
+        : '⚡ Prompt çalıştırılıyor...';
+      changed = true;
+    }
+
+    if (changed) {
+      floor.activeCount = floor.employees.filter((e) => e.status === 'working').length;
+    }
+  }
+}
+
 export function buildPlazaSnapshot(
   agyDataDir: string,
   currentWorkspace: string,
   demoMode: boolean,
+  promptOverrides?: ReadonlyMap<string, ActivePromptAgentOverride>,
 ): PlazaSnapshot {
   const nowMs = Date.now();
   const rows = readConversationSummaries(agyDataDir);
@@ -1712,6 +1755,8 @@ export function buildPlazaSnapshot(
   if (demoMode) {
     floors.push(getDemoFloor('throttled', nowMs));
   }
+
+  applyActivePromptOverrides(floors, promptOverrides);
 
   const totalActiveAgents = floors.reduce((sum, f) => sum + f.activeCount, 0);
   const globalEcoScore =

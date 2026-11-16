@@ -27,6 +27,7 @@ import { AnalyticsModal } from './components/AnalyticsModal';
 import { ElevatorPanel } from './components/ElevatorPanel';
 import { EventCalendarModal } from './components/EventCalendarModal';
 import { IconLegendModal } from './components/IconLegendModal';
+import { RetroCommandDock } from './components/RetroCommandDock';
 import { SettingsModal } from './components/SettingsModal';
 import { TopHud } from './components/TopHud';
 import { WhiteboardModal } from './components/WhiteboardModal';
@@ -797,6 +798,11 @@ function loadStickyAlerts(): StickyAlertItem[] {
           )}
         </div>
       </main>
+
+      <RetroCommandDock
+        activeFloorId={activeFloor?.id ?? null}
+        employees={activeFloor?.employees ?? []}
+      />
 
       {selectedEmployee && (
         <AgentRpgModal

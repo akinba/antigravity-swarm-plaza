@@ -285,6 +285,37 @@ export interface Translations {
     agentAlertTitle: string;
     agentStallOrError: string;
   };
+  dock: {
+    title: string;
+    minimize: string;
+    expand: string;
+    drawerShow: string;
+    drawerHide: string;
+    placeholder: string;
+    send: string;
+    stop: string;
+    attach: string;
+    attachPrompt: string;
+    micTitle: string;
+    micUnsupported: string;
+    micListening: string;
+    statusRunning: string;
+    statusIdle: string;
+    statusError: string;
+    statusStopped: string;
+    clearLogs: string;
+    noLogs: string;
+    diffsTitle: string;
+    accept: string;
+    reject: string;
+    accepted: string;
+    rejected: string;
+    modeTurbo: string;
+    modeSafe: string;
+    modeEco: string;
+    mentionsHeader: string;
+    commandsHeader: string;
+  };
   settingsModal: {
     title: string;
     subtitle: string;
@@ -663,6 +694,37 @@ const TR: Translations = {
     agentAlertTitle: 'Swarm Plaza Ajan Uyarısı',
     agentStallOrError: 'hata verdi veya beklemede takıldı.',
   },
+  dock: {
+    title: 'SWARM COMMAND DOCK',
+    minimize: 'KÜÇÜLT',
+    expand: 'GÖSTER',
+    drawerShow: 'TERMİNAL',
+    drawerHide: 'GİZLE',
+    placeholder: 'Ask anything, @ to mention, / for actions',
+    send: 'RUN SWARM',
+    stop: 'STOP',
+    attach: 'EKLE',
+    attachPrompt: 'Bağlam / dosya yolu girin (ör. src/server/index.ts):',
+    micTitle: 'Sesli Komut',
+    micUnsupported: 'Tarayıcı sesli dikteyi (SpeechRecognition) desteklemiyor.',
+    micListening: 'Dinleniyor...',
+    statusRunning: 'ÇALIŞIYOR',
+    statusIdle: 'HAZIR',
+    statusError: 'HATA',
+    statusStopped: 'DURDURULDU',
+    clearLogs: 'TEMİZLE',
+    noLogs: 'Henüz canlı akış çıktısı yok. Komut gönderin veya @ajan seçin.',
+    diffsTitle: 'DEĞİŞEN DOSYALAR',
+    accept: 'Accept',
+    reject: 'Reject',
+    accepted: 'Accepted',
+    rejected: 'Rejected',
+    modeTurbo: '⚡ Turbo',
+    modeSafe: '🛡️ Safe / Onaylı',
+    modeEco: '🌱 Eco-Swarm',
+    mentionsHeader: 'AJAN ETİKETLE (@)',
+    commandsHeader: 'HIZLI KOMUTLAR (/)',
+  },
   settingsModal: {
     title: '⚙️ GRAFİK & SİSTEM AYARLARI',
     subtitle: 'Performans, çözünürlük ve ortam tercihleri',
@@ -1040,6 +1102,37 @@ const EN: Translations = {
   notifications: {
     agentAlertTitle: 'Swarm Plaza Agent Alert',
     agentStallOrError: 'encountered an error or stalled.',
+  },
+  dock: {
+    title: 'SWARM COMMAND DOCK',
+    minimize: 'MINIMIZE',
+    expand: 'EXPAND',
+    drawerShow: 'TERMINAL',
+    drawerHide: 'HIDE',
+    placeholder: 'Ask anything, @ to mention, / for actions',
+    send: 'RUN SWARM',
+    stop: 'STOP',
+    attach: 'ATTACH',
+    attachPrompt: 'Enter context / file path (e.g. src/server/index.ts):',
+    micTitle: 'Voice Input',
+    micUnsupported: 'Browser does not support SpeechRecognition.',
+    micListening: 'Listening...',
+    statusRunning: 'RUNNING',
+    statusIdle: 'READY',
+    statusError: 'ERROR',
+    statusStopped: 'STOPPED',
+    clearLogs: 'CLEAR',
+    noLogs: 'No live stream output yet. Send a prompt or @mention an agent.',
+    diffsTitle: 'CHANGED FILES',
+    accept: 'Accept',
+    reject: 'Reject',
+    accepted: 'Accepted',
+    rejected: 'Rejected',
+    modeTurbo: '⚡ Turbo',
+    modeSafe: '🛡️ Safe / Guided',
+    modeEco: '🌱 Eco-Swarm',
+    mentionsHeader: 'MENTION AGENT (@)',
+    commandsHeader: 'SLASH COMMANDS (/)',
   },
   settingsModal: {
     title: '⚙️ GRAPHICS & SYSTEM SETTINGS',
