@@ -645,9 +645,29 @@ export class PromptRunner {
           },
         });
         if (response.ok) {
-          const data = (await response.json()) as
+          const ct = (response.headers?.get?.('content-type') ?? '').toLowerCase();
+          if (ct && !ct.includes('json')) {
+            return {
+              ok: false,
+              models: [],
+              error:
+                'GitHub Models endpoint returned non-JSON response (models.github.ai unreachable/unsupported on this network).',
+            };
+          }
+          let data:
             | Array<{ id?: string; name?: string; summary?: string }>
             | { models?: Array<{ id?: string; name?: string; summary?: string }> };
+          try {
+            const raw = await response.text();
+            data = JSON.parse(raw) as typeof data;
+          } catch {
+            return {
+              ok: false,
+              models: [],
+              error:
+                'GitHub Models endpoint returned non-JSON response (models.github.ai unreachable/unsupported on this network).',
+            };
+          }
           const list = Array.isArray(data) ? data : (data.models ?? []);
           const models: ProviderModelInfo[] = list
             .filter((m) => typeof m.id === 'string' && m.id.trim().length > 0)
@@ -1235,20 +1255,46 @@ export class PromptRunner {
       );
     }
 
-    await this.readSseEvents(response, (payload) => {
-      try {
-        const parsed = JSON.parse(payload) as {
-          choices?: Array<{ delta?: { content?: string }; message?: { content?: string } }>;
-        };
-        const text =
-          parsed.choices?.[0]?.delta?.content ?? parsed.choices?.[0]?.message?.content ?? '';
-        if (text) {
-          this.handleTextChunk(runId, agentId, text);
-        }
-      } catch {
-        // Ignore malformed SSE JSON chunk
+    const ct = (response.headers?.get?.('content-type') ?? '').toLowerCase();
+    let chunkCount = 0;
+
+    if (ct.includes('application/json')) {
+      const parsed = (await response.json()) as {
+        error?: { message?: string };
+        choices?: Array<{ message?: { content?: string }; delta?: { content?: string } }>;
+      };
+      if (parsed.error?.message) {
+        throw new Error(`[${provider.toUpperCase()} API ERROR] ${parsed.error.message}`);
       }
-    });
+      const text =
+        parsed.choices?.[0]?.message?.content ?? parsed.choices?.[0]?.delta?.content ?? '';
+      if (text) {
+        chunkCount += 1;
+        this.handleTextChunk(runId, agentId, text);
+      }
+    } else {
+      await this.readSseEvents(response, (payload) => {
+        try {
+          const parsed = JSON.parse(payload) as {
+            choices?: Array<{ delta?: { content?: string }; message?: { content?: string } }>;
+          };
+          const text =
+            parsed.choices?.[0]?.delta?.content ?? parsed.choices?.[0]?.message?.content ?? '';
+          if (text) {
+            chunkCount += 1;
+            this.handleTextChunk(runId, agentId, text);
+          }
+        } catch {
+          // Ignore malformed SSE JSON chunk
+        }
+      });
+    }
+
+    if (chunkCount === 0) {
+      throw new Error(
+        `[${provider.toUpperCase()} STREAM ERROR] Endpoint returned HTTP ${response.status} (${ct || 'unknown'}) with no completion chunks. GitHub Models ('models.github.ai') may be blocked/unavailable on this network (and Copilot does not accept PAT tokens); try Gemini API Key, OpenAI, OpenRouter, or local Ollama.`,
+      );
+    }
   }
 
   private async runAnthropicStream(

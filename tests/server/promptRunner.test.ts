@@ -894,4 +894,37 @@ describe('PromptRunner & standalone prompt endpoints', () => {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
+
+  it('rejects non-JSON/empty HTTP 200 text/plain responses on copilot instead of silently returning idle', async () => {
+    const events: PromptStreamEvent[] = [];
+    const runner = new PromptRunner({
+      defaultWorkspace: process.cwd(),
+      providerKeys: { copilot: 'ghp_test12345678' },
+      fetchImpl: async () =>
+        new Response('OK\r\n', {
+          status: 200,
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        }),
+    });
+    runner.subscribe((ev) => events.push(ev));
+
+    const catalogRes = await runner.fetchProviderModels('copilot');
+    assert.equal(catalogRes.ok, false);
+    assert.deepEqual(catalogRes.models, []);
+    assert.match(catalogRes.error ?? '', /non-JSON/i);
+
+    runner.startPrompt({
+      prompt: 'Hello Copilot',
+      model: 'copilot:gpt-4o',
+      provider: 'copilot',
+      mode: 'turbo',
+      mentions: [],
+    });
+    await runner.waitForIdle();
+
+    assert.equal(runner.getState().status, 'error');
+    const errEv = events.find((e) => e.type === 'error');
+    assert.ok(errEv);
+    assert.match(errEv.text ?? '', /\[COPILOT STREAM ERROR\].*text\/plain/i);
+  });
 });
