@@ -28,6 +28,8 @@ import {
   PromptConflictError,
   PromptRunner,
   defaultPromptRunner,
+  isCloudProviderId,
+  isPromptProvider,
 } from './promptRunner.js';
 import {
   canTriggerAutoFloorEvent,
@@ -322,6 +324,27 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
     res.json({ ok: true, ...status });
   });
 
+  app.get('/api/settings/provider-key', (req, res) => {
+    const provider = typeof req.query.provider === 'string' ? req.query.provider.trim() : '';
+    if (!isCloudProviderId(provider)) {
+      res.status(400).json({ error: `Unsupported cloud provider: ${provider || '(empty)'}` });
+      return;
+    }
+    res.json(promptRunner.getProviderKeyStatus(provider));
+  });
+
+  app.post('/api/settings/provider-key', (req, res) => {
+    const body = (req.body ?? {}) as { provider?: unknown; apiKey?: unknown };
+    const provider = typeof body.provider === 'string' ? body.provider.trim() : '';
+    if (!isCloudProviderId(provider)) {
+      res.status(400).json({ error: `Unsupported cloud provider: ${provider || '(empty)'}` });
+      return;
+    }
+    const apiKey = typeof body.apiKey === 'string' ? body.apiKey : '';
+    const status = promptRunner.setProviderKey(provider, apiKey);
+    res.json({ ok: true, ...status });
+  });
+
   app.get('/api/ollama/models', async (req, res) => {
     const baseUrl = typeof req.query.baseUrl === 'string' ? req.query.baseUrl : undefined;
     try {
@@ -343,6 +366,29 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
   app.get('/api/gemini/models', async (_req, res) => {
     const result = await promptRunner.fetchGeminiModels();
     res.json(result);
+  });
+
+  app.get('/api/providers/models', async (req, res) => {
+    const provider = typeof req.query.provider === 'string' ? req.query.provider.trim() : '';
+    if (!isPromptProvider(provider)) {
+      res.status(400).json({ ok: false, models: [], error: `Unsupported provider: ${provider}` });
+      return;
+    }
+    const baseUrl = typeof req.query.baseUrl === 'string' ? req.query.baseUrl : undefined;
+    try {
+      const result = await promptRunner.fetchProviderModels(provider, baseUrl);
+      res.json(result);
+    } catch (err) {
+      if (err instanceof InvalidOllamaUrlError) {
+        res.status(400).json({ ok: false, models: [], error: err.message });
+        return;
+      }
+      res.status(500).json({
+        ok: false,
+        models: [],
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   });
 
   app.get('/api/stream', (req, res) => {
@@ -374,6 +420,7 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
         swarmProfile: Array.isArray(body.swarmProfile) ? body.swarmProfile : undefined,
         mentions: Array.isArray(body.mentions) ? body.mentions : [],
         provider: body.provider,
+        localBaseUrl: body.localBaseUrl,
         ollamaBaseUrl: body.ollamaBaseUrl,
         workspace: body.workspace,
         attachments: Array.isArray(body.attachments) ? body.attachments : undefined,

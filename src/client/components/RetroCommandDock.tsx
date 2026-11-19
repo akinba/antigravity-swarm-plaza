@@ -1,12 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type {
+  CloudProviderId,
   DiffFileChange,
   ExecutionMode,
   GeminiModelInfo,
   LocalAgentConfig,
   OfficeEmployee,
   PromptModelId,
+  PromptProvider,
   PromptStreamEvent,
+  ProviderModelInfo,
   SwarmRoleAssignment,
   ThinkingLevel,
 } from '../../shared/types';
@@ -16,9 +19,28 @@ import { useI18n } from '../i18n/translations';
 export interface DockModelOption {
   id: PromptModelId;
   label: string;
-  provider?: 'gemini' | 'ollama';
+  provider?: PromptProvider;
+  localBaseUrl?: string;
   ollamaBaseUrl?: string;
 }
+
+export const CLOUD_PROVIDER_ORDER: CloudProviderId[] = [
+  'gemini',
+  'openai',
+  'anthropic',
+  'openrouter',
+  'copilot',
+];
+
+export const PROVIDER_BADGES: Record<PromptProvider, { icon: string; label: string }> = {
+  gemini: { icon: '✨', label: 'Gemini' },
+  openai: { icon: '⚡', label: 'OpenAI' },
+  anthropic: { icon: '🧠', label: 'Anthropic' },
+  openrouter: { icon: '🌐', label: 'OpenRouter' },
+  copilot: { icon: '🐙', label: 'Copilot' },
+  ollama: { icon: '🦙', label: 'Ollama' },
+  lmstudio: { icon: '💻', label: 'LM Studio' },
+};
 
 export const SWARM_ROLES = ['Architect', 'Coder Core', 'Coder UI', 'Analyst', 'Verifier'] as const;
 
@@ -79,47 +101,98 @@ export function saveProjectSwarmProfile(
   }
 }
 
-export function formatOllamaModelLabel(agent: Pick<LocalAgentConfig, 'name' | 'model'>): string {
+export function formatOllamaModelLabel(agent: Pick<LocalAgentConfig, 'name' | 'model'> & { provider?: LocalAgentConfig['provider'] }): string {
+  const provider = agent.provider ?? 'ollama';
+  const badge = PROVIDER_BADGES[provider];
   const cleanName = agent.name.trim();
   const cleanModel = agent.model.trim();
   if (!cleanName || cleanName.toLowerCase().includes(cleanModel.toLowerCase())) {
-    return `🦙 ${cleanModel} (Ollama)`;
+    return `${badge.icon} ${cleanModel} (${badge.label})`;
   }
-  return `🦙 ${cleanName} (Ollama)`;
+  return `${badge.icon} ${cleanName} (${badge.label})`;
 }
 
 export function buildDockModelOptions(
   localAgents: LocalAgentConfig[] = [],
-  geminiModels: GeminiModelInfo[] = [],
+  providerModelsOrGemini: Partial<Record<CloudProviderId, ProviderModelInfo[]>> | GeminiModelInfo[] = {},
 ): DockModelOption[] {
-  const dynamicGeminiOptions: DockModelOption[] = geminiModels.map((m) => ({
-    id: m.id as PromptModelId,
-    label: m.displayName || m.id,
-    provider: 'gemini',
-  }));
+  const providerModelsMap: Partial<Record<CloudProviderId, ProviderModelInfo[]>> = Array.isArray(
+    providerModelsOrGemini,
+  )
+    ? {
+        gemini: providerModelsOrGemini.map((m) => ({
+          id: m.id,
+          displayName: m.displayName || m.id,
+          provider: 'gemini',
+        })),
+      }
+    : providerModelsOrGemini;
+
+  const dynamicCloudOptions: DockModelOption[] = [];
+  for (const provider of CLOUD_PROVIDER_ORDER) {
+    const models = providerModelsMap[provider] ?? [];
+    const badge = PROVIDER_BADGES[provider];
+    for (const m of models) {
+      const id = m.id.startsWith(`${provider}:`) ? m.id : `${provider}:${m.id}`;
+      dynamicCloudOptions.push({
+        id: id as PromptModelId,
+        label: `${badge.icon} ${m.displayName || m.id} (${badge.label})`,
+        provider,
+      });
+    }
+  }
+
   const dynamicLocalOptions: DockModelOption[] = localAgents
     .filter((agent) => agent.enabled)
-    .map((agent) => ({
-      id: `ollama:${agent.model}` as PromptModelId,
-      label: formatOllamaModelLabel(agent),
-      provider: 'ollama',
-      ollamaBaseUrl: agent.baseUrl,
-    }));
-  return [...dynamicGeminiOptions, ...dynamicLocalOptions];
+    .map((agent) => {
+      const localProvider = agent.provider || 'ollama';
+      return {
+        id: `${localProvider}:${agent.model}` as PromptModelId,
+        label: formatOllamaModelLabel(agent),
+        provider: localProvider,
+        localBaseUrl: agent.baseUrl,
+        ollamaBaseUrl: localProvider === 'ollama' ? agent.baseUrl : undefined,
+      };
+    });
+  return [...dynamicCloudOptions, ...dynamicLocalOptions];
 }
 
 export function resolvePromptProvider(
   model: PromptModelId,
   localAgents: LocalAgentConfig[] = [],
-): { provider: 'gemini' | 'ollama'; ollamaBaseUrl?: string } {
+): { provider: PromptProvider; localBaseUrl?: string; ollamaBaseUrl?: string } {
   const matched = localAgents.find(
-    (a) => a.enabled && (`ollama:${a.model}` === model || a.model === model),
+    (a) => a.enabled && (`${a.provider}:${a.model}` === model || a.model === model),
   );
   if (matched) {
-    return { provider: 'ollama', ollamaBaseUrl: matched.baseUrl };
+    return {
+      provider: matched.provider,
+      localBaseUrl: matched.baseUrl,
+      ollamaBaseUrl: matched.provider === 'ollama' ? matched.baseUrl : undefined,
+    };
   }
-  if (model.startsWith('ollama:') || model === 'qwen2.5-coder:14b') {
-    return { provider: 'ollama', ollamaBaseUrl: 'http://localhost:11434' };
+  const prefixes: PromptProvider[] = [
+    'gemini',
+    'openai',
+    'anthropic',
+    'openrouter',
+    'copilot',
+    'ollama',
+    'lmstudio',
+  ];
+  for (const p of prefixes) {
+    if (model.startsWith(`${p}:`)) {
+      if (p === 'ollama') {
+        return { provider: 'ollama', localBaseUrl: 'http://localhost:11434', ollamaBaseUrl: 'http://localhost:11434' };
+      }
+      if (p === 'lmstudio') {
+        return { provider: 'lmstudio', localBaseUrl: 'http://localhost:1234' };
+      }
+      return { provider: p };
+    }
+  }
+  if (model === 'qwen2.5-coder:14b') {
+    return { provider: 'ollama', localBaseUrl: 'http://localhost:11434', ollamaBaseUrl: 'http://localhost:11434' };
   }
   return { provider: 'gemini' };
 }
@@ -306,7 +379,7 @@ export interface RetroCommandDockProps {
   activeFloorId?: string | null;
   employees?: OfficeEmployee[];
   localAgents?: LocalAgentConfig[];
-  geminiModels?: GeminiModelInfo[];
+  providerModels?: Partial<Record<CloudProviderId, ProviderModelInfo[]>>;
   workspace?: string;
 }
 
@@ -314,7 +387,7 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
   activeFloorId,
   employees = [],
   localAgents = [],
-  geminiModels = [],
+  providerModels = {},
   workspace,
 }) => {
   const { t, locale } = useI18n();
@@ -421,8 +494,8 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
   );
 
   const modelOptions = useMemo(
-    () => buildDockModelOptions(localAgents, geminiModels),
-    [localAgents, geminiModels],
+    () => buildDockModelOptions(localAgents, providerModels),
+    [localAgents, providerModels],
   );
 
   const [swarmProfile, setSwarmProfile] = useState<SwarmRoleAssignment[]>(() =>
@@ -508,7 +581,7 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
     appendLog('status', `> [${orchestration.toUpperCase()}] ${trimmed}`);
 
     const mentions = extractMentions(trimmed);
-    const { provider, ollamaBaseUrl } = resolvePromptProvider(model, localAgents);
+    const { provider, localBaseUrl, ollamaBaseUrl } = resolvePromptProvider(model, localAgents);
     setPromptText('');
 
     try {
@@ -523,6 +596,7 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
           swarmProfile: orchestration === 'swarm' ? swarmProfile : undefined,
           mentions,
           provider,
+          localBaseUrl,
           ollamaBaseUrl,
           workspace,
           attachments,

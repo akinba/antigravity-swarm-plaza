@@ -5,12 +5,15 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import type {
+  CloudProviderId,
   DiffFileChange,
   GeminiModelInfo,
   OllamaModelInfo,
   PromptModelId,
+  PromptProvider,
   PromptRequest,
   PromptStreamEvent,
+  ProviderModelInfo,
 } from '../shared/types.js';
 import { CURRENT_WORKSPACE } from './config.js';
 
@@ -50,18 +53,70 @@ export interface PromptRunnerOptions {
   ollamaUrl?: string;
   cliCommand?: string;
   geminiApiKey?: string;
+  providerKeys?: Partial<Record<CloudProviderId, string>>;
   secretsFilePath?: string;
   defaultWorkspace?: string;
   maxLogs?: number;
 }
 
-export type GeminiKeySource = 'env' | 'settings' | 'none';
+export type KeySource = 'env' | 'settings' | 'none';
+export type GeminiKeySource = KeySource;
 
-export interface GeminiApiKeyStatus {
+export interface ProviderKeyStatus {
   configured: boolean;
   masked: string;
-  source: GeminiKeySource;
+  source: KeySource;
 }
+export type GeminiApiKeyStatus = ProviderKeyStatus;
+
+export const CLOUD_PROVIDER_IDS: readonly CloudProviderId[] = [
+  'gemini',
+  'openai',
+  'anthropic',
+  'openrouter',
+  'copilot',
+];
+
+export const ALL_PROMPT_PROVIDERS: readonly PromptProvider[] = [
+  'gemini',
+  'openai',
+  'anthropic',
+  'openrouter',
+  'copilot',
+  'ollama',
+  'lmstudio',
+];
+
+export function isCloudProviderId(value: string): value is CloudProviderId {
+  return (CLOUD_PROVIDER_IDS as readonly string[]).includes(value);
+}
+
+export function isPromptProvider(value: string): value is PromptProvider {
+  return (ALL_PROMPT_PROVIDERS as readonly string[]).includes(value);
+}
+
+const CLOUD_ENV_VARS: Record<CloudProviderId, readonly string[]> = {
+  gemini: ['GEMINI_API_KEY', 'GOOGLE_API_KEY'],
+  openai: ['OPENAI_API_KEY'],
+  anthropic: ['ANTHROPIC_API_KEY'],
+  openrouter: ['OPENROUTER_API_KEY'],
+  copilot: ['GITHUB_TOKEN', 'COPILOT_TOKEN'],
+};
+
+const SECRET_JSON_KEYS: Record<CloudProviderId, string> = {
+  gemini: 'geminiApiKey',
+  openai: 'openaiApiKey',
+  anthropic: 'anthropicApiKey',
+  openrouter: 'openrouterApiKey',
+  copilot: 'copilotApiKey',
+};
+
+const COPILOT_FALLBACK_MODELS: readonly ProviderModelInfo[] = [
+  { id: 'gpt-4o', displayName: 'GPT-4o (Copilot)', provider: 'copilot' },
+  { id: 'gpt-4.1', displayName: 'GPT-4.1 (Copilot)', provider: 'copilot' },
+  { id: 'o3-mini', displayName: 'o3-mini (Copilot)', provider: 'copilot' },
+  { id: 'claude-3.5-sonnet', displayName: 'Claude 3.5 Sonnet (Copilot)', provider: 'copilot' },
+];
 
 export class PromptConflictError extends Error {
   constructor(message = 'A prompt run is already in progress') {
@@ -98,31 +153,53 @@ function isPrivateOrLocalHostname(hostname: string): boolean {
   return false;
 }
 
-export function resolveSafeOllamaBaseUrl(rawUrl?: string): string {
-  const candidate = (rawUrl ?? 'http://localhost:11434').trim();
+export function resolveSafeLocalBaseUrl(
+  rawUrl?: string,
+  defaultUrl = 'http://localhost:11434',
+): string {
+  const candidate = (rawUrl ?? defaultUrl).trim() || defaultUrl;
   let parsed: URL;
   try {
     parsed = new URL(candidate);
   } catch {
-    throw new InvalidOllamaUrlError(`Invalid Ollama URL: ${candidate}`);
+    throw new InvalidOllamaUrlError(`Invalid local provider URL: ${candidate}`);
   }
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    throw new InvalidOllamaUrlError(`Unsupported protocol for Ollama URL: ${parsed.protocol}`);
+    throw new InvalidOllamaUrlError(
+      `Unsupported protocol for local provider URL: ${parsed.protocol}`,
+    );
   }
   if (!isPrivateOrLocalHostname(parsed.hostname)) {
     throw new InvalidOllamaUrlError(
-      `Disallowed external host for Ollama URL: ${parsed.hostname} (only localhost / private LAN allowed)`,
+      `Disallowed external host for local provider URL: ${parsed.hostname} (only localhost / private LAN allowed)`,
     );
   }
   return parsed.origin + parsed.pathname.replace(/\/+$/, '');
 }
 
+export function resolveSafeOllamaBaseUrl(rawUrl?: string): string {
+  return resolveSafeLocalBaseUrl(rawUrl, 'http://localhost:11434');
+}
+
+export function stripProviderPrefix(model: string): string {
+  return model.replace(/^(?:ollama|lmstudio|openai|anthropic|openrouter|copilot|gemini):/, '').trim();
+}
+
+export function resolveRequestProvider(req: PromptRequest): PromptProvider {
+  if (req.provider && isPromptProvider(req.provider)) {
+    return req.provider;
+  }
+  for (const p of ALL_PROMPT_PROVIDERS) {
+    if (req.model.startsWith(`${p}:`)) {
+      return p;
+    }
+  }
+  if (req.model === 'qwen2.5-coder:14b') return 'ollama';
+  return 'gemini';
+}
+
 export function isOllamaRequest(req: PromptRequest): boolean {
-  return (
-    req.provider === 'ollama' ||
-    req.model.startsWith('ollama:') ||
-    req.model === 'qwen2.5-coder:14b'
-  );
+  return resolveRequestProvider(req) === 'ollama';
 }
 
 export function mapGeminiRestModel(model: string): string {
@@ -209,9 +286,8 @@ export class PromptRunner {
   private readonly ollamaUrl: string;
   private readonly cliCommand: string;
   private readonly secretsFilePath: string;
-  private readonly envGeminiApiKey: string;
-  private geminiApiKey: string;
-  private geminiKeySource: GeminiKeySource;
+  private readonly envProviderKeys: Record<CloudProviderId, string>;
+  private readonly providerKeys: Record<CloudProviderId, { key: string; source: KeySource }>;
   private readonly defaultWorkspace: string;
   private readonly maxLogs: number;
 
@@ -239,58 +315,89 @@ export class PromptRunner {
     this.cliCommand = options.cliCommand ?? process.env.ANTIGRAVITY_CLI_CMD ?? 'agy';
     this.secretsFilePath =
       options.secretsFilePath ?? path.join(os.homedir(), '.gemini', 'swarm-plaza-secrets.json');
-    this.envGeminiApiKey = (process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? '').trim();
 
-    if (options.geminiApiKey !== undefined) {
-      this.geminiApiKey = options.geminiApiKey.trim();
-      this.geminiKeySource = this.geminiApiKey ? 'env' : 'none';
-    } else {
-      const savedKey = this.readSavedGeminiApiKey();
-      if (savedKey) {
-        this.geminiApiKey = savedKey;
-        this.geminiKeySource = 'settings';
-      } else if (this.envGeminiApiKey) {
-        this.geminiApiKey = this.envGeminiApiKey;
-        this.geminiKeySource = 'env';
-      } else {
-        this.geminiApiKey = '';
-        this.geminiKeySource = 'none';
-      }
-    }
+    this.envProviderKeys = {
+      gemini: this.readEnvKey('gemini'),
+      openai: this.readEnvKey('openai'),
+      anthropic: this.readEnvKey('anthropic'),
+      openrouter: this.readEnvKey('openrouter'),
+      copilot: this.readEnvKey('copilot'),
+    };
+
+    const savedSecrets = this.readAllSavedSecrets();
+    this.providerKeys = {
+      gemini: this.initProviderKey('gemini', options, savedSecrets),
+      openai: this.initProviderKey('openai', options, savedSecrets),
+      anthropic: this.initProviderKey('anthropic', options, savedSecrets),
+      openrouter: this.initProviderKey('openrouter', options, savedSecrets),
+      copilot: this.initProviderKey('copilot', options, savedSecrets),
+    };
 
     this.defaultWorkspace = options.defaultWorkspace ?? CURRENT_WORKSPACE;
     this.workspace = this.defaultWorkspace;
     this.maxLogs = options.maxLogs ?? 200;
   }
 
-  private readSavedGeminiApiKey(): string {
+  private readEnvKey(provider: CloudProviderId): string {
+    for (const envName of CLOUD_ENV_VARS[provider]) {
+      const val = process.env[envName]?.trim();
+      if (val) return val;
+    }
+    return '';
+  }
+
+  private readAllSavedSecrets(): Record<string, unknown> {
     try {
-      if (!fs.existsSync(this.secretsFilePath)) return '';
-      const raw = fs.readFileSync(this.secretsFilePath, 'utf8');
-      const parsed = JSON.parse(raw) as { geminiApiKey?: string };
-      return typeof parsed.geminiApiKey === 'string' ? parsed.geminiApiKey.trim() : '';
+      if (!fs.existsSync(this.secretsFilePath)) return {};
+      return JSON.parse(fs.readFileSync(this.secretsFilePath, 'utf8')) as Record<string, unknown>;
     } catch {
-      return '';
+      return {};
     }
   }
 
-  getGeminiApiKeyStatus(): GeminiApiKeyStatus {
+  private initProviderKey(
+    provider: CloudProviderId,
+    options: PromptRunnerOptions,
+    savedSecrets: Record<string, unknown>,
+  ): { key: string; source: KeySource } {
+    const explicit =
+      provider === 'gemini' && options.geminiApiKey !== undefined
+        ? options.geminiApiKey
+        : options.providerKeys?.[provider];
+    if (explicit !== undefined) {
+      const k = explicit.trim();
+      return { key: k, source: k ? 'env' : 'none' };
+    }
+    const jsonKey = savedSecrets[SECRET_JSON_KEYS[provider]];
+    if (typeof jsonKey === 'string' && jsonKey.trim()) {
+      return { key: jsonKey.trim(), source: 'settings' };
+    }
+    const envVal = this.envProviderKeys[provider];
+    if (envVal) {
+      return { key: envVal, source: 'env' };
+    }
+    return { key: '', source: 'none' };
+  }
+
+  getProviderKeyStatus(provider: CloudProviderId): ProviderKeyStatus {
+    const entry = this.providerKeys[provider];
     return {
-      configured: Boolean(this.geminiApiKey),
-      masked: maskSecretKey(this.geminiApiKey),
-      source: this.geminiKeySource,
+      configured: Boolean(entry.key),
+      masked: maskSecretKey(entry.key),
+      source: entry.source,
     };
   }
 
-  setGeminiApiKey(apiKey: string): GeminiApiKeyStatus {
+  setProviderKey(provider: CloudProviderId, apiKey: string): ProviderKeyStatus {
     const trimmed = (apiKey ?? '').trim();
+    const jsonField = SECRET_JSON_KEYS[provider];
     const dir = path.dirname(this.secretsFilePath);
+
     if (!trimmed) {
       try {
         if (fs.existsSync(this.secretsFilePath)) {
-          const raw = fs.readFileSync(this.secretsFilePath, 'utf8');
-          const parsed = JSON.parse(raw) as Record<string, unknown>;
-          delete parsed.geminiApiKey;
+          const parsed = this.readAllSavedSecrets();
+          delete parsed[jsonField];
           if (Object.keys(parsed).length === 0) {
             fs.unlinkSync(this.secretsFilePath);
           } else {
@@ -303,36 +410,30 @@ export class PromptRunner {
       } catch {
         // Ignore cleanup errors
       }
-      if (this.envGeminiApiKey) {
-        this.geminiApiKey = this.envGeminiApiKey;
-        this.geminiKeySource = 'env';
-      } else {
-        this.geminiApiKey = '';
-        this.geminiKeySource = 'none';
-      }
-      return this.getGeminiApiKeyStatus();
+      const envVal = this.envProviderKeys[provider];
+      this.providerKeys[provider] = envVal
+        ? { key: envVal, source: 'env' }
+        : { key: '', source: 'none' };
+      return this.getProviderKeyStatus(provider);
     }
 
     fs.mkdirSync(dir, { recursive: true });
-    let existing: Record<string, unknown> = {};
-    try {
-      if (fs.existsSync(this.secretsFilePath)) {
-        existing = JSON.parse(fs.readFileSync(this.secretsFilePath, 'utf8')) as Record<
-          string,
-          unknown
-        >;
-      }
-    } catch {
-      existing = {};
-    }
-    existing.geminiApiKey = trimmed;
+    const existing = this.readAllSavedSecrets();
+    existing[jsonField] = trimmed;
     fs.writeFileSync(this.secretsFilePath, JSON.stringify(existing, null, 2), {
       encoding: 'utf8',
       mode: 0o600,
     });
-    this.geminiApiKey = trimmed;
-    this.geminiKeySource = 'settings';
-    return this.getGeminiApiKeyStatus();
+    this.providerKeys[provider] = { key: trimmed, source: 'settings' };
+    return this.getProviderKeyStatus(provider);
+  }
+
+  getGeminiApiKeyStatus(): GeminiApiKeyStatus {
+    return this.getProviderKeyStatus('gemini');
+  }
+
+  setGeminiApiKey(apiKey: string): GeminiApiKeyStatus {
+    return this.setProviderKey('gemini', apiKey);
   }
 
   subscribe(listener: (event: PromptStreamEvent) => void): () => void {
@@ -406,14 +507,15 @@ export class PromptRunner {
     models: GeminiModelInfo[];
     error?: string;
   }> {
-    if (!this.geminiApiKey) {
+    const geminiKey = this.providerKeys.gemini.key;
+    if (!geminiKey) {
       return {
         ok: false,
         models: [],
         error: 'Gemini API key is not configured.',
       };
     }
-    const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(this.geminiApiKey)}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(geminiKey)}`;
     try {
       const response = await this.fetchImpl(url, {
         method: 'GET',
@@ -456,6 +558,162 @@ export class PromptRunner {
         ok: false,
         models: [],
         error: `Gemini API request failed: ${detail}`,
+      };
+    }
+  }
+
+  async fetchProviderModels(
+    provider: PromptProvider,
+    baseUrl?: string,
+  ): Promise<{ ok: boolean; models: ProviderModelInfo[]; error?: string }> {
+    if (provider === 'gemini') {
+      const res = await this.fetchGeminiModels();
+      return {
+        ok: res.ok,
+        models: res.models.map((m) => ({
+          id: m.id,
+          displayName: m.displayName,
+          provider: 'gemini',
+          description: m.description,
+        })),
+        error: res.error,
+      };
+    }
+
+    if (provider === 'ollama') {
+      const res = await this.fetchOllamaModels(baseUrl);
+      return {
+        ok: res.ok,
+        models: res.models.map((m) => ({
+          id: m.name,
+          displayName: m.name,
+          provider: 'ollama',
+        })),
+        error: res.error,
+      };
+    }
+
+    if (provider === 'lmstudio') {
+      const safeBase = resolveSafeLocalBaseUrl(baseUrl, 'http://localhost:1234');
+      try {
+        const response = await this.fetchImpl(`${safeBase}/v1/models`, {
+          method: 'GET',
+          headers: { Accept: 'application/json' },
+        });
+        if (!response.ok) {
+          return {
+            ok: false,
+            models: [],
+            error: `LM Studio HTTP ${response.status} ${response.statusText}`,
+          };
+        }
+        const data = (await response.json()) as { data?: Array<{ id?: string }> };
+        const models: ProviderModelInfo[] = (data.data ?? [])
+          .filter((m) => typeof m.id === 'string' && m.id.trim().length > 0)
+          .map((m) => ({
+            id: m.id!.trim(),
+            displayName: m.id!.trim(),
+            provider: 'lmstudio',
+          }));
+        return { ok: true, models };
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : String(err);
+        return {
+          ok: false,
+          models: [],
+          error: `LM Studio unreachable at ${safeBase}: ${detail}`,
+        };
+      }
+    }
+
+    const key = this.providerKeys[provider].key;
+    if (!key) {
+      return {
+        ok: false,
+        models: [],
+        error: `${provider} API key/token is not configured.`,
+      };
+    }
+
+    if (provider === 'copilot') {
+      try {
+        const response = await this.fetchImpl('https://models.github.ai/catalog/models', {
+          method: 'GET',
+          headers: {
+            Accept: 'application/json',
+            Authorization: `Bearer ${key}`,
+          },
+        });
+        if (response.ok) {
+          const data = (await response.json()) as
+            | Array<{ id?: string; name?: string; summary?: string }>
+            | { models?: Array<{ id?: string; name?: string; summary?: string }> };
+          const list = Array.isArray(data) ? data : (data.models ?? []);
+          const models: ProviderModelInfo[] = list
+            .filter((m) => typeof m.id === 'string' && m.id.trim().length > 0)
+            .map((m) => ({
+              id: m.id!.trim(),
+              displayName: (m.name ?? m.id!).trim(),
+              provider: 'copilot',
+              description: m.summary,
+            }));
+          if (models.length > 0) {
+            return { ok: true, models };
+          }
+        }
+      } catch {
+        // Fallback to standard Copilot catalog below when token is configured
+      }
+      return { ok: true, models: COPILOT_FALLBACK_MODELS.map((m) => ({ ...m })) };
+    }
+
+    const endpointMap: Record<'openai' | 'anthropic' | 'openrouter', string> = {
+      openai: 'https://api.openai.com/v1/models',
+      anthropic: 'https://api.anthropic.com/v1/models',
+      openrouter: 'https://openrouter.ai/api/v1/models',
+    };
+    const headers: Record<string, string> =
+      provider === 'anthropic'
+        ? {
+            Accept: 'application/json',
+            'x-api-key': key,
+            'anthropic-version': '2023-06-01',
+          }
+        : {
+            Accept: 'application/json',
+            Authorization: `Bearer ${key}`,
+          };
+
+    try {
+      const response = await this.fetchImpl(endpointMap[provider], {
+        method: 'GET',
+        headers,
+      });
+      if (!response.ok) {
+        return {
+          ok: false,
+          models: [],
+          error: `${provider} API HTTP ${response.status} ${response.statusText}`,
+        };
+      }
+      const data = (await response.json()) as {
+        data?: Array<{ id?: string; name?: string; display_name?: string; description?: string }>;
+      };
+      const models: ProviderModelInfo[] = (data.data ?? [])
+        .filter((m) => typeof m.id === 'string' && m.id.trim().length > 0)
+        .map((m) => ({
+          id: m.id!.trim(),
+          displayName: (m.display_name ?? m.name ?? m.id!).trim(),
+          provider,
+          description: m.description,
+        }));
+      return { ok: true, models };
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      return {
+        ok: false,
+        models: [],
+        error: `${provider} API request failed: ${detail}`,
       };
     }
   }
@@ -641,9 +899,51 @@ export class PromptRunner {
     primaryAgentId: string,
   ): Promise<void> {
     const signal = this.abortController?.signal;
+    const provider = resolveRequestProvider(req);
     try {
-      if (isOllamaRequest(req)) {
+      if (provider === 'ollama') {
         await this.runOllama(runId, req, primaryAgentId, signal);
+      } else if (provider === 'lmstudio') {
+        const base = resolveSafeLocalBaseUrl(
+          req.localBaseUrl ?? req.ollamaBaseUrl,
+          'http://localhost:1234',
+        );
+        await this.runOpenAiCompatibleStream(
+          runId,
+          req,
+          primaryAgentId,
+          'lmstudio',
+          `${base}/v1/chat/completions`,
+          { 'Content-Type': 'application/json' },
+          signal,
+        );
+      } else if (provider === 'openai' || provider === 'openrouter' || provider === 'copilot') {
+        const key = this.providerKeys[provider].key;
+        if (!key) {
+          throw new Error(
+            `[${provider.toUpperCase()} API NOT CONFIGURED] Configure ${provider} API key in Settings -> Cloud APIs.`,
+          );
+        }
+        const endpoint =
+          provider === 'openai'
+            ? 'https://api.openai.com/v1/chat/completions'
+            : provider === 'openrouter'
+              ? 'https://openrouter.ai/api/v1/chat/completions'
+              : 'https://models.github.ai/inference/chat/completions';
+        await this.runOpenAiCompatibleStream(
+          runId,
+          req,
+          primaryAgentId,
+          provider,
+          endpoint,
+          {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${key}`,
+          },
+          signal,
+        );
+      } else if (provider === 'anthropic') {
+        await this.runAnthropicStream(runId, req, primaryAgentId, signal);
       } else {
         await this.runGeminiCli(runId, req, primaryAgentId, signal);
       }
@@ -693,9 +993,10 @@ export class PromptRunner {
         ? `\n\nAttached context: ${req.attachments.join(', ')}`
         : '';
     const systemMsg = `You are a coding agent running in ${req.mode} mode in workspace ${this.workspace}.`;
-    const actualModel = req.model.replace(/^ollama:/, '');
-    const chatUrl = req.ollamaBaseUrl?.trim()
-      ? `${resolveSafeOllamaBaseUrl(req.ollamaBaseUrl)}/api/chat`
+    const actualModel = stripProviderPrefix(req.model);
+    const localUrl = (req.localBaseUrl ?? req.ollamaBaseUrl)?.trim();
+    const chatUrl = localUrl
+      ? `${resolveSafeLocalBaseUrl(localUrl, 'http://localhost:11434')}/api/chat`
       : this.ollamaUrl;
 
     let response: Response;
@@ -779,7 +1080,7 @@ export class PromptRunner {
   ): Promise<void> {
     const resolvedCmd = await this.resolveCliCommandFn(this.cliCommand);
     if (!resolvedCmd) {
-      if (this.geminiApiKey) {
+      if (this.providerKeys.gemini.key) {
         await this.runGeminiRest(runId, req, agentId, signal);
         return;
       }
@@ -864,38 +1165,11 @@ export class PromptRunner {
     });
   }
 
-  private async runGeminiRest(
-    runId: string,
-    req: PromptRequest,
-    agentId: string,
-    signal?: AbortSignal,
+  private async readSseEvents(
+    response: Response,
+    onPayload: (payload: string) => void,
   ): Promise<void> {
-    const restModel = mapGeminiRestModel(req.model);
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(restModel)}:streamGenerateContent?alt=sse&key=${encodeURIComponent(this.geminiApiKey)}`;
-    const attachmentsNote =
-      req.attachments && req.attachments.length > 0
-        ? `\n\nAttached context: ${req.attachments.join(', ')}`
-        : '';
-
-    const response = await this.fetchImpl(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: `${req.prompt}${attachmentsNote}` }],
-          },
-        ],
-      }),
-      signal,
-    });
-
-    if (!response.ok) {
-      throw new Error(`[GEMINI API ERROR] HTTP ${response.status} ${response.statusText}`);
-    }
     if (!response.body) return;
-
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
@@ -911,20 +1185,162 @@ export class PromptRunner {
         if (!trimmed.startsWith('data:')) continue;
         const payload = trimmed.slice(5).trim();
         if (!payload || payload === '[DONE]') continue;
-        try {
-          const parsed = JSON.parse(payload) as {
-            candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-          };
-          const text =
-            parsed.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? '';
-          if (text) {
-            this.handleTextChunk(runId, agentId, text);
-          }
-        } catch {
-          // Ignore malformed SSE JSON chunk
-        }
+        onPayload(payload);
       }
     }
+    if (buffer.trim().startsWith('data:')) {
+      const payload = buffer.trim().slice(5).trim();
+      if (payload && payload !== '[DONE]') {
+        onPayload(payload);
+      }
+    }
+  }
+
+  private buildPromptContent(req: PromptRequest): string {
+    const attachmentsNote =
+      req.attachments && req.attachments.length > 0
+        ? `\n\nAttached context: ${req.attachments.join(', ')}`
+        : '';
+    return `${req.prompt}${attachmentsNote}`;
+  }
+
+  private async runOpenAiCompatibleStream(
+    runId: string,
+    req: PromptRequest,
+    agentId: string,
+    provider: PromptProvider,
+    url: string,
+    headers: Record<string, string>,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const actualModel = stripProviderPrefix(req.model);
+    const systemMsg = `You are a coding agent running in ${req.mode} mode in workspace ${this.workspace}.`;
+    const response = await this.fetchImpl(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: actualModel,
+        stream: true,
+        messages: [
+          { role: 'system', content: systemMsg },
+          { role: 'user', content: this.buildPromptContent(req) },
+        ],
+      }),
+      signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `[${provider.toUpperCase()} API ERROR] HTTP ${response.status} ${response.statusText}`,
+      );
+    }
+
+    await this.readSseEvents(response, (payload) => {
+      try {
+        const parsed = JSON.parse(payload) as {
+          choices?: Array<{ delta?: { content?: string }; message?: { content?: string } }>;
+        };
+        const text =
+          parsed.choices?.[0]?.delta?.content ?? parsed.choices?.[0]?.message?.content ?? '';
+        if (text) {
+          this.handleTextChunk(runId, agentId, text);
+        }
+      } catch {
+        // Ignore malformed SSE JSON chunk
+      }
+    });
+  }
+
+  private async runAnthropicStream(
+    runId: string,
+    req: PromptRequest,
+    agentId: string,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const key = this.providerKeys.anthropic.key;
+    if (!key) {
+      throw new Error(
+        '[ANTHROPIC API NOT CONFIGURED] Configure Anthropic API key in Settings -> Cloud APIs.',
+      );
+    }
+    const actualModel = stripProviderPrefix(req.model);
+    const response = await this.fetchImpl('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: actualModel,
+        max_tokens: 4096,
+        stream: true,
+        system: `You are a coding agent running in ${req.mode} mode in workspace ${this.workspace}.`,
+        messages: [{ role: 'user', content: this.buildPromptContent(req) }],
+      }),
+      signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`[ANTHROPIC API ERROR] HTTP ${response.status} ${response.statusText}`);
+    }
+
+    await this.readSseEvents(response, (payload) => {
+      try {
+        const parsed = JSON.parse(payload) as {
+          type?: string;
+          delta?: { type?: string; text?: string };
+        };
+        if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+          this.handleTextChunk(runId, agentId, parsed.delta.text);
+        }
+      } catch {
+        // Ignore malformed SSE JSON chunk
+      }
+    });
+  }
+
+  private async runGeminiRest(
+    runId: string,
+    req: PromptRequest,
+    agentId: string,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const restModel = mapGeminiRestModel(stripProviderPrefix(req.model));
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(restModel)}:streamGenerateContent?alt=sse&key=${encodeURIComponent(this.providerKeys.gemini.key)}`;
+
+    const response = await this.fetchImpl(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: this.buildPromptContent(req) }],
+          },
+        ],
+      }),
+      signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`[GEMINI API ERROR] HTTP ${response.status} ${response.statusText}`);
+    }
+
+    await this.readSseEvents(response, (payload) => {
+      try {
+        const parsed = JSON.parse(payload) as {
+          candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+        };
+        const text =
+          parsed.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? '';
+        if (text) {
+          this.handleTextChunk(runId, agentId, text);
+        }
+      } catch {
+        // Ignore malformed SSE JSON chunk
+      }
+    });
   }
 
   private async collectGitDiffs(runId: string): Promise<void> {

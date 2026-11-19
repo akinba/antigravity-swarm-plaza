@@ -306,11 +306,15 @@ export type PromptModelId =
 
 export type ExecutionMode = 'turbo' | 'safe' | 'eco-swarm';
 
+export type CloudProviderId = 'gemini' | 'openai' | 'anthropic' | 'openrouter' | 'copilot';
+export type LocalProviderId = 'ollama' | 'lmstudio';
+export type PromptProvider = CloudProviderId | LocalProviderId;
+
 export interface LocalAgentConfig {
   id: string;
   name: string;
   mention: string;
-  provider: 'ollama';
+  provider: LocalProviderId;
   model: string;
   baseUrl: string;
   enabled: boolean;
@@ -325,6 +329,13 @@ export interface OllamaModelInfo {
 export interface GeminiModelInfo {
   id: string;
   displayName: string;
+  description?: string;
+}
+
+export interface ProviderModelInfo {
+  id: string;
+  displayName: string;
+  provider: PromptProvider;
   description?: string;
 }
 
@@ -343,7 +354,8 @@ export interface PromptRequest {
   orchestration?: 'single' | 'swarm';
   swarmProfile?: SwarmRoleAssignment[];
   mentions: string[];
-  provider?: 'gemini' | 'ollama';
+  provider?: PromptProvider;
+  localBaseUrl?: string;
   ollamaBaseUrl?: string;
   workspace?: string;
   attachments?: string[];

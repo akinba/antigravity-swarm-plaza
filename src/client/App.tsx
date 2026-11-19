@@ -1,13 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   DEFAULT_GRAPHICS_SETTINGS,
+  type CloudProviderId,
   type FloorEventKind,
-  type GeminiModelInfo,
   type GraphicsSettings,
   type LocalAgentConfig,
   type OfficeEmployee,
   type PlazaFloor,
   type PlazaSnapshot,
+  type ProviderModelInfo,
 } from '../shared/types';
 import {
   initAudioUnlock,
@@ -31,10 +32,10 @@ import { EventCalendarModal } from './components/EventCalendarModal';
 import { IconLegendModal } from './components/IconLegendModal';
 import { RetroCommandDock } from './components/RetroCommandDock';
 import {
-  loadStoredGeminiModels,
   loadStoredLocalAgents,
-  saveStoredGeminiModels,
+  loadStoredProviderModels,
   saveStoredLocalAgents,
+  saveStoredProviderModels,
   SettingsModal,
 } from './components/SettingsModal';
 import { TopHud } from './components/TopHud';
@@ -115,17 +116,22 @@ export const App: React.FC = () => {
   const [liveFps, setLiveFps] = useState<number>(60);
   const [graphicsSettings, setGraphicsSettings] = useState<GraphicsSettings>(loadGraphicsSettings);
   const [localAgents, setLocalAgents] = useState<LocalAgentConfig[]>(loadStoredLocalAgents);
-  const [geminiModels, setGeminiModels] = useState<GeminiModelInfo[]>(loadStoredGeminiModels);
+  const [providerModels, setProviderModels] = useState<
+    Partial<Record<CloudProviderId, ProviderModelInfo[]>>
+  >(loadStoredProviderModels);
 
   const handleChangeLocalAgents = useCallback((next: LocalAgentConfig[]) => {
     setLocalAgents(next);
     saveStoredLocalAgents(next);
   }, []);
 
-  const handleChangeGeminiModels = useCallback((next: GeminiModelInfo[]) => {
-    setGeminiModels(next);
-    saveStoredGeminiModels(next);
-  }, []);
+  const handleChangeProviderModels = useCallback(
+    (next: Partial<Record<CloudProviderId, ProviderModelInfo[]>>) => {
+      setProviderModels(next);
+      saveStoredProviderModels(next);
+    },
+    [],
+  );
 
   useEffect(() => {
     try {
@@ -821,7 +827,7 @@ function loadStickyAlerts(): StickyAlertItem[] {
             activeFloorId={activeFloor?.id ?? null}
             employees={activeFloor?.employees ?? []}
             localAgents={localAgents}
-            geminiModels={geminiModels}
+            providerModels={providerModels}
           />
         </div>
       </main>
@@ -888,8 +894,8 @@ function loadStickyAlerts(): StickyAlertItem[] {
           onChangeGraphics={setGraphicsSettings}
           localAgents={localAgents}
           onChangeLocalAgents={handleChangeLocalAgents}
-          geminiModels={geminiModels}
-          onChangeGeminiModels={handleChangeGeminiModels}
+          providerModels={providerModels}
+          onChangeProviderModels={handleChangeProviderModels}
           liveFps={liveFps}
           followCam={followCam}
           onToggleFollowCam={handleToggleFollowCam}

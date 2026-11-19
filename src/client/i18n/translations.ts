@@ -395,6 +395,13 @@ export interface Translations {
     geminiModelsCount: string;
     tabGraphicsSystem: string;
     tabModelsAgents: string;
+    cloudProvidersSection: string;
+    localAgentsMultiSection: string;
+    providerKeyPlaceholder: string;
+    providerKeyHint: string;
+    providerModelsCount: string;
+    localBaseUrlLabel: string;
+    localOfflineHint: string;
   };
 }
 
@@ -845,6 +852,13 @@ const TR: Translations = {
     geminiModelsCount: '{n} Gemini modeli yüklendi',
     tabGraphicsSystem: '⚙ GRAFİK & SİSTEM',
     tabModelsAgents: '🤖 MODEL & AJANLAR',
+    cloudProvidersSection: '☁️ BULUT SAĞLAYICILAR (CLOUD API)',
+    localAgentsMultiSection: '🖥️ YEREL AJANLAR (OLLAMA / LM STUDIO)',
+    providerKeyPlaceholder: '{provider} API Key / Token',
+    providerKeyHint: 'Anahtarınız yerel sunucuda (~/.gemini/swarm-plaza-secrets.json) saklanır.',
+    providerModelsCount: '{n} {provider} modeli yüklendi',
+    localBaseUrlLabel: 'Sunucu URL',
+    localOfflineHint: 'Yerel sunucu çevrimdışı veya erişilemiyor.',
   },
 };
 
@@ -1295,6 +1309,13 @@ const EN: Translations = {
     geminiModelsCount: '{n} Gemini models loaded',
     tabGraphicsSystem: '⚙ GRAPHICS & SYSTEM',
     tabModelsAgents: '🤖 MODELS & AGENTS',
+    cloudProvidersSection: '☁️ CLOUD PROVIDERS (API)',
+    localAgentsMultiSection: '🖥️ LOCAL AGENTS (OLLAMA / LM STUDIO)',
+    providerKeyPlaceholder: '{provider} API Key / Token',
+    providerKeyHint: 'Your key is stored locally (~/.gemini/swarm-plaza-secrets.json).',
+    providerModelsCount: '{n} {provider} models loaded',
+    localBaseUrlLabel: 'Server URL',
+    localOfflineHint: 'Local server offline or unreachable.',
   },
 };
 

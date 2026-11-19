@@ -2,12 +2,13 @@ import React, { useEffect, useState } from 'react';
 import {
   DEFAULT_GRAPHICS_SETTINGS,
   type AntiAliasingMode,
+  type CloudProviderId,
   type FpsLimitMode,
-  type GeminiModelInfo,
   type GraphicsPreset,
   type GraphicsSettings,
   type LocalAgentConfig,
-  type OllamaModelInfo,
+  type LocalProviderId,
+  type ProviderModelInfo,
   type ResolutionScaleMode,
 } from '../../shared/types';
 import { playSelectBlip } from '../audio/retroSynth';
@@ -39,34 +40,60 @@ export function saveStoredLocalAgents(agents: LocalAgentConfig[]): void {
 }
 
 export const GEMINI_MODELS_STORAGE_KEY = 'swarm_plaza_gemini_models';
+export const PROVIDER_MODELS_STORAGE_KEY = 'swarm_plaza_provider_models';
 
-export function loadStoredGeminiModels(): GeminiModelInfo[] {
+export const CLOUD_PROVIDER_TABS: Array<{ id: CloudProviderId; label: string; icon: string }> = [
+  { id: 'gemini', label: 'Gemini', icon: '✨' },
+  { id: 'openai', label: 'OpenAI', icon: '⚡' },
+  { id: 'anthropic', label: 'Anthropic', icon: '🧠' },
+  { id: 'openrouter', label: 'OpenRouter', icon: '🌐' },
+  { id: 'copilot', label: 'GitHub Copilot', icon: '🐙' },
+];
+
+export function loadStoredProviderModels(): Partial<Record<CloudProviderId, ProviderModelInfo[]>> {
   try {
-    const raw = localStorage.getItem(GEMINI_MODELS_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (item): item is GeminiModelInfo =>
-        Boolean(item && typeof item.id === 'string' && typeof item.displayName === 'string'),
-    );
+    const raw = localStorage.getItem(PROVIDER_MODELS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as Partial<Record<CloudProviderId, ProviderModelInfo[]>>;
+      }
+    }
+    // Migrate legacy Gemini-only storage if present
+    const legacyRaw = localStorage.getItem(GEMINI_MODELS_STORAGE_KEY);
+    if (legacyRaw) {
+      const legacyParsed = JSON.parse(legacyRaw);
+      if (Array.isArray(legacyParsed) && legacyParsed.length > 0) {
+        return {
+          gemini: legacyParsed.map((m: { id: string; displayName?: string; description?: string }) => ({
+            id: m.id,
+            displayName: m.displayName || m.id,
+            provider: 'gemini' as const,
+            description: m.description,
+          })),
+        };
+      }
+    }
+    return {};
   } catch {
-    return [];
+    return {};
   }
 }
 
-export function saveStoredGeminiModels(models: GeminiModelInfo[]): void {
+export function saveStoredProviderModels(
+  models: Partial<Record<CloudProviderId, ProviderModelInfo[]>>,
+): void {
   try {
-    localStorage.setItem(GEMINI_MODELS_STORAGE_KEY, JSON.stringify(models));
+    localStorage.setItem(PROVIDER_MODELS_STORAGE_KEY, JSON.stringify(models));
   } catch {
     // ignore storage errors
   }
 }
 
-export function deriveMentionFromModel(model: string): string {
+export function deriveMentionFromModel(model: string, provider: LocalProviderId = 'ollama'): string {
   const base = model.split(':')[0] ?? model;
   const cleaned = base.replace(/[^a-zA-Z0-9_.-]/g, '-').toLowerCase();
-  return cleaned ? `local-${cleaned}` : 'local-ollama';
+  return cleaned ? `local-${cleaned}` : `local-${provider}`;
 }
 
 interface SettingsModalProps {
@@ -74,8 +101,8 @@ interface SettingsModalProps {
   onChangeGraphics: (next: GraphicsSettings) => void;
   localAgents: LocalAgentConfig[];
   onChangeLocalAgents: (next: LocalAgentConfig[]) => void;
-  geminiModels: GeminiModelInfo[];
-  onChangeGeminiModels: (next: GeminiModelInfo[]) => void;
+  providerModels: Partial<Record<CloudProviderId, ProviderModelInfo[]>>;
+  onChangeProviderModels: (next: Partial<Record<CloudProviderId, ProviderModelInfo[]>>) => void;
   liveFps: number;
   followCam: boolean;
   onToggleFollowCam: () => void;
@@ -126,8 +153,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onChangeGraphics,
   localAgents,
   onChangeLocalAgents,
-  geminiModels,
-  onChangeGeminiModels,
+  providerModels,
+  onChangeProviderModels,
   liveFps,
   followCam,
   onToggleFollowCam,
@@ -143,73 +170,86 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const { locale, setLocale, t } = useI18n();
   const [activeTab, setActiveTab] = useState<'graphics' | 'models'>('graphics');
-  const [ollamaUrl, setOllamaUrl] = useState('http://localhost:11434');
-  const [fetchedModels, setFetchedModels] = useState<OllamaModelInfo[]>([]);
-  const [fetchingModels, setFetchingModels] = useState(false);
-  const [ollamaError, setOllamaError] = useState<string | null>(null);
-  const [modelDraft, setModelDraft] = useState('');
-  const [geminiKeyStatus, setGeminiKeyStatus] = useState<{
-    configured: boolean;
-    masked: string;
-    source: 'env' | 'settings' | 'none';
-  }>({ configured: false, masked: '', source: 'none' });
-  const [geminiKeyDraft, setGeminiKeyDraft] = useState('');
-  const [showGeminiKey, setShowGeminiKey] = useState(false);
-  const [geminiKeySaving, setGeminiKeySaving] = useState(false);
-  const [geminiKeyNotice, setGeminiKeyNotice] = useState<string | null>(null);
-  const [fetchingGeminiModels, setFetchingGeminiModels] = useState(false);
-  const [geminiModelsError, setGeminiModelsError] = useState<string | null>(null);
+  const [activeCloudProvider, setActiveCloudProvider] = useState<CloudProviderId>('gemini');
+  const [keyStatuses, setKeyStatuses] = useState<
+    Partial<Record<CloudProviderId, { configured: boolean; masked: string; source: 'env' | 'settings' | 'none' }>>
+  >({});
+  const [cloudKeyDraft, setCloudKeyDraft] = useState('');
+  const [showCloudKey, setShowCloudKey] = useState(false);
+  const [cloudKeySaving, setCloudKeySaving] = useState(false);
+  const [cloudKeyNotice, setCloudKeyNotice] = useState<string | null>(null);
+  const [fetchingCloudModels, setFetchingCloudModels] = useState(false);
+  const [cloudModelsError, setCloudModelsError] = useState<string | null>(null);
 
-  const handleFetchGeminiModels = async () => {
+  const [localProvider, setLocalProvider] = useState<LocalProviderId>('ollama');
+  const [localUrl, setLocalUrl] = useState('http://localhost:11434');
+  const [fetchedLocalModels, setFetchedLocalModels] = useState<ProviderModelInfo[]>([]);
+  const [fetchingLocalModels, setFetchingLocalModels] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [modelDraft, setModelDraft] = useState('');
+
+  const activeKeyStatus = keyStatuses[activeCloudProvider] ?? {
+    configured: false,
+    masked: '',
+    source: 'none' as const,
+  };
+  const activeCloudModels = providerModels[activeCloudProvider] ?? [];
+
+  const handleFetchCloudModels = async (provider: CloudProviderId = activeCloudProvider) => {
     playSelectBlip();
-    setFetchingGeminiModels(true);
-    setGeminiModelsError(null);
+    setFetchingCloudModels(true);
+    setCloudModelsError(null);
     try {
-      const res = await fetch('/api/gemini/models');
+      const res = await fetch(`/api/providers/models?provider=${encodeURIComponent(provider)}`);
       const data = (await res.json()) as {
         ok?: boolean;
-        models?: GeminiModelInfo[];
+        models?: ProviderModelInfo[];
         error?: string;
       };
       if (data.ok && Array.isArray(data.models)) {
-        onChangeGeminiModels(data.models);
+        onChangeProviderModels({ ...providerModels, [provider]: data.models });
       } else {
-        setGeminiModelsError(data.error || 'Failed to fetch Gemini models');
+        setCloudModelsError(data.error || `Failed to fetch ${provider} models`);
       }
     } catch {
-      setGeminiModelsError('Failed to fetch Gemini models');
+      setCloudModelsError(`Failed to fetch ${provider} models`);
     } finally {
-      setFetchingGeminiModels(false);
+      setFetchingCloudModels(false);
     }
   };
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/settings/gemini-key')
+    fetch(`/api/settings/provider-key?provider=${encodeURIComponent(activeCloudProvider)}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (cancelled || !data) return;
-        setGeminiKeyStatus({
-          configured: Boolean(data.configured),
-          masked: typeof data.masked === 'string' ? data.masked : '',
-          source: data.source ?? 'none',
-        });
+        setKeyStatuses((prev) => ({
+          ...prev,
+          [activeCloudProvider]: {
+            configured: Boolean(data.configured),
+            masked: typeof data.masked === 'string' ? data.masked : '',
+            source: data.source ?? 'none',
+          },
+        }));
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [activeCloudProvider]);
 
-  const handleSaveGeminiKey = async (apiKey: string) => {
+  const handleSaveCloudKey = async (apiKey: string) => {
     playSelectBlip();
-    setGeminiKeySaving(true);
-    setGeminiKeyNotice(null);
+    setCloudKeySaving(true);
+    setCloudKeyNotice(null);
+    setCloudModelsError(null);
+    const targetProvider = activeCloudProvider;
     try {
-      const res = await fetch('/api/settings/gemini-key', {
+      const res = await fetch('/api/settings/provider-key', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey }),
+        body: JSON.stringify({ provider: targetProvider, apiKey }),
       });
       if (res.ok) {
         const data = (await res.json()) as {
@@ -217,52 +257,56 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           masked?: string;
           source?: 'env' | 'settings' | 'none';
         };
-        setGeminiKeyStatus({
-          configured: Boolean(data.configured),
-          masked: data.masked ?? '',
-          source: data.source ?? 'none',
-        });
-        setGeminiKeyDraft('');
-        setGeminiKeyNotice(t.settingsModal.geminiKeySaved);
+        setKeyStatuses((prev) => ({
+          ...prev,
+          [targetProvider]: {
+            configured: Boolean(data.configured),
+            masked: data.masked ?? '',
+            source: data.source ?? 'none',
+          },
+        }));
+        setCloudKeyDraft('');
+        setCloudKeyNotice(t.settingsModal.geminiKeySaved);
         if (!apiKey) {
-          onChangeGeminiModels([]);
-          setGeminiModelsError(null);
+          onChangeProviderModels({ ...providerModels, [targetProvider]: [] });
         } else {
-          await handleFetchGeminiModels();
+          await handleFetchCloudModels(targetProvider);
         }
       }
     } finally {
-      setGeminiKeySaving(false);
+      setCloudKeySaving(false);
     }
   };
 
-  const handleFetchOllamaModels = async () => {
+  const handleFetchLocalModels = async () => {
     playSelectBlip();
-    setFetchingModels(true);
-    setOllamaError(null);
+    setFetchingLocalModels(true);
+    setLocalError(null);
+    const defaultUrl =
+      localProvider === 'lmstudio' ? 'http://localhost:1234' : 'http://localhost:11434';
     try {
       const res = await fetch(
-        `/api/ollama/models?baseUrl=${encodeURIComponent(ollamaUrl.trim() || 'http://localhost:11434')}`,
+        `/api/providers/models?provider=${encodeURIComponent(localProvider)}&baseUrl=${encodeURIComponent(localUrl.trim() || defaultUrl)}`,
       );
       const data = (await res.json()) as {
         ok?: boolean;
-        models?: OllamaModelInfo[];
+        models?: ProviderModelInfo[];
         error?: string;
       };
       if (data.ok && Array.isArray(data.models) && data.models.length > 0) {
-        setFetchedModels(data.models);
-        setModelDraft(data.models[0].name);
+        setFetchedLocalModels(data.models);
+        setModelDraft(data.models[0].id);
       } else {
-        setFetchedModels([]);
+        setFetchedLocalModels([]);
         setModelDraft('');
-        setOllamaError(data.error || t.settingsModal.ollamaOfflineHint);
+        setLocalError(data.error || t.settingsModal.localOfflineHint);
       }
     } catch {
-      setFetchedModels([]);
+      setFetchedLocalModels([]);
       setModelDraft('');
-      setOllamaError(t.settingsModal.ollamaOfflineHint);
+      setLocalError(t.settingsModal.localOfflineHint);
     } finally {
-      setFetchingModels(false);
+      setFetchingLocalModels(false);
     }
   };
 
@@ -270,13 +314,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     const model = modelDraft.trim();
     if (!model) return;
     playSelectBlip();
+    const defaultUrl =
+      localProvider === 'lmstudio' ? 'http://localhost:1234' : 'http://localhost:11434';
     const nextAgent: LocalAgentConfig = {
       id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       name: `Local ${model}`,
-      mention: deriveMentionFromModel(model),
-      provider: 'ollama',
+      mention: deriveMentionFromModel(model, localProvider),
+      provider: localProvider,
       model,
-      baseUrl: ollamaUrl.trim() || 'http://localhost:11434',
+      baseUrl: localUrl.trim() || defaultUrl,
       enabled: true,
     };
     onChangeLocalAgents([...localAgents, nextAgent]);
@@ -633,34 +679,61 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {activeTab === 'models' && (
           <>
-            {/* Gemini API Key */}
+            {/* Cloud Providers (Gemini, OpenAI, Anthropic, OpenRouter, GitHub Copilot) */}
             <div className="pixel-panel-inset" style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
                 <span className="pixel-title" style={{ fontSize: 9, color: '#ffd147' }}>
-                  {t.settingsModal.geminiKeySection}
+                  {t.settingsModal.cloudProvidersSection}
                 </span>
                 <span
                   className="pixel-badge"
                   style={{
                     fontSize: 9,
-                    color: geminiKeyStatus.configured ? '#3be87a' : 'var(--text-dim)',
+                    color: activeKeyStatus.configured ? '#3be87a' : 'var(--text-dim)',
                   }}
                 >
-                  {geminiKeyStatus.configured
-                    ? `✓ ${geminiKeyStatus.masked} (${geminiKeyStatus.source})`
+                  {activeKeyStatus.configured
+                    ? `✓ ${activeKeyStatus.masked} (${activeKeyStatus.source})`
                     : t.settingsModal.geminiKeyNotConfigured}
                 </span>
               </div>
 
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                {CLOUD_PROVIDER_TABS.map((p) => {
+                  const count = providerModels[p.id]?.length ?? 0;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className={`pixel-btn ${activeCloudProvider === p.id ? 'cyan' : ''}`}
+                      style={{ fontSize: 9, padding: '4px 8px' }}
+                      onClick={() => {
+                        playSelectBlip();
+                        setActiveCloudProvider(p.id);
+                        setCloudKeyDraft('');
+                        setCloudKeyNotice(null);
+                        setCloudModelsError(null);
+                      }}
+                    >
+                      {p.icon} {p.label}
+                      {count > 0 ? ` (${count})` : ''}
+                    </button>
+                  );
+                })}
+              </div>
+
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                 <input
-                  type={showGeminiKey ? 'text' : 'password'}
-                  value={geminiKeyDraft}
-                  onChange={(e) => setGeminiKeyDraft(e.target.value)}
-                  placeholder={t.settingsModal.geminiKeyPlaceholder}
-                  aria-label={t.settingsModal.geminiKeySection}
+                  type={showCloudKey ? 'text' : 'password'}
+                  value={cloudKeyDraft}
+                  onChange={(e) => setCloudKeyDraft(e.target.value)}
+                  placeholder={t.settingsModal.providerKeyPlaceholder.replace(
+                    '{provider}',
+                    CLOUD_PROVIDER_TABS.find((p) => p.id === activeCloudProvider)?.label ?? activeCloudProvider,
+                  )}
+                  aria-label={t.settingsModal.cloudProvidersSection}
                   className="retro-dock-select"
-                  style={{ flex: 1, minWidth: 200, maxWidth: 'none', cursor: 'text' }}
+                  style={{ flex: 1, minWidth: 190, maxWidth: 'none', cursor: 'text' }}
                 />
                 <button
                   type="button"
@@ -668,17 +741,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   style={{ fontSize: 9, padding: '5px 8px' }}
                   onClick={() => {
                     playSelectBlip();
-                    setShowGeminiKey((prev) => !prev);
+                    setShowCloudKey((prev) => !prev);
                   }}
                 >
-                  {showGeminiKey ? t.settingsModal.geminiKeyHide : t.settingsModal.geminiKeyShow}
+                  {showCloudKey ? t.settingsModal.geminiKeyHide : t.settingsModal.geminiKeyShow}
                 </button>
                 <button
                   type="button"
                   className="pixel-btn cyan"
                   style={{ fontSize: 9, padding: '5px 10px' }}
-                  disabled={geminiKeySaving || !geminiKeyDraft.trim()}
-                  onClick={() => void handleSaveGeminiKey(geminiKeyDraft.trim())}
+                  disabled={cloudKeySaving || !cloudKeyDraft.trim()}
+                  onClick={() => void handleSaveCloudKey(cloudKeyDraft.trim())}
                 >
                   {t.settingsModal.geminiKeySave}
                 </button>
@@ -686,8 +759,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   type="button"
                   className="pixel-btn danger"
                   style={{ fontSize: 9, padding: '5px 10px' }}
-                  disabled={geminiKeySaving}
-                  onClick={() => void handleSaveGeminiKey('')}
+                  disabled={cloudKeySaving}
+                  onClick={() => void handleSaveCloudKey('')}
                 >
                   {t.settingsModal.geminiKeyClear}
                 </button>
@@ -695,10 +768,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   type="button"
                   className="pixel-btn active"
                   style={{ fontSize: 9, padding: '5px 10px' }}
-                  disabled={fetchingGeminiModels || !geminiKeyStatus.configured}
-                  onClick={() => void handleFetchGeminiModels()}
+                  disabled={fetchingCloudModels || !activeKeyStatus.configured}
+                  onClick={() => void handleFetchCloudModels(activeCloudProvider)}
                 >
-                  {fetchingGeminiModels
+                  {fetchingCloudModels
                     ? t.settingsModal.fetchingModelsBtn
                     : t.settingsModal.fetchGeminiModelsBtn}
                 </button>
@@ -706,124 +779,161 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>
-                  {t.settingsModal.geminiKeyHint}
+                  {t.settingsModal.providerKeyHint}
                 </span>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  {geminiModels.length > 0 && (
+                  {activeCloudModels.length > 0 && (
                     <span style={{ fontSize: 10, color: '#3cd8ff' }}>
-                      {t.settingsModal.geminiModelsCount.replace('{n}', String(geminiModels.length))}
+                      {t.settingsModal.providerModelsCount
+                        .replace('{n}', String(activeCloudModels.length))
+                        .replace(
+                          '{provider}',
+                          CLOUD_PROVIDER_TABS.find((p) => p.id === activeCloudProvider)?.label ?? activeCloudProvider,
+                        )}
                     </span>
                   )}
-                  {geminiModelsError && (
+                  {cloudModelsError && (
                     <span style={{ fontSize: 10, color: 'var(--accent-amber)' }}>
-                      ⚠ {geminiModelsError}
+                      ⚠ {cloudModelsError}
                     </span>
                   )}
-                  {geminiKeyNotice && (
-                    <span style={{ fontSize: 10, color: '#3be87a' }}>{geminiKeyNotice}</span>
+                  {cloudKeyNotice && (
+                    <span style={{ fontSize: 10, color: '#3be87a' }}>{cloudKeyNotice}</span>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Local Agents (Ollama) */}
-        <div className="pixel-panel-inset" style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            <span className="pixel-title" style={{ fontSize: 9, color: '#3cd8ff' }}>
-              {t.settingsModal.localAgentsSection}
-            </span>
-            <span className="pixel-badge" style={{ fontSize: 9, color: '#ffbe3b' }}>
-              {t.settingsModal.localProviderLabel}: Ollama
-            </span>
-          </div>
-
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-            <input
-              type="text"
-              value={ollamaUrl}
-              onChange={(e) => setOllamaUrl(e.target.value)}
-              aria-label={t.settingsModal.ollamaUrlLabel}
-              className="retro-dock-select"
-              style={{ flex: 1, minWidth: 190, cursor: 'text' }}
-            />
-            <button
-              type="button"
-              className="pixel-btn cyan"
-              style={{ fontSize: 9, padding: '5px 10px' }}
-              disabled={fetchingModels}
-              onClick={() => void handleFetchOllamaModels()}
-            >
-              {fetchingModels ? t.settingsModal.fetchingModelsBtn : t.settingsModal.fetchModelsBtn}
-            </button>
-          </div>
-
-          {ollamaError && (
-            <div style={{ fontSize: 10, color: 'var(--accent-amber)' }}>
-              ⚠ {ollamaError}
-            </div>
-          )}
-
-          {fetchedModels.length > 0 && (
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-              <select
-                aria-label={t.settingsModal.ollamaModelLabel}
-                className="retro-dock-select"
-                style={{ flex: 1, minWidth: 190, maxWidth: 'none' }}
-                value={modelDraft}
-                onChange={(e) => setModelDraft(e.target.value)}
-              >
-                {fetchedModels.map((m) => (
-                  <option key={m.name} value={m.name}>
-                    {m.name}
-                    {typeof m.size === 'number' ? ` (${(m.size / 1e9).toFixed(1)} GB)` : ''}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                className="pixel-btn active"
-                style={{ fontSize: 9, padding: '5px 12px' }}
-                disabled={!modelDraft}
-                onClick={handleAddLocalAgent}
-              >
-                {t.settingsModal.addLocalAgentBtn}
-              </button>
-            </div>
-          )}
-
-          {localAgents.length === 0 ? (
-            <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>
-              {t.settingsModal.noLocalAgents}
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {localAgents.map((agent) => (
-                <div key={agent.id} className="retro-dock-diff-row">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <span style={{ color: '#3be87a' }}>{agent.name}</span>
-                    <span className="pixel-badge" style={{ fontSize: 9, color: '#3cd8ff' }}>
-                      @{agent.mention}
-                    </span>
-                    <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>
-                      ollama:{agent.model}
-                    </span>
-                  </div>
+            {/* Local Agents (Ollama / LM Studio) */}
+            <div className="pixel-panel-inset" style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                <span className="pixel-title" style={{ fontSize: 9, color: '#3cd8ff' }}>
+                  {t.settingsModal.localAgentsMultiSection}
+                </span>
+                <div style={{ display: 'flex', gap: 4 }}>
                   <button
                     type="button"
-                    className="pixel-btn danger"
-                    style={{ fontSize: 8, padding: '2px 6px' }}
+                    className={`pixel-btn ${localProvider === 'ollama' ? 'cyan' : ''}`}
+                    style={{ fontSize: 9, padding: '3px 8px' }}
                     onClick={() => {
                       playSelectBlip();
-                      onChangeLocalAgents(localAgents.filter((a) => a.id !== agent.id));
+                      setLocalProvider('ollama');
+                      if (localUrl.trim() === 'http://localhost:1234') {
+                        setLocalUrl('http://localhost:11434');
+                      }
+                      setFetchedLocalModels([]);
+                      setModelDraft('');
+                      setLocalError(null);
                     }}
                   >
-                    {t.settingsModal.removeAgentBtn}
+                    🦙 Ollama
+                  </button>
+                  <button
+                    type="button"
+                    className={`pixel-btn ${localProvider === 'lmstudio' ? 'cyan' : ''}`}
+                    style={{ fontSize: 9, padding: '3px 8px' }}
+                    onClick={() => {
+                      playSelectBlip();
+                      setLocalProvider('lmstudio');
+                      if (localUrl.trim() === 'http://localhost:11434') {
+                        setLocalUrl('http://localhost:1234');
+                      }
+                      setFetchedLocalModels([]);
+                      setModelDraft('');
+                      setLocalError(null);
+                    }}
+                  >
+                    💻 LM Studio
                   </button>
                 </div>
-              ))}
+              </div>
+
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                <input
+                  type="text"
+                  value={localUrl}
+                  onChange={(e) => setLocalUrl(e.target.value)}
+                  aria-label={t.settingsModal.localBaseUrlLabel}
+                  className="retro-dock-select"
+                  style={{ flex: 1, minWidth: 190, cursor: 'text' }}
+                />
+                <button
+                  type="button"
+                  className="pixel-btn cyan"
+                  style={{ fontSize: 9, padding: '5px 10px' }}
+                  disabled={fetchingLocalModels}
+                  onClick={() => void handleFetchLocalModels()}
+                >
+                  {fetchingLocalModels ? t.settingsModal.fetchingModelsBtn : t.settingsModal.fetchModelsBtn}
+                </button>
+              </div>
+
+              {localError && (
+                <div style={{ fontSize: 10, color: 'var(--accent-amber)' }}>
+                  ⚠ {localError}
+                </div>
+              )}
+
+              {fetchedLocalModels.length > 0 && (
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <select
+                    aria-label={t.settingsModal.ollamaModelLabel}
+                    className="retro-dock-select"
+                    style={{ flex: 1, minWidth: 190, maxWidth: 'none' }}
+                    value={modelDraft}
+                    onChange={(e) => setModelDraft(e.target.value)}
+                  >
+                    {fetchedLocalModels.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.displayName || m.id}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="pixel-btn active"
+                    style={{ fontSize: 9, padding: '5px 12px' }}
+                    disabled={!modelDraft}
+                    onClick={handleAddLocalAgent}
+                  >
+                    {t.settingsModal.addLocalAgentBtn}
+                  </button>
+                </div>
+              )}
+
+              {localAgents.length === 0 ? (
+                <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>
+                  {t.settingsModal.noLocalAgents}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {localAgents.map((agent) => (
+                    <div key={agent.id} className="retro-dock-diff-row">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span className="pixel-badge" style={{ fontSize: 8, color: '#ffbe3b' }}>
+                          {agent.provider === 'lmstudio' ? '💻 LM STUDIO' : '🦙 OLLAMA'}
+                        </span>
+                        <span style={{ color: '#3be87a' }}>{agent.name}</span>
+                        <span className="pixel-badge" style={{ fontSize: 9, color: '#3cd8ff' }}>
+                          @{agent.mention}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className="pixel-btn danger"
+                        style={{ fontSize: 8, padding: '2px 6px' }}
+                        onClick={() => {
+                          playSelectBlip();
+                          onChangeLocalAgents(localAgents.filter((a) => a.id !== agent.id));
+                        }}
+                      >
+                        {t.settingsModal.removeAgentBtn}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
           </>
         )}
 

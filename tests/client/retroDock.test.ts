@@ -18,7 +18,7 @@ import {
 } from '../../src/client/components/RetroCommandDock';
 import { deriveMentionFromModel } from '../../src/client/components/SettingsModal';
 import { DICTIONARIES } from '../../src/client/i18n/translations';
-import type { GeminiModelInfo, LocalAgentConfig } from '../../src/shared/types';
+import type { CloudProviderId, GeminiModelInfo, LocalAgentConfig, ProviderModelInfo } from '../../src/shared/types';
 
 describe('RetroCommandDock helpers & i18n', () => {
   it('detects @ and / autocomplete triggers at cursor position', () => {
@@ -129,7 +129,7 @@ describe('RetroCommandDock helpers & i18n', () => {
 
     const options = buildDockModelOptions(localAgents, geminiModels);
     assert.equal(options.length, 3); // 2 fetched Gemini + 1 enabled Ollama
-    assert.ok(options.some((o) => o.id === 'gemini-2.5-flash' && o.provider === 'gemini'));
+    assert.ok(options.some((o) => o.id === 'gemini:gemini-2.5-flash' && o.provider === 'gemini'));
     assert.ok(options.some((o) => o.id === 'ollama:deepseek-r1:14b' && o.provider === 'ollama'));
     assert.ok(!options.some((o) => o.id === 'ollama:llama3.2'));
 
@@ -138,7 +138,7 @@ describe('RetroCommandDock helpers & i18n', () => {
       profile.map((p) => p.role),
       [...SWARM_ROLES],
     );
-    assert.equal(profile[0].model, 'gemini-2.5-flash');
+    assert.equal(profile[0].model, 'gemini:gemini-2.5-flash');
     assert.equal(profile[0].level, 'medium');
     assert.equal(getProjectSwarmStorageKey('floor-1'), 'swarm_plaza_project_swarm_floor-1');
     assert.equal(getProjectSwarmStorageKey(null), 'swarm_plaza_project_swarm_default');
@@ -160,11 +160,52 @@ describe('RetroCommandDock helpers & i18n', () => {
 
     assert.deepEqual(resolvePromptProvider('ollama:deepseek-r1:14b', localAgents), {
       provider: 'ollama',
+      localBaseUrl: 'http://localhost:11434',
       ollamaBaseUrl: 'http://localhost:11434',
     });
-    assert.deepEqual(resolvePromptProvider('gemini-4-hydrogen-medium', localAgents), {
+    assert.deepEqual(resolvePromptProvider('gemini:gemini-2.5-flash', localAgents), {
       provider: 'gemini',
     });
+    assert.deepEqual(resolvePromptProvider('openai:gpt-4o', localAgents), {
+      provider: 'openai',
+    });
+    assert.deepEqual(resolvePromptProvider('anthropic:claude-3-7-sonnet', localAgents), {
+      provider: 'anthropic',
+    });
+    assert.deepEqual(resolvePromptProvider('openrouter:openai/gpt-4o', localAgents), {
+      provider: 'openrouter',
+    });
+    assert.deepEqual(resolvePromptProvider('copilot:gpt-4.1', localAgents), {
+      provider: 'copilot',
+    });
+    assert.deepEqual(resolvePromptProvider('lmstudio:qwen2.5-coder', localAgents), {
+      provider: 'lmstudio',
+      localBaseUrl: 'http://localhost:1234',
+    });
+
+    const multiProviderMap: Partial<Record<CloudProviderId, ProviderModelInfo[]>> = {
+      gemini: [{ id: 'gemini-2.5-flash', displayName: 'Gemini 2.5 Flash', provider: 'gemini' }],
+      openai: [{ id: 'gpt-4o', displayName: 'GPT-4o', provider: 'openai' }],
+      anthropic: [{ id: 'claude-3-7-sonnet', displayName: 'Claude 3.7 Sonnet', provider: 'anthropic' }],
+      openrouter: [{ id: 'openai/gpt-4o', displayName: 'OR GPT-4o', provider: 'openrouter' }],
+      copilot: [{ id: 'gpt-4.1', displayName: 'Copilot GPT-4.1', provider: 'copilot' }],
+    };
+    const multiLocal: LocalAgentConfig[] = [
+      ...localAgents,
+      {
+        id: 'la-lms',
+        name: 'Local qwen-lms',
+        mention: 'local-qwen-lms',
+        provider: 'lmstudio',
+        model: 'qwen-lms',
+        baseUrl: 'http://localhost:1234',
+        enabled: true,
+      },
+    ];
+    const multiOpts = buildDockModelOptions(multiLocal, multiProviderMap);
+    assert.equal(multiOpts.length, 7);
+    assert.ok(multiOpts.some((o) => o.id === 'lmstudio:qwen-lms' && o.provider === 'lmstudio' && o.localBaseUrl === 'http://localhost:1234'));
+    assert.ok(multiOpts.some((o) => o.id === 'copilot:gpt-4.1' && o.provider === 'copilot'));
     assert.equal(deriveMentionFromModel('qwen2.5-coder:14b'), 'local-qwen2.5-coder');
   });
 

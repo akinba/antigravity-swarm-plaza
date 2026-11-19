@@ -692,4 +692,206 @@ describe('PromptRunner & standalone prompt endpoints', () => {
       await instance.close();
     }
   });
+
+  it('supports multi-provider keys, model discovery, SSRF guard for lmstudio, and SSE streaming for openai, anthropic, openrouter, lmstudio, and copilot', async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-multi-secrets-'));
+    const secretsFilePath = path.join(tempDir, 'swarm-plaza-secrets.json');
+    const capturedRequests: Array<{ url: string; model?: string; headers: Record<string, string> }> = [];
+
+    const runner = new PromptRunner({
+      defaultWorkspace: process.cwd(),
+      secretsFilePath,
+      providerKeys: {
+        gemini: '',
+        openai: '',
+        anthropic: '',
+        openrouter: '',
+        copilot: '',
+      },
+      fetchImpl: async (url, init) => {
+        const u = String(url);
+        const hdrs = (init?.headers ?? {}) as Record<string, string>;
+        const method = init?.method ?? 'GET';
+
+        if (method === 'GET') {
+          if (u === 'https://api.openai.com/v1/models') {
+            return new Response(JSON.stringify({ data: [{ id: 'gpt-4o' }, { id: 'o3-mini' }] }), {
+              status: 200,
+            });
+          }
+          if (u === 'https://api.anthropic.com/v1/models') {
+            assert.equal(hdrs['anthropic-version'], '2023-06-01');
+            return new Response(
+              JSON.stringify({
+                data: [{ id: 'claude-3-7-sonnet', display_name: 'Claude 3.7 Sonnet' }],
+              }),
+              { status: 200 },
+            );
+          }
+          if (u === 'https://openrouter.ai/api/v1/models') {
+            return new Response(
+              JSON.stringify({ data: [{ id: 'deepseek/deepseek-r1', name: 'DeepSeek R1' }] }),
+              { status: 200 },
+            );
+          }
+          if (u === 'https://models.github.ai/catalog/models') {
+            return new Response('Not Found', { status: 404 });
+          }
+          if (u === 'http://localhost:1234/v1/models') {
+            return new Response(JSON.stringify({ data: [{ id: 'qwen2.5-14b-instruct' }] }), {
+              status: 200,
+            });
+          }
+        }
+
+        const body = JSON.parse(String(init?.body ?? '{}')) as { model?: string };
+        capturedRequests.push({ url: u, model: body.model, headers: hdrs });
+
+        if (u === 'https://api.anthropic.com/v1/messages') {
+          return new Response(
+            createNdjsonStream([
+              'event: content_block_delta',
+              `data: ${JSON.stringify({ type: 'content_block_delta', delta: { type: 'text_delta', text: 'Claude ' } })}`,
+              `data: ${JSON.stringify({ type: 'content_block_delta', delta: { type: 'text_delta', text: 'stream!' } })}`,
+            ]),
+            { status: 200 },
+          );
+        }
+
+        return new Response(
+          createNdjsonStream([
+            `data: ${JSON.stringify({ choices: [{ delta: { content: 'Chunk ' } }] })}`,
+            `data: ${JSON.stringify({ choices: [{ delta: { content: 'OK' } }] })}`,
+            'data: [DONE]',
+          ]),
+          { status: 200 },
+        );
+      },
+    });
+
+    const instance = createPlazaApp({
+      agyDataDir: path.join(os.tmpdir(), 'nonexistent-agy-test-dir'),
+      initialDemoMode: true,
+      broadcastIntervalMs: 0,
+      promptRunner: runner,
+    });
+
+    await new Promise<void>((resolve) => {
+      instance.server.listen(0, '127.0.0.1', () => resolve());
+    });
+    const addr = instance.server.address();
+    const port = typeof addr === 'object' && addr ? addr.port : 0;
+    const baseUrl = `http://127.0.0.1:${port}`;
+
+    try {
+      // Save keys for openai, anthropic, openrouter, copilot
+      for (const [prov, key] of [
+        ['openai', 'sk-openai-1234567890'],
+        ['anthropic', 'sk-ant-1234567890'],
+        ['openrouter', 'sk-or-1234567890'],
+        ['copilot', 'ghp_copilot12345678'],
+      ] as const) {
+        const postRes = await fetch(`${baseUrl}/api/settings/provider-key`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ provider: prov, apiKey: key }),
+        });
+        assert.equal(postRes.status, 200);
+        const postJson = (await postRes.json()) as { ok: boolean; configured: boolean; masked: string };
+        assert.equal(postJson.ok, true);
+        assert.equal(postJson.configured, true);
+        assert.ok(!JSON.stringify(postJson).includes(key));
+
+        const getRes = await fetch(`${baseUrl}/api/settings/provider-key?provider=${prov}`);
+        assert.equal(getRes.status, 200);
+        const getJson = (await getRes.json()) as { configured: boolean; source: string };
+        assert.equal(getJson.configured, true);
+        assert.equal(getJson.source, 'settings');
+      }
+
+      // Model discovery across all new providers
+      const openaiModels = (await (await fetch(`${baseUrl}/api/providers/models?provider=openai`)).json()) as {
+        ok: boolean;
+        models: Array<{ id: string; provider: string }>;
+      };
+      assert.equal(openaiModels.ok, true);
+      assert.equal(openaiModels.models[0]?.id, 'gpt-4o');
+
+      const anthropicModels = (await (await fetch(`${baseUrl}/api/providers/models?provider=anthropic`)).json()) as {
+        ok: boolean;
+        models: Array<{ id: string; displayName: string }>;
+      };
+      assert.equal(anthropicModels.ok, true);
+      assert.equal(anthropicModels.models[0]?.id, 'claude-3-7-sonnet');
+
+      const orModels = (await (await fetch(`${baseUrl}/api/providers/models?provider=openrouter`)).json()) as {
+        ok: boolean;
+        models: Array<{ id: string }>;
+      };
+      assert.equal(orModels.ok, true);
+      assert.equal(orModels.models[0]?.id, 'deepseek/deepseek-r1');
+
+      const copilotModels = (await (await fetch(`${baseUrl}/api/providers/models?provider=copilot`)).json()) as {
+        ok: boolean;
+        models: Array<{ id: string }>;
+      };
+      assert.equal(copilotModels.ok, true);
+      assert.ok(copilotModels.models.some((m) => m.id === 'gpt-4o'));
+
+      const lmsModels = (
+        await (
+          await fetch(
+            `${baseUrl}/api/providers/models?provider=lmstudio&baseUrl=${encodeURIComponent('http://localhost:1234')}`,
+          )
+        ).json()
+      ) as { ok: boolean; models: Array<{ id: string }> };
+      assert.equal(lmsModels.ok, true);
+      assert.equal(lmsModels.models[0]?.id, 'qwen2.5-14b-instruct');
+
+      // SSRF protection for lmstudio external URL
+      const lmsSsrf = await fetch(
+        `${baseUrl}/api/providers/models?provider=lmstudio&baseUrl=${encodeURIComponent('https://evil.example.com')}`,
+      );
+      assert.equal(lmsSsrf.status, 400);
+
+      // Stream tests for each provider
+      const streamed: PromptStreamEvent[] = [];
+      runner.subscribe((ev) => streamed.push(ev));
+
+      for (const req of [
+        { provider: 'openai' as const, model: 'openai:gpt-4o' },
+        { provider: 'openrouter' as const, model: 'openrouter:deepseek/deepseek-r1' },
+        { provider: 'copilot' as const, model: 'copilot:gpt-4.1' },
+        { provider: 'lmstudio' as const, model: 'lmstudio:qwen2.5-14b-instruct', localBaseUrl: 'http://localhost:1234' },
+        { provider: 'anthropic' as const, model: 'anthropic:claude-3-7-sonnet' },
+      ]) {
+        runner.startPrompt({
+          prompt: 'Hi',
+          model: req.model,
+          provider: req.provider,
+          localBaseUrl: req.localBaseUrl,
+          mode: 'turbo',
+          mentions: [],
+        });
+        await runner.waitForIdle();
+      }
+
+      assert.deepEqual(
+        capturedRequests.map((r) => [r.url, r.model]),
+        [
+          ['https://api.openai.com/v1/chat/completions', 'gpt-4o'],
+          ['https://openrouter.ai/api/v1/chat/completions', 'deepseek/deepseek-r1'],
+          ['https://models.github.ai/inference/chat/completions', 'gpt-4.1'],
+          ['http://localhost:1234/v1/chat/completions', 'qwen2.5-14b-instruct'],
+          ['https://api.anthropic.com/v1/messages', 'claude-3-7-sonnet'],
+        ],
+      );
+      assert.ok(streamed.some((e) => e.type === 'chunk' && e.text === 'Claude '));
+      assert.ok(streamed.some((e) => e.type === 'chunk' && e.text === 'stream!'));
+      assert.ok(streamed.some((e) => e.type === 'chunk' && e.text === 'Chunk '));
+    } finally {
+      await instance.close();
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
 });
