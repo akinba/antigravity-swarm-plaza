@@ -195,7 +195,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
   const activeCloudModels = providerModels[activeCloudProvider] ?? [];
 
-  const handleFetchCloudModels = async (provider: CloudProviderId = activeCloudProvider) => {
+  const handleFetchCloudModels = async (
+    provider: CloudProviderId = activeCloudProvider,
+    skipAutoSave = false,
+  ) => {
+    if (!skipAutoSave && provider === activeCloudProvider && cloudKeyDraft.trim()) {
+      await handleSaveCloudKey(cloudKeyDraft.trim());
+      return;
+    }
     playSelectBlip();
     setFetchingCloudModels(true);
     setCloudModelsError(null);
@@ -270,7 +277,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         if (!apiKey) {
           onChangeProviderModels({ ...providerModels, [targetProvider]: [] });
         } else {
-          await handleFetchCloudModels(targetProvider);
+          await handleFetchCloudModels(targetProvider, true);
         }
       }
     } finally {
@@ -768,7 +775,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   type="button"
                   className="pixel-btn active"
                   style={{ fontSize: 9, padding: '5px 10px' }}
-                  disabled={fetchingCloudModels || !activeKeyStatus.configured}
+                  disabled={
+                    fetchingCloudModels ||
+                    cloudKeySaving ||
+                    (!activeKeyStatus.configured && !cloudKeyDraft.trim())
+                  }
                   onClick={() => void handleFetchCloudModels(activeCloudProvider)}
                 >
                   {fetchingCloudModels
