@@ -3,6 +3,7 @@ import {
   DEFAULT_GRAPHICS_SETTINGS,
   type AntiAliasingMode,
   type CloudProviderId,
+  type ConnectedAccountInfo,
   type FpsLimitMode,
   type GraphicsPreset,
   type GraphicsSettings,
@@ -142,6 +143,8 @@ interface SettingsModalProps {
   onToggleMute: () => void;
   notificationsEnabled: boolean;
   onToggleNotifications: () => void;
+  initialTab?: 'graphics' | 'models' | 'accounts';
+  onAccountsChanged?: () => void;
   onClose: () => void;
 }
 
@@ -194,10 +197,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onToggleMute,
   notificationsEnabled,
   onToggleNotifications,
+  initialTab = 'graphics',
+  onAccountsChanged,
   onClose,
 }) => {
   const { locale, setLocale, t } = useI18n();
-  const [activeTab, setActiveTab] = useState<'graphics' | 'models'>('graphics');
+  const [activeTab, setActiveTab] = useState<'graphics' | 'models' | 'accounts'>(initialTab);
+  const [googleAccount, setGoogleAccount] = useState<ConnectedAccountInfo | null>(null);
+  const [githubAccount, setGithubAccount] = useState<ConnectedAccountInfo | null>(null);
+  const [googleClientIdDraft, setGoogleClientIdDraft] = useState('');
+  const [googleClientSecretDraft, setGoogleClientSecretDraft] = useState('');
+  const [githubClientIdDraft, setGithubClientIdDraft] = useState('');
+  const [accountBusy, setAccountBusy] = useState(false);
+  const [accountError, setAccountError] = useState<string | null>(null);
+  const [accountNotice, setAccountNotice] = useState<string | null>(null);
+  const [deviceFlow, setDeviceFlow] = useState<{
+    userCode: string;
+    verificationUri: string;
+    deviceCode: string;
+    interval: number;
+  } | null>(null);
   const [activeCloudProvider, setActiveCloudProvider] = useState<CloudProviderId>('gemini');
   const [keyStatuses, setKeyStatuses] = useState<
     Partial<Record<CloudProviderId, { configured: boolean; masked: string; source: 'env' | 'settings' | 'none' }>>
@@ -282,6 +301,181 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       cancelled = true;
     };
   }, [activeCloudProvider]);
+
+  const fetchAccountsStatus = async () => {
+    try {
+      const res = await fetch('/api/auth/accounts');
+      if (!res.ok) return;
+      const data = (await res.json()) as {
+        google?: ConnectedAccountInfo;
+        github?: ConnectedAccountInfo;
+      };
+      if (data.google) setGoogleAccount(data.google);
+      if (data.github) setGithubAccount(data.github);
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab !== 'accounts') return;
+    void fetchAccountsStatus();
+    const onMsg = (ev: MessageEvent) => {
+      if (ev.data && typeof ev.data === 'object' && ev.data.type === 'swarm_auth_complete') {
+        void fetchAccountsStatus().then(() => onAccountsChanged?.());
+      }
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (!deviceFlow) return;
+    const timer = window.setInterval(async () => {
+      try {
+        const res = await fetch('/api/auth/github/device/poll', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            deviceCode: deviceFlow.deviceCode,
+            clientId: githubClientIdDraft.trim() || undefined,
+          }),
+        });
+        const data = (await res.json()) as {
+          ok?: boolean;
+          status?: 'pending' | 'connected' | 'error';
+          account?: ConnectedAccountInfo;
+          error?: string;
+        };
+        if (data.status === 'connected') {
+          setDeviceFlow(null);
+          if (data.account) setGithubAccount(data.account);
+          onAccountsChanged?.();
+        } else if (data.status === 'error') {
+          setDeviceFlow(null);
+          setAccountError(data.error || 'GitHub Device Flow failed');
+        }
+      } catch {
+        // retry on next interval
+      }
+    }, Math.max(3, deviceFlow.interval || 5) * 1000);
+    return () => window.clearInterval(timer);
+  }, [deviceFlow, githubClientIdDraft]);
+
+  const handleSaveGoogleClient = async () => {
+    playSelectBlip();
+    setAccountBusy(true);
+    setAccountError(null);
+    setAccountNotice(null);
+    try {
+      const res = await fetch('/api/auth/google/client', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: googleClientIdDraft.trim(),
+          clientSecret: googleClientSecretDraft.trim() || undefined,
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setAccountError(data.error || `HTTP ${res.status}`);
+        return;
+      }
+      setAccountNotice(t.settingsModal.geminiKeySaved);
+      await fetchAccountsStatus();
+    } catch (err) {
+      setAccountError(err instanceof Error ? err.message : 'Failed to save Google client');
+    } finally {
+      setAccountBusy(false);
+    }
+  };
+
+  const handleStartGoogleSignIn = async () => {
+    playSelectBlip();
+    setAccountBusy(true);
+    setAccountError(null);
+    try {
+      const res = await fetch('/api/auth/google/start');
+      const data = (await res.json()) as { ok?: boolean; authUrl?: string; error?: string };
+      if (!res.ok || !data.authUrl) {
+        setAccountError(data.error || `HTTP ${res.status}`);
+        return;
+      }
+      window.open(data.authUrl, 'swarm_google_auth', 'width=540,height=680');
+    } catch (err) {
+      setAccountError(err instanceof Error ? err.message : 'Failed to start Google sign-in');
+    } finally {
+      setAccountBusy(false);
+    }
+  };
+
+  const handleImportGhCli = async () => {
+    playSelectBlip();
+    setAccountBusy(true);
+    setAccountError(null);
+    try {
+      const res = await fetch('/api/auth/github/import-gh', { method: 'POST' });
+      const data = (await res.json()) as { ok?: boolean; account?: ConnectedAccountInfo; error?: string };
+      if (!res.ok || !data.ok) {
+        setAccountError(data.error || `HTTP ${res.status}`);
+        return;
+      }
+      if (data.account) setGithubAccount(data.account);
+      onAccountsChanged?.();
+    } catch (err) {
+      setAccountError(err instanceof Error ? err.message : 'Failed to import gh CLI session');
+    } finally {
+      setAccountBusy(false);
+    }
+  };
+
+  const handleStartGitHubDevice = async () => {
+    playSelectBlip();
+    setAccountBusy(true);
+    setAccountError(null);
+    try {
+      const res = await fetch('/api/auth/github/device/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId: githubClientIdDraft.trim() || undefined }),
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        userCode?: string;
+        verificationUri?: string;
+        deviceCode?: string;
+        interval?: number;
+        error?: string;
+      };
+      if (!res.ok || !data.ok || !data.userCode || !data.deviceCode) {
+        setAccountError(data.error || `HTTP ${res.status}`);
+        return;
+      }
+      setDeviceFlow({
+        userCode: data.userCode,
+        verificationUri: data.verificationUri || 'https://github.com/login/device',
+        deviceCode: data.deviceCode,
+        interval: data.interval || 5,
+      });
+    } catch (err) {
+      setAccountError(err instanceof Error ? err.message : 'Failed to start Device Flow');
+    } finally {
+      setAccountBusy(false);
+    }
+  };
+
+  const handleDisconnectAccount = async (provider: 'google' | 'github') => {
+    playSelectBlip();
+    setAccountBusy(true);
+    setAccountError(null);
+    try {
+      await fetch(`/api/auth/accounts/${provider}`, { method: 'DELETE' });
+      await fetchAccountsStatus();
+      onAccountsChanged?.();
+    } finally {
+      setAccountBusy(false);
+    }
+  };
 
   const handleSaveCloudKey = async (apiKey: string) => {
     playSelectBlip();
@@ -504,6 +698,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             }}
           >
             {t.settingsModal.tabModelsAgents}
+          </button>
+          <button
+            type="button"
+            className={`pixel-btn ${activeTab === 'accounts' ? 'cyan' : ''}`}
+            style={{ fontSize: 10, padding: '6px 12px' }}
+            onClick={() => {
+              playSelectBlip();
+              setActiveTab('accounts');
+            }}
+          >
+            {t.settingsModal.tabAccounts}
           </button>
         </div>
 
@@ -1061,6 +1266,166 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </button>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {activeTab === 'accounts' && (
+          <>
+            {accountError && (
+              <div className="pixel-panel-inset" style={{ padding: '6px 10px', color: 'var(--accent-amber)', fontSize: 11 }}>
+                ⚠ {accountError}
+              </div>
+            )}
+
+            {/* Google Account */}
+            <div className="pixel-panel-inset" style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                <span className="pixel-title" style={{ fontSize: 9, color: '#3cd8ff' }}>
+                  {t.settingsModal.accountsGoogleTitle}
+                </span>
+                <span className="pixel-badge" style={{ fontSize: 9, color: googleAccount?.connected ? '#3be87a' : 'var(--text-dim)' }}>
+                  {googleAccount?.connected
+                    ? `✓ ${googleAccount.email || t.settingsModal.connectedBadge}`
+                    : t.settingsModal.notConnectedBadge}
+                </span>
+              </div>
+
+              <div style={{ fontSize: 10, color: '#9aa7c7', lineHeight: 1.4 }}>
+                {t.settingsModal.accountsGoogleGuide}
+              </div>
+
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                <input
+                  type="text"
+                  value={googleClientIdDraft}
+                  onChange={(e) => setGoogleClientIdDraft(e.target.value)}
+                  placeholder={t.settingsModal.googleClientIdPlaceholder}
+                  className="retro-dock-select"
+                  style={{ flex: 1, minWidth: 180, maxWidth: 'none', cursor: 'text' }}
+                />
+                <input
+                  type="password"
+                  value={googleClientSecretDraft}
+                  onChange={(e) => setGoogleClientSecretDraft(e.target.value)}
+                  placeholder={t.settingsModal.googleClientSecretPlaceholder}
+                  className="retro-dock-select"
+                  style={{ flex: 1, minWidth: 150, maxWidth: 'none', cursor: 'text' }}
+                />
+                <button
+                  type="button"
+                  className="pixel-btn cyan"
+                  style={{ fontSize: 9, padding: '5px 10px' }}
+                  disabled={accountBusy || !googleClientIdDraft.trim()}
+                  onClick={() => void handleSaveGoogleClient()}
+                >
+                  {t.settingsModal.saveClientBtn}
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="pixel-btn active"
+                  style={{ fontSize: 9, padding: '5px 12px' }}
+                  disabled={accountBusy}
+                  onClick={() => void handleStartGoogleSignIn()}
+                >
+                  🔵 {t.settingsModal.signInGoogleBtn}
+                </button>
+                {googleAccount?.connected && (
+                  <button
+                    type="button"
+                    className="pixel-btn danger"
+                    style={{ fontSize: 9, padding: '5px 10px' }}
+                    disabled={accountBusy}
+                    onClick={() => void handleDisconnectAccount('google')}
+                  >
+                    {t.settingsModal.disconnectBtn}
+                  </button>
+                )}
+                {accountNotice && (
+                  <span style={{ fontSize: 10, color: '#3be87a' }}>{accountNotice}</span>
+                )}
+              </div>
+            </div>
+
+            {/* GitHub Account */}
+            <div className="pixel-panel-inset" style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                <span className="pixel-title" style={{ fontSize: 9, color: '#ffd147' }}>
+                  {t.settingsModal.accountsGithubTitle}
+                </span>
+                <span className="pixel-badge" style={{ fontSize: 9, color: githubAccount?.connected ? '#3be87a' : 'var(--text-dim)' }}>
+                  {githubAccount?.connected
+                    ? `✓ @${githubAccount.username || t.settingsModal.connectedBadge}`
+                    : t.settingsModal.notConnectedBadge}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  className="pixel-btn active"
+                  style={{ fontSize: 9, padding: '5px 10px' }}
+                  disabled={accountBusy}
+                  onClick={() => void handleImportGhCli()}
+                >
+                  🐙 {t.settingsModal.importGhCliBtn}
+                </button>
+                {githubAccount?.connected && (
+                  <button
+                    type="button"
+                    className="pixel-btn danger"
+                    style={{ fontSize: 9, padding: '5px 10px' }}
+                    disabled={accountBusy}
+                    onClick={() => void handleDisconnectAccount('github')}
+                  >
+                    {t.settingsModal.disconnectBtn}
+                  </button>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                <input
+                  type="text"
+                  value={githubClientIdDraft}
+                  onChange={(e) => setGithubClientIdDraft(e.target.value)}
+                  placeholder={t.settingsModal.githubClientIdPlaceholder}
+                  className="retro-dock-select"
+                  style={{ flex: 1, minWidth: 190, maxWidth: 'none', cursor: 'text' }}
+                />
+                <button
+                  type="button"
+                  className="pixel-btn cyan"
+                  style={{ fontSize: 9, padding: '5px 10px' }}
+                  disabled={accountBusy}
+                  onClick={() => void handleStartGitHubDevice()}
+                >
+                  {t.settingsModal.githubDeviceBtn}
+                </button>
+              </div>
+
+              {deviceFlow && (
+                <div className="retro-dock-diff-row" style={{ flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 10, color: '#9ee8ff' }}>{t.settingsModal.githubDeviceStep}</span>
+                    <span className="pixel-badge" style={{ fontSize: 11, color: '#ffd147', fontWeight: 700 }}>
+                      {deviceFlow.userCode}
+                    </span>
+                    <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{t.settingsModal.githubDeviceWaiting}</span>
+                  </div>
+                  <a
+                    href={deviceFlow.verificationUri}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="pixel-btn cyan"
+                    style={{ fontSize: 9, padding: '3px 8px', textDecoration: 'none' }}
+                  >
+                    {t.settingsModal.githubDeviceOpen}
+                  </a>
                 </div>
               )}
             </div>

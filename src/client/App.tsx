@@ -2,9 +2,11 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   DEFAULT_GRAPHICS_SETTINGS,
   type CloudProviderId,
+  type ConnectedAccountInfo,
   type FloorEventKind,
   type GraphicsSettings,
   type LocalAgentConfig,
+  type ManagedWorkspace,
   type OfficeEmployee,
   type PlazaFloor,
   type PlazaSnapshot,
@@ -30,6 +32,7 @@ import { AnalyticsModal } from './components/AnalyticsModal';
 import { ElevatorPanel } from './components/ElevatorPanel';
 import { EventCalendarModal } from './components/EventCalendarModal';
 import { IconLegendModal } from './components/IconLegendModal';
+import { ProjectManagerModal } from './components/ProjectManagerModal';
 import { RetroCommandDock } from './components/RetroCommandDock';
 import {
   loadStoredLocalAgents,
@@ -151,6 +154,51 @@ export const App: React.FC = () => {
   const [alertsOpen, setAlertsOpen] = useState<boolean>(false);
   const [legendOpen, setLegendOpen] = useState<boolean>(false);
   const [calendarOpen, setCalendarOpen] = useState<boolean>(false);
+  const [projectsOpen, setProjectsOpen] = useState<boolean>(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<'graphics' | 'models' | 'accounts'>('graphics');
+  const [managedWorkspaces, setManagedWorkspaces] = useState<ManagedWorkspace[]>([]);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
+  const [connectedAccounts, setConnectedAccounts] = useState<{
+    google?: ConnectedAccountInfo;
+    github?: ConnectedAccountInfo;
+  }>({});
+
+  const refreshWorkspacesAndAccounts = useCallback(async () => {
+    try {
+      const [wsRes, accRes] = await Promise.all([
+        sidecarFetch('/api/workspaces').catch(() => null),
+        sidecarFetch('/api/auth/accounts').catch(() => null),
+      ]);
+      if (wsRes?.ok) {
+        const wsData = (await wsRes.json()) as {
+          workspaces?: ManagedWorkspace[];
+          activeWorkspaceId?: string | null;
+        };
+        if (Array.isArray(wsData.workspaces)) {
+          setManagedWorkspaces(wsData.workspaces);
+          setActiveWorkspaceId(wsData.activeWorkspaceId ?? null);
+        }
+      }
+      if (accRes?.ok) {
+        const accData = (await accRes.json()) as {
+          google?: ConnectedAccountInfo;
+          github?: ConnectedAccountInfo;
+        };
+        setConnectedAccounts(accData);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshWorkspacesAndAccounts();
+  }, [refreshWorkspacesAndAccounts]);
+
+  const activeWorkspace = useMemo(
+    () => managedWorkspaces.find((w) => w.id === activeWorkspaceId) ?? null,
+    [managedWorkspaces, activeWorkspaceId],
+  );
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -646,6 +694,7 @@ function loadStickyAlerts(): StickyAlertItem[] {
     whiteboardOpen ||
       analyticsOpen ||
       settingsOpen ||
+      projectsOpen ||
       alertsOpen ||
       legendOpen ||
       calendarOpen ||
@@ -662,7 +711,11 @@ function loadStickyAlerts(): StickyAlertItem[] {
         onChangeViewMode={setViewMode}
         onOpenWhiteboard={() => setWhiteboardOpen(true)}
         onOpenAnalytics={() => setAnalyticsOpen(true)}
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSettings={() => {
+          setSettingsInitialTab('graphics');
+          setSettingsOpen(true);
+        }}
+        onOpenProjects={() => setProjectsOpen(true)}
         onExportPng={handleExportPng}
         onRerollLayout={handleRerollLayout}
         onTriggerEvent={() => handleTriggerEvent()}
@@ -777,6 +830,7 @@ function loadStickyAlerts(): StickyAlertItem[] {
             floors={localizedSnapshot?.floors ?? []}
             selectedFloorId={activeFloor?.id ?? null}
             onSelectFloor={handleSelectFloorFromElevator}
+            onOpenProjects={() => setProjectsOpen(true)}
             isOverlay={isCompactPane}
             onClose={() => setIsElevatorOpen(false)}
           />
@@ -828,6 +882,9 @@ function loadStickyAlerts(): StickyAlertItem[] {
             employees={activeFloor?.employees ?? []}
             localAgents={localAgents}
             providerModels={providerModels}
+            workspace={activeWorkspace?.localPath}
+            activeWorkspace={activeWorkspace}
+            onOpenProjects={() => setProjectsOpen(true)}
           />
         </div>
       </main>
@@ -907,7 +964,27 @@ function loadStickyAlerts(): StickyAlertItem[] {
           onToggleMute={handleToggleMute}
           notificationsEnabled={notificationsEnabled}
           onToggleNotifications={handleToggleNotifications}
+          initialTab={settingsInitialTab}
+          onAccountsChanged={() => void refreshWorkspacesAndAccounts()}
           onClose={() => setSettingsOpen(false)}
+        />
+      )}
+
+      {projectsOpen && (
+        <ProjectManagerModal
+          workspaces={managedWorkspaces}
+          activeWorkspaceId={activeWorkspaceId}
+          accounts={connectedAccounts}
+          onWorkspacesChanged={(nextWs, nextActiveId) => {
+            setManagedWorkspaces(nextWs);
+            setActiveWorkspaceId(nextActiveId);
+          }}
+          onOpenAccounts={() => {
+            setProjectsOpen(false);
+            setSettingsInitialTab('accounts');
+            setSettingsOpen(true);
+          }}
+          onClose={() => setProjectsOpen(false)}
         />
       )}
 

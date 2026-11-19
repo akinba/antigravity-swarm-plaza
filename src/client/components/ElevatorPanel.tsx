@@ -7,6 +7,7 @@ interface ElevatorPanelProps {
   floors: PlazaFloor[];
   selectedFloorId: string | null;
   onSelectFloor: (floorId: string) => void;
+  onOpenProjects?: () => void;
   isOverlay?: boolean;
   onClose?: () => void;
 }
@@ -15,6 +16,7 @@ export const ElevatorPanel: React.FC<ElevatorPanelProps> = ({
   floors,
   selectedFloorId,
   onSelectFloor,
+  onOpenProjects,
   isOverlay = false,
   onClose,
 }) => {
@@ -92,6 +94,19 @@ export const ElevatorPanel: React.FC<ElevatorPanelProps> = ({
           gap: 6,
         }}
       >
+        {onOpenProjects && (
+          <button
+            type="button"
+            className="pixel-btn active"
+            style={{ width: '100%', fontSize: 9, padding: '6px 8px' }}
+            onClick={() => {
+              playElevatorDing();
+              onOpenProjects();
+            }}
+          >
+            {t.elevator.openProject}
+          </button>
+        )}
         {orderedFloors.length === 0 && (
           <div style={{ fontSize: 12, color: 'var(--text-dim)', padding: 12, textAlign: 'center' }}>
             {t.elevator.noFloors}

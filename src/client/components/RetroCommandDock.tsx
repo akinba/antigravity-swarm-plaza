@@ -7,6 +7,7 @@ import type {
   ExecutionMode,
   GeminiModelInfo,
   LocalAgentConfig,
+  ManagedWorkspace,
   OfficeEmployee,
   PromptModelId,
   PromptProvider,
@@ -485,6 +486,8 @@ export interface RetroCommandDockProps {
   localAgents?: LocalAgentConfig[];
   providerModels?: Partial<Record<CloudProviderId, ProviderModelInfo[]>>;
   workspace?: string;
+  activeWorkspace?: ManagedWorkspace | null;
+  onOpenProjects?: () => void;
 }
 
 export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
@@ -493,6 +496,8 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
   localAgents = [],
   providerModels = {},
   workspace,
+  activeWorkspace = null,
+  onOpenProjects,
 }) => {
   const { t, locale } = useI18n();
   const [minimized, setMinimized] = useState(false);
@@ -512,6 +517,8 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
   const [diffs, setDiffs] = useState<DiffFileChange[]>([]);
   const [pendingApprovals, setPendingApprovals] = useState<ApprovalRequestPayload[]>([]);
   const [submittingApprovalId, setSubmittingApprovalId] = useState<string | null>(null);
+  const [commitMessageDraft, setCommitMessageDraft] = useState('');
+  const [syncingWorkspace, setSyncingWorkspace] = useState(false);
   const [listening, setListening] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -735,7 +742,7 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
           localBaseUrl,
           localBaseUrls: Object.keys(localBaseUrls).length > 0 ? localBaseUrls : undefined,
           ollamaBaseUrl,
-          workspace,
+          workspace: workspace || activeWorkspace?.localPath,
           attachments,
           floorId: activeFloorId ?? undefined,
         }),
@@ -801,6 +808,60 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
     } catch (err) {
       appendLog('error', err instanceof Error ? err.message : 'Approval request failed');
       setSubmittingApprovalId(null);
+    }
+  };
+
+  const handleCommitAndPush = async () => {
+    if (!activeWorkspace || !commitMessageDraft.trim()) return;
+    playSelectBlip();
+    setSyncingWorkspace(true);
+    try {
+      const res = await fetch(`/api/workspaces/${encodeURIComponent(activeWorkspace.id)}/commit-push`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: commitMessageDraft.trim(), push: true }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; output?: string; error?: string };
+      if (res.ok && data.ok) {
+        setCommitMessageDraft('');
+        appendLog('status', `[GIT] ${data.output || 'Committed & pushed'}`);
+      } else {
+        appendLog('error', data.error || `Commit & Push failed (HTTP ${res.status})`);
+      }
+    } catch (err) {
+      appendLog('error', err instanceof Error ? err.message : 'Commit & Push failed');
+    } finally {
+      setSyncingWorkspace(false);
+    }
+  };
+
+  const handleSyncDrive = async () => {
+    if (!activeWorkspace) return;
+    playSelectBlip();
+    setSyncingWorkspace(true);
+    try {
+      const res = await fetch(`/api/workspaces/${encodeURIComponent(activeWorkspace.id)}/sync-drive`, {
+        method: 'POST',
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        uploaded?: number;
+        created?: number;
+        skipped?: number;
+        error?: string;
+      };
+      if (res.ok && data.ok) {
+        appendLog(
+          'status',
+          `[DRIVE SYNC] uploaded=${data.uploaded ?? 0}, created=${data.created ?? 0}, skipped=${data.skipped ?? 0}`,
+        );
+      } else {
+        appendLog('error', data.error || `Drive sync failed (HTTP ${res.status})`);
+      }
+    } catch (err) {
+      appendLog('error', err instanceof Error ? err.message : 'Drive sync failed');
+    } finally {
+      setSyncingWorkspace(false);
     }
   };
 
@@ -1052,6 +1113,40 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
                   </div>
                 </div>
               ))}
+              {activeWorkspace && (activeWorkspace.source === 'github' || activeWorkspace.gitBranch) && (
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', paddingTop: 4 }}>
+                  <input
+                    type="text"
+                    value={commitMessageDraft}
+                    onChange={(e) => setCommitMessageDraft(e.target.value)}
+                    placeholder={t.dock.commitMsgPlaceholder}
+                    className="retro-dock-select"
+                    style={{ flex: 1, minWidth: 160, maxWidth: 'none', cursor: 'text' }}
+                  />
+                  <button
+                    type="button"
+                    className="pixel-btn active"
+                    style={{ fontSize: 8, padding: '4px 8px' }}
+                    disabled={syncingWorkspace || !commitMessageDraft.trim()}
+                    onClick={() => void handleCommitAndPush()}
+                  >
+                    {syncingWorkspace ? t.dock.syncing : t.dock.commitPushBtn}
+                  </button>
+                </div>
+              )}
+              {activeWorkspace && activeWorkspace.source === 'gdrive' && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 4 }}>
+                  <button
+                    type="button"
+                    className="pixel-btn cyan"
+                    style={{ fontSize: 8, padding: '4px 8px' }}
+                    disabled={syncingWorkspace}
+                    onClick={() => void handleSyncDrive()}
+                  >
+                    {syncingWorkspace ? t.dock.syncing : t.dock.driveSyncBtn}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1065,6 +1160,33 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
             <span className="pixel-badge" style={{ fontSize: 8 }}>
               {statusLabel}
             </span>
+            {activeWorkspace && (
+              <button
+                type="button"
+                className="pixel-badge"
+                style={{
+                  fontSize: 8,
+                  color: '#7ee7ff',
+                  cursor: onOpenProjects ? 'pointer' : 'default',
+                  fontFamily: 'inherit',
+                }}
+                title={activeWorkspace.localPath}
+                onClick={() => {
+                  if (onOpenProjects) {
+                    playSelectBlip();
+                    onOpenProjects();
+                  }
+                }}
+              >
+                {activeWorkspace.source === 'github'
+                  ? '🐙'
+                  : activeWorkspace.source === 'gdrive'
+                    ? '☁️'
+                    : '📁'}{' '}
+                {activeWorkspace.name}
+                {activeWorkspace.gitBranch ? ` (${activeWorkspace.gitBranch})` : ''}
+              </button>
+            )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {!minimized && (

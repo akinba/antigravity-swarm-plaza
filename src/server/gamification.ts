@@ -8,6 +8,7 @@ import type {
   CompanyTier,
   FloorAnalytics,
   FloorRandomEvent,
+  ManagedWorkspace,
   ModelBreakdownEntry,
   ModelFamily,
   NormalizedAgentState,
@@ -1510,12 +1511,60 @@ export function mergeLiveSwarmBoard(
   }
 }
 
+export function mergeManagedWorkspaces(
+  floors: PlazaFloor[],
+  managedWorkspaces: ManagedWorkspace[] | undefined,
+  nowMs: number,
+): void {
+  if (!managedWorkspaces || managedWorkspaces.length === 0) return;
+
+  let nextFloorNumber =
+    floors.reduce((max, f) => (f.floorNumber > max ? f.floorNumber : max), 0) + 1;
+
+  for (const ws of managedWorkspaces) {
+    const wsKey = normalizeWorkspaceKey(ws.localPath);
+    const existing = floors.find(
+      (f) => !f.isDemo && normalizeWorkspaceKey(f.workspacePath) === wsKey,
+    );
+    if (existing) {
+      existing.managedWorkspaceId = ws.id;
+      existing.workspaceSource = ws.source;
+      existing.gitBranch = ws.gitBranch;
+      continue;
+    }
+
+    const id = makeFloorId(ws.localPath, false);
+    floors.push({
+      id,
+      floorNumber: nextFloorNumber++,
+      companyName: ws.name,
+      workspacePath: ws.localPath,
+      tier: 1,
+      companyXp: 0,
+      nextTierXp: 500,
+      ecoScore: 100,
+      activeCount: 0,
+      waitingCount: 0,
+      totalConversations: 0,
+      unlockedProps: [],
+      employees: [],
+      boardMessages: [],
+      layoutSeed: getFloorLayoutSeed(id),
+      managedWorkspaceId: ws.id,
+      workspaceSource: ws.source,
+      gitBranch: ws.gitBranch,
+      lastModifiedAt: ws.openedAt || new Date(nowMs).toISOString(),
+    });
+  }
+}
+
 export function buildPlazaSnapshot(
   agyDataDir: string,
   currentWorkspace: string,
   demoMode: boolean,
   promptOverrides?: ReadonlyMap<string, ActivePromptAgentOverride>,
   liveSwarmBoard?: WhiteboardSnapshot | null,
+  managedWorkspaces?: ManagedWorkspace[],
 ): PlazaSnapshot {
   const nowMs = Date.now();
   const rows = readConversationSummaries(agyDataDir);
@@ -1812,6 +1861,7 @@ export function buildPlazaSnapshot(
     floors.push(getDemoFloor('throttled', nowMs));
   }
 
+  mergeManagedWorkspaces(floors, managedWorkspaces, nowMs);
   applyActivePromptOverrides(floors, promptOverrides);
   mergeLiveSwarmBoard(floors, activeProjectFloorId, liveSwarmBoard);
 

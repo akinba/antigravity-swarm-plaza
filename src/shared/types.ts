@@ -251,6 +251,9 @@ export interface PlazaFloor {
   recentlyLeftEmployees?: OfficeEmployee[];
   activeCelebration?: FloorCelebration | null;
   analytics?: FloorAnalytics;
+  managedWorkspaceId?: string;
+  workspaceSource?: WorkspaceSource;
+  gitBranch?: string;
   lastModifiedAt: string;
 }
 
@@ -419,4 +422,60 @@ export interface PromptStreamEvent {
   approval?: ApprovalRequestPayload;
   boardMessage?: SwarmBoardMessage;
   timestamp: number;
+}
+
+export type AccountProvider = 'google' | 'github';
+
+export interface ConnectedAccountInfo {
+  provider: AccountProvider;
+  connected: boolean;
+  username?: string;
+  email?: string;
+  avatarUrl?: string;
+  scopes?: string[];
+  source?: 'oauth' | 'gh_cli' | 'pat';
+  hasClientId?: boolean;
+}
+
+export interface GoogleDriveEntry {
+  id: string;
+  name: string;
+  mimeType: string;
+  isFolder: boolean;
+  modifiedTime?: string;
+  size?: number;
+}
+
+export interface GitHubRepoInfo {
+  fullName: string;
+  name: string;
+  owner: string;
+  url: string;
+  cloneUrl: string;
+  isPrivate: boolean;
+  defaultBranch?: string;
+  description?: string;
+  updatedAt?: string;
+}
+
+export type WorkspaceSource = 'local' | 'github' | 'gdrive';
+
+export interface ManagedWorkspace {
+  id: string;
+  name: string;
+  source: WorkspaceSource;
+  localPath: string;
+  trusted: boolean;
+  gitBranch?: string;
+  remoteUrl?: string;
+  gdriveFolderId?: string;
+  lastSyncedAt?: string;
+  openedAt: string;
+}
+
+export interface BrowseDirectoryResult {
+  currentDir: string;
+  parentDir: string | null;
+  roots: string[];
+  entries: Array<{ name: string; path: string; isDirectory: boolean }>;
 }

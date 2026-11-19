@@ -14,6 +14,7 @@ interface TopHudProps {
   onOpenWhiteboard: () => void;
   onOpenAnalytics: () => void;
   onOpenSettings: () => void;
+  onOpenProjects?: () => void;
   onExportPng: () => void;
   onRerollLayout: () => void;
   onTriggerEvent: () => void;
@@ -40,6 +41,7 @@ export const TopHud: React.FC<TopHudProps> = ({
   onOpenWhiteboard,
   onOpenAnalytics,
   onOpenSettings,
+  onOpenProjects,
   onExportPng,
   onRerollLayout,
   onTriggerEvent,
@@ -229,6 +231,20 @@ export const TopHud: React.FC<TopHudProps> = ({
               {viewMode === 'office' ? t.hud.viewPlaza : t.hud.viewOffice}
             </button>
 
+            {onOpenProjects && (
+              <button
+                type="button"
+                className="pixel-btn active"
+                style={{ padding: '4px 7px', fontSize: 8 }}
+                onClick={() => {
+                  playSelectBlip();
+                  setMoreOpen(false);
+                  onOpenProjects();
+                }}
+              >
+                {t.hud.projects}
+              </button>
+            )}
             <button
               type="button"
               className="pixel-btn gold"
@@ -328,6 +344,20 @@ export const TopHud: React.FC<TopHudProps> = ({
                 }}
               >
                 {t.hud.legendShort}
+              </button>
+            )}
+            {onOpenProjects && (
+              <button
+                type="button"
+                className="pixel-btn active"
+                style={{ padding: '4px 7px', fontSize: 8 }}
+                onClick={() => {
+                  playSelectBlip();
+                  setMoreOpen(false);
+                  onOpenProjects();
+                }}
+              >
+                {t.hud.projects}
               </button>
             )}
             <button
@@ -609,6 +639,20 @@ export const TopHud: React.FC<TopHudProps> = ({
             }}
           >
             {t.hud.legendShort}
+          </button>
+        )}
+
+        {/* Projects / Workspaces */}
+        {onOpenProjects && (
+          <button
+            type="button"
+            className="pixel-btn active"
+            onClick={() => {
+              playSelectBlip();
+              onOpenProjects();
+            }}
+          >
+            {t.hud.projects}
           </button>
         )}
 

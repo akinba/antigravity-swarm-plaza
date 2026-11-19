@@ -558,6 +558,13 @@ export class PromptRunner {
     return this.lastSwarmBoard ? this.lastSwarmBoard.toWhiteboardSnapshot() : null;
   }
 
+  setWorkspace(dirPath: string): void {
+    const trimmed = (dirPath ?? '').trim();
+    if (trimmed) {
+      this.workspace = path.resolve(trimmed);
+    }
+  }
+
   getState(): PromptRunnerState {
     return {
       runId: this.runId,

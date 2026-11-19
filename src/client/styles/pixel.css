@@ -515,6 +515,37 @@ canvas {
   flex-wrap: wrap;
 }
 
+.retro-project-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 170px;
+  overflow-y: auto;
+  background: #0a0d16;
+  border: 2px solid var(--border-dark);
+  padding: 6px;
+}
+
+.retro-project-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border-dark);
+  color: #dce6ff;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.retro-project-row:hover {
+  border-color: var(--accent-cyan);
+  background: #1b243c;
+}
+
 .retro-dock-diffs {
   display: flex;
   flex-direction: column;

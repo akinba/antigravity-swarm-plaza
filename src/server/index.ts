@@ -2,10 +2,12 @@ import cors from 'cors';
 import express, { type Express } from 'express';
 import fs from 'node:fs';
 import http from 'node:http';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { WebSocket, WebSocketServer } from 'ws';
 import type {
+  AccountProvider,
   AgentDetailResponse,
   ApprovalDecision,
   OfficeEmployee,
@@ -13,6 +15,7 @@ import type {
   PromptRequest,
   PromptStreamEvent,
 } from '../shared/types.js';
+import { AccountAuthManager, defaultAccountAuthManager } from './accountAuth.js';
 import { readAgentLogs } from './brainScanner.js';
 import {
   AGY_DATA_DIR,
@@ -23,6 +26,8 @@ import {
 } from './config.js';
 import { getDemoAgentLogs, getDemoEmployee, resetDemoTick } from './demoSimulator.js';
 import { buildPlazaSnapshot } from './gamification.js';
+import { listDriveEntries, pullDriveFolder, pushDriveFolder } from './googleDriveSync.js';
+import { WorkspaceManager } from './workspaceManager.js';
 import {
   InvalidDiffPathError,
   InvalidOllamaUrlError,
@@ -48,6 +53,8 @@ export interface PlazaAppOptions {
   clientDistDir?: string;
   sidecarToken?: string;
   promptRunner?: PromptRunner;
+  accountAuth?: AccountAuthManager;
+  workspaceManager?: WorkspaceManager;
 }
 
 export interface PlazaAppInstance {
@@ -135,6 +142,8 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
   const server = http.createServer(app);
   const wss = new WebSocketServer({ server, path: '/ws' });
   const promptRunner = options.promptRunner ?? defaultPromptRunner;
+  const accountAuth = options.accountAuth ?? defaultAccountAuthManager;
+  const workspaceManager = options.workspaceManager ?? new WorkspaceManager();
   const sseClients = new Set<express.Response>();
 
   const getSnapshot = (): PlazaSnapshot =>
@@ -144,6 +153,7 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
       demoMode,
       promptRunner.getActiveOverrides(),
       promptRunner.getActiveSwarmBoardSnapshot(),
+      workspaceManager.listWorkspaces(),
     );
 
   const broadcastSnapshot = (): PlazaSnapshot => {
@@ -473,6 +483,265 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
       return;
     }
     res.json({ ok: true, approvalId, decision });
+  });
+
+  // --- Account Auth Routes (Google OAuth PKCE & GitHub) ---
+  const resolveCallbackBaseUrl = (req: express.Request): string => {
+    const proto =
+      (typeof req.headers['x-forwarded-proto'] === 'string' && req.headers['x-forwarded-proto']) ||
+      req.protocol ||
+      'http';
+    const host = req.headers.host || `127.0.0.1:${PORT}`;
+    return `${proto}://${host}`;
+  };
+
+  app.get('/api/auth/accounts', (_req, res) => {
+    res.json(accountAuth.getAccountsStatus());
+  });
+
+  app.post('/api/auth/google/client', (req, res) => {
+    const body = (req.body ?? {}) as { clientId?: unknown; clientSecret?: unknown };
+    const clientId = typeof body.clientId === 'string' ? body.clientId : '';
+    const clientSecret = typeof body.clientSecret === 'string' ? body.clientSecret : undefined;
+    try {
+      const account = accountAuth.saveGoogleOAuthClient({ clientId, clientSecret });
+      res.json({ ok: true, account });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  app.get('/api/auth/google/start', (req, res) => {
+    try {
+      const result = accountAuth.startGoogleAuth(resolveCallbackBaseUrl(req));
+      res.json(result);
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  app.get('/api/auth/google/callback', async (req, res) => {
+    const code = typeof req.query.code === 'string' ? req.query.code : '';
+    const state = typeof req.query.state === 'string' ? req.query.state : '';
+    const result = await accountAuth.handleGoogleCallback(
+      code,
+      state,
+      resolveCallbackBaseUrl(req),
+    );
+    res.status(result.ok ? 200 : 400).type('text/html; charset=utf-8').send(result.html);
+  });
+
+  app.post('/api/auth/github/import-gh', async (_req, res) => {
+    const result = await accountAuth.importGhCliAccount();
+    res.status(result.ok ? 200 : 400).json(result);
+  });
+
+  app.post('/api/auth/github/device/start', async (req, res) => {
+    const body = (req.body ?? {}) as { clientId?: unknown };
+    const clientId = typeof body.clientId === 'string' ? body.clientId : undefined;
+    const result = await accountAuth.startGitHubDeviceFlow(clientId);
+    res.status(result.ok ? 200 : 400).json(result);
+  });
+
+  app.post('/api/auth/github/device/poll', async (req, res) => {
+    const body = (req.body ?? {}) as { deviceCode?: unknown; clientId?: unknown };
+    const deviceCode = typeof body.deviceCode === 'string' ? body.deviceCode : '';
+    const clientId = typeof body.clientId === 'string' ? body.clientId : undefined;
+    if (!deviceCode) {
+      res.status(400).json({ ok: false, status: 'error', error: 'deviceCode is required' });
+      return;
+    }
+    const result = await accountAuth.pollGitHubDeviceFlow(deviceCode, clientId);
+    res.json(result);
+  });
+
+  app.delete('/api/auth/accounts/:provider', (req, res) => {
+    const provider = req.params.provider;
+    if (provider !== 'google' && provider !== 'github') {
+      res.status(400).json({ error: `Unsupported account provider: ${provider}` });
+      return;
+    }
+    const account = accountAuth.disconnectAccount(provider as AccountProvider);
+    res.json({ ok: true, account });
+  });
+
+  // --- Managed Workspace / Project Manager Routes ---
+  app.get('/api/workspaces', (_req, res) => {
+    res.json({
+      workspaces: workspaceManager.listWorkspaces(),
+      activeWorkspaceId: workspaceManager.getActiveWorkspaceId(),
+    });
+  });
+
+  app.get('/api/workspaces/browse', async (req, res) => {
+    const dir = typeof req.query.dir === 'string' ? req.query.dir : undefined;
+    try {
+      const result = await workspaceManager.browseDirectory(dir);
+      res.json(result);
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  app.post('/api/workspaces/open-local', async (req, res) => {
+    const body = (req.body ?? {}) as { path?: unknown; trusted?: unknown };
+    const targetPath = typeof body.path === 'string' ? body.path : '';
+    const trusted = Boolean(body.trusted);
+    if (!targetPath.trim()) {
+      res.status(400).json({ ok: false, error: 'path is required' });
+      return;
+    }
+    try {
+      const workspace = await workspaceManager.openLocalWorkspace(targetPath, trusted);
+      promptRunner.setWorkspace(workspace.localPath);
+      broadcastSnapshot();
+      res.json({ ok: true, workspace });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  app.get('/api/workspaces/github/repos', async (_req, res) => {
+    try {
+      const repos = await workspaceManager.listGitHubRepos(
+        accountAuth.getGitHubToken() ?? undefined,
+      );
+      res.json({ ok: true, repos });
+    } catch (err) {
+      res.json({
+        ok: false,
+        repos: [],
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  });
+
+  app.post('/api/workspaces/github/clone', async (req, res) => {
+    const body = (req.body ?? {}) as { repoUrl?: unknown; trusted?: unknown };
+    const repoUrl = typeof body.repoUrl === 'string' ? body.repoUrl : '';
+    const trusted = Boolean(body.trusted);
+    if (!repoUrl.trim()) {
+      res.status(400).json({ ok: false, error: 'repoUrl is required' });
+      return;
+    }
+    try {
+      const workspace = await workspaceManager.cloneGitHubRepo(repoUrl, {
+        trusted,
+        githubToken: accountAuth.getGitHubToken() ?? undefined,
+      });
+      promptRunner.setWorkspace(workspace.localPath);
+      broadcastSnapshot();
+      res.json({ ok: true, workspace });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  app.get('/api/workspaces/gdrive/list', async (req, res) => {
+    const folderId = typeof req.query.folderId === 'string' && req.query.folderId.trim()
+      ? req.query.folderId.trim()
+      : 'root';
+    const token = await accountAuth.getValidGoogleAccessToken();
+    if (!token) {
+      res.json({ ok: false, entries: [], error: 'Google account is not connected.' });
+      return;
+    }
+    try {
+      const entries = await listDriveEntries(token, folderId);
+      res.json({ ok: true, entries });
+    } catch (err) {
+      res.json({
+        ok: false,
+        entries: [],
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  });
+
+  app.post('/api/workspaces/gdrive/open', async (req, res) => {
+    const body = (req.body ?? {}) as { folderId?: unknown; name?: unknown; trusted?: unknown };
+    const folderId = typeof body.folderId === 'string' ? body.folderId.trim() : '';
+    const name = typeof body.name === 'string' && body.name.trim() ? body.name.trim() : 'Drive Project';
+    const trusted = Boolean(body.trusted);
+    if (!folderId) {
+      res.status(400).json({ ok: false, error: 'folderId is required' });
+      return;
+    }
+    const token = await accountAuth.getValidGoogleAccessToken();
+    if (!token) {
+      res.status(401).json({ ok: false, error: 'Google account is not connected.' });
+      return;
+    }
+    try {
+      const safeId = folderId.replace(/[^A-Za-z0-9_-]/g, '_');
+      const localTargetDir = path.join(os.homedir(), 'SwarmPlazaWorkspaces', `gdrive-${safeId}`);
+      await pullDriveFolder(token, folderId, localTargetDir);
+      const workspace = await workspaceManager.registerDriveWorkspace({
+        folderId,
+        name,
+        localPath: localTargetDir,
+        trusted,
+      });
+      promptRunner.setWorkspace(workspace.localPath);
+      broadcastSnapshot();
+      res.json({ ok: true, workspace });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  app.post('/api/workspaces/:id/sync-drive', async (req, res) => {
+    const ws = workspaceManager.getWorkspaceById(req.params.id);
+    if (!ws || ws.source !== 'gdrive' || !ws.gdriveFolderId) {
+      res.status(404).json({ ok: false, error: 'Google Drive workspace not found.' });
+      return;
+    }
+    const token = await accountAuth.getValidGoogleAccessToken();
+    if (!token) {
+      res.status(401).json({ ok: false, error: 'Google account is not connected.' });
+      return;
+    }
+    try {
+      const syncResult = await pushDriveFolder(token, ws.gdriveFolderId, ws.localPath);
+      workspaceManager.markWorkspaceSynced(ws.id);
+      res.json({ ok: true, ...syncResult });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  app.post('/api/workspaces/:id/commit-push', async (req, res) => {
+    const body = (req.body ?? {}) as { message?: unknown; push?: unknown };
+    const message = typeof body.message === 'string' ? body.message : '';
+    const push = Boolean(body.push);
+    try {
+      const result = await workspaceManager.commitAndPush(req.params.id, message, push);
+      broadcastSnapshot();
+      res.json(result);
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  app.post('/api/workspaces/:id/activate', (req, res) => {
+    try {
+      const workspace = workspaceManager.setActiveWorkspace(req.params.id);
+      promptRunner.setWorkspace(workspace.localPath);
+      broadcastSnapshot();
+      res.json({ ok: true, workspace });
+    } catch (err) {
+      res.status(404).json({ ok: false, error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  app.delete('/api/workspaces/:id', (req, res) => {
+    const removed = workspaceManager.removeWorkspace(req.params.id);
+    if (!removed) {
+      res.status(404).json({ ok: false, error: 'Workspace not found' });
+      return;
+    }
+    broadcastSnapshot();
+    res.json({ ok: true });
   });
 
   app.post('/api/diff/decision', async (req, res) => {

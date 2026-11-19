@@ -51,6 +51,7 @@ export interface Translations {
     legend: string;
     legendShort: string;
     calendar: string;
+    projects: string;
   };
   blueprints: string[];
   events: Record<FloorEventKind, string>;
@@ -62,6 +63,7 @@ export interface Translations {
     activeAbbr: string;
     waitingAbbr: string;
     noFloors: string;
+    openProject: string;
   };
   office: {
     emptyFloor: string;
@@ -335,6 +337,11 @@ export interface Translations {
     approvalAllowSession: string;
     approvalDeny: string;
     approvalPendingCount: string;
+    commitPushBtn: string;
+    commitMsgPlaceholder: string;
+    driveSyncBtn: string;
+    syncing: string;
+    noActiveProject: string;
   };
   settingsModal: {
     title: string;
@@ -411,6 +418,52 @@ export interface Translations {
     customBaseUrlLabel: string;
     customBaseUrlPlaceholder: string;
     geminiFormatsHint: string;
+    tabAccounts: string;
+    accountsGoogleTitle: string;
+    accountsGoogleGuide: string;
+    googleClientIdPlaceholder: string;
+    googleClientSecretPlaceholder: string;
+    saveClientBtn: string;
+    signInGoogleBtn: string;
+    accountsGithubTitle: string;
+    importGhCliBtn: string;
+    githubDeviceBtn: string;
+    githubClientIdPlaceholder: string;
+    githubDeviceStep: string;
+    githubDeviceOpen: string;
+    githubDeviceWaiting: string;
+    disconnectBtn: string;
+    connectedBadge: string;
+    notConnectedBadge: string;
+  };
+  projectsModal: {
+    title: string;
+    subtitle: string;
+    close: string;
+    tabLocal: string;
+    tabGithub: string;
+    tabGdrive: string;
+    rootsLabel: string;
+    parentDir: string;
+    trustLabel: string;
+    openLocalBtn: string;
+    emptyDir: string;
+    githubFilterPlaceholder: string;
+    githubUrlPlaceholder: string;
+    cloneOpenBtn: string;
+    refreshBtn: string;
+    driveRoot: string;
+    pullOpenBtn: string;
+    accountRequiredHint: string;
+    openAccountsBtn: string;
+    openWorkspacesTitle: string;
+    noOpenWorkspaces: string;
+    activeBadge: string;
+    trustedBadge: string;
+    untrustedBadge: string;
+    switchBtn: string;
+    removeBtn: string;
+    loading: string;
   };
 }
 
@@ -501,6 +554,7 @@ const TR: Translations = {
     legend: '❓ İkonlar',
     legendShort: '❓ Rehber',
     calendar: '📅 Takvim',
+    projects: '📂 PROJELER',
   },
   blueprints: [
     'Klasik Köşe Stüdyo',
@@ -528,6 +582,7 @@ const TR: Translations = {
     activeAbbr: 'A',
     waitingAbbr: 'B',
     noFloors: 'Kat yok',
+    openProject: '+ PROJE AÇ',
   },
   office: {
     emptyFloor: 'Bu katta henüz aktif çalışan yok.',
@@ -801,6 +856,11 @@ const TR: Translations = {
     approvalAllowSession: '🔓 Bu Oturumda İzin Ver',
     approvalDeny: '❌ Reddet',
     approvalPendingCount: '+{n} bekleyen',
+    commitPushBtn: '📤 Commit & Push',
+    commitMsgPlaceholder: 'Commit mesajı (ör. feat: update)',
+    driveSyncBtn: '☁️ Drive Sync',
+    syncing: 'Eşitleniyor...',
+    noActiveProject: 'Proje seçilmedi',
   },
   settingsModal: {
     title: '⚙️ GRAFİK & SİSTEM AYARLARI',
@@ -877,6 +937,53 @@ const TR: Translations = {
     customBaseUrlLabel: 'Custom Base URL',
     customBaseUrlPlaceholder: 'https://api.example.com/v1',
     geminiFormatsHint: 'Hem AIza... (Google AI Studio) hem AQ.... (Vertex AI Express) anahtarları desteklenir.',
+    tabAccounts: '🔗 HESAPLAR',
+    accountsGoogleTitle: '🔵 GOOGLE HESABI (DRIVE OKUMA / YAZMA)',
+    accountsGoogleGuide:
+      'Kurulum: 1) Google Cloud Console → APIs & Services → Credentials → OAuth Client ID (Web App). 2) Redirect URI olarak sunucu /api/auth/google/callback adresini ekleyin. 3) Client ID girip Kaydet + Giriş Yap deyin.',
+    googleClientIdPlaceholder: 'Google OAuth Client ID',
+    googleClientSecretPlaceholder: 'Client Secret (opsiyonel)',
+    saveClientBtn: 'İstemciyi Kaydet',
+    signInGoogleBtn: 'Google ile Giriş Yap',
+    accountsGithubTitle: '🐙 GITHUB HESABI',
+    importGhCliBtn: 'Mevcut gh CLI Oturumunu Bağla',
+    githubDeviceBtn: 'Device Flow ile Giriş',
+    githubClientIdPlaceholder: 'GitHub OAuth Client ID (opsiyonel)',
+    githubDeviceStep: 'Tarayıcıda şu kodu girin:',
+    githubDeviceOpen: 'github.com/login/device Aç',
+    githubDeviceWaiting: 'Onay bekleniyor...',
+    disconnectBtn: 'Bağlantıyı Kes',
+    connectedBadge: 'Bağlı',
+    notConnectedBadge: 'Bağlı değil',
+  },
+  projectsModal: {
+    title: '📂 PROJE & ÇALIŞMA ALANI YÖNETİCİSİ',
+    subtitle: 'Yerel klasör, GitHub deposu veya Google Drive klasörü açın',
+    close: 'KAPAT',
+    tabLocal: '📁 Yerel Klasör',
+    tabGithub: '🐙 GitHub Repo',
+    tabGdrive: '☁️ Google Drive',
+    rootsLabel: 'Kökler',
+    parentDir: '.. Üst Dizin',
+    trustLabel: 'Workspace Trust (Ajanların dosya düzenlemesine ve komut çalıştırmasına izin ver)',
+    openLocalBtn: '+ Projeyi Aç',
+    emptyDir: 'Bu klasörde alt dizin yok.',
+    githubFilterPlaceholder: 'Depo ara (owner/repo)...',
+    githubUrlPlaceholder: 'veya URL / slug yapıştır (ör. https://github.com/owner/repo)',
+    cloneOpenBtn: 'Klonla & Aç',
+    refreshBtn: 'Yenile',
+    driveRoot: 'Drive Kökü',
+    pullOpenBtn: 'İndir & Aç (Pull)',
+    accountRequiredHint: 'Bu kaynağı kullanmak için Ayarlar → 🔗 HESAPLAR sekmesinden hesabınızı bağlayın.',
+    openAccountsBtn: '🔗 Hesaplara Git',
+    openWorkspacesTitle: 'AÇIK ÇALIŞMA ALANLARI',
+    noOpenWorkspaces: 'Henüz açılmış çalışma alanı yok.',
+    activeBadge: 'AKTİF',
+    trustedBadge: 'Güvenilir',
+    untrustedBadge: 'Salt Okunur',
+    switchBtn: 'Geç',
+    removeBtn: 'Kaldır',
+    loading: 'Yükleniyor...',
   },
 };
 
@@ -967,6 +1074,7 @@ const EN: Translations = {
     legend: '❓ Legend',
     legendShort: '❓ Legend',
     calendar: '📅 Calendar',
+    projects: '📂 PROJECTS',
   },
   blueprints: [
     'Classic Corner Studio',
@@ -994,6 +1102,7 @@ const EN: Translations = {
     activeAbbr: 'A',
     waitingAbbr: 'W',
     noFloors: 'No floors',
+    openProject: '+ OPEN PROJECT',
   },
   office: {
     emptyFloor: 'No active employees on this floor yet.',
@@ -1267,6 +1376,11 @@ const EN: Translations = {
     approvalAllowSession: '🔓 Allow (Session)',
     approvalDeny: '❌ Deny',
     approvalPendingCount: '+{n} pending',
+    commitPushBtn: '📤 Commit & Push',
+    commitMsgPlaceholder: 'Commit message (e.g. feat: update)',
+    driveSyncBtn: '☁️ Drive Sync',
+    syncing: 'Syncing...',
+    noActiveProject: 'No project selected',
   },
   settingsModal: {
     title: '⚙️ GRAPHICS & SYSTEM SETTINGS',
@@ -1343,6 +1457,53 @@ const EN: Translations = {
     customBaseUrlLabel: 'Custom Base URL',
     customBaseUrlPlaceholder: 'https://api.example.com/v1',
     geminiFormatsHint: 'Both AIza... (Google AI Studio) and AQ.... (Vertex AI Express) keys are supported.',
+    tabAccounts: '🔗 ACCOUNTS',
+    accountsGoogleTitle: '🔵 GOOGLE ACCOUNT (DRIVE READ / WRITE)',
+    accountsGoogleGuide:
+      'Setup: 1) Google Cloud Console → APIs & Services → Credentials → OAuth Client ID (Web App). 2) Add server /api/auth/google/callback as Redirect URI. 3) Enter Client ID, Save & Sign In.',
+    googleClientIdPlaceholder: 'Google OAuth Client ID',
+    googleClientSecretPlaceholder: 'Client Secret (optional)',
+    saveClientBtn: 'Save Client',
+    signInGoogleBtn: 'Sign in with Google',
+    accountsGithubTitle: '🐙 GITHUB ACCOUNT',
+    importGhCliBtn: 'Connect existing gh CLI session',
+    githubDeviceBtn: 'Sign in with Device Flow',
+    githubClientIdPlaceholder: 'GitHub OAuth Client ID (optional)',
+    githubDeviceStep: 'Enter this code in browser:',
+    githubDeviceOpen: 'Open github.com/login/device',
+    githubDeviceWaiting: 'Waiting for authorization...',
+    disconnectBtn: 'Disconnect',
+    connectedBadge: 'Connected',
+    notConnectedBadge: 'Not connected',
+  },
+  projectsModal: {
+    title: '📂 PROJECT & WORKSPACE MANAGER',
+    subtitle: 'Open a local folder, GitHub repository, or Google Drive folder',
+    close: 'CLOSE',
+    tabLocal: '📁 Local Folder',
+    tabGithub: '🐙 GitHub Repo',
+    tabGdrive: '☁️ Google Drive',
+    rootsLabel: 'Roots',
+    parentDir: '.. Parent',
+    trustLabel: 'Workspace Trust (Allow agents to edit files and run commands)',
+    openLocalBtn: '+ Open Project',
+    emptyDir: 'No subdirectories in this folder.',
+    githubFilterPlaceholder: 'Filter repositories (owner/repo)...',
+    githubUrlPlaceholder: 'or paste URL / slug (e.g. https://github.com/owner/repo)',
+    cloneOpenBtn: 'Clone & Open',
+    refreshBtn: 'Refresh',
+    driveRoot: 'Drive Root',
+    pullOpenBtn: 'Download & Open (Pull)',
+    accountRequiredHint: 'Connect your account in Settings → 🔗 ACCOUNTS to use this source.',
+    openAccountsBtn: '🔗 Go to Accounts',
+    openWorkspacesTitle: 'OPEN WORKSPACES',
+    noOpenWorkspaces: 'No workspaces opened yet.',
+    activeBadge: 'ACTIVE',
+    trustedBadge: 'Trusted',
+    untrustedBadge: 'Restricted',
+    switchBtn: 'Switch',
+    removeBtn: 'Remove',
+    loading: 'Loading...',
   },
 };
 
