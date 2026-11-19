@@ -142,6 +142,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose,
 }) => {
   const { locale, setLocale, t } = useI18n();
+  const [activeTab, setActiveTab] = useState<'graphics' | 'models'>('graphics');
   const [ollamaUrl, setOllamaUrl] = useState('http://localhost:11434');
   const [fetchedModels, setFetchedModels] = useState<OllamaModelInfo[]>([]);
   const [fetchingModels, setFetchingModels] = useState(false);
@@ -375,7 +376,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         </div>
 
-        {/* Presets */}
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: 6, borderBottom: '2px solid #0a0c14', paddingBottom: 8 }}>
+          <button
+            type="button"
+            className={`pixel-btn ${activeTab === 'graphics' ? 'cyan' : ''}`}
+            style={{ fontSize: 10, padding: '6px 12px' }}
+            onClick={() => {
+              playSelectBlip();
+              setActiveTab('graphics');
+            }}
+          >
+            {t.settingsModal.tabGraphicsSystem}
+          </button>
+          <button
+            type="button"
+            className={`pixel-btn ${activeTab === 'models' ? 'cyan' : ''}`}
+            style={{ fontSize: 10, padding: '6px 12px' }}
+            onClick={() => {
+              playSelectBlip();
+              setActiveTab('models');
+            }}
+          >
+            {t.settingsModal.tabModelsAgents}
+          </button>
+        </div>
+
+        {activeTab === 'graphics' && (
+          <>
+            {/* Presets */}
         <div className="pixel-panel-inset" style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
             <span className="pixel-title" style={{ fontSize: 9, color: '#3cd8ff' }}>
@@ -599,8 +628,105 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
         </div>
+          </>
+        )}
 
-        {/* Local Agents (Ollama) */}
+        {activeTab === 'models' && (
+          <>
+            {/* Gemini API Key */}
+            <div className="pixel-panel-inset" style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                <span className="pixel-title" style={{ fontSize: 9, color: '#ffd147' }}>
+                  {t.settingsModal.geminiKeySection}
+                </span>
+                <span
+                  className="pixel-badge"
+                  style={{
+                    fontSize: 9,
+                    color: geminiKeyStatus.configured ? '#3be87a' : 'var(--text-dim)',
+                  }}
+                >
+                  {geminiKeyStatus.configured
+                    ? `✓ ${geminiKeyStatus.masked} (${geminiKeyStatus.source})`
+                    : t.settingsModal.geminiKeyNotConfigured}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                <input
+                  type={showGeminiKey ? 'text' : 'password'}
+                  value={geminiKeyDraft}
+                  onChange={(e) => setGeminiKeyDraft(e.target.value)}
+                  placeholder={t.settingsModal.geminiKeyPlaceholder}
+                  aria-label={t.settingsModal.geminiKeySection}
+                  className="retro-dock-select"
+                  style={{ flex: 1, minWidth: 200, maxWidth: 'none', cursor: 'text' }}
+                />
+                <button
+                  type="button"
+                  className="pixel-btn"
+                  style={{ fontSize: 9, padding: '5px 8px' }}
+                  onClick={() => {
+                    playSelectBlip();
+                    setShowGeminiKey((prev) => !prev);
+                  }}
+                >
+                  {showGeminiKey ? t.settingsModal.geminiKeyHide : t.settingsModal.geminiKeyShow}
+                </button>
+                <button
+                  type="button"
+                  className="pixel-btn cyan"
+                  style={{ fontSize: 9, padding: '5px 10px' }}
+                  disabled={geminiKeySaving || !geminiKeyDraft.trim()}
+                  onClick={() => void handleSaveGeminiKey(geminiKeyDraft.trim())}
+                >
+                  {t.settingsModal.geminiKeySave}
+                </button>
+                <button
+                  type="button"
+                  className="pixel-btn danger"
+                  style={{ fontSize: 9, padding: '5px 10px' }}
+                  disabled={geminiKeySaving}
+                  onClick={() => void handleSaveGeminiKey('')}
+                >
+                  {t.settingsModal.geminiKeyClear}
+                </button>
+                <button
+                  type="button"
+                  className="pixel-btn active"
+                  style={{ fontSize: 9, padding: '5px 10px' }}
+                  disabled={fetchingGeminiModels || !geminiKeyStatus.configured}
+                  onClick={() => void handleFetchGeminiModels()}
+                >
+                  {fetchingGeminiModels
+                    ? t.settingsModal.fetchingModelsBtn
+                    : t.settingsModal.fetchGeminiModelsBtn}
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>
+                  {t.settingsModal.geminiKeyHint}
+                </span>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  {geminiModels.length > 0 && (
+                    <span style={{ fontSize: 10, color: '#3cd8ff' }}>
+                      {t.settingsModal.geminiModelsCount.replace('{n}', String(geminiModels.length))}
+                    </span>
+                  )}
+                  {geminiModelsError && (
+                    <span style={{ fontSize: 10, color: 'var(--accent-amber)' }}>
+                      ⚠ {geminiModelsError}
+                    </span>
+                  )}
+                  {geminiKeyNotice && (
+                    <span style={{ fontSize: 10, color: '#3be87a' }}>{geminiKeyNotice}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Local Agents (Ollama) */}
         <div className="pixel-panel-inset" style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
             <span className="pixel-title" style={{ fontSize: 9, color: '#3cd8ff' }}>
@@ -698,112 +824,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           )}
         </div>
+          </>
+        )}
 
-        {/* Gemini API Key */}
-        <div className="pixel-panel-inset" style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-            <span className="pixel-title" style={{ fontSize: 9, color: '#ffd147' }}>
-              {t.settingsModal.geminiKeySection}
-            </span>
-            <span
-              className="pixel-badge"
-              style={{
-                fontSize: 9,
-                color: geminiKeyStatus.configured ? '#3be87a' : 'var(--text-dim)',
-              }}
-            >
-              {geminiKeyStatus.configured
-                ? `✓ ${geminiKeyStatus.masked} (${geminiKeyStatus.source})`
-                : t.settingsModal.geminiKeyNotConfigured}
-            </span>
-          </div>
-
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-            <input
-              type={showGeminiKey ? 'text' : 'password'}
-              value={geminiKeyDraft}
-              onChange={(e) => setGeminiKeyDraft(e.target.value)}
-              placeholder={t.settingsModal.geminiKeyPlaceholder}
-              aria-label={t.settingsModal.geminiKeySection}
-              className="retro-dock-select"
-              style={{ flex: 1, minWidth: 200, maxWidth: 'none', cursor: 'text' }}
-            />
+        {/* Footer */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: activeTab === 'graphics' ? 'space-between' : 'flex-end', gap: 8 }}>
+          {activeTab === 'graphics' && (
             <button
               type="button"
               className="pixel-btn"
-              style={{ fontSize: 9, padding: '5px 8px' }}
               onClick={() => {
                 playSelectBlip();
-                setShowGeminiKey((prev) => !prev);
+                onChangeGraphics({ ...DEFAULT_GRAPHICS_SETTINGS });
               }}
             >
-              {showGeminiKey ? t.settingsModal.geminiKeyHide : t.settingsModal.geminiKeyShow}
+              {t.settingsModal.resetDefaults}
             </button>
-            <button
-              type="button"
-              className="pixel-btn cyan"
-              style={{ fontSize: 9, padding: '5px 10px' }}
-              disabled={geminiKeySaving || !geminiKeyDraft.trim()}
-              onClick={() => void handleSaveGeminiKey(geminiKeyDraft.trim())}
-            >
-              {t.settingsModal.geminiKeySave}
-            </button>
-            <button
-              type="button"
-              className="pixel-btn danger"
-              style={{ fontSize: 9, padding: '5px 10px' }}
-              disabled={geminiKeySaving}
-              onClick={() => void handleSaveGeminiKey('')}
-            >
-              {t.settingsModal.geminiKeyClear}
-            </button>
-            <button
-              type="button"
-              className="pixel-btn active"
-              style={{ fontSize: 9, padding: '5px 10px' }}
-              disabled={fetchingGeminiModels || !geminiKeyStatus.configured}
-              onClick={() => void handleFetchGeminiModels()}
-            >
-              {fetchingGeminiModels
-                ? t.settingsModal.fetchingModelsBtn
-                : t.settingsModal.fetchGeminiModelsBtn}
-            </button>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>
-              {t.settingsModal.geminiKeyHint}
-            </span>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              {geminiModels.length > 0 && (
-                <span style={{ fontSize: 10, color: '#3cd8ff' }}>
-                  {t.settingsModal.geminiModelsCount.replace('{n}', String(geminiModels.length))}
-                </span>
-              )}
-              {geminiModelsError && (
-                <span style={{ fontSize: 10, color: 'var(--accent-amber)' }}>
-                  ⚠ {geminiModelsError}
-                </span>
-              )}
-              {geminiKeyNotice && (
-                <span style={{ fontSize: 10, color: '#3be87a' }}>{geminiKeyNotice}</span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <button
-            type="button"
-            className="pixel-btn"
-            onClick={() => {
-              playSelectBlip();
-              onChangeGraphics({ ...DEFAULT_GRAPHICS_SETTINGS });
-            }}
-          >
-            {t.settingsModal.resetDefaults}
-          </button>
+          )}
           <button
             type="button"
             className="pixel-btn gold"

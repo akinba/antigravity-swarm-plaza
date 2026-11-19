@@ -393,6 +393,8 @@ export interface Translations {
     geminiKeySaved: string;
     fetchGeminiModelsBtn: string;
     geminiModelsCount: string;
+    tabGraphicsSystem: string;
+    tabModelsAgents: string;
   };
 }
 
@@ -841,6 +843,8 @@ const TR: Translations = {
     geminiKeySaved: 'Kaydedildi!',
     fetchGeminiModelsBtn: 'Modelleri Getir',
     geminiModelsCount: '{n} Gemini modeli yüklendi',
+    tabGraphicsSystem: '⚙ GRAFİK & SİSTEM',
+    tabModelsAgents: '🤖 MODEL & AJANLAR',
   },
 };
 
@@ -1289,6 +1293,8 @@ const EN: Translations = {
     geminiKeySaved: 'Saved!',
     fetchGeminiModelsBtn: 'Fetch Models',
     geminiModelsCount: '{n} Gemini models loaded',
+    tabGraphicsSystem: '⚙ GRAPHICS & SYSTEM',
+    tabModelsAgents: '🤖 MODELS & AGENTS',
   },
 };
 

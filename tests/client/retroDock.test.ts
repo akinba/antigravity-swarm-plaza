@@ -177,6 +177,10 @@ describe('RetroCommandDock helpers & i18n', () => {
     assert.equal(DICTIONARIES.tr.dock.enterSingle, '↵ ENTER');
     assert.ok(DICTIONARIES.tr.settingsModal.geminiKeySection.length > 0);
     assert.ok(DICTIONARIES.en.settingsModal.geminiKeySection.length > 0);
+    assert.ok(DICTIONARIES.tr.settingsModal.tabGraphicsSystem.length > 0);
+    assert.ok(DICTIONARIES.en.settingsModal.tabGraphicsSystem.length > 0);
+    assert.ok(DICTIONARIES.tr.settingsModal.tabModelsAgents.length > 0);
+    assert.ok(DICTIONARIES.en.settingsModal.tabModelsAgents.length > 0);
   });
 
   it('concatenates consecutive chunk events for the same runId into a single flowing log line', () => {
