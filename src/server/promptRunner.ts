@@ -16,6 +16,10 @@ import type {
   ProviderModelInfo,
 } from '../shared/types.js';
 import { CURRENT_WORKSPACE } from './config.js';
+import {
+  defaultCopilotSdkAdapter,
+  type CopilotSdkAdapterLike,
+} from './copilotSdkAdapter.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -50,6 +54,7 @@ export interface PromptRunnerOptions {
   spawnImpl?: typeof spawn;
   execFileImpl?: ExecFileFn;
   resolveCliCommand?: (cmd: string) => Promise<string | null>;
+  copilotAdapter?: CopilotSdkAdapterLike;
   ollamaUrl?: string;
   cliCommand?: string;
   geminiApiKey?: string;
@@ -110,13 +115,6 @@ const SECRET_JSON_KEYS: Record<CloudProviderId, string> = {
   openrouter: 'openrouterApiKey',
   copilot: 'copilotApiKey',
 };
-
-const COPILOT_FALLBACK_MODELS: readonly ProviderModelInfo[] = [
-  { id: 'gpt-4o', displayName: 'GPT-4o (Copilot)', provider: 'copilot' },
-  { id: 'gpt-4.1', displayName: 'GPT-4.1 (Copilot)', provider: 'copilot' },
-  { id: 'o3-mini', displayName: 'o3-mini (Copilot)', provider: 'copilot' },
-  { id: 'claude-3.5-sonnet', displayName: 'Claude 3.5 Sonnet (Copilot)', provider: 'copilot' },
-];
 
 export class PromptConflictError extends Error {
   constructor(message = 'A prompt run is already in progress') {
@@ -283,6 +281,7 @@ export class PromptRunner {
   private readonly spawnImpl: typeof spawn;
   private readonly execFileImpl: ExecFileFn;
   private readonly resolveCliCommandFn: (cmd: string) => Promise<string | null>;
+  private readonly copilotAdapter: CopilotSdkAdapterLike;
   private readonly ollamaUrl: string;
   private readonly cliCommand: string;
   private readonly secretsFilePath: string;
@@ -310,6 +309,7 @@ export class PromptRunner {
       options.execFileImpl ??
       ((cmd, args, opts) => execFileAsync(cmd, args, { cwd: opts.cwd, encoding: 'utf8' }));
     this.resolveCliCommandFn = options.resolveCliCommand ?? defaultResolveCliCommand;
+    this.copilotAdapter = options.copilotAdapter ?? defaultCopilotSdkAdapter;
     this.ollamaUrl =
       options.ollamaUrl ?? process.env.OLLAMA_CHAT_URL ?? 'http://localhost:11434/api/chat';
     this.cliCommand = options.cliCommand ?? process.env.ANTIGRAVITY_CLI_CMD ?? 'agy';
@@ -626,6 +626,10 @@ export class PromptRunner {
       }
     }
 
+    if (provider === 'copilot') {
+      return this.copilotAdapter.listModels(this.providerKeys.copilot.key || undefined);
+    }
+
     const key = this.providerKeys[provider].key;
     if (!key) {
       return {
@@ -633,58 +637,6 @@ export class PromptRunner {
         models: [],
         error: `${provider} API key/token is not configured.`,
       };
-    }
-
-    if (provider === 'copilot') {
-      try {
-        const response = await this.fetchImpl('https://models.github.ai/catalog/models', {
-          method: 'GET',
-          headers: {
-            Accept: 'application/json',
-            Authorization: `Bearer ${key}`,
-          },
-        });
-        if (response.ok) {
-          const ct = (response.headers?.get?.('content-type') ?? '').toLowerCase();
-          if (ct && !ct.includes('json')) {
-            return {
-              ok: false,
-              models: [],
-              error:
-                'GitHub Models endpoint returned non-JSON response (models.github.ai unreachable/unsupported on this network).',
-            };
-          }
-          let data:
-            | Array<{ id?: string; name?: string; summary?: string }>
-            | { models?: Array<{ id?: string; name?: string; summary?: string }> };
-          try {
-            const raw = await response.text();
-            data = JSON.parse(raw) as typeof data;
-          } catch {
-            return {
-              ok: false,
-              models: [],
-              error:
-                'GitHub Models endpoint returned non-JSON response (models.github.ai unreachable/unsupported on this network).',
-            };
-          }
-          const list = Array.isArray(data) ? data : (data.models ?? []);
-          const models: ProviderModelInfo[] = list
-            .filter((m) => typeof m.id === 'string' && m.id.trim().length > 0)
-            .map((m) => ({
-              id: m.id!.trim(),
-              displayName: (m.name ?? m.id!).trim(),
-              provider: 'copilot',
-              description: m.summary,
-            }));
-          if (models.length > 0) {
-            return { ok: true, models };
-          }
-        }
-      } catch {
-        // Fallback to standard Copilot catalog below when token is configured
-      }
-      return { ok: true, models: COPILOT_FALLBACK_MODELS.map((m) => ({ ...m })) };
     }
 
     const endpointMap: Record<'openai' | 'anthropic' | 'openrouter', string> = {
@@ -913,59 +865,203 @@ export class PromptRunner {
     }
   }
 
+  private mapRoleToAgentKey(role: string): string {
+    const lower = role.trim().toLowerCase();
+    if (lower === 'architect' || lower === 'coordinator') return 'coordinator';
+    if (lower === 'coder core' || lower === 'coder-core') return 'coder-core';
+    if (lower === 'coder ui' || lower === 'coder-ui') return 'coder-ui';
+    if (lower === 'analyst' || lower === 'analyst-grill') return 'analyst-grill';
+    if (lower === 'verifier' || lower === 'verifier-qa') return 'verifier-qa';
+    return lower.replace(/\s+/g, '-') || 'default';
+  }
+
+  private async executeSingleProviderRun(
+    runId: string,
+    req: PromptRequest,
+    agentId: string,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const provider = resolveRequestProvider(req);
+    if (provider === 'ollama') {
+      await this.runOllama(runId, req, agentId, signal);
+    } else if (provider === 'lmstudio') {
+      const base = resolveSafeLocalBaseUrl(
+        req.localBaseUrl ?? req.ollamaBaseUrl,
+        'http://localhost:1234',
+      );
+      await this.runOpenAiCompatibleStream(
+        runId,
+        req,
+        agentId,
+        'lmstudio',
+        `${base}/v1/chat/completions`,
+        { 'Content-Type': 'application/json' },
+        signal,
+      );
+    } else if (provider === 'copilot') {
+      const actualModel = stripProviderPrefix(req.model);
+      const systemMessage = `You are a coding agent running in ${req.mode} mode in workspace ${this.workspace}.`;
+      await this.copilotAdapter.streamPrompt({
+        model: actualModel,
+        prompt: this.buildPromptContent(req),
+        systemMessage,
+        workspace: this.workspace,
+        githubToken: this.providerKeys.copilot.key || undefined,
+        onDelta: (delta) => this.handleTextChunk(runId, agentId, delta),
+        signal,
+      });
+    } else if (provider === 'openai' || provider === 'openrouter') {
+      const key = this.providerKeys[provider].key;
+      if (!key) {
+        throw new Error(
+          `[${provider.toUpperCase()} API NOT CONFIGURED] Configure ${provider} API key in Settings -> Cloud APIs.`,
+        );
+      }
+      const endpoint =
+        provider === 'openai'
+          ? 'https://api.openai.com/v1/chat/completions'
+          : 'https://openrouter.ai/api/v1/chat/completions';
+      await this.runOpenAiCompatibleStream(
+        runId,
+        req,
+        agentId,
+        provider,
+        endpoint,
+        {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${key}`,
+        },
+        signal,
+      );
+    } else if (provider === 'anthropic') {
+      await this.runAnthropicStream(runId, req, agentId, signal);
+    } else {
+      await this.runGeminiCli(runId, req, agentId, signal);
+    }
+  }
+
+  private async executeSwarmOrchestration(
+    runId: string,
+    req: PromptRequest,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const profile = req.swarmProfile ?? [];
+    const ordered = [...profile].sort((a, b) => {
+      const aArch = /^(architect|coordinator)$/i.test(a.role.trim()) ? 0 : 1;
+      const bArch = /^(architect|coordinator)$/i.test(b.role.trim()) ? 0 : 1;
+      return aArch - bArch;
+    });
+
+    let accumulatedContext = '';
+    const MAX_ROLE_SUMMARY = 1500;
+    const MAX_TOTAL_CONTEXT = 4000;
+
+    for (const assignment of ordered) {
+      if (signal?.aborted || this.status === 'stopped') {
+        return;
+      }
+      const roleAgentKey = this.mapRoleToAgentKey(assignment.role);
+      this.activeOverrides.clear();
+      this.activeOverrides.set(roleAgentKey, {
+        agentKey: roleAgentKey,
+        status: 'working',
+        floorId: req.floorId,
+        startedAt: Date.now(),
+      });
+      this.emit({
+        runId,
+        type: 'status',
+        agentId: roleAgentKey,
+        status: 'running',
+        text: `[SWARM ROLE] ${assignment.role} (${assignment.model}, level=${assignment.level})`,
+        timestamp: Date.now(),
+      });
+
+      this.handleTextChunk(
+        runId,
+        roleAgentKey,
+        `\n━━━ [${assignment.role} · ${assignment.model} (${assignment.level})] ━━━\n`,
+      );
+
+      const roleProvider = resolveRequestProvider({
+        ...req,
+        provider: undefined,
+        model: assignment.model,
+      });
+      const resolvedLocalUrl =
+        req.localBaseUrls?.[assignment.model] ??
+        req.localBaseUrls?.[roleProvider] ??
+        req.localBaseUrl ??
+        req.ollamaBaseUrl;
+
+      const contextBlock = accumulatedContext
+        ? `\n\nPrevious swarm outputs (bounded context):\n${accumulatedContext}`
+        : '';
+      const rolePrompt =
+        `Role: ${assignment.role} (thinking level: ${assignment.level}).\n` +
+        `Task:\n${req.prompt}${contextBlock}`;
+
+      let roleOutput = '';
+      const unsubCapture = this.subscribe((ev) => {
+        if (ev.runId === runId && ev.type === 'chunk' && ev.agentId === roleAgentKey && ev.text) {
+          if (roleOutput.length < MAX_ROLE_SUMMARY) {
+            roleOutput += ev.text;
+          }
+        }
+      });
+
+      try {
+        await this.executeSingleProviderRun(
+          runId,
+          {
+            ...req,
+            prompt: rolePrompt,
+            model: assignment.model,
+            provider: roleProvider,
+            localBaseUrl: resolvedLocalUrl,
+            ollamaBaseUrl: resolvedLocalUrl,
+          },
+          roleAgentKey,
+          signal,
+        );
+      } catch (roleErr) {
+        if (signal?.aborted || (this.status as PromptRunnerStatus) === 'stopped') {
+          return;
+        }
+        const msg = roleErr instanceof Error ? roleErr.message : String(roleErr);
+        this.handleTextChunk(runId, roleAgentKey, `\n[${assignment.role} ERROR] ${msg}\n`);
+      } finally {
+        unsubCapture();
+        this.activeOverrides.delete(roleAgentKey);
+      }
+
+      const trimmedSummary = roleOutput.trim().slice(0, MAX_ROLE_SUMMARY);
+      if (trimmedSummary) {
+        const addition = `\n[${assignment.role}]: ${trimmedSummary}`;
+        accumulatedContext = (accumulatedContext + addition).slice(-MAX_TOTAL_CONTEXT);
+      }
+    }
+
+    if (!signal?.aborted && (this.status as PromptRunnerStatus) !== 'stopped') {
+      this.handleTextChunk(runId, 'coordinator', '\n[SWARM COMPLETE]\n');
+    }
+  }
+
   private async executeRun(
     runId: string,
     req: PromptRequest,
     primaryAgentId: string,
   ): Promise<void> {
     const signal = this.abortController?.signal;
-    const provider = resolveRequestProvider(req);
     try {
-      if (provider === 'ollama') {
-        await this.runOllama(runId, req, primaryAgentId, signal);
-      } else if (provider === 'lmstudio') {
-        const base = resolveSafeLocalBaseUrl(
-          req.localBaseUrl ?? req.ollamaBaseUrl,
-          'http://localhost:1234',
-        );
-        await this.runOpenAiCompatibleStream(
-          runId,
-          req,
-          primaryAgentId,
-          'lmstudio',
-          `${base}/v1/chat/completions`,
-          { 'Content-Type': 'application/json' },
-          signal,
-        );
-      } else if (provider === 'openai' || provider === 'openrouter' || provider === 'copilot') {
-        const key = this.providerKeys[provider].key;
-        if (!key) {
-          throw new Error(
-            `[${provider.toUpperCase()} API NOT CONFIGURED] Configure ${provider} API key in Settings -> Cloud APIs.`,
-          );
-        }
-        const endpoint =
-          provider === 'openai'
-            ? 'https://api.openai.com/v1/chat/completions'
-            : provider === 'openrouter'
-              ? 'https://openrouter.ai/api/v1/chat/completions'
-              : 'https://models.github.ai/inference/chat/completions';
-        await this.runOpenAiCompatibleStream(
-          runId,
-          req,
-          primaryAgentId,
-          provider,
-          endpoint,
-          {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${key}`,
-          },
-          signal,
-        );
-      } else if (provider === 'anthropic') {
-        await this.runAnthropicStream(runId, req, primaryAgentId, signal);
+      if (
+        req.orchestration === 'swarm' &&
+        Array.isArray(req.swarmProfile) &&
+        req.swarmProfile.length > 0
+      ) {
+        await this.executeSwarmOrchestration(runId, req, signal);
       } else {
-        await this.runGeminiCli(runId, req, primaryAgentId, signal);
+        await this.executeSingleProviderRun(runId, req, primaryAgentId, signal);
       }
 
       if (signal?.aborted || this.status === 'stopped') {

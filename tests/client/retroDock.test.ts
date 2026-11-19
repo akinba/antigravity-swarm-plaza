@@ -12,6 +12,7 @@ import {
   filterMentionSuggestions,
   filterSlashSuggestions,
   formatOllamaModelLabel,
+  formatProviderModelLabel,
   getProjectSwarmStorageKey,
   resolveOrchestration,
   resolvePromptProvider,
@@ -206,6 +207,10 @@ describe('RetroCommandDock helpers & i18n', () => {
     assert.equal(multiOpts.length, 7);
     assert.ok(multiOpts.some((o) => o.id === 'lmstudio:qwen-lms' && o.provider === 'lmstudio' && o.localBaseUrl === 'http://localhost:1234'));
     assert.ok(multiOpts.some((o) => o.id === 'copilot:gpt-4.1' && o.provider === 'copilot'));
+    assert.equal(formatProviderModelLabel('copilot', 'GPT-4o (Copilot)'), '🐙 GPT-4o (Copilot)');
+    assert.equal(formatProviderModelLabel('copilot', 'gpt-4.1'), '🐙 gpt-4.1 (Copilot)');
+    assert.ok(DICTIONARIES.tr.settingsModal.copilotSdkHint.length > 0);
+    assert.ok(DICTIONARIES.en.settingsModal.copilotSdkHint.length > 0);
     assert.equal(deriveMentionFromModel('qwen2.5-coder:14b'), 'local-qwen2.5-coder');
   });
 

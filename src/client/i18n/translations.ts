@@ -402,6 +402,7 @@ export interface Translations {
     providerModelsCount: string;
     localBaseUrlLabel: string;
     localOfflineHint: string;
+    copilotSdkHint: string;
   };
 }
 
@@ -859,6 +860,7 @@ const TR: Translations = {
     providerModelsCount: '{n} {provider} modeli yüklendi',
     localBaseUrlLabel: 'Sunucu URL',
     localOfflineHint: 'Yerel sunucu çevrimdışı veya erişilemiyor.',
+    copilotSdkHint: 'GitHub Copilot, oturum açılmış Copilot hesabını (@github/copilot-sdk) veya opsiyonel tokenı kullanabilir.',
   },
 };
 
@@ -1316,6 +1318,7 @@ const EN: Translations = {
     providerModelsCount: '{n} {provider} models loaded',
     localBaseUrlLabel: 'Server URL',
     localOfflineHint: 'Local server offline or unreachable.',
+    copilotSdkHint: 'GitHub Copilot can use your signed-in Copilot account (@github/copilot-sdk) or an optional token.',
   },
 };
 

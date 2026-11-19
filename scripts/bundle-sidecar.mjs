@@ -19,7 +19,14 @@ await esbuild.build({
   platform: 'node',
   format: 'cjs',
   target: 'node22',
-  external: ['node:*', 'bufferutil', 'utf-8-validate'],
+  external: [
+    'node:*',
+    'bufferutil',
+    'utf-8-validate',
+    '@github/copilot-sdk',
+    '@github/copilot-sdk-*',
+    'koffi',
+  ],
   logLevel: 'info',
 });
 

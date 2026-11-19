@@ -421,6 +421,10 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
         mentions: Array.isArray(body.mentions) ? body.mentions : [],
         provider: body.provider,
         localBaseUrl: body.localBaseUrl,
+        localBaseUrls:
+          body.localBaseUrls && typeof body.localBaseUrls === 'object'
+            ? body.localBaseUrls
+            : undefined,
         ollamaBaseUrl: body.ollamaBaseUrl,
         workspace: body.workspace,
         attachments: Array.isArray(body.attachments) ? body.attachments : undefined,

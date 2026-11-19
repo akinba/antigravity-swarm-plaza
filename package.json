@@ -48,6 +48,7 @@
     "test": "tsx --test tests/server/*.test.ts tests/client/*.test.ts"
   },
   "dependencies": {
+    "@github/copilot-sdk": "^1.0.34",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "react": "^18.3.1",

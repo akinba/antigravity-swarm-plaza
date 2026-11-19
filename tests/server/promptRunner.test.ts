@@ -5,6 +5,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { createPlazaApp } from '../../src/server/index.js';
+import {
+  CopilotSdkAdapter,
+  type CopilotSdkAdapterLike,
+} from '../../src/server/copilotSdkAdapter.js';
 import { applyActivePromptOverrides } from '../../src/server/gamification.js';
 import {
   InvalidDiffPathError,
@@ -697,10 +701,26 @@ describe('PromptRunner & standalone prompt endpoints', () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-multi-secrets-'));
     const secretsFilePath = path.join(tempDir, 'swarm-plaza-secrets.json');
     const capturedRequests: Array<{ url: string; model?: string; headers: Record<string, string> }> = [];
+    const copilotAdapterCalls: string[] = [];
+
+    const mockCopilotAdapter: CopilotSdkAdapterLike = {
+      async listModels() {
+        return {
+          ok: true,
+          models: [{ id: 'gpt-4o', displayName: 'GPT-4o', provider: 'copilot' }],
+        };
+      },
+      async streamPrompt(params) {
+        copilotAdapterCalls.push(params.model);
+        params.onDelta('Copilot SDK delta');
+      },
+      async dispose() {},
+    };
 
     const runner = new PromptRunner({
       defaultWorkspace: process.cwd(),
       secretsFilePath,
+      copilotAdapter: mockCopilotAdapter,
       providerKeys: {
         gemini: '',
         openai: '',
@@ -881,11 +901,12 @@ describe('PromptRunner & standalone prompt endpoints', () => {
         [
           ['https://api.openai.com/v1/chat/completions', 'gpt-4o'],
           ['https://openrouter.ai/api/v1/chat/completions', 'deepseek/deepseek-r1'],
-          ['https://models.github.ai/inference/chat/completions', 'gpt-4.1'],
           ['http://localhost:1234/v1/chat/completions', 'qwen2.5-14b-instruct'],
           ['https://api.anthropic.com/v1/messages', 'claude-3-7-sonnet'],
         ],
       );
+      assert.deepEqual(copilotAdapterCalls, ['gpt-4.1']);
+      assert.ok(streamed.some((e) => e.type === 'chunk' && e.text === 'Copilot SDK delta'));
       assert.ok(streamed.some((e) => e.type === 'chunk' && e.text === 'Claude '));
       assert.ok(streamed.some((e) => e.type === 'chunk' && e.text === 'stream!'));
       assert.ok(streamed.some((e) => e.type === 'chunk' && e.text === 'Chunk '));
@@ -895,11 +916,11 @@ describe('PromptRunner & standalone prompt endpoints', () => {
     }
   });
 
-  it('rejects non-JSON/empty HTTP 200 text/plain responses on copilot instead of silently returning idle', async () => {
+  it('rejects non-JSON/empty HTTP 200 text/plain responses on OpenAI-compatible streams instead of silently returning idle', async () => {
     const events: PromptStreamEvent[] = [];
     const runner = new PromptRunner({
       defaultWorkspace: process.cwd(),
-      providerKeys: { copilot: 'ghp_test12345678' },
+      providerKeys: { openai: 'sk-test12345678' },
       fetchImpl: async () =>
         new Response('OK\r\n', {
           status: 200,
@@ -908,15 +929,10 @@ describe('PromptRunner & standalone prompt endpoints', () => {
     });
     runner.subscribe((ev) => events.push(ev));
 
-    const catalogRes = await runner.fetchProviderModels('copilot');
-    assert.equal(catalogRes.ok, false);
-    assert.deepEqual(catalogRes.models, []);
-    assert.match(catalogRes.error ?? '', /non-JSON/i);
-
     runner.startPrompt({
-      prompt: 'Hello Copilot',
-      model: 'copilot:gpt-4o',
-      provider: 'copilot',
+      prompt: 'Hello OpenAI',
+      model: 'openai:gpt-4o',
+      provider: 'openai',
       mode: 'turbo',
       mentions: [],
     });
@@ -925,6 +941,189 @@ describe('PromptRunner & standalone prompt endpoints', () => {
     assert.equal(runner.getState().status, 'error');
     const errEv = events.find((e) => e.type === 'error');
     assert.ok(errEv);
-    assert.match(errEv.text ?? '', /\[COPILOT STREAM ERROR\].*text\/plain/i);
+    assert.match(errEv.text ?? '', /\[OPENAI STREAM ERROR\].*text\/plain/i);
+  });
+
+  it('CopilotSdkAdapter lists models via logged-in user, streams deltas, supports abort, and cleans up sessions', async () => {
+    let disconnected = false;
+    let aborted = false;
+    let stopped = false;
+    let capturedClientOpts: Record<string, unknown> | undefined;
+
+    const adapter = new CopilotSdkAdapter({
+      sdkLoader: async () => ({
+        approveAll: () => ({ kind: 'approved' }),
+        CopilotClient: class {
+          constructor(opts?: Record<string, unknown>) {
+            capturedClientOpts = opts;
+          }
+          async start() {}
+          async stop() {
+            stopped = true;
+            return [];
+          }
+          async listModels() {
+            return [{ id: 'gpt-4.1', name: 'GPT-4.1', policy: { state: 'enabled' } }];
+          }
+          async createSession() {
+            let handler: ((ev: { type: string; data?: { deltaContent?: string } }) => void) | null =
+              null;
+            return {
+              on(h: typeof handler) {
+                handler = h;
+                return () => {
+                  handler = null;
+                };
+              },
+              async sendAndWait() {
+                handler?.({ type: 'assistant.message_delta', data: { deltaContent: 'SDK ' } });
+                handler?.({ type: 'assistant.message_delta', data: { deltaContent: 'streaming!' } });
+                return undefined;
+              },
+              async abort() {
+                aborted = true;
+              },
+              async disconnect() {
+                disconnected = true;
+              },
+            };
+          }
+        },
+      }),
+    });
+
+    const modelsRes = await adapter.listModels();
+    assert.equal(modelsRes.ok, true);
+    assert.equal(capturedClientOpts?.useLoggedInUser, true);
+    assert.equal(modelsRes.models[0]?.id, 'gpt-4.1');
+
+    const deltas: string[] = [];
+    await adapter.streamPrompt({
+      model: 'gpt-4.1',
+      prompt: 'Hi',
+      onDelta: (t) => deltas.push(t),
+    });
+    assert.equal(deltas.join(''), 'SDK streaming!');
+    assert.equal(disconnected, true);
+
+    const ac = new AbortController();
+    ac.abort();
+    await adapter.streamPrompt({
+      model: 'gpt-4.1',
+      prompt: 'Cancelled',
+      onDelta: () => {},
+      signal: ac.signal,
+    });
+    assert.equal(aborted, true);
+
+    await adapter.dispose();
+    assert.equal(stopped, true);
+  });
+
+  it('supports Copilot without PAT, stopPrompt cancellation, and mixed 3-provider (copilot + ollama + gemini) swarm orchestration', async () => {
+    const executionOrder: string[] = [];
+    const seenRolePrompts: Record<string, string> = {};
+
+    const copilotAdapter: CopilotSdkAdapterLike = {
+      async listModels(token) {
+        assert.equal(token, undefined);
+        return {
+          ok: true,
+          models: [{ id: 'gpt-4.1', displayName: 'GPT-4.1', provider: 'copilot' }],
+        };
+      },
+      async streamPrompt(params) {
+        executionOrder.push(`copilot:${params.model}`);
+        seenRolePrompts.copilot = params.prompt;
+        if (params.prompt.includes('CANCEL_ME')) {
+          await new Promise<void>((resolve) => {
+            params.signal?.addEventListener('abort', () => resolve(), { once: true });
+          });
+          return;
+        }
+        params.onDelta('Architect plan ready.');
+      },
+      async dispose() {},
+    };
+
+    const runner = new PromptRunner({
+      defaultWorkspace: process.cwd(),
+      copilotAdapter,
+      resolveCliCommand: async () => null,
+      providerKeys: { gemini: 'AIzaSySwarmTest1234', copilot: '' },
+      fetchImpl: async (url, init) => {
+        const u = String(url);
+        if (u.includes('/api/chat')) {
+          const body = JSON.parse(String(init?.body ?? '{}')) as {
+            model?: string;
+            messages?: Array<{ content?: string }>;
+          };
+          executionOrder.push(`ollama:${body.model}`);
+          seenRolePrompts.ollama = body.messages?.[1]?.content ?? '';
+          return new Response(
+            createNdjsonStream([
+              JSON.stringify({ message: { content: 'Ollama implemented core.' } }),
+              JSON.stringify({ done: true }),
+            ]),
+            { status: 200 },
+          );
+        }
+        executionOrder.push('gemini:rest');
+        const body = JSON.parse(String(init?.body ?? '{}')) as {
+          contents?: Array<{ parts?: Array<{ text?: string }> }>;
+        };
+        seenRolePrompts.gemini = body.contents?.[0]?.parts?.[0]?.text ?? '';
+        return new Response(
+          createNdjsonStream([
+            `data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text: 'Gemini verified all.' }] } }] })}`,
+            'data: [DONE]',
+          ]),
+          { status: 200 },
+        );
+      },
+    });
+
+    // 1. List Copilot models without manual PAT
+    const copilotList = await runner.fetchProviderModels('copilot');
+    assert.equal(copilotList.ok, true);
+    assert.equal(copilotList.models[0]?.id, 'gpt-4.1');
+
+    // 2. Cancel running Copilot prompt via stopPrompt()
+    runner.startPrompt({
+      prompt: 'CANCEL_ME',
+      model: 'copilot:gpt-4.1',
+      provider: 'copilot',
+      mode: 'turbo',
+      mentions: ['coordinator'],
+    });
+    const stoppedState = runner.stopPrompt();
+    assert.equal(stoppedState.status, 'stopped');
+    await runner.waitForIdle();
+
+    // 3. Mixed 3-provider swarm orchestration (Architect runs first even if listed second!)
+    executionOrder.length = 0;
+    const swarmEvents: PromptStreamEvent[] = [];
+    const unsub = runner.subscribe((ev) => swarmEvents.push(ev));
+
+    runner.startPrompt({
+      prompt: 'Build multi-provider swarm',
+      model: 'copilot:gpt-4.1',
+      mode: 'turbo',
+      orchestration: 'swarm',
+      swarmProfile: [
+        { role: 'Coder Core', model: 'ollama:qwen2.5-coder:14b', level: 'medium' },
+        { role: 'Architect', model: 'copilot:gpt-4.1', level: 'high' },
+        { role: 'Verifier', model: 'gemini:gemini-2.5-flash', level: 'low' },
+      ],
+      mentions: [],
+    });
+    await runner.waitForIdle();
+    unsub();
+
+    assert.deepEqual(executionOrder, ['copilot:gpt-4.1', 'ollama:qwen2.5-coder:14b', 'gemini:rest']);
+    assert.match(seenRolePrompts.ollama ?? '', /Architect plan ready/);
+    assert.match(seenRolePrompts.gemini ?? '', /Ollama implemented core/);
+    assert.ok(swarmEvents.some((e) => e.type === 'chunk' && e.text?.includes('[SWARM COMPLETE]')));
+    assert.equal(runner.getState().status, 'idle');
   });
 });

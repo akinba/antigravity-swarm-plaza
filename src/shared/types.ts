@@ -356,6 +356,7 @@ export interface PromptRequest {
   mentions: string[];
   provider?: PromptProvider;
   localBaseUrl?: string;
+  localBaseUrls?: Record<string, string>;
   ollamaBaseUrl?: string;
   workspace?: string;
   attachments?: string[];

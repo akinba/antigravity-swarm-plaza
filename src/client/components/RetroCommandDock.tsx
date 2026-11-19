@@ -112,6 +112,17 @@ export function formatOllamaModelLabel(agent: Pick<LocalAgentConfig, 'name' | 'm
   return `${badge.icon} ${cleanName} (${badge.label})`;
 }
 
+export function formatProviderModelLabel(
+  provider: PromptProvider,
+  displayName: string,
+): string {
+  const badge = PROVIDER_BADGES[provider];
+  const trimmed = displayName.trim();
+  const suffixPattern = new RegExp(`\\(${badge.label}\\)$`, 'i');
+  const withSuffix = suffixPattern.test(trimmed) ? trimmed : `${trimmed} (${badge.label})`;
+  return withSuffix.startsWith(badge.icon) ? withSuffix : `${badge.icon} ${withSuffix}`;
+}
+
 export function buildDockModelOptions(
   localAgents: LocalAgentConfig[] = [],
   providerModelsOrGemini: Partial<Record<CloudProviderId, ProviderModelInfo[]>> | GeminiModelInfo[] = {},
@@ -131,12 +142,11 @@ export function buildDockModelOptions(
   const dynamicCloudOptions: DockModelOption[] = [];
   for (const provider of CLOUD_PROVIDER_ORDER) {
     const models = providerModelsMap[provider] ?? [];
-    const badge = PROVIDER_BADGES[provider];
     for (const m of models) {
       const id = m.id.startsWith(`${provider}:`) ? m.id : `${provider}:${m.id}`;
       dynamicCloudOptions.push({
         id: id as PromptModelId,
-        label: `${badge.icon} ${m.displayName || m.id} (${badge.label})`,
+        label: formatProviderModelLabel(provider, m.displayName || m.id),
         provider,
       });
     }
@@ -582,6 +592,14 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
 
     const mentions = extractMentions(trimmed);
     const { provider, localBaseUrl, ollamaBaseUrl } = resolvePromptProvider(model, localAgents);
+    const localBaseUrls: Record<string, string> = {};
+    if (orchestration === 'swarm') {
+      for (const agent of localAgents) {
+        if (!agent.enabled || !agent.baseUrl) continue;
+        localBaseUrls[`${agent.provider}:${agent.model}`] = agent.baseUrl;
+        localBaseUrls[agent.model] = agent.baseUrl;
+      }
+    }
     setPromptText('');
 
     try {
@@ -597,6 +615,7 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
           mentions,
           provider,
           localBaseUrl,
+          localBaseUrls: Object.keys(localBaseUrls).length > 0 ? localBaseUrls : undefined,
           ollamaBaseUrl,
           workspace,
           attachments,

@@ -778,7 +778,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   disabled={
                     fetchingCloudModels ||
                     cloudKeySaving ||
-                    (!activeKeyStatus.configured && !cloudKeyDraft.trim())
+                    (activeCloudProvider !== 'copilot' &&
+                      !activeKeyStatus.configured &&
+                      !cloudKeyDraft.trim())
                   }
                   onClick={() => void handleFetchCloudModels(activeCloudProvider)}
                 >
@@ -787,6 +789,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     : t.settingsModal.fetchGeminiModelsBtn}
                 </button>
               </div>
+
+              {activeCloudProvider === 'copilot' && (
+                <div style={{ fontSize: 10, color: '#9ee8ff' }}>
+                  🐙 {t.settingsModal.copilotSdkHint}
+                </div>
+              )}
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>
@@ -813,6 +821,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   )}
                 </div>
               </div>
+
+              {activeCloudModels.length > 0 && (
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: 4,
+                    maxHeight: 68,
+                    overflowY: 'auto',
+                    paddingTop: 2,
+                  }}
+                >
+                  {activeCloudModels.map((m) => (
+                    <span
+                      key={m.id}
+                      className="pixel-badge"
+                      style={{ fontSize: 9, color: '#dce6ff' }}
+                      title={m.description || m.id}
+                    >
+                      {m.displayName || m.id}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Local Agents (Ollama / LM Studio) */}
