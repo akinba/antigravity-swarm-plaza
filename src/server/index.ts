@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { WebSocket, WebSocketServer } from 'ws';
 import type {
   AgentDetailResponse,
+  ApprovalDecision,
   OfficeEmployee,
   PlazaSnapshot,
   PromptRequest,
@@ -142,6 +143,7 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
       currentWorkspace,
       demoMode,
       promptRunner.getActiveOverrides(),
+      promptRunner.getActiveSwarmBoardSnapshot(),
     );
 
   const broadcastSnapshot = (): PlazaSnapshot => {
@@ -173,6 +175,10 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
     if (
       event.type === 'status' ||
       event.type === 'file' ||
+      event.type === 'tool_call' ||
+      event.type === 'board' ||
+      event.type === 'approval_request' ||
+      event.type === 'approval_resolved' ||
       event.type === 'done' ||
       event.type === 'error'
     ) {
@@ -334,14 +340,15 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
   });
 
   app.post('/api/settings/provider-key', (req, res) => {
-    const body = (req.body ?? {}) as { provider?: unknown; apiKey?: unknown };
+    const body = (req.body ?? {}) as { provider?: unknown; apiKey?: unknown; baseUrl?: unknown };
     const provider = typeof body.provider === 'string' ? body.provider.trim() : '';
     if (!isCloudProviderId(provider)) {
       res.status(400).json({ error: `Unsupported cloud provider: ${provider || '(empty)'}` });
       return;
     }
     const apiKey = typeof body.apiKey === 'string' ? body.apiKey : '';
-    const status = promptRunner.setProviderKey(provider, apiKey);
+    const baseUrl = typeof body.baseUrl === 'string' ? body.baseUrl : undefined;
+    const status = promptRunner.setProviderKey(provider, apiKey, baseUrl);
     res.json({ ok: true, ...status });
   });
 
@@ -420,6 +427,7 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
         swarmProfile: Array.isArray(body.swarmProfile) ? body.swarmProfile : undefined,
         mentions: Array.isArray(body.mentions) ? body.mentions : [],
         provider: body.provider,
+        customBaseUrl: typeof body.customBaseUrl === 'string' ? body.customBaseUrl : undefined,
         localBaseUrl: body.localBaseUrl,
         localBaseUrls:
           body.localBaseUrls && typeof body.localBaseUrls === 'object'
@@ -444,6 +452,27 @@ export function createPlazaApp(options: PlazaAppOptions = {}): PlazaAppInstance 
     const state = promptRunner.stopPrompt();
     broadcastSnapshot();
     res.json({ ok: true, state });
+  });
+
+  app.post('/api/prompt/approve', (req, res) => {
+    const body = (req.body ?? {}) as { approvalId?: unknown; decision?: unknown };
+    const approvalId = typeof body.approvalId === 'string' ? body.approvalId.trim() : '';
+    const decision = body.decision;
+    if (
+      !approvalId ||
+      (decision !== 'allow_once' && decision !== 'allow_session' && decision !== 'deny')
+    ) {
+      res.status(400).json({
+        error: "Expected { approvalId: string, decision: 'allow_once' | 'allow_session' | 'deny' }",
+      });
+      return;
+    }
+    const resolved = promptRunner.resolveApproval(approvalId, decision as ApprovalDecision);
+    if (!resolved) {
+      res.status(404).json({ error: `Pending approval '${approvalId}' not found` });
+      return;
+    }
+    res.json({ ok: true, approvalId, decision });
   });
 
   app.post('/api/diff/decision', async (req, res) => {

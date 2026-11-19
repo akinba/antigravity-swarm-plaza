@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type {
+  ApprovalDecision,
+  ApprovalRequestPayload,
   CloudProviderId,
   DiffFileChange,
   ExecutionMode,
@@ -15,11 +17,13 @@ import type {
 } from '../../shared/types';
 import { playMentionChime, playSelectBlip } from '../audio/retroSynth';
 import { useI18n } from '../i18n/translations';
+import { loadStoredCustomBaseUrl } from './SettingsModal';
 
 export interface DockModelOption {
   id: PromptModelId;
   label: string;
   provider?: PromptProvider;
+  customBaseUrl?: string;
   localBaseUrl?: string;
   ollamaBaseUrl?: string;
 }
@@ -29,7 +33,12 @@ export const CLOUD_PROVIDER_ORDER: CloudProviderId[] = [
   'openai',
   'anthropic',
   'openrouter',
+  'deepseek',
+  'groq',
+  'xai',
+  'mistral',
   'copilot',
+  'custom',
 ];
 
 export const PROVIDER_BADGES: Record<PromptProvider, { icon: string; label: string }> = {
@@ -37,7 +46,12 @@ export const PROVIDER_BADGES: Record<PromptProvider, { icon: string; label: stri
   openai: { icon: '⚡', label: 'OpenAI' },
   anthropic: { icon: '🧠', label: 'Anthropic' },
   openrouter: { icon: '🌐', label: 'OpenRouter' },
+  deepseek: { icon: '🐋', label: 'DeepSeek' },
+  groq: { icon: '⚡', label: 'Groq' },
+  xai: { icon: '✖', label: 'xAI' },
+  mistral: { icon: '🌬', label: 'Mistral' },
   copilot: { icon: '🐙', label: 'Copilot' },
+  custom: { icon: '🔧', label: 'Custom' },
   ollama: { icon: '🦙', label: 'Ollama' },
   lmstudio: { icon: '💻', label: 'LM Studio' },
 };
@@ -126,6 +140,7 @@ export function formatProviderModelLabel(
 export function buildDockModelOptions(
   localAgents: LocalAgentConfig[] = [],
   providerModelsOrGemini: Partial<Record<CloudProviderId, ProviderModelInfo[]>> | GeminiModelInfo[] = {},
+  customBaseUrl: string = loadStoredCustomBaseUrl(),
 ): DockModelOption[] {
   const providerModelsMap: Partial<Record<CloudProviderId, ProviderModelInfo[]>> = Array.isArray(
     providerModelsOrGemini,
@@ -148,6 +163,7 @@ export function buildDockModelOptions(
         id: id as PromptModelId,
         label: formatProviderModelLabel(provider, m.displayName || m.id),
         provider,
+        ...(provider === 'custom' && customBaseUrl ? { customBaseUrl } : {}),
       });
     }
   }
@@ -170,7 +186,13 @@ export function buildDockModelOptions(
 export function resolvePromptProvider(
   model: PromptModelId,
   localAgents: LocalAgentConfig[] = [],
-): { provider: PromptProvider; localBaseUrl?: string; ollamaBaseUrl?: string } {
+  customBaseUrl: string = loadStoredCustomBaseUrl(),
+): {
+  provider: PromptProvider;
+  customBaseUrl?: string;
+  localBaseUrl?: string;
+  ollamaBaseUrl?: string;
+} {
   const matched = localAgents.find(
     (a) => a.enabled && (`${a.provider}:${a.model}` === model || a.model === model),
   );
@@ -186,7 +208,12 @@ export function resolvePromptProvider(
     'openai',
     'anthropic',
     'openrouter',
+    'deepseek',
+    'groq',
+    'xai',
+    'mistral',
     'copilot',
+    'custom',
     'ollama',
     'lmstudio',
   ];
@@ -197,6 +224,12 @@ export function resolvePromptProvider(
       }
       if (p === 'lmstudio') {
         return { provider: 'lmstudio', localBaseUrl: 'http://localhost:1234' };
+      }
+      if (p === 'custom') {
+        return {
+          provider: 'custom',
+          ...(customBaseUrl.trim() ? { customBaseUrl: customBaseUrl.trim() } : {}),
+        };
       }
       return { provider: p };
     }
@@ -374,6 +407,67 @@ export function appendPromptStreamLog(
   return next.length > 200 ? next.slice(next.length - 200) : next;
 }
 
+export function formatStreamEventLog(
+  ev: PromptStreamEvent,
+): { kind: PromptStreamEvent['type']; text: string } | null {
+  if (ev.type === 'status' && ev.text) {
+    return { kind: 'status', text: `[STATUS] ${ev.text}` };
+  }
+  if (ev.type === 'chunk' && ev.text) {
+    return { kind: 'chunk', text: ev.text };
+  }
+  if (ev.type === 'file' && ev.file) {
+    return { kind: 'file', text: `[FILE] ${ev.file}` };
+  }
+  if (ev.type === 'tool_call') {
+    const tool = ev.toolName || 'tool';
+    const icon =
+      tool === 'edit_file' || tool === 'write_file'
+        ? '✏️'
+        : tool === 'run_command'
+          ? '⚡'
+          : '🔧';
+    const prefix = ev.agentId ? `[${ev.agentId}] ` : '';
+    const detail = ev.text ? ` — ${ev.text}` : '';
+    return { kind: 'tool_call', text: `${prefix}${icon} ${tool}${detail}` };
+  }
+  if (ev.type === 'tool_result') {
+    const toolPart = ev.toolName ? `[${ev.toolName}] ` : '';
+    return { kind: 'tool_result', text: `↳ ${toolPart}${ev.text || 'ok'}` };
+  }
+  if (ev.type === 'board') {
+    if (ev.boardMessage) {
+      const mentionsPart = ev.boardMessage.mentions?.length
+        ? ` → ${ev.boardMessage.mentions.map((m) => `@${m}`).join(', ')}`
+        : '';
+      return {
+        kind: 'board',
+        text: `💬 @${ev.boardMessage.agent}${mentionsPart}: ${ev.boardMessage.text}`,
+      };
+    }
+    return ev.text ? { kind: 'board', text: `💬 ${ev.text}` } : null;
+  }
+  if (ev.type === 'approval_request') {
+    if (ev.approval) {
+      return {
+        kind: 'approval_request',
+        text: `🛡️ [${ev.approval.role}] ${ev.approval.toolName}: ${ev.approval.summary}`,
+      };
+    }
+    return ev.text ? { kind: 'approval_request', text: `🛡️ ${ev.text}` } : null;
+  }
+  if (ev.type === 'approval_resolved') {
+    return ev.text ? { kind: 'approval_resolved', text: `🔓 ${ev.text}` } : null;
+  }
+  if (ev.type === 'error' && ev.text) {
+    return { kind: 'error', text: `[ERR] ${ev.text}` };
+  }
+  if (ev.type === 'done' && ev.text) {
+    return { kind: 'done', text: `[DONE] ${ev.text}` };
+  }
+  return null;
+}
+
 interface SpeechRecognitionInstance {
   lang: string;
   interimResults: boolean;
@@ -416,6 +510,8 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
   const [runStatus, setRunStatus] = useState<'running' | 'idle' | 'stopped' | 'error'>('idle');
   const [logs, setLogs] = useState<DockLogLine[]>([]);
   const [diffs, setDiffs] = useState<DiffFileChange[]>([]);
+  const [pendingApprovals, setPendingApprovals] = useState<ApprovalRequestPayload[]>([]);
+  const [submittingApprovalId, setSubmittingApprovalId] = useState<string | null>(null);
   const [listening, setListening] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -471,28 +567,43 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
       try {
         const ev = JSON.parse(msg.data) as PromptStreamEvent;
         if (ev.status) setRunStatus(ev.status);
-        if (ev.type === 'status' && ev.text) {
-          appendLog('status', `[STATUS] ${ev.text}`, ev.runId);
-        } else if (ev.type === 'chunk' && ev.text) {
-          appendLog('chunk', ev.text, ev.runId);
-        } else if (ev.type === 'file' && ev.file) {
-          appendLog('file', `[FILE] ${ev.file}`, ev.runId);
-        } else if (ev.type === 'diff' && Array.isArray(ev.diffs)) {
+        const formatted = formatStreamEventLog(ev);
+        if (formatted) {
+          appendLog(formatted.kind, formatted.text, ev.runId);
+        }
+        if (ev.type === 'diff' && Array.isArray(ev.diffs)) {
           setDiffs(ev.diffs);
           setDrawerOpen(true);
-        } else if (ev.type === 'error' && ev.text) {
-          appendLog('error', `[ERR] ${ev.text}`, ev.runId);
+        } else if (ev.type === 'error') {
           setDrawerOpen(true);
+        } else if (ev.type === 'approval_request' && ev.approval) {
+          const approval = ev.approval;
+          setPendingApprovals((prev) =>
+            prev.some((a) => a.approvalId === approval.approvalId) ? prev : [...prev, approval],
+          );
+          setDrawerOpen(true);
+        } else if (ev.type === 'approval_resolved') {
+          setPendingApprovals((prev) => {
+            if (ev.approval?.approvalId) {
+              return prev.filter((a) => a.approvalId !== ev.approval!.approvalId);
+            }
+            if (ev.runId) {
+              return prev.filter((a) => a.runId !== ev.runId);
+            }
+            return prev.slice(1);
+          });
+          setSubmittingApprovalId(null);
         } else if (ev.type === 'done') {
           setRunStatus(ev.status ?? 'idle');
-          if (ev.text) appendLog('done', `[DONE] ${ev.text}`, ev.runId);
         }
       } catch {
         // ignore malformed heartbeat/comment
       }
     };
 
-    return () => {
+    const activeApproval = pendingApprovals[0] ?? null;
+
+  return () => {
       cancelled = true;
       es.close();
     };
@@ -591,7 +702,13 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
     appendLog('status', `> [${orchestration.toUpperCase()}] ${trimmed}`);
 
     const mentions = extractMentions(trimmed);
-    const { provider, localBaseUrl, ollamaBaseUrl } = resolvePromptProvider(model, localAgents);
+    const storedCustomBaseUrl = loadStoredCustomBaseUrl();
+    const { provider, customBaseUrl, localBaseUrl, ollamaBaseUrl } = resolvePromptProvider(
+      model,
+      localAgents,
+      storedCustomBaseUrl,
+    );
+    const effectiveCustomBaseUrl = customBaseUrl || storedCustomBaseUrl || undefined;
     const localBaseUrls: Record<string, string> = {};
     if (orchestration === 'swarm') {
       for (const agent of localAgents) {
@@ -614,6 +731,7 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
           swarmProfile: orchestration === 'swarm' ? swarmProfile : undefined,
           mentions,
           provider,
+          customBaseUrl: effectiveCustomBaseUrl,
           localBaseUrl,
           localBaseUrls: Object.keys(localBaseUrls).length > 0 ? localBaseUrls : undefined,
           ollamaBaseUrl,
@@ -663,6 +781,26 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
       }
     } catch {
       // ignore
+    }
+  };
+
+  const handleApprovalDecision = async (approvalId: string, decision: ApprovalDecision) => {
+    playSelectBlip();
+    setSubmittingApprovalId(approvalId);
+    try {
+      const res = await fetch('/api/prompt/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approvalId, decision }),
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        appendLog('error', errBody.error || `Approval failed (HTTP ${res.status})`);
+        setSubmittingApprovalId(null);
+      }
+    } catch (err) {
+      appendLog('error', err instanceof Error ? err.message : 'Approval request failed');
+      setSubmittingApprovalId(null);
     }
   };
 
@@ -726,6 +864,8 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
         : runStatus === 'stopped'
           ? t.dock.statusStopped
           : t.dock.statusIdle;
+
+  const activeApproval = pendingApprovals[0] ?? null;
 
   return (
     <section
@@ -792,6 +932,62 @@ export const RetroCommandDock: React.FC<RetroCommandDockProps> = ({
             )}
             <div ref={logsEndRef} />
           </div>
+
+          {activeApproval && (
+            <div className="retro-dock-approval-card" role="alertdialog" aria-label={t.dock.approvalTitle}>
+              <div className="retro-dock-approval-head">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                  <span style={{ fontFamily: 'var(--font-pixel)', fontSize: 9, color: '#ffd147' }}>
+                    {t.dock.approvalTitle}
+                  </span>
+                  <span className="pixel-badge" style={{ fontSize: 9, color: '#3be87a' }}>
+                    {activeApproval.role}
+                  </span>
+                  <span className="pixel-badge" style={{ fontSize: 9, color: '#7ee7ff' }}>
+                    {activeApproval.toolName}
+                  </span>
+                </div>
+                {pendingApprovals.length > 1 && (
+                  <span className="pixel-badge" style={{ fontSize: 8, color: '#ffd147' }}>
+                    {t.dock.approvalPendingCount.replace('{n}', String(pendingApprovals.length - 1))}
+                  </span>
+                )}
+              </div>
+              <div style={{ fontSize: 11, color: '#eef4ff' }}>{activeApproval.summary}</div>
+              {activeApproval.diffPreview && (
+                <pre className="retro-dock-approval-diff">{activeApproval.diffPreview}</pre>
+              )}
+              <div className="retro-dock-approval-actions">
+                <button
+                  type="button"
+                  className="pixel-btn active"
+                  style={{ fontSize: 9, padding: '4px 10px' }}
+                  disabled={submittingApprovalId === activeApproval.approvalId}
+                  onClick={() => void handleApprovalDecision(activeApproval.approvalId, 'allow_once')}
+                >
+                  {t.dock.approvalAllowOnce}
+                </button>
+                <button
+                  type="button"
+                  className="pixel-btn cyan"
+                  style={{ fontSize: 9, padding: '4px 10px' }}
+                  disabled={submittingApprovalId === activeApproval.approvalId}
+                  onClick={() => void handleApprovalDecision(activeApproval.approvalId, 'allow_session')}
+                >
+                  {t.dock.approvalAllowSession}
+                </button>
+                <button
+                  type="button"
+                  className="pixel-btn danger"
+                  style={{ fontSize: 9, padding: '4px 10px' }}
+                  disabled={submittingApprovalId === activeApproval.approvalId}
+                  onClick={() => void handleApprovalDecision(activeApproval.approvalId, 'deny')}
+                >
+                  {t.dock.approvalDeny}
+                </button>
+              </div>
+            </div>
+          )}
 
           {diffs.length > 0 && (
             <div className="retro-dock-diffs">

@@ -306,9 +306,32 @@ export type PromptModelId =
 
 export type ExecutionMode = 'turbo' | 'safe' | 'eco-swarm';
 
-export type CloudProviderId = 'gemini' | 'openai' | 'anthropic' | 'openrouter' | 'copilot';
+export type CloudProviderId =
+  | 'gemini'
+  | 'openai'
+  | 'anthropic'
+  | 'openrouter'
+  | 'deepseek'
+  | 'groq'
+  | 'xai'
+  | 'mistral'
+  | 'copilot'
+  | 'custom';
 export type LocalProviderId = 'ollama' | 'lmstudio';
 export type PromptProvider = CloudProviderId | LocalProviderId;
+
+export type ApprovalDecision = 'allow_once' | 'allow_session' | 'deny';
+
+export interface ApprovalRequestPayload {
+  approvalId: string;
+  runId: string;
+  role: string;
+  toolName: string;
+  summary: string;
+  detail?: string;
+  diffPreview?: string;
+  timestamp: number;
+}
 
 export interface LocalAgentConfig {
   id: string;
@@ -355,6 +378,7 @@ export interface PromptRequest {
   swarmProfile?: SwarmRoleAssignment[];
   mentions: string[];
   provider?: PromptProvider;
+  customBaseUrl?: string;
   localBaseUrl?: string;
   localBaseUrls?: Record<string, string>;
   ollamaBaseUrl?: string;
@@ -373,11 +397,26 @@ export interface DiffFileChange {
 
 export interface PromptStreamEvent {
   runId: string;
-  type: 'status' | 'chunk' | 'file' | 'diff' | 'done' | 'error';
+  type:
+    | 'status'
+    | 'chunk'
+    | 'file'
+    | 'diff'
+    | 'done'
+    | 'error'
+    | 'tool_call'
+    | 'tool_result'
+    | 'board'
+    | 'approval_request'
+    | 'approval_resolved';
   agentId?: string;
   text?: string;
   file?: string;
   diffs?: DiffFileChange[];
   status?: 'running' | 'idle' | 'stopped' | 'error';
+  toolName?: string;
+  toolArgs?: Record<string, unknown>;
+  approval?: ApprovalRequestPayload;
+  boardMessage?: SwarmBoardMessage;
   timestamp: number;
 }

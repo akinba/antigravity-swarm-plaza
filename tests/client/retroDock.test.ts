@@ -13,13 +13,20 @@ import {
   filterSlashSuggestions,
   formatOllamaModelLabel,
   formatProviderModelLabel,
+  formatStreamEventLog,
   getProjectSwarmStorageKey,
   resolveOrchestration,
   resolvePromptProvider,
 } from '../../src/client/components/RetroCommandDock';
-import { deriveMentionFromModel } from '../../src/client/components/SettingsModal';
+import { CLOUD_PROVIDER_TABS, deriveMentionFromModel } from '../../src/client/components/SettingsModal';
 import { DICTIONARIES } from '../../src/client/i18n/translations';
-import type { CloudProviderId, GeminiModelInfo, LocalAgentConfig, ProviderModelInfo } from '../../src/shared/types';
+import type {
+  CloudProviderId,
+  GeminiModelInfo,
+  LocalAgentConfig,
+  PromptStreamEvent,
+  ProviderModelInfo,
+} from '../../src/shared/types';
 
 describe('RetroCommandDock helpers & i18n', () => {
   it('detects @ and / autocomplete triggers at cursor position', () => {
@@ -243,5 +250,148 @@ describe('RetroCommandDock helpers & i18n', () => {
     assert.equal(logs[1].text, 'Hello! It seems fixed.');
     assert.equal(logs[2].text, '[DONE]');
     assert.equal(logs[3].text, 'Next run');
+  });
+
+  it('lists extended cloud providers (deepseek, groq, xai, mistral, custom) with customBaseUrl resolution', () => {
+    const tabIds = CLOUD_PROVIDER_TABS.map((t) => t.id);
+    for (const expected of ['deepseek', 'groq', 'xai', 'mistral', 'custom'] as const) {
+      assert.ok(tabIds.includes(expected), `CLOUD_PROVIDER_TABS includes ${expected}`);
+    }
+
+    const extendedMap: Partial<Record<CloudProviderId, ProviderModelInfo[]>> = {
+      deepseek: [{ id: 'deepseek-chat', displayName: 'DeepSeek Chat', provider: 'deepseek' }],
+      groq: [{ id: 'llama-3.3-70b-versatile', displayName: 'Llama 3.3 70B', provider: 'groq' }],
+      xai: [{ id: 'grok-3', displayName: 'Grok 3', provider: 'xai' }],
+      mistral: [{ id: 'codestral-latest', displayName: 'Codestral', provider: 'mistral' }],
+      custom: [{ id: 'my-local-vllm', displayName: 'My vLLM', provider: 'custom' }],
+    };
+
+    const opts = buildDockModelOptions([], extendedMap, 'https://vllm.example.com/v1');
+    assert.equal(opts.length, 5);
+    assert.ok(opts.some((o) => o.id === 'deepseek:deepseek-chat' && o.label === '🐋 DeepSeek Chat (DeepSeek)'));
+    assert.ok(opts.some((o) => o.id === 'groq:llama-3.3-70b-versatile' && o.label === '⚡ Llama 3.3 70B (Groq)'));
+    assert.ok(opts.some((o) => o.id === 'xai:grok-3' && o.label === '✖ Grok 3 (xAI)'));
+    assert.ok(opts.some((o) => o.id === 'mistral:codestral-latest' && o.label === '🌬 Codestral (Mistral)'));
+    assert.ok(
+      opts.some(
+        (o) =>
+          o.id === 'custom:my-local-vllm' &&
+          o.label === '🔧 My vLLM (Custom)' &&
+          o.customBaseUrl === 'https://vllm.example.com/v1',
+      ),
+    );
+
+    assert.deepEqual(resolvePromptProvider('deepseek:deepseek-chat'), { provider: 'deepseek' });
+    assert.deepEqual(resolvePromptProvider('groq:llama-3.3-70b-versatile'), { provider: 'groq' });
+    assert.deepEqual(resolvePromptProvider('xai:grok-3'), { provider: 'xai' });
+    assert.deepEqual(resolvePromptProvider('mistral:codestral-latest'), { provider: 'mistral' });
+    assert.deepEqual(
+      resolvePromptProvider('custom:my-local-vllm', [], 'https://vllm.example.com/v1'),
+      { provider: 'custom', customBaseUrl: 'https://vllm.example.com/v1' },
+    );
+  });
+
+  it('formats tool_call, tool_result, board, approval_request and approval_resolved stream events', () => {
+    const readEv: PromptStreamEvent = {
+      runId: 'r1',
+      type: 'tool_call',
+      agentId: 'coder-core',
+      toolName: 'read_file',
+      text: 'src/index.ts',
+      timestamp: 1,
+    };
+    const editEv: PromptStreamEvent = {
+      runId: 'r1',
+      type: 'tool_call',
+      toolName: 'edit_file',
+      text: 'src/app.ts',
+      timestamp: 2,
+    };
+    const cmdEv: PromptStreamEvent = {
+      runId: 'r1',
+      type: 'tool_call',
+      toolName: 'run_command',
+      text: 'npm test',
+      timestamp: 3,
+    };
+    const resEv: PromptStreamEvent = {
+      runId: 'r1',
+      type: 'tool_result',
+      toolName: 'read_file',
+      text: '42 lines',
+      timestamp: 4,
+    };
+    const boardEv: PromptStreamEvent = {
+      runId: 'r1',
+      type: 'board',
+      boardMessage: {
+        seq: 12,
+        agent: 'architect',
+        mentions: ['coder-core'],
+        text: 'Plan ready',
+        time: '01:50:00',
+        kind: 'handoff',
+      },
+      timestamp: 5,
+    };
+    const approvalEv: PromptStreamEvent = {
+      runId: 'r1',
+      type: 'approval_request',
+      approval: {
+        approvalId: 'apr-1',
+        runId: 'r1',
+        role: 'Coder Core',
+        toolName: 'run_command',
+        summary: 'Run npm test',
+        timestamp: 6,
+      },
+      timestamp: 6,
+    };
+    const resolvedEv: PromptStreamEvent = {
+      runId: 'r1',
+      type: 'approval_resolved',
+      text: 'Approved (allow_once)',
+      timestamp: 7,
+    };
+
+    assert.deepEqual(formatStreamEventLog(readEv), {
+      kind: 'tool_call',
+      text: '[coder-core] 🔧 read_file — src/index.ts',
+    });
+    assert.deepEqual(formatStreamEventLog(editEv), {
+      kind: 'tool_call',
+      text: '✏️ edit_file — src/app.ts',
+    });
+    assert.deepEqual(formatStreamEventLog(cmdEv), {
+      kind: 'tool_call',
+      text: '⚡ run_command — npm test',
+    });
+    assert.deepEqual(formatStreamEventLog(resEv), {
+      kind: 'tool_result',
+      text: '↳ [read_file] 42 lines',
+    });
+    assert.deepEqual(formatStreamEventLog(boardEv), {
+      kind: 'board',
+      text: '💬 @architect → @coder-core: Plan ready',
+    });
+    assert.deepEqual(formatStreamEventLog(approvalEv), {
+      kind: 'approval_request',
+      text: '🛡️ [Coder Core] run_command: Run npm test',
+    });
+    assert.deepEqual(formatStreamEventLog(resolvedEv), {
+      kind: 'approval_resolved',
+      text: '🔓 Approved (allow_once)',
+    });
+
+    let logs = appendPromptStreamLog([], 'tool_call', formatStreamEventLog(readEv)!.text, 'r1');
+    logs = appendPromptStreamLog(logs, 'board', formatStreamEventLog(boardEv)!.text, 'r1');
+    assert.equal(logs.length, 2);
+    assert.equal(logs[0].kind, 'tool_call');
+    assert.equal(logs[1].kind, 'board');
+
+    assert.ok(DICTIONARIES.tr.settingsModal.geminiFormatsHint.includes('AQ.'));
+    assert.ok(DICTIONARIES.en.settingsModal.geminiFormatsHint.includes('AQ.'));
+    assert.ok(DICTIONARIES.tr.settingsModal.customBaseUrlLabel.length > 0);
+    assert.ok(DICTIONARIES.en.settingsModal.customBaseUrlLabel.length > 0);
   });
 });

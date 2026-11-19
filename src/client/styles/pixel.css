@@ -410,7 +410,7 @@ canvas {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 250px;
+  max-height: 360px;
 }
 
 .retro-dock-drawer-head {
@@ -448,6 +448,71 @@ canvas {
 
 .retro-dock-log-line.status {
   color: var(--accent-amber);
+}
+
+.retro-dock-log-line.tool_call {
+  color: #7ee7ff;
+}
+
+.retro-dock-log-line.tool_result {
+  color: #8ea4c8;
+  padding-left: 10px;
+}
+
+.retro-dock-log-line.board {
+  color: #c39eff;
+}
+
+.retro-dock-log-line.approval_request {
+  color: #ffd147;
+  font-weight: 700;
+}
+
+.retro-dock-log-line.approval_resolved,
+.retro-dock-log-line.done {
+  color: var(--accent-green);
+}
+
+.retro-dock-approval-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background: #171326;
+  border: 2px solid #ffd147;
+  box-shadow:
+    inset 1px 1px 0 #4d3e16,
+    0 0 0 2px var(--border-dark);
+}
+
+.retro-dock-approval-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.retro-dock-approval-diff {
+  margin: 0;
+  padding: 6px 8px;
+  background: #0a0d16;
+  border: 1px solid var(--border-dark);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.4;
+  color: #cde0ff;
+  max-height: 88px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.retro-dock-approval-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .retro-dock-diffs {

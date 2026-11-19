@@ -330,6 +330,11 @@ export interface Translations {
     swarmConfigHint: string;
     addRolePlaceholder: string;
     addRoleBtn: string;
+    approvalTitle: string;
+    approvalAllowOnce: string;
+    approvalAllowSession: string;
+    approvalDeny: string;
+    approvalPendingCount: string;
   };
   settingsModal: {
     title: string;
@@ -403,6 +408,9 @@ export interface Translations {
     localBaseUrlLabel: string;
     localOfflineHint: string;
     copilotSdkHint: string;
+    customBaseUrlLabel: string;
+    customBaseUrlPlaceholder: string;
+    geminiFormatsHint: string;
   };
 }
 
@@ -788,6 +796,11 @@ const TR: Translations = {
     swarmConfigHint: 'Dock modeli = Tekli Ajan (↵ ENTER) & Swarm Orkestratörü (▶ RUN SWARM). Alt rolleri aşağıdan yönetin.',
     addRolePlaceholder: 'Özel rol adı (ör. Coder Fast)',
     addRoleBtn: '+ Rol Ekle',
+    approvalTitle: '🛡️ ARAÇ ONAYI GEREKLİ',
+    approvalAllowOnce: '✅ İzin Ver (Bu Sefer)',
+    approvalAllowSession: '🔓 Bu Oturumda İzin Ver',
+    approvalDeny: '❌ Reddet',
+    approvalPendingCount: '+{n} bekleyen',
   },
   settingsModal: {
     title: '⚙️ GRAFİK & SİSTEM AYARLARI',
@@ -861,6 +874,9 @@ const TR: Translations = {
     localBaseUrlLabel: 'Sunucu URL',
     localOfflineHint: 'Yerel sunucu çevrimdışı veya erişilemiyor.',
     copilotSdkHint: 'GitHub Copilot, oturum açılmış Copilot hesabını (@github/copilot-sdk) veya opsiyonel tokenı kullanabilir.',
+    customBaseUrlLabel: 'Custom Base URL',
+    customBaseUrlPlaceholder: 'https://api.example.com/v1',
+    geminiFormatsHint: 'Hem AIza... (Google AI Studio) hem AQ.... (Vertex AI Express) anahtarları desteklenir.',
   },
 };
 
@@ -1246,6 +1262,11 @@ const EN: Translations = {
     swarmConfigHint: 'Dock model = Single Agent (↵ ENTER) & Swarm Orchestrator (▶ RUN SWARM). Assign sub-roles below.',
     addRolePlaceholder: 'Custom role (e.g. Coder Fast)',
     addRoleBtn: '+ Add Role',
+    approvalTitle: '🛡️ TOOL APPROVAL REQUIRED',
+    approvalAllowOnce: '✅ Allow (Once)',
+    approvalAllowSession: '🔓 Allow (Session)',
+    approvalDeny: '❌ Deny',
+    approvalPendingCount: '+{n} pending',
   },
   settingsModal: {
     title: '⚙️ GRAPHICS & SYSTEM SETTINGS',
@@ -1319,6 +1340,9 @@ const EN: Translations = {
     localBaseUrlLabel: 'Server URL',
     localOfflineHint: 'Local server offline or unreachable.',
     copilotSdkHint: 'GitHub Copilot can use your signed-in Copilot account (@github/copilot-sdk) or an optional token.',
+    customBaseUrlLabel: 'Custom Base URL',
+    customBaseUrlPlaceholder: 'https://api.example.com/v1',
+    geminiFormatsHint: 'Both AIza... (Google AI Studio) and AQ.... (Vertex AI Express) keys are supported.',
   },
 };
 

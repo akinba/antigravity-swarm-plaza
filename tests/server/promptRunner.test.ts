@@ -7,6 +7,7 @@ import { describe, it } from 'node:test';
 import { createPlazaApp } from '../../src/server/index.js';
 import {
   CopilotSdkAdapter,
+  isCopilotAuthError,
   type CopilotSdkAdapterLike,
 } from '../../src/server/copilotSdkAdapter.js';
 import { applyActivePromptOverrides } from '../../src/server/gamification.js';
@@ -1006,15 +1007,26 @@ describe('PromptRunner & standalone prompt endpoints', () => {
     assert.equal(deltas.join(''), 'SDK streaming!');
     assert.equal(disconnected, true);
 
-    const ac = new AbortController();
-    ac.abort();
+    const acPre = new AbortController();
+    acPre.abort();
     await adapter.streamPrompt({
       model: 'gpt-4.1',
-      prompt: 'Cancelled',
+      prompt: 'Pre-cancelled',
       onDelta: () => {},
-      signal: ac.signal,
+      signal: acPre.signal,
+    });
+    assert.equal(aborted, false);
+
+    disconnected = false;
+    const acMid = new AbortController();
+    await adapter.streamPrompt({
+      model: 'gpt-4.1',
+      prompt: 'Cancelled mid-stream',
+      onDelta: () => acMid.abort(),
+      signal: acMid.signal,
     });
     assert.equal(aborted, true);
+    assert.equal(disconnected, true);
 
     await adapter.dispose();
     assert.equal(stopped, true);
@@ -1125,5 +1137,1183 @@ describe('PromptRunner & standalone prompt endpoints', () => {
     assert.match(seenRolePrompts.gemini ?? '', /Ollama implemented core/);
     assert.ok(swarmEvents.some((e) => e.type === 'chunk' && e.text?.includes('[SWARM COMPLETE]')));
     assert.equal(runner.getState().status, 'idle');
+  });
+
+  it('isCopilotAuthError detects auth failures and ignores unrelated errors', () => {
+    assert.equal(
+      isCopilotAuthError(
+        'Authorization error. Your credentials may be expired or invalid. (Request ID: 60CB:FD500:280B886:2A247A1:6AFF770D)',
+      ),
+      true,
+    );
+    assert.equal(isCopilotAuthError('401 Unauthorized'), true);
+    assert.equal(isCopilotAuthError('403 Forbidden'), true);
+    assert.equal(isCopilotAuthError('Token expired'), true);
+    assert.equal(isCopilotAuthError('not authenticated'), true);
+    assert.equal(isCopilotAuthError('Bad credentials'), true);
+    assert.equal(isCopilotAuthError('Token is invalid'), true);
+    assert.equal(isCopilotAuthError('Token invalid'), true);
+
+    assert.equal(isCopilotAuthError('Model not found'), false);
+    assert.equal(isCopilotAuthError('Network timeout'), false);
+    assert.equal(isCopilotAuthError('Rate limit exceeded'), false);
+    assert.equal(
+      isCopilotAuthError('Upstream failure (Request ID: 60CB:401:280B886:403:6AFF770D)'),
+      false,
+    );
+    assert.equal(isCopilotAuthError('Timeout after 401ms'), false);
+  });
+
+  it('CopilotSdkAdapter.streamPrompt falls back to logged-in user on auth failure, caches rejected tokens, and respects dispose/abort/partial deltas', async () => {
+    const clientOpts: Array<Record<string, unknown> | undefined> = [];
+    let stopCount = 0;
+
+    type MockEvent = {
+      type: string;
+      data?: { deltaContent?: string; content?: string; message?: string };
+    };
+
+    const adapter = new CopilotSdkAdapter({
+      sdkLoader: async () => ({
+        approveAll: () => ({ kind: 'approved' }),
+        CopilotClient: class {
+          private readonly opts: Record<string, unknown> | undefined;
+          constructor(opts?: Record<string, unknown>) {
+            this.opts = opts;
+            clientOpts.push(opts);
+          }
+          async start() {}
+          async stop() {
+            stopCount += 1;
+            return [];
+          }
+          async listModels() {
+            return [];
+          }
+          async createSession() {
+            let handler: ((ev: MockEvent) => void) | null = null;
+            return {
+              on(h: typeof handler) {
+                handler = h;
+                return () => {
+                  handler = null;
+                };
+              },
+              sendAndWait: async () => {
+                if (this.opts?.gitHubToken === 'ghp_bad') {
+                  handler?.({
+                    type: 'session.error',
+                    data: {
+                      message:
+                        'Authorization error. Your credentials may be expired or invalid. (Request ID: TEST-1)',
+                    },
+                  });
+                  return undefined;
+                }
+                if (this.opts?.useLoggedInUser === true) {
+                  handler?.({
+                    type: 'assistant.message_delta',
+                    data: { deltaContent: 'Logged-in fallback!' },
+                  });
+                  return undefined;
+                }
+                if (this.opts?.gitHubToken === 'gho_good') {
+                  handler?.({
+                    type: 'assistant.message_delta',
+                    data: { deltaContent: 'Good token!' },
+                  });
+                  return undefined;
+                }
+                return undefined;
+              },
+              async abort() {},
+              async disconnect() {},
+            };
+          }
+        },
+      }),
+    });
+
+    // 1. Bad explicit token disposes failed client, retries once with logged-in user, and succeeds
+    const deltas1: string[] = [];
+    await adapter.streamPrompt({
+      model: 'gpt-4.1',
+      prompt: 'First call',
+      githubToken: 'ghp_bad',
+      onDelta: (t) => deltas1.push(t),
+    });
+    assert.equal(deltas1.join(''), 'Logged-in fallback!');
+    assert.equal(stopCount, 1);
+    assert.equal(clientOpts.length, 2);
+    assert.deepEqual(clientOpts[0], { gitHubToken: 'ghp_bad', useLoggedInUser: false });
+    assert.deepEqual(clientOpts[1], { useLoggedInUser: true });
+
+    // 2. Second call with same rejected token reuses active logged-in client without recreating
+    const deltas2: string[] = [];
+    await adapter.streamPrompt({
+      model: 'gpt-4.1',
+      prompt: 'Second call',
+      githubToken: 'ghp_bad',
+      onDelta: (t) => deltas2.push(t),
+    });
+    assert.equal(deltas2.join(''), 'Logged-in fallback!');
+    assert.equal(clientOpts.length, 2);
+    assert.equal(stopCount, 1);
+
+    // 3. After dispose(), rejected token cache and client are reset; valid token uses explicit auth
+    await adapter.dispose();
+    assert.equal(stopCount, 2);
+    const deltas3: string[] = [];
+    await adapter.streamPrompt({
+      model: 'gpt-4.1',
+      prompt: 'Third call',
+      githubToken: 'gho_good',
+      onDelta: (t) => deltas3.push(t),
+    });
+    assert.equal(deltas3.join(''), 'Good token!');
+    assert.equal(clientOpts.length, 3);
+    assert.deepEqual(clientOpts[2], { gitHubToken: 'gho_good', useLoggedInUser: false });
+
+    // 4. Partial deltas already emitted -> no retry on mid-stream auth failure
+    const partialClientOpts: Array<Record<string, unknown> | undefined> = [];
+    let partialStopCount = 0;
+    const partialAdapter = new CopilotSdkAdapter({
+      sdkLoader: async () => ({
+        approveAll: () => ({ kind: 'approved' }),
+        CopilotClient: class {
+          constructor(opts?: Record<string, unknown>) {
+            partialClientOpts.push(opts);
+          }
+          async start() {}
+          async stop() {
+            partialStopCount += 1;
+            return [];
+          }
+          async listModels() {
+            return [];
+          }
+          async createSession() {
+            let handler: ((ev: MockEvent) => void) | null = null;
+            return {
+              on(h: typeof handler) {
+                handler = h;
+                return () => {
+                  handler = null;
+                };
+              },
+              async sendAndWait() {
+                handler?.({
+                  type: 'assistant.message_delta',
+                  data: { deltaContent: 'Partial ' },
+                });
+                handler?.({
+                  type: 'session.error',
+                  data: { message: '401 Unauthorized' },
+                });
+                return undefined;
+              },
+              async abort() {},
+              async disconnect() {},
+            };
+          }
+        },
+      }),
+    });
+
+    const partialDeltas: string[] = [];
+    await assert.rejects(
+      () =>
+        partialAdapter.streamPrompt({
+          model: 'gpt-4.1',
+          prompt: 'Partial stream',
+          githubToken: 'ghp_partial',
+          onDelta: (t) => partialDeltas.push(t),
+        }),
+      (err: unknown) => {
+        assert.ok(err instanceof Error);
+        assert.match(err.message, /401 Unauthorized/);
+        assert.match(err.message, /Hint: Clear or update the saved GitHub Copilot token/);
+        assert.equal(err.message.split('[COPILOT SDK ERROR]').length - 1, 1);
+        return true;
+      },
+    );
+    assert.deepEqual(partialDeltas, ['Partial ']);
+    assert.equal(partialClientOpts.length, 1);
+    assert.equal(partialStopCount, 1);
+
+    // 5. Aborted stream -> returns cleanly without retrying
+    const abortClientOpts: Array<Record<string, unknown> | undefined> = [];
+    const ac = new AbortController();
+    const abortAdapter = new CopilotSdkAdapter({
+      sdkLoader: async () => ({
+        approveAll: () => ({ kind: 'approved' }),
+        CopilotClient: class {
+          constructor(opts?: Record<string, unknown>) {
+            abortClientOpts.push(opts);
+          }
+          async start() {}
+          async stop() {
+            return [];
+          }
+          async listModels() {
+            return [];
+          }
+          async createSession() {
+            return {
+              on() {
+                return () => {};
+              },
+              async sendAndWait() {
+                ac.abort();
+                throw new Error('401 Unauthorized');
+              },
+              async abort() {},
+              async disconnect() {},
+            };
+          }
+        },
+      }),
+    });
+
+    await abortAdapter.streamPrompt({
+      model: 'gpt-4.1',
+      prompt: 'Abort during auth error',
+      githubToken: 'ghp_aborted',
+      onDelta: () => {},
+      signal: ac.signal,
+    });
+    assert.equal(abortClientOpts.length, 1);
+  });
+
+  it('CopilotSdkAdapter.streamPrompt disposes stale client and surfaces Request ID + recovery hint on auth failures', async () => {
+    let clientCreates = 0;
+    let stopCount = 0;
+    let shouldFail = true;
+
+    type MockEvent = {
+      type: string;
+      data?: { deltaContent?: string; content?: string; message?: string };
+    };
+
+    const loggedInAdapter = new CopilotSdkAdapter({
+      sdkLoader: async () => ({
+        approveAll: () => ({ kind: 'approved' }),
+        CopilotClient: class {
+          async start() {}
+          async stop() {
+            stopCount += 1;
+            return [];
+          }
+          async listModels() {
+            return [];
+          }
+          async createSession() {
+            clientCreates += 1;
+            let handler: ((ev: MockEvent) => void) | null = null;
+            return {
+              on(h: typeof handler) {
+                handler = h;
+                return () => {
+                  handler = null;
+                };
+              },
+              async sendAndWait() {
+                if (shouldFail) {
+                  handler?.({
+                    type: 'session.error',
+                    data: {
+                      message:
+                        'Authorization error. Your credentials may be expired or invalid. (Request ID: REQ-LOGGEDIN-1)',
+                    },
+                  });
+                } else {
+                  handler?.({
+                    type: 'assistant.message_delta',
+                    data: { deltaContent: 'Recovered!' },
+                  });
+                }
+                return undefined;
+              },
+              async abort() {},
+              async disconnect() {},
+            };
+          }
+        },
+      }),
+    });
+
+    await assert.rejects(
+      () =>
+        loggedInAdapter.streamPrompt({
+          model: 'gpt-4.1',
+          prompt: 'Hello',
+          onDelta: () => {},
+        }),
+      (err: unknown) => {
+        assert.ok(err instanceof Error);
+        assert.match(err.message, /REQ-LOGGEDIN-1/);
+        assert.match(err.message, /Hint: Re-authenticate your local GitHub Copilot session/);
+        assert.equal(err.message.split('[COPILOT SDK ERROR]').length - 1, 1);
+        return true;
+      },
+    );
+    assert.equal(stopCount, 1);
+
+    // Next call must instantiate a fresh client instead of reusing the failed one
+    shouldFail = false;
+    const recoveredDeltas: string[] = [];
+    await loggedInAdapter.streamPrompt({
+      model: 'gpt-4.1',
+      prompt: 'Retry after reauth',
+      onDelta: (t) => recoveredDeltas.push(t),
+    });
+    assert.equal(recoveredDeltas.join(''), 'Recovered!');
+    assert.equal(clientCreates, 2);
+
+    // Both explicit token and logged-in fallback fail -> both disposed, explicit-token hint emitted
+    let bothStopCount = 0;
+    const bothFailOpts: Array<Record<string, unknown> | undefined> = [];
+    const bothFailAdapter = new CopilotSdkAdapter({
+      sdkLoader: async () => ({
+        approveAll: () => ({ kind: 'approved' }),
+        CopilotClient: class {
+          private readonly opts: Record<string, unknown> | undefined;
+          constructor(opts?: Record<string, unknown>) {
+            this.opts = opts;
+            bothFailOpts.push(opts);
+          }
+          async start() {}
+          async stop() {
+            bothStopCount += 1;
+            return [];
+          }
+          async listModels() {
+            return [];
+          }
+          async createSession() {
+            let handler: ((ev: MockEvent) => void) | null = null;
+            return {
+              on(h: typeof handler) {
+                handler = h;
+                return () => {
+                  handler = null;
+                };
+              },
+              sendAndWait: async () => {
+                const reqId = this.opts?.gitHubToken ? 'REQ-EXPLICIT' : 'REQ-FALLBACK';
+                handler?.({
+                  type: 'session.error',
+                  data: { message: `401 Unauthorized (Request ID: ${reqId})` },
+                });
+                return undefined;
+              },
+              async abort() {},
+              async disconnect() {},
+            };
+          }
+        },
+      }),
+    });
+
+    await assert.rejects(
+      () =>
+        bothFailAdapter.streamPrompt({
+          model: 'gpt-4.1',
+          prompt: 'Both fail',
+          githubToken: 'ghp_expired',
+          onDelta: () => {},
+        }),
+      (err: unknown) => {
+        assert.ok(err instanceof Error);
+        assert.match(err.message, /REQ-FALLBACK/);
+        assert.match(err.message, /Hint: Clear or update the saved GitHub Copilot token/);
+        assert.equal(err.message.split('[COPILOT SDK ERROR]').length - 1, 1);
+        return true;
+      },
+    );
+    assert.equal(bothFailOpts.length, 2);
+    assert.equal(bothStopCount, 2);
+  });
+
+  it('CopilotSdkAdapter.listModels falls back to logged-in user when explicit token fails auth', async () => {
+    const clientOpts: Array<Record<string, unknown> | undefined> = [];
+    let stopCount = 0;
+
+    const adapter = new CopilotSdkAdapter({
+      sdkLoader: async () => ({
+        approveAll: () => ({ kind: 'approved' }),
+        CopilotClient: class {
+          private readonly opts: Record<string, unknown> | undefined;
+          constructor(opts?: Record<string, unknown>) {
+            this.opts = opts;
+            clientOpts.push(opts);
+          }
+          async start() {}
+          async stop() {
+            stopCount += 1;
+            return [];
+          }
+          async listModels() {
+            if (this.opts?.gitHubToken === 'ghp_bad') {
+              throw new Error('401 Unauthorized');
+            }
+            return [{ id: 'gpt-4.1', name: 'GPT-4.1', policy: { state: 'enabled' } }];
+          }
+          async createSession() {
+            return {
+              on() {
+                return () => {};
+              },
+              async sendAndWait() {
+                return undefined;
+              },
+              async abort() {},
+              async disconnect() {},
+            };
+          }
+        },
+      }),
+    });
+
+    const res = await adapter.listModels('ghp_bad');
+    assert.equal(res.ok, true);
+    assert.equal(res.models.length, 1);
+    assert.equal(res.models[0]?.id, 'gpt-4.1');
+    assert.equal(stopCount, 1);
+    assert.deepEqual(clientOpts, [
+      { gitHubToken: 'ghp_bad', useLoggedInUser: false },
+      { useLoggedInUser: true },
+    ]);
+
+    // Subsequent listModels with the rejected token reuses the logged-in client directly
+    const res2 = await adapter.listModels('ghp_bad');
+    assert.equal(res2.ok, true);
+    assert.equal(clientOpts.length, 2);
+  });
+
+  it('PromptRunner ignores GITHUB_TOKEN, recognizes COPILOT_GITHUB_TOKEN, and disposes copilotAdapter on setProviderKey', () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-copilot-env-'));
+    const secretsFilePath = path.join(tempDir, 'swarm-plaza-secrets.json');
+    const prevGithubToken = process.env.GITHUB_TOKEN;
+    const prevCopilotGithubToken = process.env.COPILOT_GITHUB_TOKEN;
+    const prevCopilotToken = process.env.COPILOT_TOKEN;
+
+    let disposeCount = 0;
+    const mockCopilotAdapter: CopilotSdkAdapterLike = {
+      async listModels() {
+        return { ok: true, models: [] };
+      },
+      async streamPrompt() {},
+      async dispose() {
+        disposeCount += 1;
+      },
+    };
+
+    try {
+      delete process.env.GITHUB_TOKEN;
+      delete process.env.COPILOT_GITHUB_TOKEN;
+      delete process.env.COPILOT_TOKEN;
+
+      process.env.GITHUB_TOKEN = 'ghp_plain_git_token';
+      const runnerWithGithubToken = new PromptRunner({
+        defaultWorkspace: process.cwd(),
+        secretsFilePath,
+        copilotAdapter: mockCopilotAdapter,
+      });
+      const githubStatus = runnerWithGithubToken.getProviderKeyStatus('copilot');
+      assert.equal(githubStatus.configured, false);
+      assert.equal(githubStatus.source, 'none');
+
+      const savedStatus = runnerWithGithubToken.setProviderKey('copilot', 'gho_test');
+      assert.equal(savedStatus.configured, true);
+      assert.equal(savedStatus.source, 'settings');
+      assert.equal(disposeCount, 1);
+
+      const clearedStatus = runnerWithGithubToken.setProviderKey('copilot', '');
+      assert.equal(clearedStatus.configured, false);
+      assert.equal(clearedStatus.source, 'none');
+      assert.equal(disposeCount, 2);
+
+      process.env.COPILOT_GITHUB_TOKEN = 'gho_copilot_env_token';
+      const runnerWithCopilotEnv = new PromptRunner({
+        defaultWorkspace: process.cwd(),
+        secretsFilePath,
+        copilotAdapter: mockCopilotAdapter,
+      });
+      const copilotEnvStatus = runnerWithCopilotEnv.getProviderKeyStatus('copilot');
+      assert.equal(copilotEnvStatus.configured, true);
+      assert.equal(copilotEnvStatus.source, 'env');
+    } finally {
+      if (prevGithubToken === undefined) {
+        delete process.env.GITHUB_TOKEN;
+      } else {
+        process.env.GITHUB_TOKEN = prevGithubToken;
+      }
+      if (prevCopilotGithubToken === undefined) {
+        delete process.env.COPILOT_GITHUB_TOKEN;
+      } else {
+        process.env.COPILOT_GITHUB_TOKEN = prevCopilotGithubToken;
+      }
+      if (prevCopilotToken === undefined) {
+        delete process.env.COPILOT_TOKEN;
+      } else {
+        process.env.COPILOT_TOKEN = prevCopilotToken;
+      }
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it('CopilotSdkAdapter treats whitespace-only token as logged-in user and surfaces logged-in hint on auth error', async () => {
+    const clientOpts: Array<Record<string, unknown> | undefined> = [];
+    let stopCount = 0;
+
+    const adapter = new CopilotSdkAdapter({
+      sdkLoader: async () => ({
+        approveAll: () => ({ kind: 'approved' }),
+        CopilotClient: class {
+          constructor(opts?: Record<string, unknown>) {
+            clientOpts.push(opts);
+          }
+          async start() {}
+          async stop() {
+            stopCount += 1;
+            return [];
+          }
+          async listModels(): Promise<
+            Array<{ id: string; name?: string; policy?: { state?: string } }>
+          > {
+            throw new Error('Bad credentials (Request ID: REQ-WS-1)');
+          }
+          async createSession() {
+            let handler: ((ev: { type: string; data?: { message?: string } }) => void) | null =
+              null;
+            return {
+              on(h: typeof handler) {
+                handler = h;
+                return () => {
+                  handler = null;
+                };
+              },
+              async sendAndWait() {
+                handler?.({
+                  type: 'session.error',
+                  data: { message: 'Token is invalid (Request ID: REQ-WS-2)' },
+                });
+                return undefined;
+              },
+              async abort() {},
+              async disconnect() {},
+            };
+          }
+        },
+      }),
+    });
+
+    const modelsRes = await adapter.listModels('   ');
+    assert.equal(modelsRes.ok, false);
+    assert.match(modelsRes.error ?? '', /REQ-WS-1/);
+    assert.match(modelsRes.error ?? '', /Hint: Re-authenticate your local GitHub Copilot session/);
+    assert.equal((modelsRes.error ?? '').split('[COPILOT SDK ERROR]').length - 1, 1);
+
+    await assert.rejects(
+      () =>
+        adapter.streamPrompt({
+          model: 'gpt-4.1',
+          prompt: 'Whitespace token',
+          githubToken: '   ',
+          onDelta: () => {},
+        }),
+      (err: unknown) => {
+        assert.ok(err instanceof Error);
+        assert.match(err.message, /REQ-WS-2/);
+        assert.match(err.message, /Hint: Re-authenticate your local GitHub Copilot session/);
+        assert.equal(err.message.split('[COPILOT SDK ERROR]').length - 1, 1);
+        return true;
+      },
+    );
+
+    assert.deepEqual(clientOpts, [{ useLoggedInUser: true }, { useLoggedInUser: true }]);
+    assert.equal(stopCount, 2);
+  });
+
+  it('CopilotSdkAdapter.listModels reports logged-in auth failure and explicit + fallback auth failure', async () => {
+    const loggedInOpts: Array<Record<string, unknown> | undefined> = [];
+    let loggedInStops = 0;
+
+    const loggedInAdapter = new CopilotSdkAdapter({
+      sdkLoader: async () => ({
+        approveAll: () => ({ kind: 'approved' }),
+        CopilotClient: class {
+          constructor(opts?: Record<string, unknown>) {
+            loggedInOpts.push(opts);
+          }
+          async start() {}
+          async stop() {
+            loggedInStops += 1;
+            return [];
+          }
+          async listModels(): Promise<
+            Array<{ id: string; name?: string; policy?: { state?: string } }>
+          > {
+            throw new Error('403 Forbidden (Request ID: REQ-LM-LI)');
+          }
+          async createSession() {
+            return {
+              on: () => () => {},
+              sendAndWait: async () => undefined,
+              abort: async () => {},
+              disconnect: async () => {},
+            };
+          }
+        },
+      }),
+    });
+
+    const loggedInFail = await loggedInAdapter.listModels();
+    assert.equal(loggedInFail.ok, false);
+    assert.deepEqual(loggedInOpts, [{ useLoggedInUser: true }]);
+    assert.equal(loggedInStops, 1);
+    assert.match(loggedInFail.error ?? '', /REQ-LM-LI/);
+    assert.match(
+      loggedInFail.error ?? '',
+      /Hint: Re-authenticate your local GitHub Copilot session/,
+    );
+    assert.equal((loggedInFail.error ?? '').split('[COPILOT SDK ERROR]').length - 1, 1);
+
+    const bothOpts: Array<Record<string, unknown> | undefined> = [];
+    let bothStops = 0;
+
+    const bothFailAdapter = new CopilotSdkAdapter({
+      sdkLoader: async () => ({
+        approveAll: () => ({ kind: 'approved' }),
+        CopilotClient: class {
+          private readonly opts: Record<string, unknown> | undefined;
+          constructor(opts?: Record<string, unknown>) {
+            this.opts = opts;
+            bothOpts.push(opts);
+          }
+          async start() {}
+          async stop() {
+            bothStops += 1;
+            return [];
+          }
+          async listModels(): Promise<
+            Array<{ id: string; name?: string; policy?: { state?: string } }>
+          > {
+            const reqId = this.opts?.gitHubToken ? 'REQ-LM-EXPLICIT' : 'REQ-LM-FALLBACK';
+            throw new Error(`401 Unauthorized (Request ID: ${reqId})`);
+          }
+          async createSession() {
+            return {
+              on: () => () => {},
+              sendAndWait: async () => undefined,
+              abort: async () => {},
+              disconnect: async () => {},
+            };
+          }
+        },
+      }),
+    });
+
+    const bothFail = await bothFailAdapter.listModels('ghp_expired');
+    assert.equal(bothFail.ok, false);
+    assert.deepEqual(bothOpts, [
+      { gitHubToken: 'ghp_expired', useLoggedInUser: false },
+      { useLoggedInUser: true },
+    ]);
+    assert.equal(bothStops, 2);
+    assert.match(bothFail.error ?? '', /REQ-LM-FALLBACK/);
+    assert.match(
+      bothFail.error ?? '',
+      /Hint: Clear or update the saved GitHub Copilot token/,
+    );
+    assert.equal((bothFail.error ?? '').split('[COPILOT SDK ERROR]').length - 1, 1);
+  });
+
+  it('PromptRunner falls back to COPILOT_TOKEN env var when COPILOT_GITHUB_TOKEN is unset', async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-copilot-tok-'));
+    const secretsFilePath = path.join(tempDir, 'swarm-plaza-secrets.json');
+    const prevGithubToken = process.env.GITHUB_TOKEN;
+    const prevCopilotGithubToken = process.env.COPILOT_GITHUB_TOKEN;
+    const prevCopilotToken = process.env.COPILOT_TOKEN;
+
+    const seenTokens: Array<string | undefined> = [];
+    const mockCopilotAdapter: CopilotSdkAdapterLike = {
+      async listModels(githubToken?: string) {
+        seenTokens.push(githubToken);
+        return { ok: true, models: [] };
+      },
+      async streamPrompt() {},
+      async dispose() {},
+    };
+
+    try {
+      delete process.env.GITHUB_TOKEN;
+      delete process.env.COPILOT_GITHUB_TOKEN;
+      process.env.COPILOT_TOKEN = 'gho_copilot_token_fallback';
+
+      const runner = new PromptRunner({
+        defaultWorkspace: process.cwd(),
+        secretsFilePath,
+        copilotAdapter: mockCopilotAdapter,
+      });
+
+      const status = runner.getProviderKeyStatus('copilot');
+      assert.equal(status.configured, true);
+      assert.equal(status.source, 'env');
+
+      await runner.fetchProviderModels('copilot');
+      assert.deepEqual(seenTokens, ['gho_copilot_token_fallback']);
+    } finally {
+      if (prevGithubToken === undefined) {
+        delete process.env.GITHUB_TOKEN;
+      } else {
+        process.env.GITHUB_TOKEN = prevGithubToken;
+      }
+      if (prevCopilotGithubToken === undefined) {
+        delete process.env.COPILOT_GITHUB_TOKEN;
+      } else {
+        process.env.COPILOT_GITHUB_TOKEN = prevCopilotGithubToken;
+      }
+      if (prevCopilotToken === undefined) {
+        delete process.env.COPILOT_TOKEN;
+      } else {
+        process.env.COPILOT_TOKEN = prevCopilotToken;
+      }
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it('CopilotSdkAdapter serializes concurrent ensureClient calls and isolates dispose() mid-start from newer clients', async () => {
+    // 1. Concurrent listModels calls with async start() share a single CopilotClient
+    let concurrentConstructs = 0;
+    let concurrentStarts = 0;
+    let concurrentStops = 0;
+
+    const concurrentAdapter = new CopilotSdkAdapter({
+      sdkLoader: async () => ({
+        approveAll: () => ({ kind: 'approved' }),
+        CopilotClient: class {
+          constructor() {
+            concurrentConstructs += 1;
+          }
+          async start() {
+            concurrentStarts += 1;
+            await new Promise((r) => setTimeout(r, 15));
+          }
+          async stop() {
+            concurrentStops += 1;
+            return [];
+          }
+          async listModels() {
+            return [{ id: 'gpt-4.1', name: 'GPT-4.1' }];
+          }
+          async createSession() {
+            return {
+              on: () => () => {},
+              sendAndWait: async () => undefined,
+              abort: async () => {},
+              disconnect: async () => {},
+            };
+          }
+        },
+      }),
+    });
+
+    const [cRes1, cRes2] = await Promise.all([
+      concurrentAdapter.listModels('gho_same'),
+      concurrentAdapter.listModels('gho_same'),
+    ]);
+    assert.equal(cRes1.ok, true);
+    assert.equal(cRes2.ok, true);
+    assert.equal(concurrentConstructs, 1);
+    assert.equal(concurrentStarts, 1);
+    assert.equal(concurrentStops, 0);
+
+    // 2. dispose() mid-start() stops the in-flight client and prevents stale auth failure from killing a newer client
+    let resolveFirstStart!: () => void;
+    let notifyFirstStartEntered!: () => void;
+    const firstStartEntered = new Promise<void>((r) => {
+      notifyFirstStartEntered = r;
+    });
+    const clientRecords: Array<{
+      opts: Record<string, unknown> | undefined;
+      stopped: boolean;
+    }> = [];
+
+    const raceAdapter = new CopilotSdkAdapter({
+      sdkLoader: async () => ({
+        approveAll: () => ({ kind: 'approved' }),
+        CopilotClient: class {
+          private readonly rec: { opts: Record<string, unknown> | undefined; stopped: boolean };
+          private readonly index: number;
+          constructor(opts?: Record<string, unknown>) {
+            this.rec = { opts, stopped: false };
+            this.index = clientRecords.push(this.rec) - 1;
+          }
+          async start() {
+            if (this.index === 0) {
+              notifyFirstStartEntered();
+              await new Promise<void>((resolve) => {
+                resolveFirstStart = resolve;
+              });
+            }
+          }
+          async stop() {
+            this.rec.stopped = true;
+            return [];
+          }
+          async listModels() {
+            return [{ id: 'gpt-4.1', name: 'GPT-4.1' }];
+          }
+          async createSession() {
+            return {
+              on: () => () => {},
+              sendAndWait: async () => undefined,
+              abort: async () => {},
+              disconnect: async () => {},
+            };
+          }
+        },
+      }),
+    });
+
+    const staleCall = raceAdapter.listModels('gho_reused');
+    await firstStartEntered;
+    const disposeCall = raceAdapter.dispose();
+    const freshCall = raceAdapter.listModels('gho_reused');
+
+    resolveFirstStart();
+    const [staleRes, , freshRes] = await Promise.all([staleCall, disposeCall, freshCall]);
+
+    assert.equal(staleRes.ok, false);
+    assert.match(staleRes.error ?? '', /disposed during startup/i);
+    assert.equal(freshRes.ok, true);
+    assert.equal(clientRecords.length, 2);
+    assert.equal(clientRecords[0]?.stopped, true);
+    assert.equal(clientRecords[1]?.stopped, false);
+
+    // 3. Stale mid-flight auth rejection after dispose() + new client does not poison token or stop newer client
+    let rejectFirstListModels!: (err: Error) => void;
+    let notifyListModelsEntered!: () => void;
+    const listModelsEntered = new Promise<void>((r) => {
+      notifyListModelsEntered = r;
+    });
+    const staleClients: Array<{
+      opts: Record<string, unknown> | undefined;
+      stopped: boolean;
+    }> = [];
+
+    const staleFailureAdapter = new CopilotSdkAdapter({
+      sdkLoader: async () => ({
+        approveAll: () => ({ kind: 'approved' }),
+        CopilotClient: class {
+          private readonly rec: { opts: Record<string, unknown> | undefined; stopped: boolean };
+          private readonly index: number;
+          constructor(opts?: Record<string, unknown>) {
+            this.rec = { opts, stopped: false };
+            this.index = staleClients.push(this.rec) - 1;
+          }
+          async start() {}
+          async stop() {
+            this.rec.stopped = true;
+            return [];
+          }
+          async listModels() {
+            if (this.index === 0) {
+              notifyListModelsEntered();
+              return new Promise<Array<{ id: string; name?: string }>>((_, reject) => {
+                rejectFirstListModels = reject;
+              });
+            }
+            return [{ id: 'gpt-4.1', name: 'GPT-4.1' }];
+          }
+          async createSession() {
+            return {
+              on: () => () => {},
+              sendAndWait: async () => undefined,
+              abort: async () => {},
+              disconnect: async () => {},
+            };
+          }
+        },
+      }),
+    });
+
+    const inflightStale = staleFailureAdapter.listModels('gho_reused');
+    await listModelsEntered;
+    await staleFailureAdapter.dispose();
+    const newerRes1 = await staleFailureAdapter.listModels('gho_reused');
+    assert.equal(newerRes1.ok, true);
+
+    rejectFirstListModels(new Error('401 Unauthorized'));
+    const inflightStaleRes = await inflightStale;
+    assert.equal(inflightStaleRes.ok, false);
+
+    // Newer client must remain alive and gho_reused must not be poisoned in rejectedAuthTokens
+    const newerRes2 = await staleFailureAdapter.listModels('gho_reused');
+    assert.equal(newerRes2.ok, true);
+    assert.equal(staleClients.length, 2);
+    assert.equal(staleClients[0]?.stopped, true);
+    assert.equal(staleClients[1]?.stopped, false);
+    assert.deepEqual(staleClients[1]?.opts, {
+      gitHubToken: 'gho_reused',
+      useLoggedInUser: false,
+    });
+  });
+
+  it('CopilotSdkAdapter.streamPrompt skips fallback retry when abort occurs during disposeClientIfGeneration', async () => {
+    const ac = new AbortController();
+    const clientOpts: Array<Record<string, unknown> | undefined> = [];
+    let stopCount = 0;
+
+    const adapter = new CopilotSdkAdapter({
+      sdkLoader: async () => ({
+        approveAll: () => ({ kind: 'approved' }),
+        CopilotClient: class {
+          constructor(opts?: Record<string, unknown>) {
+            clientOpts.push(opts);
+          }
+          async start() {}
+          async stop() {
+            stopCount += 1;
+            ac.abort();
+            return [];
+          }
+          async listModels() {
+            return [];
+          }
+          async createSession() {
+            return {
+              on: () => () => {},
+              async sendAndWait() {
+                throw new Error('401 Unauthorized');
+              },
+              async abort() {},
+              async disconnect() {},
+            };
+          }
+        },
+      }),
+    });
+
+    await adapter.streamPrompt({
+      model: 'gpt-4.1',
+      prompt: 'Abort during dispose',
+      githubToken: 'ghp_bad',
+      onDelta: () => {},
+      signal: ac.signal,
+    });
+
+    assert.equal(stopCount, 1);
+    assert.deepEqual(clientOpts, [{ gitHubToken: 'ghp_bad', useLoggedInUser: false }]);
+  });
+
+  it('supports deepseek, groq, custom baseUrl persistence, POST /api/prompt/approve, and liveSwarmBoard snapshot merging', async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-phase1c-'));
+    const secretsFilePath = path.join(tempDir, 'secrets.json');
+
+    // Mock SwarmOrchestrator that requests a Safe-mode approval and posts to SwarmBoard
+    const { SwarmOrchestrator } = await import('../../src/server/swarm/swarmOrchestrator.js');
+    const orchestrator = new SwarmOrchestrator({
+      adapters: {
+        deepseek: {
+          provider: 'deepseek',
+          async listModels() {
+            return { ok: true, models: [] };
+          },
+          async runTurn() {
+            return { text: 'Done', toolCalls: [], finishReason: 'stop' };
+          },
+        },
+      },
+    });
+    // Override run() on this test orchestrator to exercise ApprovalGate + SwarmBoard + onEvent
+    orchestrator.run = async (params) => {
+      params.onAgentStateChange?.('coder-core', 'working', {
+        role: 'Coder Core',
+        currentFile: 'src/server/index.ts',
+      });
+      params.board?.postMessage({
+        from: 'Architect',
+        to: 'Coder Core',
+        text: '@coder-core Update index routes',
+      });
+      params.onEvent?.({
+        runId: params.runId,
+        type: 'tool_call',
+        agentId: 'coder-core',
+        toolName: 'edit_file',
+        toolArgs: { path: 'src/server/index.ts' },
+        timestamp: Date.now(),
+      });
+      const decision = await params.approvalGate!.requestApproval({
+        approvalId: 'apr-test-1',
+        runId: params.runId,
+        role: 'Coder Core',
+        toolName: 'edit_file',
+        summary: 'Edit src/server/index.ts',
+        timestamp: Date.now(),
+      });
+      params.onEvent?.({
+        runId: params.runId,
+        type: 'chunk',
+        agentId: 'coder-core',
+        text: `Decision=${decision}`,
+        timestamp: Date.now(),
+      });
+      return {
+        runId: params.runId,
+        tasks: [],
+        whiteboard: params.board!.toWhiteboardSnapshot(),
+        healingRoundsUsed: 0,
+        verified: true,
+        roleOutputs: { 'Coder Core': `Decision=${decision}` },
+      };
+    };
+
+    const runner = new PromptRunner({
+      defaultWorkspace: process.cwd(),
+      secretsFilePath,
+      swarmOrchestrator: orchestrator,
+      providerKeys: { deepseek: '', groq: '', custom: '' },
+      fetchImpl: async (url) => {
+        const u = String(url);
+        if (u === 'https://api.deepseek.com/v1/models') {
+          return new Response(JSON.stringify({ data: [{ id: 'deepseek-chat' }] }), { status: 200 });
+        }
+        if (u === 'https://api.groq.com/openai/v1/models') {
+          return new Response(JSON.stringify({ data: [{ id: 'llama-3.3-70b-versatile' }] }), {
+            status: 200,
+          });
+        }
+        if (u === 'https://custom-llm.local/v1/models') {
+          return new Response(JSON.stringify({ data: [{ id: 'custom-7b' }] }), { status: 200 });
+        }
+        return new Response('{}', { status: 404 });
+      },
+    });
+
+    const instance = createPlazaApp({
+      agyDataDir: path.join(os.tmpdir(), 'nonexistent-agy-test-dir'),
+      initialDemoMode: true,
+      broadcastIntervalMs: 0,
+      promptRunner: runner,
+    });
+
+    await new Promise<void>((resolve) => {
+      instance.server.listen(0, '127.0.0.1', () => resolve());
+    });
+    const addr = instance.server.address();
+    const port = typeof addr === 'object' && addr ? addr.port : 0;
+    const baseUrl = `http://127.0.0.1:${port}`;
+
+    try {
+      // 1. Save deepseek, groq, and custom (with baseUrl) keys & fetch models
+      await fetch(`${baseUrl}/api/settings/provider-key`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: 'deepseek', apiKey: 'sk-ds-12345678' }),
+      });
+      await fetch(`${baseUrl}/api/settings/provider-key`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: 'groq', apiKey: 'gsk_1234567890' }),
+      });
+      const customSave = (await (
+        await fetch(`${baseUrl}/api/settings/provider-key`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            provider: 'custom',
+            apiKey: 'sk-cust-123456',
+            baseUrl: 'https://custom-llm.local/v1/',
+          }),
+        })
+      ).json()) as { ok: boolean; baseUrl?: string };
+      assert.equal(customSave.ok, true);
+      assert.equal(customSave.baseUrl, 'https://custom-llm.local/v1');
+
+      const dsModels = (await (await fetch(`${baseUrl}/api/providers/models?provider=deepseek`)).json()) as {
+        ok: boolean;
+        models: Array<{ id: string }>;
+      };
+      assert.equal(dsModels.ok, true);
+      assert.equal(dsModels.models[0]?.id, 'deepseek-chat');
+
+      const groqModels = (await (await fetch(`${baseUrl}/api/providers/models?provider=groq`)).json()) as {
+        ok: boolean;
+        models: Array<{ id: string }>;
+      };
+      assert.equal(groqModels.ok, true);
+      assert.equal(groqModels.models[0]?.id, 'llama-3.3-70b-versatile');
+
+      const customModels = (await (await fetch(`${baseUrl}/api/providers/models?provider=custom`)).json()) as {
+        ok: boolean;
+        models: Array<{ id: string }>;
+      };
+      assert.equal(customModels.ok, true);
+      assert.equal(customModels.models[0]?.id, 'custom-7b');
+
+      // 2. Start swarm run and test POST /api/prompt/approve
+      const events: PromptStreamEvent[] = [];
+      runner.subscribe((ev) => events.push(ev));
+
+      const startRes = await fetch(`${baseUrl}/api/prompt`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: 'Update routes',
+          model: 'deepseek:deepseek-chat',
+          mode: 'safe',
+          orchestration: 'swarm',
+          swarmProfile: [{ role: 'Coder Core', model: 'deepseek:deepseek-chat', level: 'medium' }],
+          mentions: [],
+        }),
+      });
+      assert.equal(startRes.status, 200);
+
+      await new Promise((r) => setTimeout(r, 40));
+
+      const badApprove = await fetch(`${baseUrl}/api/prompt/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approvalId: 'apr-test-1', decision: 'invalid' }),
+      });
+      assert.equal(badApprove.status, 400);
+
+      const missingApprove = await fetch(`${baseUrl}/api/prompt/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approvalId: 'unknown-id', decision: 'allow_once' }),
+      });
+      assert.equal(missingApprove.status, 404);
+
+      const okApprove = await fetch(`${baseUrl}/api/prompt/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approvalId: 'apr-test-1', decision: 'allow_once' }),
+      });
+      assert.equal(okApprove.status, 200);
+
+      await runner.waitForIdle();
+
+      assert.ok(events.some((e) => e.type === 'approval_request' && e.approval?.approvalId === 'apr-test-1'));
+      assert.ok(events.some((e) => e.type === 'approval_resolved'));
+      assert.ok(events.some((e) => e.type === 'chunk' && e.text === 'Decision=allow_once'));
+
+      // 3. Verify getActiveSwarmBoardSnapshot() merges into /api/plaza
+      const boardSnap = runner.getActiveSwarmBoardSnapshot();
+      assert.ok(boardSnap);
+      assert.ok(boardSnap.messages.some((m) => m.text.includes('Update index routes')));
+
+      const plazaRes = await fetch(`${baseUrl}/api/plaza`);
+      const plazaJson = (await plazaRes.json()) as { floors: PlazaFloor[] };
+      const demoFloor = plazaJson.floors.find((f) => f.isDemo);
+      assert.ok(demoFloor?.boardMessages.some((m) => m.text.includes('Update index routes')));
+    } finally {
+      await instance.close();
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
   });
 });

@@ -41,13 +41,41 @@ export function saveStoredLocalAgents(agents: LocalAgentConfig[]): void {
 
 export const GEMINI_MODELS_STORAGE_KEY = 'swarm_plaza_gemini_models';
 export const PROVIDER_MODELS_STORAGE_KEY = 'swarm_plaza_provider_models';
+export const CUSTOM_BASE_URL_STORAGE_KEY = 'swarm_plaza_custom_base_url';
+
+export function loadStoredCustomBaseUrl(): string {
+  try {
+    if (typeof localStorage === 'undefined') return '';
+    return localStorage.getItem(CUSTOM_BASE_URL_STORAGE_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+export function saveStoredCustomBaseUrl(url: string): void {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    if (url.trim()) {
+      localStorage.setItem(CUSTOM_BASE_URL_STORAGE_KEY, url.trim());
+    } else {
+      localStorage.removeItem(CUSTOM_BASE_URL_STORAGE_KEY);
+    }
+  } catch {
+    // ignore storage errors
+  }
+}
 
 export const CLOUD_PROVIDER_TABS: Array<{ id: CloudProviderId; label: string; icon: string }> = [
   { id: 'gemini', label: 'Gemini', icon: '✨' },
   { id: 'openai', label: 'OpenAI', icon: '⚡' },
   { id: 'anthropic', label: 'Anthropic', icon: '🧠' },
   { id: 'openrouter', label: 'OpenRouter', icon: '🌐' },
+  { id: 'deepseek', label: 'DeepSeek', icon: '🐋' },
+  { id: 'groq', label: 'Groq', icon: '⚡' },
+  { id: 'xai', label: 'xAI Grok', icon: '✖' },
+  { id: 'mistral', label: 'Mistral', icon: '🌬' },
   { id: 'copilot', label: 'GitHub Copilot', icon: '🐙' },
+  { id: 'custom', label: 'Custom URL', icon: '🔧' },
 ];
 
 export function loadStoredProviderModels(): Partial<Record<CloudProviderId, ProviderModelInfo[]>> {
@@ -180,6 +208,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [cloudKeyNotice, setCloudKeyNotice] = useState<string | null>(null);
   const [fetchingCloudModels, setFetchingCloudModels] = useState(false);
   const [cloudModelsError, setCloudModelsError] = useState<string | null>(null);
+  const [customBaseUrl, setCustomBaseUrl] = useState(() => loadStoredCustomBaseUrl());
 
   const [localProvider, setLocalProvider] = useState<LocalProviderId>('ollama');
   const [localUrl, setLocalUrl] = useState('http://localhost:11434');
@@ -207,19 +236,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setFetchingCloudModels(true);
     setCloudModelsError(null);
     try {
-      const res = await fetch(`/api/providers/models?provider=${encodeURIComponent(provider)}`);
+      const baseUrlQuery =
+        provider === 'custom' && customBaseUrl.trim()
+          ? `&baseUrl=${encodeURIComponent(customBaseUrl.trim())}`
+          : '';
+      const res = await fetch(
+        `/api/providers/models?provider=${encodeURIComponent(provider)}${baseUrlQuery}`,
+      );
       const data = (await res.json()) as {
         ok?: boolean;
         models?: ProviderModelInfo[];
         error?: string;
       };
-      if (data.ok && Array.isArray(data.models)) {
+      if (res.ok && data.ok && Array.isArray(data.models)) {
         onChangeProviderModels({ ...providerModels, [provider]: data.models });
       } else {
         setCloudModelsError(data.error || `Failed to fetch ${provider} models`);
       }
-    } catch {
-      setCloudModelsError(`Failed to fetch ${provider} models`);
+    } catch (err) {
+      setCloudModelsError(
+        err instanceof Error ? err.message : `Failed to fetch ${provider} models`,
+      );
     } finally {
       setFetchingCloudModels(false);
     }
@@ -256,7 +293,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       const res = await fetch('/api/settings/provider-key', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: targetProvider, apiKey }),
+        body: JSON.stringify({
+          provider: targetProvider,
+          apiKey,
+          ...(targetProvider === 'custom' && customBaseUrl.trim()
+            ? { baseUrl: customBaseUrl.trim() }
+            : {}),
+        }),
       });
       if (res.ok) {
         const data = (await res.json()) as {
@@ -279,7 +322,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         } else {
           await handleFetchCloudModels(targetProvider, true);
         }
+      } else {
+        const errData = (await res.json().catch(() => ({}))) as { error?: string };
+        setCloudModelsError(
+          errData.error || `Failed to save ${targetProvider} key (HTTP ${res.status})`,
+        );
       }
+    } catch (err) {
+      setCloudModelsError(
+        err instanceof Error ? err.message : `Failed to save ${targetProvider} key`,
+      );
     } finally {
       setCloudKeySaving(false);
     }
@@ -705,7 +757,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </span>
               </div>
 
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+                  gap: 4,
+                }}
+              >
                 {CLOUD_PROVIDER_TABS.map((p) => {
                   const count = providerModels[p.id]?.length ?? 0;
                   return (
@@ -778,9 +836,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   disabled={
                     fetchingCloudModels ||
                     cloudKeySaving ||
-                    (activeCloudProvider !== 'copilot' &&
-                      !activeKeyStatus.configured &&
-                      !cloudKeyDraft.trim())
+                    (activeCloudProvider === 'custom'
+                      ? !customBaseUrl.trim()
+                      : activeCloudProvider !== 'copilot' &&
+                        !activeKeyStatus.configured &&
+                        !cloudKeyDraft.trim())
                   }
                   onClick={() => void handleFetchCloudModels(activeCloudProvider)}
                 >
@@ -789,6 +849,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     : t.settingsModal.fetchGeminiModelsBtn}
                 </button>
               </div>
+
+              {activeCloudProvider === 'custom' && (
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <span style={{ fontSize: 10, color: '#dce6ff', minWidth: 96 }}>
+                    {t.settingsModal.customBaseUrlLabel}
+                  </span>
+                  <input
+                    type="text"
+                    value={customBaseUrl}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setCustomBaseUrl(next);
+                      saveStoredCustomBaseUrl(next);
+                    }}
+                    placeholder={t.settingsModal.customBaseUrlPlaceholder}
+                    aria-label={t.settingsModal.customBaseUrlLabel}
+                    className="retro-dock-select"
+                    style={{ flex: 1, minWidth: 200, maxWidth: 'none', cursor: 'text' }}
+                  />
+                </div>
+              )}
+
+              {activeCloudProvider === 'gemini' && (
+                <div style={{ fontSize: 10, color: '#9ee8ff' }}>
+                  ✨ {t.settingsModal.geminiFormatsHint}
+                </div>
+              )}
 
               {activeCloudProvider === 'copilot' && (
                 <div style={{ fontSize: 10, color: '#9ee8ff' }}>

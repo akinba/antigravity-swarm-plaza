@@ -33,6 +33,7 @@ import {
   defaultPromptRunner,
   type ActivePromptAgentOverride,
 } from './promptRunner.js';
+import type { WhiteboardSnapshot } from './swarm/swarmBoard.js';
 import {
   buildSwarmMentionEdges,
   classifySwarmRole,
@@ -1455,11 +1456,66 @@ export function applyActivePromptOverrides(
   }
 }
 
+export function mergeLiveSwarmBoard(
+  floors: PlazaFloor[],
+  activeProjectFloorId: string | null,
+  liveSwarmBoard?: WhiteboardSnapshot | null,
+): void {
+  if (!liveSwarmBoard) return;
+  if (
+    liveSwarmBoard.messages.length === 0 &&
+    liveSwarmBoard.edges.length === 0 &&
+    liveSwarmBoard.taskNodes.length === 0
+  ) {
+    return;
+  }
+
+  const targetFloor =
+    floors.find((f) => f.id === activeProjectFloorId) ??
+    floors.find((f) => f.isDemo) ??
+    floors[0];
+  if (!targetFloor) return;
+
+  if (liveSwarmBoard.messages.length > 0) {
+    const msgKey = (m: SwarmBoardMessage) => `${m.seq}:${m.agent}:${m.time}`;
+    const existingKeys = new Set(targetFloor.boardMessages.map(msgKey));
+    for (const msg of liveSwarmBoard.messages) {
+      const k = msgKey(msg);
+      if (!existingKeys.has(k)) {
+        targetFloor.boardMessages.push(msg);
+        existingKeys.add(k);
+      }
+    }
+  }
+
+  if (liveSwarmBoard.edges.length > 0) {
+    const currentEdges = targetFloor.swarmEdges ?? [];
+    const edgeKeys = new Set(currentEdges.map((e) => `${e.from}->${e.to}`));
+    for (const edge of liveSwarmBoard.edges) {
+      const k = `${edge.from}->${edge.to}`;
+      if (!edgeKeys.has(k)) {
+        currentEdges.push(edge);
+        edgeKeys.add(k);
+      }
+    }
+    targetFloor.swarmEdges = currentEdges;
+  }
+
+  if (liveSwarmBoard.taskNodes.length > 0) {
+    const currentTasks = targetFloor.taskNodes ?? [];
+    const taskById = new Map<string, SwarmTaskNode>();
+    for (const t of currentTasks) taskById.set(t.id, t);
+    for (const t of liveSwarmBoard.taskNodes) taskById.set(t.id, t);
+    targetFloor.taskNodes = Array.from(taskById.values());
+  }
+}
+
 export function buildPlazaSnapshot(
   agyDataDir: string,
   currentWorkspace: string,
   demoMode: boolean,
   promptOverrides?: ReadonlyMap<string, ActivePromptAgentOverride>,
+  liveSwarmBoard?: WhiteboardSnapshot | null,
 ): PlazaSnapshot {
   const nowMs = Date.now();
   const rows = readConversationSummaries(agyDataDir);
@@ -1757,6 +1813,7 @@ export function buildPlazaSnapshot(
   }
 
   applyActivePromptOverrides(floors, promptOverrides);
+  mergeLiveSwarmBoard(floors, activeProjectFloorId, liveSwarmBoard);
 
   const totalActiveAgents = floors.reduce((sum, f) => sum + f.activeCount, 0);
   const globalEcoScore =

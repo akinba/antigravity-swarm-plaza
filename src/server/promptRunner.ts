@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import type {
+  ApprovalDecision,
   CloudProviderId,
   DiffFileChange,
   GeminiModelInfo,
@@ -20,6 +21,16 @@ import {
   defaultCopilotSdkAdapter,
   type CopilotSdkAdapterLike,
 } from './copilotSdkAdapter.js';
+import {
+  OPENAI_COMPAT_BASE_URLS,
+  createProviderRegistry,
+  type OpenAiCompatibleProvider,
+  type ProviderRuntimeConfig,
+  type UnifiedProviderAdapter,
+} from './providers/index.js';
+import { SwarmBoard, type WhiteboardSnapshot } from './swarm/swarmBoard.js';
+import { SwarmOrchestrator } from './swarm/swarmOrchestrator.js';
+import { ApprovalGate } from './swarm/workspaceTools.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -55,6 +66,7 @@ export interface PromptRunnerOptions {
   execFileImpl?: ExecFileFn;
   resolveCliCommand?: (cmd: string) => Promise<string | null>;
   copilotAdapter?: CopilotSdkAdapterLike;
+  swarmOrchestrator?: SwarmOrchestrator;
   ollamaUrl?: string;
   cliCommand?: string;
   geminiApiKey?: string;
@@ -71,6 +83,7 @@ export interface ProviderKeyStatus {
   configured: boolean;
   masked: string;
   source: KeySource;
+  baseUrl?: string;
 }
 export type GeminiApiKeyStatus = ProviderKeyStatus;
 
@@ -79,15 +92,16 @@ export const CLOUD_PROVIDER_IDS: readonly CloudProviderId[] = [
   'openai',
   'anthropic',
   'openrouter',
+  'deepseek',
+  'groq',
+  'xai',
+  'mistral',
   'copilot',
+  'custom',
 ];
 
 export const ALL_PROMPT_PROVIDERS: readonly PromptProvider[] = [
-  'gemini',
-  'openai',
-  'anthropic',
-  'openrouter',
-  'copilot',
+  ...CLOUD_PROVIDER_IDS,
   'ollama',
   'lmstudio',
 ];
@@ -105,7 +119,12 @@ const CLOUD_ENV_VARS: Record<CloudProviderId, readonly string[]> = {
   openai: ['OPENAI_API_KEY'],
   anthropic: ['ANTHROPIC_API_KEY'],
   openrouter: ['OPENROUTER_API_KEY'],
-  copilot: ['GITHUB_TOKEN', 'COPILOT_TOKEN'],
+  deepseek: ['DEEPSEEK_API_KEY'],
+  groq: ['GROQ_API_KEY'],
+  xai: ['XAI_API_KEY'],
+  mistral: ['MISTRAL_API_KEY'],
+  copilot: ['COPILOT_GITHUB_TOKEN', 'COPILOT_TOKEN'],
+  custom: ['CUSTOM_API_KEY'],
 };
 
 const SECRET_JSON_KEYS: Record<CloudProviderId, string> = {
@@ -113,7 +132,12 @@ const SECRET_JSON_KEYS: Record<CloudProviderId, string> = {
   openai: 'openaiApiKey',
   anthropic: 'anthropicApiKey',
   openrouter: 'openrouterApiKey',
+  deepseek: 'deepseekApiKey',
+  groq: 'groqApiKey',
+  xai: 'xaiApiKey',
+  mistral: 'mistralApiKey',
   copilot: 'copilotApiKey',
+  custom: 'customApiKey',
 };
 
 export class PromptConflictError extends Error {
@@ -278,15 +302,20 @@ export function parseGitNumstat(stdout: string): DiffFileChange[] {
 
 export class PromptRunner {
   private readonly fetchImpl: typeof fetch;
+  private readonly hasCustomFetch: boolean;
   private readonly spawnImpl: typeof spawn;
   private readonly execFileImpl: ExecFileFn;
   private readonly resolveCliCommandFn: (cmd: string) => Promise<string | null>;
   private readonly copilotAdapter: CopilotSdkAdapterLike;
+  private readonly providerRegistry: Record<PromptProvider, UnifiedProviderAdapter>;
+  private readonly swarmOrchestrator: SwarmOrchestrator;
+  private readonly hasCustomOrchestrator: boolean;
   private readonly ollamaUrl: string;
   private readonly cliCommand: string;
   private readonly secretsFilePath: string;
   private readonly envProviderKeys: Record<CloudProviderId, string>;
   private readonly providerKeys: Record<CloudProviderId, { key: string; source: KeySource }>;
+  private customBaseUrl = '';
   private readonly defaultWorkspace: string;
   private readonly maxLogs: number;
 
@@ -296,6 +325,8 @@ export class PromptRunner {
   private workspace: string;
   private abortController: AbortController | null = null;
   private childProcess: ChildProcess | null = null;
+  private activeApprovalGate: ApprovalGate | null = null;
+  private lastSwarmBoard: SwarmBoard | null = null;
   private logs: PromptStreamEvent[] = [];
   private diffs: DiffFileChange[] = [];
   private activeOverrides = new Map<string, ActivePromptAgentOverride>();
@@ -303,6 +334,7 @@ export class PromptRunner {
   private activeRunPromise: Promise<void> | null = null;
 
   constructor(options: PromptRunnerOptions = {}) {
+    this.hasCustomFetch = Boolean(options.fetchImpl);
     this.fetchImpl = options.fetchImpl ?? globalThis.fetch;
     this.spawnImpl = options.spawnImpl ?? spawn;
     this.execFileImpl =
@@ -310,6 +342,10 @@ export class PromptRunner {
       ((cmd, args, opts) => execFileAsync(cmd, args, { cwd: opts.cwd, encoding: 'utf8' }));
     this.resolveCliCommandFn = options.resolveCliCommand ?? defaultResolveCliCommand;
     this.copilotAdapter = options.copilotAdapter ?? defaultCopilotSdkAdapter;
+    this.providerRegistry = createProviderRegistry({
+      copilotAdapter: this.copilotAdapter as unknown as import('./copilotSdkAdapter.js').CopilotSdkAdapter,
+    });
+    this.hasCustomOrchestrator = Boolean(options.swarmOrchestrator);
     this.ollamaUrl =
       options.ollamaUrl ?? process.env.OLLAMA_CHAT_URL ?? 'http://localhost:11434/api/chat';
     this.cliCommand = options.cliCommand ?? process.env.ANTIGRAVITY_CLI_CMD ?? 'agy';
@@ -321,21 +357,66 @@ export class PromptRunner {
       openai: this.readEnvKey('openai'),
       anthropic: this.readEnvKey('anthropic'),
       openrouter: this.readEnvKey('openrouter'),
+      deepseek: this.readEnvKey('deepseek'),
+      groq: this.readEnvKey('groq'),
+      xai: this.readEnvKey('xai'),
+      mistral: this.readEnvKey('mistral'),
       copilot: this.readEnvKey('copilot'),
+      custom: this.readEnvKey('custom'),
     };
 
     const savedSecrets = this.readAllSavedSecrets();
+    if (typeof savedSecrets.customBaseUrl === 'string') {
+      this.customBaseUrl = savedSecrets.customBaseUrl.trim();
+    }
     this.providerKeys = {
       gemini: this.initProviderKey('gemini', options, savedSecrets),
       openai: this.initProviderKey('openai', options, savedSecrets),
       anthropic: this.initProviderKey('anthropic', options, savedSecrets),
       openrouter: this.initProviderKey('openrouter', options, savedSecrets),
+      deepseek: this.initProviderKey('deepseek', options, savedSecrets),
+      groq: this.initProviderKey('groq', options, savedSecrets),
+      xai: this.initProviderKey('xai', options, savedSecrets),
+      mistral: this.initProviderKey('mistral', options, savedSecrets),
       copilot: this.initProviderKey('copilot', options, savedSecrets),
+      custom: this.initProviderKey('custom', options, savedSecrets),
     };
 
     this.defaultWorkspace = options.defaultWorkspace ?? CURRENT_WORKSPACE;
     this.workspace = this.defaultWorkspace;
     this.maxLogs = options.maxLogs ?? 200;
+
+    this.swarmOrchestrator =
+      options.swarmOrchestrator ??
+      new SwarmOrchestrator({
+        adapters: this.providerRegistry,
+        defaultWorkspace: this.defaultWorkspace,
+        getRuntimeConfig: (provider) => this.buildRuntimeConfig(provider),
+      });
+  }
+
+  private buildRuntimeConfig(
+    provider: PromptProvider,
+    overrideBaseUrl?: string,
+  ): ProviderRuntimeConfig {
+    if (provider === 'ollama') {
+      return { baseUrl: overrideBaseUrl || 'http://localhost:11434', fetchImpl: this.fetchImpl };
+    }
+    if (provider === 'lmstudio') {
+      return { baseUrl: overrideBaseUrl || 'http://localhost:1234', fetchImpl: this.fetchImpl };
+    }
+    if (provider === 'custom') {
+      return {
+        apiKey: this.providerKeys.custom.key,
+        baseUrl: overrideBaseUrl || this.customBaseUrl,
+        fetchImpl: this.fetchImpl,
+      };
+    }
+    return {
+      apiKey: this.providerKeys[provider].key,
+      baseUrl: overrideBaseUrl,
+      fetchImpl: this.fetchImpl,
+    };
   }
 
   private readEnvKey(provider: CloudProviderId): string {
@@ -379,25 +460,39 @@ export class PromptRunner {
     return { key: '', source: 'none' };
   }
 
+  getCustomBaseUrl(): string {
+    return this.customBaseUrl;
+  }
+
   getProviderKeyStatus(provider: CloudProviderId): ProviderKeyStatus {
     const entry = this.providerKeys[provider];
     return {
-      configured: Boolean(entry.key),
+      configured: Boolean(entry.key) || (provider === 'custom' && Boolean(this.customBaseUrl)),
       masked: maskSecretKey(entry.key),
       source: entry.source,
+      ...(provider === 'custom' && this.customBaseUrl ? { baseUrl: this.customBaseUrl } : {}),
     };
   }
 
-  setProviderKey(provider: CloudProviderId, apiKey: string): ProviderKeyStatus {
+  setProviderKey(provider: CloudProviderId, apiKey: string, baseUrl?: string): ProviderKeyStatus {
     const trimmed = (apiKey ?? '').trim();
+    const trimmedBaseUrl = typeof baseUrl === 'string' ? baseUrl.trim().replace(/\/+$/, '') : undefined;
     const jsonField = SECRET_JSON_KEYS[provider];
-    const dir = path.dirname(this.secretsFilePath);
+
+    if (provider === 'custom' && trimmedBaseUrl !== undefined) {
+      this.customBaseUrl = trimmedBaseUrl;
+    }
 
     if (!trimmed) {
       try {
         if (fs.existsSync(this.secretsFilePath)) {
           const parsed = this.readAllSavedSecrets();
           delete parsed[jsonField];
+          if (provider === 'custom' && trimmedBaseUrl === '') {
+            delete parsed.customBaseUrl;
+          } else if (provider === 'custom' && trimmedBaseUrl) {
+            parsed.customBaseUrl = trimmedBaseUrl;
+          }
           if (Object.keys(parsed).length === 0) {
             fs.unlinkSync(this.secretsFilePath);
           } else {
@@ -414,17 +509,24 @@ export class PromptRunner {
       this.providerKeys[provider] = envVal
         ? { key: envVal, source: 'env' }
         : { key: '', source: 'none' };
-      return this.getProviderKeyStatus(provider);
+    } else {
+      const dir = path.dirname(this.secretsFilePath);
+      fs.mkdirSync(dir, { recursive: true });
+      const existing = this.readAllSavedSecrets();
+      existing[jsonField] = trimmed;
+      if (provider === 'custom' && trimmedBaseUrl) {
+        existing.customBaseUrl = trimmedBaseUrl;
+      }
+      fs.writeFileSync(this.secretsFilePath, JSON.stringify(existing, null, 2), {
+        encoding: 'utf8',
+        mode: 0o600,
+      });
+      this.providerKeys[provider] = { key: trimmed, source: 'settings' };
     }
 
-    fs.mkdirSync(dir, { recursive: true });
-    const existing = this.readAllSavedSecrets();
-    existing[jsonField] = trimmed;
-    fs.writeFileSync(this.secretsFilePath, JSON.stringify(existing, null, 2), {
-      encoding: 'utf8',
-      mode: 0o600,
-    });
-    this.providerKeys[provider] = { key: trimmed, source: 'settings' };
+    if (provider === 'copilot') {
+      void this.copilotAdapter.dispose().catch(() => {});
+    }
     return this.getProviderKeyStatus(provider);
   }
 
@@ -445,6 +547,15 @@ export class PromptRunner {
 
   getActiveOverrides(): ReadonlyMap<string, ActivePromptAgentOverride> {
     return this.activeOverrides;
+  }
+
+  resolveApproval(approvalId: string, decision: ApprovalDecision): boolean {
+    if (!this.activeApprovalGate) return false;
+    return this.activeApprovalGate.resolveApproval(approvalId, decision);
+  }
+
+  getActiveSwarmBoardSnapshot(): WhiteboardSnapshot | null {
+    return this.lastSwarmBoard ? this.lastSwarmBoard.toWhiteboardSnapshot() : null;
   }
 
   getState(): PromptRunnerState {
@@ -567,6 +678,11 @@ export class PromptRunner {
     baseUrl?: string,
   ): Promise<{ ok: boolean; models: ProviderModelInfo[]; error?: string }> {
     if (provider === 'gemini') {
+      if (!this.hasCustomFetch) {
+        return this.providerRegistry.gemini.listModels({
+          apiKey: this.providerKeys.gemini.key,
+        });
+      }
       const res = await this.fetchGeminiModels();
       return {
         ok: res.ok,
@@ -639,10 +755,51 @@ export class PromptRunner {
       };
     }
 
-    const endpointMap: Record<'openai' | 'anthropic' | 'openrouter', string> = {
+    if (provider === 'custom') {
+      const cleanBase = (baseUrl ?? this.customBaseUrl ?? '').trim().replace(/\/+$/, '');
+      if (!cleanBase) {
+        return { ok: false, models: [], error: 'Custom provider Base URL is required.' };
+      }
+      try {
+        const headers: Record<string, string> = { Accept: 'application/json' };
+        if (key) headers.Authorization = `Bearer ${key}`;
+        const response = await this.fetchImpl(`${cleanBase}/models`, { method: 'GET', headers });
+        if (!response.ok) {
+          return {
+            ok: false,
+            models: [],
+            error: `Custom API HTTP ${response.status} ${response.statusText}`,
+          };
+        }
+        const data = (await response.json()) as { data?: Array<{ id?: string; name?: string }> };
+        const models: ProviderModelInfo[] = (data.data ?? [])
+          .filter((m) => typeof m.id === 'string' && m.id.trim().length > 0)
+          .map((m) => ({
+            id: m.id!.trim(),
+            displayName: (m.name ?? m.id!).trim(),
+            provider: 'custom',
+          }));
+        return { ok: true, models };
+      } catch (err) {
+        return {
+          ok: false,
+          models: [],
+          error: `Custom API request failed: ${err instanceof Error ? err.message : String(err)}`,
+        };
+      }
+    }
+
+    const endpointMap: Record<
+      'openai' | 'anthropic' | 'openrouter' | 'deepseek' | 'groq' | 'xai' | 'mistral',
+      string
+    > = {
       openai: 'https://api.openai.com/v1/models',
       anthropic: 'https://api.anthropic.com/v1/models',
       openrouter: 'https://openrouter.ai/api/v1/models',
+      deepseek: 'https://api.deepseek.com/v1/models',
+      groq: 'https://api.groq.com/openai/v1/models',
+      xai: 'https://api.x.ai/v1/models',
+      mistral: 'https://api.mistral.ai/v1/models',
     };
     const headers: Record<string, string> =
       provider === 'anthropic'
@@ -759,6 +916,8 @@ export class PromptRunner {
       }
     }
     this.childProcess = null;
+    this.activeApprovalGate?.cancelAll();
+    this.activeApprovalGate = null;
     this.activeOverrides.clear();
 
     if (this.status === 'running') {
@@ -910,27 +1069,38 @@ export class PromptRunner {
         onDelta: (delta) => this.handleTextChunk(runId, agentId, delta),
         signal,
       });
-    } else if (provider === 'openai' || provider === 'openrouter') {
+    } else if (
+      provider === 'openai' ||
+      provider === 'openrouter' ||
+      provider === 'deepseek' ||
+      provider === 'groq' ||
+      provider === 'xai' ||
+      provider === 'mistral' ||
+      provider === 'custom'
+    ) {
       const key = this.providerKeys[provider].key;
-      if (!key) {
+      if (provider !== 'custom' && !key) {
         throw new Error(
           `[${provider.toUpperCase()} API NOT CONFIGURED] Configure ${provider} API key in Settings -> Cloud APIs.`,
         );
       }
-      const endpoint =
-        provider === 'openai'
-          ? 'https://api.openai.com/v1/chat/completions'
-          : 'https://openrouter.ai/api/v1/chat/completions';
+      const compatBase =
+        provider === 'custom'
+          ? (req.customBaseUrl ?? this.customBaseUrl).trim().replace(/\/+$/, '')
+          : OPENAI_COMPAT_BASE_URLS[provider as OpenAiCompatibleProvider];
+      if (!compatBase) {
+        throw new Error('[CUSTOM API NOT CONFIGURED] Provide a custom Base URL (https://.../v1).');
+      }
+      const endpoint = `${compatBase}/chat/completions`;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (key) headers.Authorization = `Bearer ${key}`;
       await this.runOpenAiCompatibleStream(
         runId,
         req,
         agentId,
         provider,
         endpoint,
-        {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${key}`,
-        },
+        headers,
         signal,
       );
     } else if (provider === 'anthropic') {
@@ -945,6 +1115,71 @@ export class PromptRunner {
     req: PromptRequest,
     signal?: AbortSignal,
   ): Promise<void> {
+    if (this.hasCustomOrchestrator || !this.hasCustomFetch) {
+      const board = new SwarmBoard();
+      this.lastSwarmBoard = board;
+      const approvalGate = new ApprovalGate({
+        onApprovalRequest: (approval) => {
+          this.emit({
+            runId,
+            type: 'approval_request',
+            approval,
+            timestamp: Date.now(),
+          });
+        },
+        onApprovalResolved: (approvalId, decision) => {
+          this.emit({
+            runId,
+            type: 'approval_resolved',
+            text: `Approval ${approvalId}: ${decision}`,
+            approval: {
+              approvalId,
+              runId,
+              role: 'user',
+              toolName: 'approval',
+              summary: decision,
+              timestamp: Date.now(),
+            },
+            timestamp: Date.now(),
+          });
+        },
+      });
+      this.activeApprovalGate = approvalGate;
+
+      try {
+        await this.swarmOrchestrator.run({
+          runId,
+          prompt: req.prompt,
+          mode: req.mode,
+          swarmProfile: req.swarmProfile ?? [],
+          orchestratorModel: req.model,
+          orchestratorProvider: req.provider,
+          workspace: this.workspace,
+          board,
+          approvalGate,
+          signal,
+          onEvent: (ev) => this.emit(ev),
+          onAgentStateChange: (agentKey, state, detail) => {
+            if (state === 'working') {
+              this.activeOverrides.set(agentKey, {
+                agentKey,
+                status: 'working',
+                currentFile: detail?.currentFile,
+                floorId: req.floorId,
+                startedAt: Date.now(),
+              });
+            } else {
+              this.activeOverrides.delete(agentKey);
+            }
+          },
+        });
+      } finally {
+        approvalGate.cancelAll();
+        this.activeApprovalGate = null;
+      }
+      return;
+    }
+
     const profile = req.swarmProfile ?? [];
     const ordered = [...profile].sort((a, b) => {
       const aArch = /^(architect|coordinator)$/i.test(a.role.trim()) ? 0 : 1;

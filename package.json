@@ -48,9 +48,13 @@
     "test": "tsx --test tests/server/*.test.ts tests/client/*.test.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.11.0",
     "@github/copilot-sdk": "^1.0.34",
+    "@google/genai": "^3.6.1",
     "cors": "^2.8.5",
     "express": "^4.21.2",
+    "ollama": "^0.6.4",
+    "openai": "^7.61.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "ws": "^8.18.0"
